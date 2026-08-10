@@ -1,0 +1,50 @@
+{
+	"app": {
+		"name": "Home Backlog",
+		"tagline": "Allt som behöver göras hemma, på ett ställe."
+	},
+	"common": {
+		"dismiss": "Stäng",
+		"retry": "Försök igen",
+		"signOut": "Logga ut"
+	},
+	"tab": {
+		"projects": "Projekt",
+		"locations": "Platser",
+		"maintenance": "Underhåll"
+	},
+	"screen": {
+		"login": {
+			"title": "Home Backlog",
+			"tagline": "Allt som behöver göras hemma, på ett ställe.",
+			"google": "Fortsätt med Google"
+		},
+		"projects": {
+			"title": "Projekt",
+			"empty": "Inga projekt än."
+		},
+		"locations": {
+			"title": "Platser",
+			"empty": "Inga platser än."
+		},
+		"maintenance": {
+			"title": "Underhåll",
+			"empty": "Inget som behöver göras."
+		}
+	},
+	"error": {
+		"googleSignIn": "Kunde inte logga in med Google. Försök igen."
+	},
+	"status": {
+		"offline": "Offline — ändringar sparas och synkas när du är uppkopplad igen."
+	},
+	"update": {
+		"available": "En ny version finns tillgänglig.",
+		"reload": "Ladda om"
+	},
+	"install": {
+		"title": "Installera Home Backlog",
+		"body": "Lägg till appen på hemskärmen så öppnas den i helskärm och fungerar offline.",
+		"action": "Installera"
+	}
+}

@@ -1,0 +1,11 @@
+{
+	"$schema": "https://schemas.biomejs.dev/biome/2.0/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"includes": ["**", "!.claude/settings.local.json"]
+	}
+}

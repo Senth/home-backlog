@@ -33,6 +33,9 @@ yarn-error.*
 .vscode/
 .idea/
 
+# Machine-local agent permissions, not project configuration
+.claude/settings.local.json
+
 # Env
 .env
 .env.local
