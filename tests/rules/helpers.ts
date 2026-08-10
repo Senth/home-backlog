@@ -1,0 +1,116 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import {
+	initializeTestEnvironment,
+	type RulesTestContext,
+	type RulesTestEnvironment,
+} from "@firebase/rules-unit-testing";
+import type { Firestore } from "firebase/firestore";
+import type { FirebaseStorage } from "firebase/storage";
+
+export const HOME_ID = "home-1";
+
+export const OWNER = { uid: "uid-owner", email: "owner@example.com" };
+export const MEMBER = { uid: "uid-member", email: "member@example.com" };
+export const INVITEE = { uid: "uid-invitee", email: "Invitee@Example.com" };
+export const OUTSIDER = { uid: "uid-outsider", email: "nobody@example.com" };
+
+export interface TestUser {
+	uid: string;
+	email: string;
+}
+
+/**
+ * Mirrors the `emailHash()` function in firestore.rules: SHA-256 of the
+ * lowercased email, lowercase hex. If these two ever disagree, an invitee
+ * cannot find their own invite.
+ */
+export function emailHash(email: string): string {
+	return createHash("sha256").update(email.toLowerCase()).digest("hex");
+}
+
+export function ownerAndMember(): Record<string, string> {
+	return { [OWNER.uid]: "owner", [MEMBER.uid]: "member" };
+}
+
+export async function createTestEnv(): Promise<RulesTestEnvironment> {
+	return initializeTestEnvironment({
+		// Must match the `--project` in the `test:rules` script. firebase.json runs
+		// the emulators in `singleProjectMode`, and the Storage rules reach into
+		// Firestore with `firestore.get()` — that lookup resolves against the
+		// emulator's own project, so a different id here would find no home doc
+		// and deny every upload. The `demo-` prefix keeps the SDK from ever
+		// reaching a real project.
+		projectId: "demo-home-backlog-rules",
+		firestore: {
+			rules: readFileSync("firestore.rules", "utf8"),
+			host: "127.0.0.1",
+			port: 8062,
+		},
+		storage: {
+			rules: readFileSync("storage.rules", "utf8"),
+			host: "127.0.0.1",
+			port: 8063,
+		},
+	});
+}
+
+/*
+ * `RulesTestContext` declares the *compat* Firestore and Storage types, but the
+ * instances it hands back work with the modular API as well — the modular
+ * functions unwrap a compat object's delegate. These three helpers do that cast
+ * once, so no test has to.
+ */
+
+function db(context: RulesTestContext): Firestore {
+	return context.firestore() as unknown as Firestore;
+}
+
+function bucket(context: RulesTestContext): FirebaseStorage {
+	return context.storage() as unknown as FirebaseStorage;
+}
+
+/** Firestore as a signed-in user carrying a verified email. */
+export function dbAs(
+	env: RulesTestEnvironment,
+	user: TestUser,
+	{ emailVerified = true }: { emailVerified?: boolean } = {},
+): Firestore {
+	return db(
+		env.authenticatedContext(user.uid, {
+			email: user.email,
+			email_verified: emailVerified,
+		}),
+	);
+}
+
+/** Storage as a signed-in user. */
+export function storageAs(
+	env: RulesTestEnvironment,
+	user: TestUser,
+): FirebaseStorage {
+	return bucket(
+		env.authenticatedContext(user.uid, {
+			email: user.email,
+			email_verified: true,
+		}),
+	);
+}
+
+export function dbAnon(env: RulesTestEnvironment): Firestore {
+	return db(env.unauthenticatedContext());
+}
+
+export function storageAnon(env: RulesTestEnvironment): FirebaseStorage {
+	return bucket(env.unauthenticatedContext());
+}
+
+/** Writes fixtures with rules turned off, so setup cannot be blocked by them. */
+export async function seed(
+	env: RulesTestEnvironment,
+	write: (firestore: Firestore) => Promise<void>,
+): Promise<void> {
+	await env.withSecurityRulesDisabled(async (context) => {
+		await write(db(context));
+	});
+}

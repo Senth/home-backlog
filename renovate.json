@@ -1,0 +1,41 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": ["config:recommended"],
+	"timezone": "Europe/Stockholm",
+	"schedule": ["after 3pm on friday"],
+	"dependencyDashboard": true,
+	"minimumReleaseAge": "3 days",
+	"labels": ["dependencies"],
+	"packageRules": [
+		{
+			"matchUpdateTypes": ["minor", "patch"],
+			"groupName": "all dependencies (non-major)",
+			"automerge": true,
+			"automergeType": "pr"
+		},
+		{
+			"matchPackageNames": ["/^expo/", "/^@expo\\//"],
+			"matchUpdateTypes": ["major"],
+			"groupName": "Expo major updates"
+		},
+		{
+			"description": "React Native and its siblings are pinned to the versions the installed Expo SDK was tested against; bumping them independently is how a working app quietly breaks.",
+			"matchPackageNames": [
+				"react",
+				"react-dom",
+				"react-native",
+				"react-native-web",
+				"react-test-renderer"
+			],
+			"groupName": "React and React Native (Expo SDK matrix)",
+			"automerge": false
+		},
+		{
+			"matchManagers": ["github-actions"],
+			"groupName": "GitHub Actions",
+			"pinDigests": true,
+			"automerge": true,
+			"automergeType": "pr"
+		}
+	]
+}

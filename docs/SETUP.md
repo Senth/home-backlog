@@ -17,9 +17,22 @@ record, not a runbook to re-run.
 | Web app | `Home Backlog Web`, app id `1:792394648653:web:77c28d7bf20802766d2004` |
 
 There is **no dev project**. Local development uses the Firebase emulators
-(`firebase emulators:start`): UI 8060, Auth 8061, Firestore 8062, Storage 8063. Ports are
+(`yarn emulators`): UI 8060, Auth 8061, Firestore 8062, Storage 8063. Ports are
 offset from the sibling `my-musical-repertoire` project (8050–8052) so both suites can run
 at once.
+
+`config/firebase.ts` connects to them whenever `__DEV__` is true, which is **always** in a
+dev server and **never** in an `expo export` bundle. There is no flag to point local
+development at the live project; the alternative to the emulators is the household's real
+data. The Auth emulator intercepts `signInWithPopup`, so Google sign-in works locally
+without a real Google account.
+
+Rules tests (`yarn test:rules`) run the emulators under the project id
+`demo-home-backlog-rules`. That id appears in two places — the `test:rules` script and
+`tests/rules/helpers.ts` — and they must agree: `firebase.json` runs the emulators in
+`singleProjectMode`, and `storage.rules` reaches into Firestore with `firestore.get()`,
+which resolves against the emulator's own project. A mismatch makes every upload test fail
+with a permission error that looks like a rules bug and is not.
 
 ## Auth
 
@@ -61,8 +74,6 @@ queries appear (Firestore's error gives a one-click creation link).
 
 ## Deploy identity (GitHub Actions)
 
-The workflow file itself is **not** written yet; the cloud and repo side is:
-
 - Workload identity pool `github`, provider `home-backlog`, pinned with
   `attribute.repository=='Senth/home-backlog'`.
 - Service account `github-actions-deploy@home-backlog.iam.gserviceaccount.com` with
@@ -71,18 +82,25 @@ The workflow file itself is **not** written yet; the cloud and repo side is:
 - GitHub environment `prod` holds secrets `ENV` (contents of `.env.local`) and
   `GCP_PROJECT_NUMBER`.
 
-A workflow mirroring the sibling project needs:
+`.github/workflows/deploy.yml` uses that identity and runs on every push to `main`:
 
 ```yaml
 workload_identity_provider: projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github/providers/home-backlog
 service_account: github-actions-deploy@home-backlog.iam.gserviceaccount.com
 ```
 
+⚠️ The deploy target list is `hosting,firestore:rules,firestore:indexes,storage` — the
+sibling project has no Storage and its workflow omits the last one. `storage` is covered by
+the same `roles/firebaserules.admin` as `firestore:rules`, but the first deploy is the
+first time that is actually exercised.
+
 Re-run `gh secret set ENV --env prod < .env.local` whenever `.env.local` changes.
 
 ## Not done yet
 
-- Expo app, `package.json`, `config/firebase.ts`, `contexts/AuthContext.tsx` — next task.
-- `.github/workflows/deploy.yml` — next task.
 - App Check (reCAPTCHA Enterprise on web) — pre-launch.
 - Cloud Functions REST API + API keys — MVP scope item, own task.
+- Native auth persistence. `config/firebase.ts` calls `initializeAuth` without a
+  persistence adapter, so a native build forgets the session on relaunch. The fix is
+  `getReactNativePersistence(AsyncStorage)`, which exists only in Firebase's React Native
+  build and is absent from the `firebase/auth` typings entry. Web is unaffected.

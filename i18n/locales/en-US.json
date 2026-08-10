@@ -1,0 +1,50 @@
+{
+	"app": {
+		"name": "Home Backlog",
+		"tagline": "Every job around the house, in one place."
+	},
+	"common": {
+		"dismiss": "Dismiss",
+		"retry": "Try again",
+		"signOut": "Sign out"
+	},
+	"tab": {
+		"projects": "Projects",
+		"locations": "Locations",
+		"maintenance": "Maintenance"
+	},
+	"screen": {
+		"login": {
+			"title": "Home Backlog",
+			"tagline": "Every job around the house, in one place.",
+			"google": "Continue with Google"
+		},
+		"projects": {
+			"title": "Projects",
+			"empty": "No projects yet."
+		},
+		"locations": {
+			"title": "Locations",
+			"empty": "No locations yet."
+		},
+		"maintenance": {
+			"title": "Maintenance",
+			"empty": "Nothing due."
+		}
+	},
+	"error": {
+		"googleSignIn": "Could not sign in with Google. Please try again."
+	},
+	"status": {
+		"offline": "Offline — changes are saved and will sync when you reconnect."
+	},
+	"update": {
+		"available": "A new version is available.",
+		"reload": "Reload"
+	},
+	"install": {
+		"title": "Install Home Backlog",
+		"body": "Add it to your home screen so it opens full screen and works offline.",
+		"action": "Install"
+	}
+}
