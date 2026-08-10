@@ -1,0 +1,72 @@
+name: Deploy to Firebase Hosting
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to prod
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Pin exact patch: Node 22.23.0 has a keep-alive socket regression
+          # (CVE-2026-48931 fix) that breaks the WIF STS token exchange inside
+          # firebase-tools, surfacing as a bogus "Failed to authenticate" error.
+          # Fixed in 22.23.1. Do not loosen back to 22.x — the runner toolcache
+          # may still serve the broken 22.23.0.
+          node-version: 22.23.1
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Yarn install
+        uses: borales/actions-yarn@v5
+        with:
+          cmd: install
+
+      - name: Export environment variables
+        run: echo "${{ secrets.ENV }}" > .env.local
+
+      - name: Build web
+        uses: borales/actions-yarn@v5
+        with:
+          cmd: build:web
+
+      - name: Authenticate with Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: home-backlog
+          workload_identity_provider: projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github/providers/home-backlog
+          service_account: github-actions-deploy@home-backlog.iam.gserviceaccount.com
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools@15
+
+      - name: Deploy to Firebase
+        # firebase-tools authenticates via Application Default Credentials, i.e.
+        # the external_account file the auth step writes and points
+        # GOOGLE_APPLICATION_CREDENTIALS at. It does NOT read
+        # GOOGLE_OAUTH_ACCESS_TOKEN, so no token env var is needed here.
+        #
+        # `storage` is in the target list because this project has
+        # storage.rules; leave it out and photo permissions silently never
+        # update. It needs roles/firebaserules.admin on the deploy service
+        # account, same as firestore:rules.
+        run: firebase deploy --only hosting,firestore:rules,firestore:indexes,storage --project home-backlog
