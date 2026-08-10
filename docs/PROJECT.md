@@ -37,7 +37,7 @@ multi-tenancy, sharing, or store release.
     palette, so a second one would have to be kept in sync by hand.
   - What replaces the discipline a utility framework would have imposed: a
     `theme/tokens.ts` scale, and two rules — no numeric literal in a style prop, no
-    colour literal outside `theme/` — stated in `.claude/CLAUDE.md`.
+    colour literal outside `theme/` — stated in `CLAUDE.md`.
 - **Web PWA first**, native builds later. Same codebase via React Native Web.
 - **Firebase / Firestore** over Postgres: developer is already fluent, offline persistence
   and realtime sync are built in, schema evolution is cheap, and Hosting serves the PWA

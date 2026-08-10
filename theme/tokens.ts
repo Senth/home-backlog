@@ -4,7 +4,7 @@
  * This project has no Tailwind and no utility classes, so nothing else stops a
  * `padding: 15` from drifting in next to a `padding: 16`. The rule that
  * replaces it: no numeric literal ever appears in a style prop, and no colour
- * literal appears outside `theme/`. See `.claude/CLAUDE.md`.
+ * literal appears outside `theme/`. See `CLAUDE.md`.
  */
 
 /** Spacing scale. 4pt grid, matching Material 3's density steps. */

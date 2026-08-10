@@ -7,8 +7,7 @@ projects are anchored to.
 Web-first PWA via Expo + React Native Web; Android and iOS builds later.
 
 - **Vision, requirements, decisions, architecture** — [`docs/PROJECT.md`](docs/PROJECT.md)
-- **Cloud project as provisioned** — [`docs/SETUP.md`](docs/SETUP.md)
-- **Working agreements for AI assistants** — [`.claude/CLAUDE.md`](.claude/CLAUDE.md)
+- **Working agreements for AI assistants** — [`CLAUDE.md`](CLAUDE.md)
 - **Tasks** — GitHub Issues + the Kanban board; [`TODO.md`](TODO.md) is a generated mirror
 
 ## Stack
@@ -17,7 +16,7 @@ Expo · React Native · expo-router · react-native-paper (Material 3) ·
 TypeScript · Firebase (Auth, Firestore, Storage, Hosting) · i18next.
 
 There is deliberately **no Tailwind or NativeWind** — see
-[`.claude/CLAUDE.md`](.claude/CLAUDE.md) for the styling rules that replace it.
+[`CLAUDE.md`](CLAUDE.md) for the styling rules that replace it.
 
 ## Getting started
 
@@ -56,4 +55,6 @@ Google account is needed locally.
 
 Pushing to `main` runs `.github/workflows/deploy.yml`, which authenticates via
 Workload Identity Federation and deploys hosting, Firestore rules and indexes,
-and Storage rules to <https://hb.senth.org>.
+and Storage rules to <https://hb.senth.org>. Service accounts, secrets and the
+rest of the infrastructure detail live in
+[`docs/OPERATIONS.md`](docs/OPERATIONS.md).

@@ -49,7 +49,7 @@ const db =
 const storage = getStorage(app);
 
 /**
- * There is no dev Firebase project — see `docs/SETUP.md`. Local development
+ * There is no dev Firebase project — see `CLAUDE.md`. Local development
  * always targets the emulator suite, so a rules experiment or a bad migration
  * cannot reach the household's real data.
  *
