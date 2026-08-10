@@ -1,0 +1,21 @@
+rules_version = '2';
+
+// Photos live under homes/{homeId}/... and are gated on the same `members` map
+// as Firestore, read across services with firestore.get().
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /homes/{homeId}/{allPaths=**} {
+      function isMember() {
+        return request.auth != null
+          && firestore.get(/databases/(default)/documents/homes/$(homeId))
+              .data.members.get(request.auth.uid, null) != null;
+      }
+
+      allow read: if isMember();
+      allow write: if isMember()
+        && request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isMember();
+    }
+  }
+}

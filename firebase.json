@@ -1,0 +1,50 @@
+{
+	"hosting": {
+		"public": "dist",
+		"ignore": ["firebase.json", "**/.*"],
+		"cleanUrls": true,
+		"rewrites": [
+			{
+				"source": "**",
+				"destination": "/index.html"
+			}
+		],
+		"headers": [
+			{
+				"source": "/sw.js",
+				"headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+			},
+			{
+				"source": "/sw-routing.js",
+				"headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+			},
+			{
+				"source": "/manifest.webmanifest",
+				"headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+			}
+		]
+	},
+	"firestore": {
+		"rules": "firestore.rules",
+		"indexes": "firestore.indexes.json"
+	},
+	"storage": {
+		"rules": "storage.rules"
+	},
+	"emulators": {
+		"ui": {
+			"enabled": true,
+			"port": 8060
+		},
+		"auth": {
+			"port": 8061
+		},
+		"firestore": {
+			"port": 8062
+		},
+		"storage": {
+			"port": 8063
+		},
+		"singleProjectMode": true
+	}
+}

@@ -1,0 +1,111 @@
+rules_version = '2';
+
+// Data is scoped to a home. Membership lives in a `members` map on the home doc
+// (uid -> 'owner' | 'member'), which every subcollection rule reads through a
+// get(). That costs one document read per rule evaluation, which is the price of
+// keeping membership in one place.
+//
+// Reads must also be *query*-safe: Firestore rejects an entire query if any
+// matching document could be denied, so a board load runs two queries —
+// `visibility == 'shared'` and `participantIds array-contains me` — and merges
+// them client-side. Never widen a node read rule beyond what those two queries
+// can prove.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    allow read, write: if false;
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Invites are keyed by the SHA-256 of the lowercased invitee email so the
+    // address itself never has to be readable by other members.
+    function emailHash() {
+      return hashing.sha256(request.auth.token.email.lower()).toHexString().lower();
+    }
+
+    function homeData(homeId) {
+      return get(/databases/$(database)/documents/homes/$(homeId)).data;
+    }
+
+    function roleIn(members) {
+      return members.get(request.auth.uid, null);
+    }
+
+    function isMember(homeId) {
+      return signedIn() && roleIn(homeData(homeId).members) != null;
+    }
+
+    function isOwner(homeId) {
+      return signedIn() && roleIn(homeData(homeId).members) == 'owner';
+    }
+
+    match /homes/{homeId} {
+      // resource.data is already loaded here, so membership needs no extra get().
+      function memberOfThis() {
+        return signedIn() && roleIn(resource.data.members) != null;
+      }
+
+      function ownerOfThis() {
+        return signedIn() && roleIn(resource.data.members) == 'owner';
+      }
+
+      // An invited user adds *only* themselves, with *only* the role their
+      // invite grants, and changes nothing else on the doc.
+      function acceptsInvite() {
+        let invite = /databases/$(database)/documents/homes/$(homeId)/invites/$(emailHash());
+        return signedIn()
+          && request.auth.token.email_verified == true
+          && exists(invite)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          && request.resource.data.members.diff(resource.data.members).affectedKeys().hasOnly([request.auth.uid])
+          && request.resource.data.members.get(request.auth.uid, null) == get(invite).data.role;
+      }
+
+      allow get, list: if memberOfThis();
+      allow create: if signedIn()
+        && request.resource.data.members.get(request.auth.uid, null) == 'owner';
+      // Members may edit the home itself; only an owner may rewrite membership,
+      // except for an invitee accepting their own invite.
+      allow update: if ownerOfThis()
+        || (memberOfThis() && request.resource.data.members == resource.data.members)
+        || acceptsInvite();
+      allow delete: if ownerOfThis();
+
+      match /invites/{emailHashId} {
+        allow read: if isOwner(homeId)
+          || (signedIn() && request.auth.token.email != null && emailHashId == emailHash());
+        allow create, update: if isOwner(homeId)
+          && request.resource.data.role in ['owner', 'member'];
+        // An invitee may consume or decline their own invite.
+        allow delete: if isOwner(homeId)
+          || (signedIn() && request.auth.token.email != null && emailHashId == emailHash());
+      }
+
+      match /nodes/{nodeId} {
+        function visibleToMe(node) {
+          return node.visibility == 'shared'
+            || request.auth.uid in node.participantIds;
+        }
+
+        allow get, list: if isMember(homeId) && visibleToMe(resource.data);
+        allow create: if isMember(homeId)
+          && request.resource.data.visibility in ['shared', 'private']
+          && visibleToMe(request.resource.data);
+        allow update: if isMember(homeId)
+          && visibleToMe(resource.data)
+          && request.resource.data.visibility in ['shared', 'private']
+          && visibleToMe(request.resource.data);
+        allow delete: if isMember(homeId) && visibleToMe(resource.data);
+      }
+
+      match /locations/{locationId} {
+        allow read, write: if isMember(homeId);
+      }
+
+      match /recurring/{ruleId} {
+        allow read, write: if isMember(homeId);
+      }
+    }
+  }
+}
