@@ -24,8 +24,20 @@ multi-tenancy, sharing, or store release.
 
 ### Key Decisions
 
-- **Stack**: Expo + React Native + expo-router + NativeWind + TypeScript + Firebase.
-  Mirrors the sibling project `my-musical-repertoire`, which validated this combination.
+- **Stack**: Expo + React Native + expo-router + **react-native-paper (Material 3)** +
+  TypeScript + Firebase. Mirrors the sibling project `my-musical-repertoire` apart from
+  the styling layer.
+  - **NativeWind and Tailwind were rejected**, reversing the earlier decision. NativeWind
+    v5 is still a preview release; its React Native Web output needs CSS specificity
+    hacks to make `flex-1`, `flex-row` and the alignment utilities behave (the sibling
+    project carries ~40 lines of them in `global.css`); and its one real benefit is
+    utility-class ergonomics for a human author, which does not apply to a codebase
+    written by AI. The cost is not proportional to usage either — using it for colours
+    alone still drags in the whole toolchain, and Material 3's theme already owns the
+    palette, so a second one would have to be kept in sync by hand.
+  - What replaces the discipline a utility framework would have imposed: a
+    `theme/tokens.ts` scale, and two rules — no numeric literal in a style prop, no
+    colour literal outside `theme/` — stated in `.claude/CLAUDE.md`.
 - **Web PWA first**, native builds later. Same codebase via React Native Web.
 - **Firebase / Firestore** over Postgres: developer is already fluent, offline persistence
   and realtime sync are built in, schema evolution is cheap, and Hosting serves the PWA
@@ -248,6 +260,15 @@ Those four are the differentiators. Positioning is "project management for a hou
 "maintenance reminders." Avoid naming or copy that reads as a HomeQueue clone.
 
 ## Naming
+
+> **Decided: Home Backlog.** Final. The Firebase project, GitHub repository and app all
+> use it; the domain moves to `homebacklog.com`, with `hb.senth.org` serving until then.
+> The caveat below stands and was accepted knowingly: HomeQueue's first line of copy is
+> "one shared household backlog", so this name arrives second into vocabulary a live
+> competitor already uses. There is no trademark conflict. A real USPTO / EUIPO clearance
+> search remains a pre-launch task.
+>
+> The research below is kept as the record of what was considered and why.
 
 Working name **Home Projects** is legally usable but weak: no app owns the exact name, but
 `homeprojects.com` is registered, "DIY Hub: Home Projects" already uses it as a subtitle,
