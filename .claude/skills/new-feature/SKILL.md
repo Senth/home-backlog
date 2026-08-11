@@ -115,12 +115,24 @@ Phase 1  models + rules + tests/rules
 Phase 2  data hooks and queries
 Phase 3  UI screens + strings (en-US + sv-SE)
 ...
-Phase N-1  browser verification with the playwright-cli skill
+Phase N-1  review: smoke-test, then /review until PASS
 Phase N    cleanup (below) + commit, PR, merge
 ```
 
 The last two phases are **mandatory**. Component render tests that only assert layout are
-forbidden by `CLAUDE.md`, so the browser pass is how visuals are verified.
+forbidden by `CLAUDE.md`, so the browser pass is how visuals are verified — and it is done
+by agents that did not write the code.
+
+Phase N-1 is, in order:
+
+1. **Smoke-test** — the implementing session confirms the app boots and the feature's
+   primary path works. Spending a three-agent review on a white screen is the expensive
+   failure mode; this is a paragraph of work, not a phase of its own.
+2. **`/review`** — `code-review`, `ux-review` and `qa-review` on the change, then the fix
+   loop, capped at three rounds.
+3. **PASS required.** `blocking` findings are never deferrable; a `should-fix` may be
+   deferred only with a stated reason. `idea` findings are shown to the user, who decides
+   which become issues.
 
 **If the total comes to more than 8 phases**, stop and offer three options:
 
@@ -144,6 +156,9 @@ The final phase folds the wip spec into `docs/specs/`:
   important thing: the *why*, the rejected alternatives, formulas, thresholds, tables.
 - Delete `docs/specs/wip/<nn>-<slug>.md`. Git history keeps it.
 - Add or update the row in `docs/specs/INDEX.md`.
+- **Refresh `.emulator-seed/`** when the feature adds data that every future review should
+  see — create it through the app, then `yarn emulators:export`. The fixture is generated,
+  never hand-written.
 
 ## Step 6 — Handoff
 

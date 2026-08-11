@@ -9,7 +9,9 @@ Web-first PWA via Expo + React Native Web; Android and iOS builds later.
 - **Vision, requirements, decisions, architecture** — [`docs/PROJECT.md`](docs/PROJECT.md)
 - **Working agreements for AI assistants** — [`CLAUDE.md`](CLAUDE.md)
 - **User personas** — [`docs/PERSONAS.md`](docs/PERSONAS.md), the cast used by the
-  `homeowner-review` agent
+  `homeowner-review` and `ux-review` agents
+- **Review gate** — [`/review`](.claude/skills/review/SKILL.md) hands every change to
+  `code-review`, `ux-review` and `qa-review`, three agents that did not write it
 - **Tasks** — GitHub Issues + the Kanban board; [`TODO.md`](TODO.md) is a generated mirror
 
 ## Stack
@@ -45,6 +47,8 @@ Google account is needed locally.
 |---|---|
 | `yarn web` / `yarn android` / `yarn ios` | Start the dev server |
 | `yarn emulators` | Firebase emulator suite |
+| `yarn emulators:seed` | Emulator suite with the `.emulator-seed/` review fixture |
+| `yarn emulators:export` | Overwrite `.emulator-seed/` from the running suite |
 | `yarn lint` / `yarn lint --write` | Biome check / autofix |
 | `yarn typecheck` | `tsc --noEmit` |
 | `yarn test` | Unit tests |
