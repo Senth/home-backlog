@@ -1,5 +1,12 @@
 {
 	"projects": {
 		"default": "home-backlog"
+	},
+	"targets": {
+		"home-backlog": {
+			"storage": {
+				"default": ["home-backlog.firebasestorage.app"]
+			}
+		}
 	}
 }
