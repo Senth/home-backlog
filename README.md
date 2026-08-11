@@ -8,6 +8,8 @@ Web-first PWA via Expo + React Native Web; Android and iOS builds later.
 
 - **Vision, requirements, decisions, architecture** — [`docs/PROJECT.md`](docs/PROJECT.md)
 - **Working agreements for AI assistants** — [`CLAUDE.md`](CLAUDE.md)
+- **User personas** — [`docs/PERSONAS.md`](docs/PERSONAS.md), the cast used by the
+  `homeowner-review` agent
 - **Tasks** — GitHub Issues + the Kanban board; [`TODO.md`](TODO.md) is a generated mirror
 
 ## Stack
