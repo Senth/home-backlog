@@ -42,4 +42,8 @@ Setup and scripts: [`README.md`](README.md) · vision and architecture:
 - Work lives in **GitHub Issues + the Kanban board** (project 4), not markdown.
   Labels: `bug`, `feature`, `idea`, `cleanup`. Move an issue to "In Progress"
   when you start it; close it from the PR with `Closes #NN`.
+- Features start with the `/new-feature` skill. It writes a temporary
+  `docs/specs/wip/<nn>-<slug>.md`; the feature's cleanup phase folds that into
+  an area spec in `docs/specs/` — one per feature area, present tense, keeping
+  the *why* and the rejected alternatives — and deletes the wip file.
 - Pushing to `main` deploys to production. There is only one cloud project.
