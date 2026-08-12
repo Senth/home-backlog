@@ -14,12 +14,20 @@ import {
 	useMemo,
 	useState,
 } from "react";
+import { type AuthErrorKey, mapAuthError } from "@/auth/errors";
+import { consumeRedirectResult } from "@/auth/redirect";
 import { auth } from "@/config/firebase";
 
 interface AuthContextType {
 	user: User | null;
-	/** True until Firebase has reported the restored session, if any. */
+	/**
+	 * True until the app knows whether anyone is signed in. Nothing may route
+	 * on the answer before this is false — see `AuthGate`.
+	 */
 	loading: boolean;
+	/** i18n key for a failed return leg of `signInWithRedirect`, if any. */
+	redirectError: AuthErrorKey | null;
+	dismissRedirectError: () => void;
 	/** Exchanges a Google ID token for a Firebase session (native flow). */
 	signInWithGoogle: (idToken: string) => Promise<void>;
 	signOut: () => Promise<void>;
@@ -29,14 +37,38 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [user, setUser] = useState<User | null>(null);
-	const [loading, setLoading] = useState(true);
+	const [sessionResolved, setSessionResolved] = useState(false);
+	const [redirectResolved, setRedirectResolved] = useState(false);
+	const [redirectError, setRedirectError] = useState<AuthErrorKey | null>(null);
 
 	useEffect(() => {
 		return onAuthStateChanged(auth, (nextUser) => {
 			setUser(nextUser);
-			setLoading(false);
+			setSessionResolved(true);
 		});
 	}, []);
+
+	// Coming back from Google, `onAuthStateChanged` can report "no user" before
+	// the redirect credential has been exchanged. Waiting for both is what stops
+	// the login screen flashing on the way in.
+	useEffect(() => {
+		let live = true;
+
+		consumeRedirectResult()
+			.catch((error) => {
+				console.error("Google sign-in redirect error:", error);
+				if (live) setRedirectError(mapAuthError(error));
+			})
+			.finally(() => {
+				if (live) setRedirectResolved(true);
+			});
+
+		return () => {
+			live = false;
+		};
+	}, []);
+
+	const dismissRedirectError = useCallback(() => setRedirectError(null), []);
 
 	const signInWithGoogle = useCallback(async (idToken: string) => {
 		await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
@@ -47,8 +79,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	const value = useMemo(
-		() => ({ user, loading, signInWithGoogle, signOut }),
-		[user, loading, signInWithGoogle, signOut],
+		() => ({
+			user,
+			loading: !sessionResolved || !redirectResolved,
+			redirectError,
+			dismissRedirectError,
+			signInWithGoogle,
+			signOut,
+		}),
+		[
+			user,
+			sessionResolved,
+			redirectResolved,
+			redirectError,
+			dismissRedirectError,
+			signInWithGoogle,
+			signOut,
+		],
 	);
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

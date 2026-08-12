@@ -1,5 +1,13 @@
 import { initializeApp } from "firebase/app";
-import { connectAuthEmulator, getAuth, initializeAuth } from "firebase/auth";
+import {
+	browserLocalPersistence,
+	browserPopupRedirectResolver,
+	browserSessionPersistence,
+	connectAuthEmulator,
+	getAuth,
+	indexedDBLocalPersistence,
+	initializeAuth,
+} from "firebase/auth";
 import {
 	connectFirestoreEmulator,
 	getFirestore,
@@ -10,11 +18,36 @@ import {
 import { connectStorageEmulator, getStorage } from "firebase/storage";
 import { Platform } from "react-native";
 
+/**
+ * The origin Firebase's OAuth handler is served from.
+ *
+ * It defaults to the origin the app itself is served from, not
+ * `<project>.firebaseapp.com`. Firebase Hosting reserves `/__/auth/` on every
+ * domain it serves, so `https://<app origin>/__/auth/handler` exists and is
+ * *same-origin* with the app — which is what lets `signInWithRedirect` survive
+ * Safari's third-party storage blocking. A cross-origin handler makes the
+ * handshake depend on storage Safari discards, and the sign-in dead-ends.
+ *
+ * Adding a host means adding it to the Firebase authorized-domain list *and*
+ * registering `https://<host>/__/auth/handler` as an authorized redirect URI on
+ * the web OAuth client — see `docs/OPERATIONS.md`.
+ *
+ * The literal is the fallback for a context with no `window`: native, and the
+ * static prerender of `expo export`. Neither reaches the web redirect flow.
+ */
+function defaultAuthDomain(): string {
+	if (Platform.OS === "web" && typeof window !== "undefined") {
+		return window.location.hostname;
+	}
+	return "home-backlog.firebaseapp.com";
+}
+
 const firebaseConfig = {
 	apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY ?? "demo-api-key",
+	// `||`, not `??`: an unset key in `.env.local` arrives as an empty string,
+	// and an empty `authDomain` breaks the handler URL rather than falling back.
 	authDomain:
-		process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ??
-		"home-backlog.firebaseapp.com",
+		process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || defaultAuthDomain(),
 	projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID ?? "home-backlog",
 	storageBucket:
 		process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET ??
@@ -25,12 +58,47 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// TODO(native): `initializeAuth` without a persistence adapter keeps the
-// session in memory, so a native app forgets the user on relaunch. The fix is
-// `getReactNativePersistence(AsyncStorage)`, which only exists in Firebase's
-// React Native build and is absent from the `firebase/auth` typings entry.
-// Wire it up as part of the native build work — web is unaffected.
-const auth = Platform.OS === "web" ? getAuth(app) : initializeAuth(app);
+/**
+ * Web session persistence, written out rather than inherited.
+ *
+ * "Signing in remembers you" is the app's headline promise, and until now it
+ * rested on whatever `getAuth()` happens to default to. This array *is* that
+ * default, so nothing changes today — but a future Firebase major cannot alter
+ * it behind our backs, and the promise is now stated where it is enforced.
+ *
+ * The chain is kept rather than pinning IndexedDB alone: a browser that blocks
+ * IndexedDB (a Firefox private window, some embedded webviews) would fail
+ * outright and make sign-in impossible, where the chain degrades to a
+ * session-only login that still works. `browserPopupRedirectResolver` is what
+ * `signInWithRedirect` needs to find the handler.
+ *
+ * TODO(native): `initializeAuth` without a persistence adapter keeps the
+ * session in memory, so a native app forgets the user on relaunch. The fix is
+ * `getReactNativePersistence(AsyncStorage)`, which only exists in Firebase's
+ * React Native build and is absent from the `firebase/auth` typings entry.
+ * Wire it up as part of the native build work — web is unaffected.
+ */
+function createAuth() {
+	if (Platform.OS !== "web") return initializeAuth(app);
+
+	try {
+		return initializeAuth(app, {
+			persistence: [
+				indexedDBLocalPersistence,
+				browserLocalPersistence,
+				browserSessionPersistence,
+			],
+			popupRedirectResolver: browserPopupRedirectResolver,
+		});
+	} catch {
+		// Fast Refresh can re-run this module while the Auth instance from the
+		// previous evaluation is still registered, which `initializeAuth` treats
+		// as an error. The existing instance already has the settings above.
+		return getAuth(app);
+	}
+}
+
+const auth = createAuth();
 
 // IndexedDB persistence is what makes the installed PWA usable offline: reads
 // come from cache and writes queue until reconnect. The multi-tab manager keeps

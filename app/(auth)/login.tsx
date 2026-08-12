@@ -2,14 +2,26 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Snackbar, Text } from "react-native-paper";
+import type { AuthErrorKey } from "@/auth/errors";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignIn";
+import { useAuth } from "@/contexts/AuthContext";
 import { useAppTheme } from "@/theme";
 import { space } from "@/theme/tokens";
 
 export default function Login() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
-	const [error, setError] = useState<string | null>(null);
+	const { redirectError, dismissRedirectError } = useAuth();
+	const [error, setError] = useState<AuthErrorKey | null>(null);
+
+	// The redirect failure arrives on the context, not from the button — the
+	// button's own page was unloaded when the redirect started.
+	const message = error ?? redirectError;
+
+	const dismiss = () => {
+		setError(null);
+		dismissRedirectError();
+	};
 
 	return (
 		<View
@@ -35,8 +47,8 @@ export default function Login() {
 
 			<GoogleSignInButton onError={setError} />
 
-			<Snackbar visible={error !== null} onDismiss={() => setError(null)}>
-				{error ?? ""}
+			<Snackbar visible={message !== null} onDismiss={dismiss}>
+				{message ? t(message) : ""}
 			</Snackbar>
 		</View>
 	);
