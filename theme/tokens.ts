@@ -37,6 +37,18 @@ export const elevation = {
 } as const;
 
 /**
+ * Fixed component sizes that are not spacing — anything given a width and a
+ * height rather than a margin. `avatarSm` is the app-bar avatar, `avatarMd` the
+ * larger one in the account menu header, `brandMark` the app icon on the splash
+ * and login screens.
+ */
+export const size = {
+	avatarSm: 32,
+	avatarMd: 48,
+	brandMark: 96,
+} as const;
+
+/**
  * Minimum touch target. Material and the WCAG target-size rule both land at
  * 48dp; Paper's own controls already honour it, custom pressables must not
  * undercut it.
@@ -51,3 +63,4 @@ export const compactBreakpoint = 720;
 
 export type Space = keyof typeof space;
 export type Radius = keyof typeof radius;
+export type Size = keyof typeof size;

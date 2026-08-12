@@ -4,7 +4,9 @@
 		"tagline": "Every job around the house, in one place."
 	},
 	"common": {
+		"cancel": "Cancel",
 		"dismiss": "Dismiss",
+		"loading": "Loading",
 		"retry": "Try again",
 		"signOut": "Sign out"
 	},

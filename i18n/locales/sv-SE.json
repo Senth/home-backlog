@@ -4,7 +4,9 @@
 		"tagline": "Allt som behöver göras hemma, på ett ställe."
 	},
 	"common": {
+		"cancel": "Avbryt",
 		"dismiss": "Stäng",
+		"loading": "Laddar",
 		"retry": "Försök igen",
 		"signOut": "Logga ut"
 	},
