@@ -10,6 +10,14 @@
 		"retry": "Försök igen",
 		"signOut": "Logga ut"
 	},
+	"account": {
+		"label": "Konto",
+		"signedInAs": "Inloggad som {{email}}",
+		"signOut": {
+			"title": "Logga ut?",
+			"body": "Du behöver logga in med Google igen."
+		}
+	},
 	"tab": {
 		"projects": "Projekt",
 		"locations": "Platser",

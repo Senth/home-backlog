@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { AccountMenu } from "@/components/auth/AccountMenu";
 import { PlaceholderScreen } from "@/components/ui/PlaceholderScreen";
 
 export default function Locations() {
@@ -8,6 +9,7 @@ export default function Locations() {
 		<PlaceholderScreen
 			title={t("screen.locations.title")}
 			body={t("screen.locations.empty")}
+			action={<AccountMenu />}
 		/>
 	);
 }

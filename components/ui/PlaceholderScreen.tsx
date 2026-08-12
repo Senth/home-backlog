@@ -7,6 +7,12 @@ import { space } from "@/theme/tokens";
 interface PlaceholderScreenProps {
 	title: string;
 	body: string;
+	/**
+	 * Quieter line under the empty state. Used for "signed in as", which is the
+	 * only place a phone shows the address without a tap — and a wrong-account
+	 * sign-in is otherwise indistinguishable from a broken app.
+	 */
+	footnote?: string;
 	/** Rendered above the empty state — used for the PWA install offer. */
 	children?: ReactNode;
 	/** Right-hand action in the app bar. */
@@ -21,6 +27,7 @@ interface PlaceholderScreenProps {
 export function PlaceholderScreen({
 	title,
 	body,
+	footnote,
 	children,
 	action,
 }: PlaceholderScreenProps) {
@@ -38,6 +45,7 @@ export function PlaceholderScreen({
 					flex: 1,
 					alignItems: "center",
 					justifyContent: "center",
+					gap: space.sm,
 					padding: space.xl,
 				}}
 			>
@@ -47,6 +55,17 @@ export function PlaceholderScreen({
 				>
 					{body}
 				</Text>
+				{footnote ? (
+					<Text
+						variant="bodySmall"
+						style={{
+							color: theme.colors.onSurfaceVariant,
+							textAlign: "center",
+						}}
+					>
+						{footnote}
+					</Text>
+				) : null}
 			</View>
 		</View>
 	);

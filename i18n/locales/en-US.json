@@ -10,6 +10,14 @@
 		"retry": "Try again",
 		"signOut": "Sign out"
 	},
+	"account": {
+		"label": "Account",
+		"signedInAs": "Signed in as {{email}}",
+		"signOut": {
+			"title": "Sign out?",
+			"body": "You will need to sign in with Google again."
+		}
+	},
 	"tab": {
 		"projects": "Projects",
 		"locations": "Locations",

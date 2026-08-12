@@ -44,6 +44,9 @@ export const elevation = {
  */
 export const contentWidth = {
 	form: 400,
+	/** Material 3's maximum dialog width. Paper does not clamp it on web, where
+	 *  the surface otherwise stretches the full window. */
+	dialog: 560,
 } as const;
 
 /**
