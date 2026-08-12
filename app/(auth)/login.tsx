@@ -1,15 +1,20 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Image, ScrollView, View } from "react-native";
+import { ScrollView, useWindowDimensions, View } from "react-native";
 import { Snackbar, Surface, Text } from "react-native-paper";
 import type { AuthErrorKey } from "@/auth/errors";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignIn";
+import { BrandMark } from "@/components/ui/BrandMark";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useAppTheme } from "@/theme";
-import { contentWidth, elevation, radius, size, space } from "@/theme/tokens";
-
-const brandMark = require("@/assets/images/icon.png");
+import {
+	contentWidth,
+	denseBreakpoint,
+	elevation,
+	radius,
+	space,
+} from "@/theme/tokens";
 
 /**
  * One layout at every width: a card centred in a scroll view and clamped to
@@ -29,7 +34,14 @@ export default function Login() {
 	const theme = useAppTheme();
 	const online = useOnlineStatus();
 	const { redirectError, dismissRedirectError } = useAuth();
+	const { width } = useWindowDimensions();
 	const [error, setError] = useState<AuthErrorKey | null>(null);
+
+	// At high zoom the padding is what starves the button label of room to wrap
+	// into, so below `denseBreakpoint` the control wins and the whitespace loses.
+	const dense = width < denseBreakpoint;
+	const screenPadding = dense ? space.sm : space.lg;
+	const cardPadding = dense ? space.md : space.xl;
 
 	// A failed redirect arrives on the context, not from the button: the page
 	// that owned the button was unloaded the moment the redirect started.
@@ -47,7 +59,7 @@ export default function Login() {
 					flexGrow: 1,
 					alignItems: "center",
 					justifyContent: "center",
-					padding: space.lg,
+					padding: screenPadding,
 				}}
 			>
 				<Surface
@@ -57,15 +69,11 @@ export default function Login() {
 						maxWidth: contentWidth.form,
 						alignItems: "center",
 						gap: space.lg,
-						padding: space.xl,
+						padding: cardPadding,
 						borderRadius: radius.lg,
 					}}
 				>
-					<Image
-						source={brandMark}
-						accessibilityIgnoresInvertColors
-						style={{ width: size.brandMark, height: size.brandMark }}
-					/>
+					<BrandMark />
 
 					<View style={{ alignItems: "center", gap: space.sm }}>
 						<Text

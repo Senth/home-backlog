@@ -19,9 +19,13 @@ export function OfflineBar() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const online = useOnlineStatus();
-	const { user } = useAuth();
+	const { user, loading } = useAuth();
 
-	if (online) return null;
+	// While auth is unresolved `user` is null, which is not the same as signed
+	// out. Saying "you need a connection to sign in" over the splash to someone
+	// who *is* signed in is the exact "the app logged me out" lie the splash
+	// exists to prevent, so say nothing until there is an answer.
+	if (online || loading) return null;
 
 	return (
 		<View

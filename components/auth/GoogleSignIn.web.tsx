@@ -1,10 +1,27 @@
 import { GoogleAuthProvider, signInWithRedirect } from "firebase/auth";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { TextStyle } from "react-native";
 import { Button } from "react-native-paper";
 import { mapAuthError } from "@/auth/errors";
+import type { GoogleSignInButtonProps } from "@/components/auth/GoogleSignIn.types";
 import { auth } from "@/config/firebase";
-import type { GoogleSignInButtonProps } from "./GoogleSignIn.types";
+import { touchTarget } from "@/theme/tokens";
+
+/**
+ * Undoes Paper's hardcoded `numberOfLines={1}` on the button label.
+ *
+ * Paper offers no prop for it, but React Native Web appends `labelStyle` after
+ * its own single-line clamp in the style array, so these win. Without them the
+ * only control on the login screen reads "C…" at 200 % zoom — which is the text
+ * size the person least able to guess what the button does is most likely to be
+ * using. The cast is because neither property exists in React Native's
+ * `TextStyle`; both are web-only, and so is this file.
+ */
+const wrappingLabel = {
+	whiteSpace: "normal",
+	textOverflow: "clip",
+} as unknown as TextStyle;
 
 /**
  * Google is the only sign-in method (see `docs/PROJECT.md`).
@@ -59,6 +76,9 @@ export function GoogleSignInButton({
 			onPress={handlePress}
 			loading={leaving}
 			disabled={leaving || disabled}
+			labelStyle={wrappingLabel}
+			// Paper's own button is 40 dp tall, under the project's 48.
+			contentStyle={{ minHeight: touchTarget }}
 		>
 			{t("screen.login.google")}
 		</Button>

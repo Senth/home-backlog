@@ -1,4 +1,4 @@
-import { mapAuthError } from "./errors";
+import { mapAuthError } from "@/auth/errors";
 
 describe("mapAuthError", () => {
 	it("names the one failure the user can fix", () => {

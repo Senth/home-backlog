@@ -63,8 +63,12 @@ export const size = {
 
 /**
  * Minimum touch target. Material and the WCAG target-size rule both land at
- * 48dp; Paper's own controls already honour it, custom pressables must not
- * undercut it.
+ * 48dp, and nothing tappable may undercut it.
+ *
+ * Paper does **not** give you this for free — its `Button` is 40dp tall, and
+ * the buttons inside a `Dialog.Actions` are 38dp. Pass
+ * `contentStyle={{ minHeight: touchTarget }}` to any Paper button that matters,
+ * and set `minWidth` / `minHeight` on custom pressables.
  */
 export const touchTarget = 48;
 
@@ -73,6 +77,13 @@ export const touchTarget = 48;
  * per screen under this, several side by side above it.
  */
 export const compactBreakpoint = 720;
+
+/**
+ * Width below which comfortable padding costs more than it is worth, and the
+ * controls get the room instead. Reached by a phone at 150–200 % browser zoom,
+ * which is exactly when a label most needs somewhere to wrap into.
+ */
+export const denseBreakpoint = 320;
 
 export type Space = keyof typeof space;
 export type Radius = keyof typeof radius;

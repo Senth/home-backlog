@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "react-native-paper";
 import { mapAuthError } from "@/auth/errors";
+import type { GoogleSignInButtonProps } from "@/components/auth/GoogleSignIn.types";
 import { useAuth } from "@/contexts/AuthContext";
-import type { GoogleSignInButtonProps } from "./GoogleSignIn.types";
+import { touchTarget } from "@/theme/tokens";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -85,6 +86,8 @@ export function GoogleSignInButton({
 			onPress={handlePress}
 			loading={loading}
 			disabled={loading || disabled || !request}
+			// Paper's own button is 40 dp tall, under the project's 48.
+			contentStyle={{ minHeight: touchTarget }}
 		>
 			{t("screen.login.google")}
 		</Button>

@@ -1,4 +1,4 @@
-import { displayLabel, initials } from "./display-name";
+import { displayLabel, initials } from "@/auth/display-name";
 
 describe("initials", () => {
 	it("takes both ends of a two-word name", () => {

@@ -35,6 +35,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * How long the splash is allowed to wait on the redirect leg before the app
+ * routes on what `onAuthStateChanged` alone has told it. Long enough that a
+ * healthy return from Google is never cut short, short enough that lie-fi does
+ * not strand a signed-in user on a splash.
+ */
+const redirectGraceMs = 5000;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [user, setUser] = useState<User | null>(null);
 	const [sessionResolved, setSessionResolved] = useState(false);
@@ -51,20 +59,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	// Coming back from Google, `onAuthStateChanged` can report "no user" before
 	// the redirect credential has been exchanged. Waiting for both is what stops
 	// the login screen flashing on the way in.
+	//
+	// But this gate holds the whole router, and on a bad connection Firebase's
+	// resolver can sit on a 30-60 s network timeout — a signed-in user with a
+	// session already in IndexedDB would stare at a splash. The cap gives that
+	// up after `redirectGraceMs`: a credential that lands later still arrives
+	// through `onAuthStateChanged`, which is the only path that can actually
+	// sign anyone in.
 	useEffect(() => {
 		let live = true;
+		const settle = () => {
+			if (live) setRedirectResolved(true);
+		};
+		const grace = setTimeout(settle, redirectGraceMs);
 
 		consumeRedirectResult()
 			.catch((error) => {
-				console.error("Google sign-in redirect error:", error);
+				// Handled: the message below reaches the user through the login
+				// screen's Snackbar. Warn rather than error so a working, explained
+				// failure does not read as a crash in the console.
+				console.warn("Google sign-in redirect failed:", error);
 				if (live) setRedirectError(mapAuthError(error));
 			})
 			.finally(() => {
-				if (live) setRedirectResolved(true);
+				clearTimeout(grace);
+				settle();
 			});
 
 		return () => {
 			live = false;
+			clearTimeout(grace);
 		};
 	}, []);
 

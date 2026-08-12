@@ -12,11 +12,17 @@
 
 importScripts("./sw-routing.js");
 
-const VERSION = "v1";
+// v2 drops any v1 cache, which may hold Firebase's auth page stored as the app
+// shell — see the reserved-namespace note in `sw-routing.js`.
+const VERSION = "v2";
 const CACHE = `home-backlog-${VERSION}`;
 /** Enough to boot the SPA offline; every route renders from this shell. */
 const SHELL_URL = "/index.html";
-const PRECACHE_URLS = ["/", SHELL_URL];
+/** The brand mark is precached with the shell: the splash and the login screen
+ *  both exist to say "this is not broken", and they are exactly the screens a
+ *  first offline visit reaches. Its path is fixed rather than content-hashed,
+ *  which is why it can be named here at all. */
+const PRECACHE_URLS = ["/", SHELL_URL, "/icons/icon-192.png"];
 
 self.addEventListener("install", (event) => {
 	event.waitUntil(

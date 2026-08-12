@@ -1,10 +1,9 @@
 import { useTranslation } from "react-i18next";
-import { Image, View } from "react-native";
+import { View } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
+import { BrandMark } from "@/components/ui/BrandMark";
 import { useAppTheme } from "@/theme";
-import { size, space } from "@/theme/tokens";
-
-const brandMark = require("@/assets/images/icon.png");
+import { space } from "@/theme/tokens";
 
 /**
  * What the app shows while it does not yet know whether anyone is signed in.
@@ -18,7 +17,8 @@ const brandMark = require("@/assets/images/icon.png");
  * It deliberately does not resemble the login screen — a splash that looks like
  * login is a login screen that keeps refusing to accept a tap. A skeleton board
  * was rejected for showing a signed-out visitor a fake board, and a blank
- * surface for being indistinguishable from a white-screen crash.
+ * surface for being indistinguishable from a white-screen crash, which is why
+ * `BrandMark` paints its own tile rather than waiting for an image.
  */
 export function SplashScreen() {
 	const { t } = useTranslation();
@@ -34,11 +34,7 @@ export function SplashScreen() {
 				backgroundColor: theme.colors.background,
 			}}
 		>
-			<Image
-				source={brandMark}
-				accessibilityIgnoresInvertColors
-				style={{ width: size.brandMark, height: size.brandMark }}
-			/>
+			<BrandMark />
 			<ActivityIndicator accessibilityLabel={t("common.loading")} />
 		</View>
 	);

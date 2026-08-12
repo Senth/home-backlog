@@ -28,7 +28,7 @@
 			"title": "Home Backlog",
 			"tagline": "Allt som behöver göras hemma, på ett ställe.",
 			"google": "Fortsätt med Google",
-			"offlineHint": "Du måste vara uppkopplad för att logga in."
+			"offlineHint": "Knappen fungerar igen när du är uppkopplad."
 		},
 		"projects": {
 			"title": "Projekt",

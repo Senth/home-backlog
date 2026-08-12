@@ -1,5 +1,5 @@
 import type { User } from "firebase/auth";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View } from "react-native";
 import {
@@ -9,11 +9,14 @@ import {
 	Divider,
 	Menu,
 	Portal,
+	Snackbar,
 	Text,
 	TouchableRipple,
 } from "react-native-paper";
 import { displayLabel, initials } from "@/auth/display-name";
+import { type AuthErrorKey, mapAuthError } from "@/auth/errors";
 import { useAuth } from "@/contexts/AuthContext";
+import { useModalFocus } from "@/hooks/use-modal-focus";
 import { useAppTheme } from "@/theme";
 import {
 	compactBreakpoint,
@@ -23,6 +26,21 @@ import {
 	space,
 	touchTarget,
 } from "@/theme/tokens";
+
+const signOutDialogTestID = "sign-out-dialog";
+
+/**
+ * What the focus trap actually looks for. Paper puts `testID` on the modal
+ * wrapper and `${testID}-surface` on the dialog itself, and the wrapper
+ * contains the scrim's own "Close modal" button — trapping that would put a
+ * control in the cycle that is not part of the dialog.
+ */
+const signOutDialogSurfaceTestID = `${signOutDialogTestID}-surface`;
+
+/** Where focus goes when the dialog closes. The menu item that opened it has
+ *  been unmounted by then, and focusing a detached node drops focus on
+ *  `<body>`. */
+const triggerTestID = "account-menu-trigger";
 
 /**
  * The avatar, with initials underneath it.
@@ -83,6 +101,16 @@ export function AccountMenu() {
 	const { width } = useWindowDimensions();
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [confirmOpen, setConfirmOpen] = useState(false);
+	const [error, setError] = useState<AuthErrorKey | null>(null);
+
+	const closeConfirm = useCallback(() => setConfirmOpen(false), []);
+
+	// Paper does nothing about focus on web: without this the dialog is reached
+	// only by tabbing through the tab bar behind the scrim, and Escape does
+	// nothing. A dialog that exists to be a deliberate stop has to be operable.
+	useModalFocus(confirmOpen, signOutDialogSurfaceTestID, closeConfirm, {
+		returnFocusTo: triggerTestID,
+	});
 
 	if (!user) return null;
 
@@ -93,16 +121,31 @@ export function AccountMenu() {
 	const showName = width >= compactBreakpoint;
 	const name = displayLabel(user);
 
+	const handleSignOut = () => {
+		setConfirmOpen(false);
+		signOut().catch((reason) => {
+			// Silence here would close the dialog, leave the user signed in, and
+			// say nothing — on the one action this whole feature exists to make
+			// deliberate.
+			console.error("Sign-out failed:", reason);
+			setError(mapAuthError(reason));
+		});
+	};
+
 	return (
 		<>
 			<Menu
 				visible={menuOpen}
 				onDismiss={() => setMenuOpen(false)}
 				anchorPosition="bottom"
+				// Otherwise the menu keeps its natural width and slides off the left
+				// edge at high zoom, clipping the avatar and the sign-out icon.
+				contentStyle={{ maxWidth: width - space.md * 2 }}
 				anchor={
 					<TouchableRipple
 						accessibilityRole="button"
 						accessibilityLabel={t("account.label")}
+						testID={triggerTestID}
 						onPress={() => setMenuOpen(true)}
 						borderless
 						style={{
@@ -163,31 +206,47 @@ export function AccountMenu() {
 			<Portal>
 				<Dialog
 					visible={confirmOpen}
-					onDismiss={() => setConfirmOpen(false)}
+					onDismiss={closeConfirm}
+					testID={signOutDialogTestID}
+					// Paper leaves the surface to fill its container, so on a desktop
+					// monitor the dialog spans the window. Computing the width keeps
+					// the inset on a phone *and* the Material 3 clamp on a monitor —
+					// setting `width: "100%"` instead cancels Paper's own margin.
 					style={{
 						alignSelf: "center",
-						width: "100%",
-						maxWidth: contentWidth.dialog,
+						width: Math.min(width - space.lg * 2, contentWidth.dialog),
 					}}
 				>
 					<Dialog.Title>{t("account.signOut.title")}</Dialog.Title>
 					<Dialog.Content>
 						<Text variant="bodyMedium">{t("account.signOut.body")}</Text>
 					</Dialog.Content>
-					<Dialog.Actions>
-						<Button onPress={() => setConfirmOpen(false)}>
+					<Dialog.Actions style={{ gap: space.md }}>
+						{/* The two answers must not look alike. Paper's default gives
+						    both actions `primary`, so the one that ends your access
+						    reads exactly like the one that does not — and it sits on
+						    the right, under the thumb. `primary` also misses 4.5:1 on
+						    this surface in the light theme; these roles clear it. */}
+						<Button
+							onPress={closeConfirm}
+							textColor={theme.colors.onSurfaceVariant}
+							contentStyle={{ minHeight: touchTarget }}
+						>
 							{t("common.cancel")}
 						</Button>
 						<Button
-							onPress={() => {
-								setConfirmOpen(false);
-								void signOut();
-							}}
+							onPress={handleSignOut}
+							textColor={theme.colors.error}
+							contentStyle={{ minHeight: touchTarget }}
 						>
 							{t("common.signOut")}
 						</Button>
 					</Dialog.Actions>
 				</Dialog>
+
+				<Snackbar visible={error !== null} onDismiss={() => setError(null)}>
+					{error ? t(error) : ""}
+				</Snackbar>
 			</Portal>
 		</>
 	);
