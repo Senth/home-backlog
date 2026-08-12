@@ -356,7 +356,8 @@ the centred, scrollable, clamped card with the brand mark. Button busy and offli
 all three tab screens. Desktop display name beside the avatar. `PlaceholderScreen`
 `footnote` prop and the Projects "signed in as" line. Strings in both locales.
 
-**Phase 5 — review.**
+**Phase 5 — review.** ⏸ **IN PROGRESS — round 1 of 3 applied, round 2 not yet run.**
+
 First a smoke test by the implementing session: the app boots, a signed-out reload lands on
 login with no flash, sign-in reaches the tabs, a reload keeps the session, the menu opens
 and sign-out confirms. Then `/review` — `code-review`, `ux-review`, `qa-review` — and the
@@ -367,14 +368,93 @@ must scroll rather than clip; both avatar branches; and reload-and-back behaviou
 deferred only with a stated reason; `idea` findings go to the user, who decides which
 become issues.
 
+### Where this stopped (2026-08-12)
+
+Phases 1–4 are committed and green. Round 1 of the review has run and every
+`blocking` and `should-fix` finding has been fixed and verified in the browser
+(commit `ee359a3`). **No agent has re-reviewed the fixes.**
+
+The three round-1 reports are kept at `docs/specs/wip/review-10/{code,ux,qa}-review.md`
+(copies of `.tmp/review/`, which is gitignored and may be wiped). All three said FAIL.
+
+**To resume, run round 2:** re-run all three agents through the `/review` skill against the
+same branch. Every agent has to re-run — each one reported findings, and the fixes touched
+`components/`, `app/`, `hooks/`, `public/` and both locale files, so no report is still
+valid. If it comes back PASS, go to phase 6. The three-round cap leaves two rounds.
+
+What round 1 fixed, so a re-reviewer can check the specific claims:
+
+| Report | Finding | What was done |
+| ------ | ------- | ------------- |
+| code 1 | SW cached `/__/auth/` as the app shell | `RESERVED_PREFIX` passthrough in `sw-routing.js`, `VERSION` → `v2`, test added |
+| code 2, 3 | relative imports | all now `@/` |
+| code 4 | router gated on a 30–60 s redirect wait | `redirectGraceMs` cap in `AuthContext` |
+| code 5 | `void signOut()` swallowed the rejection | caught, logged, surfaced in a Snackbar |
+| code 6 | `OfflineBar` read `user` while unresolved | silent while `loading` |
+| ux 1 | dialog had no focus trap, no Escape, no restore | `hooks/use-modal-focus.web.ts` |
+| ux 2, 9 | dialog actions 4.27:1 and identical to each other | `onSurfaceVariant` / `error` |
+| ux 3 | login label truncated to "C…" at 200 % zoom | label wraps; `denseBreakpoint` padding |
+| ux 4 | 40/38 dp touch targets | `contentStyle={{ minHeight: touchTarget }}` |
+| ux 5 | brand mark was a network asset with no fallback | `BrandMark` on a tile, precached fixed path |
+| ux 6 | dialog full-bleed at 390 px | width computed from the window |
+| ux 7 | menu slid off the left edge at high zoom | `contentStyle` `maxWidth` |
+| ux 8 | Swedish hint repeated the offline bar | reworded |
+| qa 1 | signed-out deep link flashed the board | both group layouts redirect during render |
+| qa 2 | handled failure logged as an error | `console.warn` |
+
+Two things were **not** done and need a decision:
+
+- **qa 3 (`should-fix`) — three React Native Web deprecation warnings** on every screen
+  (`props.pointerEvents`, `useNativeDriver`, `shadow*`). Not yet traced to app code versus
+  `react-native-paper` internals. If they are library-internal, defer with that as the
+  stated reason; if any come from app code, fix them. **This is the one outstanding
+  `should-fix`** and must be resolved before a PASS.
+- **All `idea` findings** — none acted on, per the skill. They are listed for the user at
+  the end of the round-1 summary and in the three reports. The user decides which become
+  `gh issue create --label idea`. Notable ones: `primary` misses 4.5:1 on elevated light
+  surfaces app-wide (only the dialog was fixed); the seeded photo is a data URI so the
+  *loaded* branch is testable locally but the *failed* branch is not; a browser back after
+  sign-in leaves the app for Google's chooser; losing the connection between tap and
+  handler lands on the browser's own error page.
+
+### Deviations from this spec, already made
+
+- **The platform split is `GoogleSignIn.tsx` (native) + `GoogleSignIn.web.tsx`**, not the
+  `.native.tsx` / `.web.tsx` pair phase 1 words. `tsconfig.json` sets no `moduleSuffixes`,
+  so `tsc` cannot resolve `@/components/auth/GoogleSignIn` when only platform-suffixed
+  files exist; adding `moduleSuffixes` changed React Native typings resolution and surfaced
+  unrelated breakage. The shape matches every existing split in the repo
+  (`hooks/use-color-scheme.ts` + `.web.ts`). `code-review` saw this and passed it.
+- **`setPersistence` became `initializeAuth(app, { persistence: [...] })`.** §3 writes
+  `setPersistence(auth, [...])`, but that function takes a single `Persistence`; only
+  `initializeAuth` accepts the chain. Same chain, same behaviour — fold the corrected form
+  into the area spec, not the one in §3.
+- **`auth/redirect.ts` + `.web.ts` were added**, not named in phase 1. `getRedirectResult`
+  does not exist in Firebase's React Native entry point, so calling it from the shared
+  `AuthContext` needs a platform split.
+- **Phase 6's seed refresh (item 7) was done early**, in commit before the review, so the
+  reviewers had both avatar branches. Item 7 is complete unless the qa `idea` about the
+  data URI is acted on.
+
+### Also already done, ahead of phase 6
+
+`docs/specs/wip/platform-offline.draft.md` is a **complete draft of phase 6 item 1** — the
+area spec folding §§1–8, written against the code as it stands after round 1. It still
+needs: a read-through against whatever round 2 changes, the two qa `idea` notes about
+redirect back-navigation and the browser error page if the user wants them recorded, and
+then moving to `docs/specs/platform-offline.md`. Delete the draft and the `review-10/`
+folder as part of the cleanup.
+
 **Phase 6 — cleanup, then PR.**
 
 1. Fold §§1–8 into a new `docs/specs/platform-offline.md` — the area
    `docs/specs/INDEX.md` already reserves for auth, i18n, PWA install and offline. Write it
    as one present-tense description of the area including the offline bar and install offer
    as they now behave, not as a chapter about this issue. Keep every *why* and every
-   rejected alternative from §2.
-2. Add the row to `docs/specs/INDEX.md` and delete `docs/specs/wip/10-login-and-session.md`.
+   rejected alternative from §2. **A full draft already exists** at
+   `docs/specs/wip/platform-offline.draft.md` — review it rather than starting over.
+2. Add the row to `docs/specs/INDEX.md`, then delete `docs/specs/wip/10-login-and-session.md`,
+   `docs/specs/wip/platform-offline.draft.md` and `docs/specs/wip/review-10/`.
 3. `docs/PROJECT.md` → *Platform, auth, i18n*: record that web sign-in is a redirect with a
    same-origin `authDomain`, and why.
 4. `docs/OPERATIONS.md` → the `authDomain` / OAuth redirect URI / `ENV` secret setup, in the
