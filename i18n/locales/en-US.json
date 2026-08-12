@@ -19,7 +19,8 @@
 		"login": {
 			"title": "Home Backlog",
 			"tagline": "Every job around the house, in one place.",
-			"google": "Continue with Google"
+			"google": "Continue with Google",
+			"offlineHint": "Signing in needs a connection."
 		},
 		"projects": {
 			"title": "Projects",
@@ -35,10 +36,12 @@
 		}
 	},
 	"error": {
-		"googleSignIn": "Could not sign in with Google. Please try again."
+		"googleSignIn": "Could not sign in with Google. Please try again.",
+		"offline": "You are offline. Signing in needs a connection."
 	},
 	"status": {
-		"offline": "Offline — changes are saved and will sync when you reconnect."
+		"offline": "Offline — changes are saved and will sync when you reconnect.",
+		"offlineSignedOut": "Offline — you need a connection to sign in."
 	},
 	"update": {
 		"available": "A new version is available.",

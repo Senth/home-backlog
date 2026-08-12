@@ -37,6 +37,16 @@ export const elevation = {
 } as const;
 
 /**
+ * How wide a block of content is allowed to grow before it stops. A form
+ * stretched across a desktop monitor is a form nobody can read — the eye loses
+ * the line — so it clamps and centres instead. Below the clamp it simply fills
+ * the screen.
+ */
+export const contentWidth = {
+	form: 400,
+} as const;
+
+/**
  * Fixed component sizes that are not spacing — anything given a width and a
  * height rather than a margin. `avatarSm` is the app-bar avatar, `avatarMd` the
  * larger one in the account menu header, `brandMark` the app icon on the splash
