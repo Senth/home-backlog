@@ -31,21 +31,82 @@
 			"offlineHint": "Signing in needs a connection."
 		},
 		"projects": {
-			"title": "Projects",
 			"empty": "No projects yet."
 		},
 		"locations": {
-			"title": "Locations",
 			"empty": "No locations yet."
 		},
 		"maintenance": {
-			"title": "Maintenance",
 			"empty": "Nothing due."
 		}
 	},
+	"homes": {
+		"title": "My homes",
+		"empty": "You are not in any home yet.",
+		"create": "Create a new home",
+		"nameLabel": "Name",
+		"nameHint": "What you call it between yourselves — \"The house\", \"The cabin\".",
+		"defaultName": "{{name}}'s home",
+		"createAction": "Create",
+		"nameRequired": "Give the home a name.",
+		"nameTooLong": "That name is too long.",
+		"current": "Current",
+		"memberCount_one": "{{count}} person",
+		"memberCount_other": "{{count}} people",
+		"offlineHint": "Creating a home needs a connection."
+	},
+	"invite": {
+		"pending": "{{inviter}} invited you to {{home}}",
+		"join": "Join",
+		"joining": "Joining…",
+		"decline": "Decline",
+		"declineTitle": "Decline the invitation?",
+		"declineBody": "{{inviter}} would have to invite you again.",
+		"offlineHint": "Joining a home needs a connection.",
+		"failed": "Could not join. The invitation may have been withdrawn.",
+		"sendTitle": "Invite someone",
+		"emailLabel": "Email address",
+		"send": "Send invitation",
+		"sent": "Invitation sent to {{email}}.",
+		"sentBody": "They will see it the next time they open Home Backlog.",
+		"selfError": "That is your own address.",
+		"alreadyMember": "{{name}} is already in this home.",
+		"alreadyInvited": "That address has already been invited.",
+		"invalidEmail": "That does not look like an email address.",
+		"pendingTitle": "Pending invitations",
+		"revoke": "Withdraw",
+		"revokeTitle": "Withdraw the invitation?",
+		"revokeBody": "{{email}} will no longer be able to join."
+	},
+	"members": {
+		"title": "Members",
+		"roleOwner": "Admin",
+		"roleMember": "Member",
+		"you": "You",
+		"promote": "Make admin",
+		"demote": "Make member",
+		"remove": "Remove from home",
+		"removeTitle": "Remove {{name}}?",
+		"removeBody": "They lose access to this home. Anything only they could see — their private tasks — stops being visible to anyone.",
+		"lastAdmin": "Make someone else an admin first."
+	},
+	"manageHome": {
+		"title": "Manage home",
+		"save": "Save",
+		"saved": "Name saved.",
+		"leave": "Leave this home",
+		"leaveTitle": "Leave {{home}}?",
+		"leaveBody": "You will need a new invitation to come back.",
+		"delete": "Delete this home",
+		"deleteTitle": "Delete {{home}}?",
+		"deleteBody": "Every project, location and maintenance task in it is deleted. This cannot be undone.",
+		"deleteConfirm": "Delete",
+		"deleteOnlyAlone": "Remove everyone else first."
+	},
 	"error": {
 		"googleSignIn": "Could not sign in with Google. Please try again.",
-		"offline": "You are offline. Signing in needs a connection."
+		"offline": "You are offline. Signing in needs a connection.",
+		"saveFailed": "Could not save that. Please try again."
 	},
 	"status": {
 		"offline": "Offline — changes are saved and will sync when you reconnect.",
