@@ -18,10 +18,32 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Every use of emailHash() must be guarded by this: `.lower()` on a null
+    // email is an error, and an errored expression denies the whole request
+    // rather than the one branch that asked.
+    function hasEmail() {
+      return signedIn() && request.auth.token.email != null;
+    }
+
     // Invites are keyed by the SHA-256 of the lowercased invitee email so the
     // address itself never has to be readable by other members.
     function emailHash() {
       return hashing.sha256(request.auth.token.email.lower()).toHexString().lower();
+    }
+
+    // Nothing may leave a home without an owner. The remaining members could
+    // edit nodes forever but never invite, never remove and never delete, and
+    // no action inside the app could recover it — so the invariant lives here,
+    // where the REST API (#7) inherits it, not in a component.
+    function hasAnOwner(members) {
+      return members.values().hasAny(['owner']);
+    }
+
+    function validHome(data) {
+      return data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 60
+        && hasAnOwner(data.members);
     }
 
     function homeData(homeId) {
@@ -50,36 +72,86 @@ service cloud.firestore {
         return signedIn() && roleIn(resource.data.members) == 'owner';
       }
 
+      // Names, photos and email hashes sit in sibling maps rather than inside
+      // `members`, whose uid -> role shape six expressions here depend on. The
+      // maps are absent on a home written before they existed, so every read of
+      // them goes through get() with an empty default.
+      function profiles(data) {
+        return data.get('memberProfiles', {});
+      }
+
+      function hashes(data) {
+        return data.get('memberEmailHashes', {});
+      }
+
+      function touchesOnlyMe(next, current) {
+        return next.diff(current).affectedKeys().hasOnly([request.auth.uid]);
+      }
+
+      // You may write an email hash under your own uid only if it is the hash of
+      // your own address. Without this, anyone could plant somebody else's hash
+      // on themselves and be mistaken for them by the "already a member?" check
+      // the invite form runs.
+      function ownHashIsOwn(data) {
+        return hashes(data).get(request.auth.uid, null) == null
+          || (hasEmail() && hashes(data).get(request.auth.uid, null) == emailHash());
+      }
+
       // An invited user adds *only* themselves, with *only* the role their
-      // invite grants, and changes nothing else on the doc.
+      // invite grants, and touches nobody else's profile or hash.
       function acceptsInvite() {
         let invite = /databases/$(database)/documents/homes/$(homeId)/invites/$(emailHash());
-        return signedIn()
+        return hasEmail()
           && request.auth.token.email_verified == true
           && exists(invite)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['members', 'memberProfiles', 'memberEmailHashes'])
           && request.resource.data.members.diff(resource.data.members).affectedKeys().hasOnly([request.auth.uid])
+          && touchesOnlyMe(profiles(request.resource.data), profiles(resource.data))
+          && touchesOnlyMe(hashes(request.resource.data), hashes(resource.data))
+          && hashes(request.resource.data).get(request.auth.uid, null) == emailHash()
           && request.resource.data.members.get(request.auth.uid, null) == get(invite).data.role;
       }
 
       allow get, list: if memberOfThis();
       allow create: if signedIn()
-        && request.resource.data.members.get(request.auth.uid, null) == 'owner';
-      // Members may edit the home itself; only an owner may rewrite membership,
-      // except for an invitee accepting their own invite.
-      allow update: if ownerOfThis()
-        || (memberOfThis() && request.resource.data.members == resource.data.members)
-        || acceptsInvite();
-      allow delete: if ownerOfThis();
+        && request.resource.data.members.get(request.auth.uid, null) == 'owner'
+        && validHome(request.resource.data)
+        && hasEmail()
+        && hashes(request.resource.data).get(request.auth.uid, null) == emailHash();
+      // Members may edit the home itself and maintain their own profile entry;
+      // only an owner may rewrite membership — an owner has to be able to touch
+      // anyone's entries, because removing a member removes theirs too — except
+      // for an invitee accepting their own invite.
+      allow update: if validHome(request.resource.data)
+        && ownHashIsOwn(request.resource.data)
+        && (
+          ownerOfThis()
+          || (memberOfThis()
+              && request.resource.data.members == resource.data.members
+              && touchesOnlyMe(profiles(request.resource.data), profiles(resource.data))
+              && touchesOnlyMe(hashes(request.resource.data), hashes(resource.data)))
+          || acceptsInvite()
+        );
+      // Deleting a home leaves its nodes, locations and recurring rules stored
+      // but permanently unreachable — every one of their rules resolves
+      // membership through a get() on this document. Until a Cloud Function can
+      // cascade (#1, #39), delete is offered only to a sole member, where the
+      // client-side cascade is bounded and cannot revoke anyone else's access.
+      allow delete: if ownerOfThis() && resource.data.members.keys().size() == 1;
 
       match /invites/{emailHashId} {
         allow read: if isOwner(homeId)
-          || (signedIn() && request.auth.token.email != null && emailHashId == emailHash());
+          || (hasEmail() && emailHashId == emailHash());
+        // The hash is stored as a field as well as the key so it can be found by
+        // a collection-group query; requiring the two to agree is what stops an
+        // owner poisoning that query with somebody else's hash.
         allow create, update: if isOwner(homeId)
-          && request.resource.data.role in ['owner', 'member'];
+          && request.resource.data.role in ['owner', 'member']
+          && request.resource.data.emailHash == emailHashId;
         // An invitee may consume or decline their own invite.
         allow delete: if isOwner(homeId)
-          || (signedIn() && request.auth.token.email != null && emailHashId == emailHash());
+          || (hasEmail() && emailHashId == emailHash());
       }
 
       match /nodes/{nodeId} {
@@ -106,6 +178,22 @@ service cloud.firestore {
       match /recurring/{ruleId} {
         allow read, write: if isMember(homeId);
       }
+    }
+
+    // How an invitee finds an invitation at all.
+    //
+    // They cannot read the home document and do not know its id, so the invite
+    // is unreachable by path; and documentId() in a collection-group query
+    // compares the *full document path* rather than the last segment, so the
+    // hash in the key is not queryable either. Hence the `emailHash` field, and
+    // hence this rule — `collectionGroup('invites').where('emailHash', '==',
+    // myHash)` is query-safe because every document that can match carries the
+    // caller's own hash, which is exactly what is tested here.
+    //
+    // It widens nothing: the nested rule already grants the hash holder read
+    // access to the same documents. Writes stay on the nested rule alone.
+    match /{path=**}/invites/{emailHashId} {
+      allow get, list: if hasEmail() && resource.data.emailHash == emailHash();
     }
   }
 }
