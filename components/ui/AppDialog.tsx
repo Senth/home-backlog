@@ -13,8 +13,14 @@ interface AppDialogProps {
 	/** Unique per dialog: the focus trap finds the surface by `${testID}-surface`. */
 	testID: string;
 	children?: ReactNode;
-	/** The buttons. Rendered inside a wrapping `Dialog.Actions`. */
-	actions: ReactNode;
+	/**
+	 * The buttons, as an **array** and never a fragment. `Dialog.Actions` clones
+	 * each of its children to inject `compact` and the inter-button margin, and a
+	 * fragment absorbs both — React then logs "Invalid prop `compact` supplied to
+	 * `React.Fragment`" for every dialog the app opens, and Paper's own action
+	 * spacing never lands. An array is flattened into real children instead.
+	 */
+	actions: ReactNode[];
 	/** Whatever opened the dialog, so a keyboard user is not dropped on `<body>`. */
 	returnFocusTo?: RefObject<View | null>;
 }
@@ -111,24 +117,24 @@ export function ConfirmDialog({
 			title={title}
 			testID={testID}
 			returnFocusTo={returnFocusTo}
-			actions={
-				<>
-					<Button
-						onPress={onDismiss}
-						textColor={theme.colors.onSurfaceVariant}
-						contentStyle={{ minHeight: touchTarget }}
-					>
-						{t("common.cancel")}
-					</Button>
-					<Button
-						onPress={onConfirm}
-						textColor={destructive ? theme.colors.error : theme.colors.primary}
-						contentStyle={{ minHeight: touchTarget }}
-					>
-						{confirmLabel}
-					</Button>
-				</>
-			}
+			actions={[
+				<Button
+					key="cancel"
+					onPress={onDismiss}
+					textColor={theme.colors.onSurfaceVariant}
+					contentStyle={{ minHeight: touchTarget }}
+				>
+					{t("common.cancel")}
+				</Button>,
+				<Button
+					key="confirm"
+					onPress={onConfirm}
+					textColor={destructive ? theme.colors.error : theme.colors.primary}
+					contentStyle={{ minHeight: touchTarget }}
+				>
+					{confirmLabel}
+				</Button>,
+			]}
 		>
 			<Text variant="bodyMedium">{body}</Text>
 		</AppDialog>

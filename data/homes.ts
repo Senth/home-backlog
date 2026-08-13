@@ -8,6 +8,7 @@ import {
 	deleteField,
 	doc,
 	FieldPath,
+	getDocs,
 	type Query,
 	type QueryDocumentSnapshot,
 	query,
@@ -23,6 +24,7 @@ import {
 	type Home,
 	type Invite,
 	type MemberProfile,
+	normalizeEmail,
 	type Role,
 } from "@/models/home";
 
@@ -180,8 +182,26 @@ export function removeMember(homeId: string, uid: string): Promise<void> {
 	});
 }
 
-export function deleteHome(homeId: string): Promise<void> {
-	return deleteDoc(homeRef(homeId));
+/**
+ * Deleting a home takes its pending invitations with it, in that order.
+ *
+ * They have to go first, and they have to go at all. Every invite rule resolves
+ * ownership through a `get()` on the home document, so once the home is gone
+ * nobody can delete them — while the collection-group read never touches the
+ * home at all, so an invitee would go on seeing "Marcus invited you to Huset"
+ * for a household that no longer exists, and Join would fail on a document that
+ * is not there. The only person who could still clear it would be the invitee,
+ * by declining an invitation to nowhere.
+ *
+ * This is the same client-side cascade the spec keeps bounded by offering
+ * delete to a sole member only. The nodes, locations and recurring rules are
+ * still left stranded; that needs a Cloud Function (#1, #39).
+ */
+export async function deleteHome(homeId: string): Promise<void> {
+	const invites = await getDocs(homeInvitesQuery(homeId));
+	await Promise.all(invites.docs.map((invite) => deleteDoc(invite.ref)));
+
+	await deleteDoc(homeRef(homeId));
 }
 
 export function sendInvite(
@@ -190,7 +210,9 @@ export function sendInvite(
 	email: string,
 	role: Role,
 ): Promise<void> {
-	const address = email.trim();
+	// Folded once, here, so the stored plaintext, the document id and the field
+	// all describe the same address — and the one the provider will report.
+	const address = normalizeEmail(email);
 
 	return setDoc(inviteRef(home.id, emailHash(address)), {
 		// The field has to equal the document id — the rules check it, so the
@@ -220,6 +242,13 @@ export function revokeInvite(homeId: string, hash: string): Promise<void> {
  * queued write would show membership locally and then revert. The invite is
  * deleted only after the membership write has resolved; the reverse order would
  * consume the invitation and then fail to use it, with no way back in.
+ *
+ * Clearing the consumed invitation is deliberately *not* awaited into the
+ * result. Membership landing is what joining means — if only the tidy-up fails,
+ * telling somebody "could not join, the invitation may have been withdrawn"
+ * while they are already a member of the home is the one wrong answer available.
+ * A leftover invite is harmless: accepting it again is a no-op write of the
+ * membership they already have.
  */
 export async function acceptInvite(user: User, invite: Invite): Promise<void> {
 	await updateDoc(homeRef(invite.homeId), {
@@ -228,7 +257,9 @@ export async function acceptInvite(user: User, invite: Invite): Promise<void> {
 		[`memberEmailHashes.${user.uid}`]: emailHash(user.email ?? ""),
 	});
 
-	await deleteDoc(inviteRef(invite.homeId, invite.emailHash));
+	deleteDoc(inviteRef(invite.homeId, invite.emailHash)).catch((reason) => {
+		console.warn("Could not clear the consumed invitation:", reason);
+	});
 }
 
 export function declineInvite(invite: Invite): Promise<void> {

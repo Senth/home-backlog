@@ -8,6 +8,7 @@ import {
 	isLastOwner,
 	maxHomeNameLength,
 	membersOf,
+	normalizeEmail,
 	ownerCount,
 } from "@/models/home";
 
@@ -34,8 +35,23 @@ describe("emailHash", () => {
 	 * Google sent — so a case-sensitive hash would leave an invitee unable to
 	 * find an invitation that is sitting right there.
 	 */
-	it("is case-insensitive", () => {
+	it("is case-insensitive for ASCII", () => {
 		expect(emailHash("Nadia@Example.com")).toBe(emailHash("nadia@example.com"));
+	});
+
+	/**
+	 * And deliberately *not* for anything else. CEL's `lower()` leaves non-ASCII
+	 * letters alone, and this function may only fold what the rule folds: the
+	 * rules compare their hash of your token email against the entry you wrote,
+	 * so a client that folded further would be refused its own
+	 * `memberEmailHashes` entry — locking a user out of creating or joining any
+	 * home at all. `normalizeEmail` is where a typed address gets folded instead.
+	 */
+	it("leaves non-ASCII case alone, exactly as CEL's lower() does", () => {
+		expect(emailHash("MÄRTA@exempel.se")).not.toBe(
+			emailHash("märta@exempel.se"),
+		);
+		expect(emailHash("MÄRTA@exempel.se")).toBe(emailHash("mÄRTA@exempel.se"));
 	});
 
 	it("ignores surrounding whitespace, which a paste brings along", () => {
@@ -56,6 +72,24 @@ describe("emailHash", () => {
 
 	it("distinguishes two addresses", () => {
 		expect(emailHash("a@example.com")).not.toBe(emailHash("b@example.com"));
+	});
+});
+
+describe("normalizeEmail", () => {
+	it("folds what a person typed, non-ASCII included", () => {
+		// The half `emailHash` may not do: an owner typing "Märta@Exempel.se" has
+		// to reach an invitee whose Google address is `märta@exempel.se`.
+		expect(normalizeEmail("  MÄRTA@Exempel.SE ")).toBe("märta@exempel.se");
+	});
+
+	it("leaves an already-normal address untouched", () => {
+		expect(normalizeEmail("nadia@example.com")).toBe("nadia@example.com");
+	});
+
+	it("composes with emailHash to reach a lowercase address", () => {
+		expect(emailHash(normalizeEmail("MÄRTA@Exempel.se"))).toBe(
+			emailHash("märta@exempel.se"),
+		);
 	});
 });
 

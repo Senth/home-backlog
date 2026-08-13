@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Button, Text } from "react-native-paper";
@@ -43,6 +43,8 @@ export function DangerZone({ home, myUid, onError }: DangerZoneProps) {
 
 	const [confirmLeave, setConfirmLeave] = useState(false);
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const leaveButtonRef = useRef<View | null>(null);
+	const deleteButtonRef = useRef<View | null>(null);
 
 	const alone = Object.keys(home.members).length === 1;
 	const trapped = isLastOwner(home, myUid);
@@ -62,6 +64,7 @@ export function DangerZone({ home, myUid, onError }: DangerZoneProps) {
 	return (
 		<View style={{ gap: space.sm }}>
 			<Button
+				ref={leaveButtonRef}
 				icon="exit-to-app"
 				onPress={() => setConfirmLeave(true)}
 				disabled={trapped}
@@ -83,6 +86,7 @@ export function DangerZone({ home, myUid, onError }: DangerZoneProps) {
 			) : null}
 
 			<Button
+				ref={deleteButtonRef}
 				icon="delete-outline"
 				onPress={() => setConfirmDelete(true)}
 				disabled={!alone}
@@ -115,6 +119,7 @@ export function DangerZone({ home, myUid, onError }: DangerZoneProps) {
 				confirmLabel={t("manageHome.leave")}
 				destructive
 				testID={leaveDialogTestID}
+				returnFocusTo={leaveButtonRef}
 			/>
 
 			<ConfirmDialog
@@ -129,6 +134,7 @@ export function DangerZone({ home, myUid, onError }: DangerZoneProps) {
 				confirmLabel={t("manageHome.deleteConfirm")}
 				destructive
 				testID={deleteDialogTestID}
+				returnFocusTo={deleteButtonRef}
 			/>
 		</View>
 	);

@@ -50,7 +50,6 @@ export default function ManageHome() {
 
 	const [name, setName] = useState<string | null>(null);
 	const [nameError, setNameError] = useState<HomeNameError | null>(null);
-	const [saving, setSaving] = useState(false);
 	const [notice, setNotice] = useState<string | null>(null);
 
 	// Uncontrolled until the first keystroke, so a rename by somebody else
@@ -59,24 +58,25 @@ export default function ManageHome() {
 	const nameValue = name ?? home?.name ?? "";
 	const dirty = name !== null && name !== home?.name;
 
-	const save = async () => {
+	/**
+	 * Renaming queues like any other edit, so this does **not** wait on the
+	 * write. Firestore applies it locally at once and the listener already shows
+	 * the new name; awaiting the server would leave the button spinning for the
+	 * whole time somebody is offline, over a change that has visibly happened.
+	 */
+	const save = () => {
 		const problem = homeNameError(nameValue);
 		if (problem !== null || home === null) {
 			setNameError(problem);
 			return;
 		}
 
-		setSaving(true);
-		try {
-			await renameHome(home.id, nameValue);
-			setName(null);
-			setNotice("manageHome.saved");
-		} catch (reason) {
+		renameHome(home.id, nameValue).catch((reason) => {
 			console.error("Could not rename the home:", reason);
 			setNotice("error.saveFailed");
-		} finally {
-			setSaving(false);
-		}
+		});
+		setName(null);
+		setNotice("manageHome.saved");
 	};
 
 	return (
@@ -127,8 +127,7 @@ export default function ManageHome() {
 							<Button
 								mode="contained"
 								onPress={save}
-								loading={saving}
-								disabled={saving || !dirty}
+								disabled={!dirty}
 								contentStyle={{ minHeight: touchTarget }}
 							>
 								{t("manageHome.save")}

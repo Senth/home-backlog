@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { Chip, IconButton, List, Menu, Text } from "react-native-paper";
+import { Chip, IconButton, Menu, Text } from "react-native-paper";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
+import { Row } from "@/components/ui/Row";
 import { removeMember, setMemberRole } from "@/data/homes";
 import {
 	type Home,
@@ -84,6 +85,7 @@ function MemberRow({
 	const theme = useAppTheme();
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [confirmRemove, setConfirmRemove] = useState(false);
+	const menuAnchorRef = useRef<View | null>(null);
 
 	const isMe = member.uid === myUid;
 	const lastOwner = isLastOwner(home, member.uid);
@@ -99,20 +101,17 @@ function MemberRow({
 
 	return (
 		<>
-			<List.Item
+			<Row
 				title={name}
 				description={isMe ? t("members.you") : undefined}
-				style={{ minHeight: touchTarget }}
-				left={() => (
-					<View style={{ justifyContent: "center", paddingLeft: space.sm }}>
-						<PersonAvatar
-							name={name}
-							photoURL={member.photoURL}
-							px={size.avatarSm}
-						/>
-					</View>
-				)}
-				right={() => (
+				left={
+					<PersonAvatar
+						name={name}
+						photoURL={member.photoURL}
+						px={size.avatarSm}
+					/>
+				}
+				right={
 					<View
 						style={{
 							flexDirection: "row",
@@ -132,13 +131,14 @@ function MemberRow({
 								anchorPosition="bottom"
 								anchor={
 									<IconButton
+										ref={menuAnchorRef}
 										icon="dots-vertical"
-										accessibilityLabel={t("members.title")}
+										accessibilityLabel={t("members.manage", { name })}
 										onPress={() => setMenuOpen(true)}
 										style={{
 											width: touchTarget,
 											height: touchTarget,
-											margin: 0,
+											margin: space.none,
 										}}
 									/>
 								}
@@ -197,7 +197,7 @@ function MemberRow({
 							</Menu>
 						) : null}
 					</View>
-				)}
+				}
 			/>
 
 			<ConfirmDialog
@@ -212,6 +212,9 @@ function MemberRow({
 				confirmLabel={t("members.remove")}
 				destructive
 				testID={`${removeDialogTestID}-${member.uid}`}
+				// Back to the menu button on cancel. On confirm the row is gone and
+				// the node detached, which `useModalFocus` already falls back from.
+				returnFocusTo={menuAnchorRef}
 			/>
 		</>
 	);

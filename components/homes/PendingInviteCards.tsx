@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import type { User } from "firebase/auth";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Button, Card, Text } from "react-native-paper";
@@ -17,7 +17,10 @@ const declineDialogTestID = "decline-invite-dialog";
 interface PendingInviteCardsProps {
 	invites: readonly Invite[];
 	user: User;
-	onError: () => void;
+	/** The home id a Join is waiting on, owned by the screen — see below. */
+	joining: string | null;
+	onJoining: (homeId: string | null) => void;
+	onError: (key: string) => void;
 }
 
 /**
@@ -35,13 +38,19 @@ interface PendingInviteCardsProps {
  * here, in post-auth form, on the card.
  *
  * Joining cannot be optimistic. `acceptsInvite()` is evaluated on the server, so
- * a queued write would show membership locally and then revert — which is why
- * the button holds its pending state until the new home has actually arrived on
- * the homes listener, and only then carries you into it.
+ * a queued write would show membership locally and then revert — the button
+ * holds its pending state until the new home has actually arrived on the homes
+ * listener, and only then carries you into it.
+ *
+ * That pending state belongs to the *screen*, not to this component: accepting
+ * deletes the invitation, the delete applies locally at once, and a component
+ * that unmounted with the last invitation would take the waiting effect with it.
  */
 export function PendingInviteCards({
 	invites,
 	user,
+	joining,
+	onJoining,
 	onError,
 }: PendingInviteCardsProps) {
 	const { t } = useTranslation();
@@ -50,11 +59,11 @@ export function PendingInviteCards({
 	const online = useOnlineStatus();
 	const { homes, setActiveHome } = useHome();
 
-	const [joining, setJoining] = useState<string | null>(null);
 	const [declining, setDeclining] = useState<Invite | null>(null);
+	const declineAnchorRef = useRef<View | null>(null);
 
-	// Not navigation-as-a-side-effect-of-a-write, but as a consequence of the
-	// membership being *visible*: `(tabs)` sends you straight back here if the
+	// Not navigation as a side effect of a write, but as a consequence of the
+	// membership being *visible*: `(tabs)` sends you straight back here while the
 	// home is not on the listener yet, and that bounce is what routing on the
 	// resolved promise alone would produce.
 	useEffect(() => {
@@ -62,20 +71,18 @@ export function PendingInviteCards({
 		if (!homes.some((home) => home.id === joining)) return;
 
 		setActiveHome(joining);
-		setJoining(null);
+		onJoining(null);
 		router.replace("/(app)/(tabs)/projects");
-	}, [joining, homes, setActiveHome, router]);
-
-	if (invites.length === 0) return null;
+	}, [joining, homes, setActiveHome, onJoining, router]);
 
 	const join = async (invite: Invite) => {
-		setJoining(invite.homeId);
+		onJoining(invite.homeId);
 		try {
 			await acceptInvite(user, invite);
 		} catch (reason) {
 			console.error("Could not join the home:", reason);
-			setJoining(null);
-			onError();
+			onJoining(null);
+			onError("invite.failed");
 		}
 	};
 
@@ -85,8 +92,10 @@ export function PendingInviteCards({
 		if (!invite) return;
 
 		declineInvite(invite).catch((reason) => {
+			// Not `invite.failed` — "Could not join" is the wrong sentence for an
+			// invitation the person was trying to get rid of.
 			console.error("Could not decline the invitation:", reason);
-			onError();
+			onError("error.saveFailed");
 		});
 	};
 
@@ -118,6 +127,7 @@ export function PendingInviteCards({
 						</Card.Content>
 						<Card.Actions>
 							<Button
+								ref={declineAnchorRef}
 								onPress={() => setDeclining(invite)}
 								disabled={busy || !online}
 								textColor={theme.colors.onSurfaceVariant}
@@ -150,6 +160,7 @@ export function PendingInviteCards({
 				confirmLabel={t("invite.decline")}
 				destructive
 				testID={declineDialogTestID}
+				returnFocusTo={declineAnchorRef}
 			/>
 		</View>
 	);

@@ -14,6 +14,14 @@ export const OWNER = { uid: "uid-owner", email: "owner@example.com" };
 export const MEMBER = { uid: "uid-member", email: "member@example.com" };
 export const INVITEE = { uid: "uid-invitee", email: "Invitee@Example.com" };
 export const OUTSIDER = { uid: "uid-outsider", email: "nobody@example.com" };
+/**
+ * An uppercase non-ASCII address, which is the one case where the two sides of
+ * the hash could silently disagree: `firestore.rules` folds case with CEL's
+ * `lower()` and the client with JavaScript's `toLowerCase()`. If those differ on
+ * Ä, a Swedish invitee never finds an invitation that was really sent, and
+ * nothing on screen can explain why.
+ */
+export const NORDIC = { uid: "uid-nordic", email: "MÄRTA@exempel.se" };
 
 export interface TestUser {
 	uid: string;
@@ -24,9 +32,14 @@ export interface TestUser {
  * Mirrors the `emailHash()` function in firestore.rules: SHA-256 of the
  * lowercased email, lowercase hex. If these two ever disagree, an invitee
  * cannot find their own invite.
+ *
+ * The fold is **ASCII only**, because CEL's `lower()` is — `toLowerCase()` here
+ * would quietly pass every ASCII test while disagreeing with the rule on Ä, and
+ * the one case that matters is the one it would not cover.
  */
 export function emailHash(email: string): string {
-	return createHash("sha256").update(email.toLowerCase()).digest("hex");
+	const lowered = email.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+	return createHash("sha256").update(lowered).digest("hex");
 }
 
 export function ownerAndMember(): Record<string, string> {
@@ -80,7 +93,14 @@ export function homeDoc(
 	};
 }
 
-/** An invite document, keyed elsewhere by the same hash it carries as a field. */
+/**
+ * An invite document, keyed elsewhere by the same hash it carries as a field.
+ *
+ * `createdAt` is not decoration: the owner's pending list orders by it, and a
+ * Firestore query on a field drops every document that lacks it — so a seed
+ * without one would pass these tests while being invisible to the query the app
+ * actually runs.
+ */
 export function inviteDoc(
 	email: string,
 	role = "member",
@@ -91,6 +111,7 @@ export function inviteDoc(
 		role,
 		homeName: "Home",
 		invitedByName: "Owner",
+		createdAt: new Date("2026-01-01T00:00:00Z"),
 	};
 }
 

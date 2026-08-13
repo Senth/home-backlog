@@ -55,6 +55,17 @@ export default function Homes() {
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const createButtonRef = useRef<View | null>(null);
+	/**
+	 * Which home a Join is waiting on, held *here* rather than inside the cards.
+	 *
+	 * Accepting deletes the invitation, and that delete applies locally the
+	 * instant it is issued — so the invites list empties before the new home has
+	 * arrived on the homes listener, which needs a server round-trip. If the
+	 * cards owned this state, the section would unmount and take with it the very
+	 * effect that waits for the home, stranding the invitee on this screen with
+	 * no spinner and no explanation.
+	 */
+	const [joining, setJoining] = useState<string | null>(null);
 
 	const closeCreate = useCallback(() => setCreateOpen(false), []);
 
@@ -77,6 +88,10 @@ export default function Homes() {
 			setNameError(problem);
 			return;
 		}
+		// The button is disabled offline, but Enter in the field reaches here
+		// anyway — and the write below would then never settle, leaving the
+		// dialog spinning with nothing to say.
+		if (!online) return;
 
 		setSaving(true);
 		try {
@@ -149,12 +164,14 @@ export default function Homes() {
 										) : null}
 										<IconButton
 											icon="chevron-right"
-											accessibilityLabel={t("manageHome.title")}
+											accessibilityLabel={t("manageHome.manageNamed", {
+												home: home.name,
+											})}
 											onPress={() => router.push(`/homes/${home.id}`)}
 											style={{
 												width: touchTarget,
 												height: touchTarget,
-												margin: 0,
+												margin: space.none,
 											}}
 										/>
 									</View>
@@ -164,13 +181,17 @@ export default function Homes() {
 					</List.Section>
 				)}
 
-				{user && invites.length > 0 ? (
+				{/* `joining` keeps this mounted after the invitation is consumed —
+				    see the state's own comment. */}
+				{user && (invites.length > 0 || joining !== null) ? (
 					<>
 						<Divider />
 						<PendingInviteCards
 							invites={invites}
 							user={user}
-							onError={() => setError("invite.failed")}
+							joining={joining}
+							onJoining={setJoining}
+							onError={setError}
 						/>
 					</>
 				) : null}
@@ -206,25 +227,25 @@ export default function Homes() {
 				title={t("homes.create")}
 				testID={createDialogTestID}
 				returnFocusTo={createButtonRef}
-				actions={
-					<>
-						<Button
-							onPress={closeCreate}
-							textColor={theme.colors.onSurfaceVariant}
-							contentStyle={{ minHeight: touchTarget }}
-						>
-							{t("common.cancel")}
-						</Button>
-						<Button
-							onPress={submitCreate}
-							loading={saving}
-							disabled={saving}
-							contentStyle={{ minHeight: touchTarget }}
-						>
-							{t("homes.createAction")}
-						</Button>
-					</>
-				}
+				actions={[
+					<Button
+						key="cancel"
+						onPress={closeCreate}
+						textColor={theme.colors.onSurfaceVariant}
+						contentStyle={{ minHeight: touchTarget }}
+					>
+						{t("common.cancel")}
+					</Button>,
+					<Button
+						key="create"
+						onPress={submitCreate}
+						loading={saving}
+						disabled={saving}
+						contentStyle={{ minHeight: touchTarget }}
+					>
+						{t("homes.createAction")}
+					</Button>,
+				]}
 			>
 				<TextInput
 					mode="outlined"

@@ -77,7 +77,8 @@
 		"pendingTitle": "Skickade inbjudningar",
 		"revoke": "Ta tillbaka",
 		"revokeTitle": "Ta tillbaka inbjudan?",
-		"revokeBody": "{{email}} kan inte längre gå med."
+		"revokeBody": "{{email}} kan inte längre gå med.",
+		"revokeFor": "Ta tillbaka inbjudan till {{email}}"
 	},
 	"members": {
 		"title": "Medlemmar",
@@ -90,7 +91,8 @@
 		"remove": "Ta bort från hemmet",
 		"removeTitle": "Ta bort {{name}}?",
 		"removeBody": "Hen förlorar åtkomst till hemmet. Sådant som bara hen kunde se — hens privata uppgifter — försvinner för alla.",
-		"lastAdmin": "Gör någon annan till administratör först."
+		"lastAdmin": "Gör någon annan till administratör först.",
+		"manage": "Hantera {{name}}"
 	},
 	"manageHome": {
 		"title": "Hantera hem",
@@ -103,7 +105,8 @@
 		"deleteTitle": "Radera {{home}}?",
 		"deleteBody": "Alla projekt, platser och underhåll i det raderas. Det går inte att ångra.",
 		"deleteConfirm": "Radera",
-		"deleteOnlyAlone": "Ta bort alla andra först."
+		"deleteOnlyAlone": "Ta bort alla andra först.",
+		"manageNamed": "Hantera {{home}}"
 	},
 	"error": {
 		"googleSignIn": "Kunde inte logga in med Google. Försök igen.",

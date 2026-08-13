@@ -66,6 +66,9 @@ export function InviteForm({
 	const submit = async () => {
 		setSettled(true);
 		if (problem !== null) return;
+		// The button is disabled offline, but Enter in the field reaches here
+		// anyway — and `setDoc` would never settle, leaving the form spinning.
+		if (!online) return;
 
 		setSending(true);
 		try {

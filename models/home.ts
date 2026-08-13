@@ -70,6 +70,24 @@ export interface Invite {
 }
 
 /**
+ * Lowercase, **ASCII only** — exactly what CEL's `lower()` does.
+ *
+ * Not a simplification: `firestore.rules` folds case with `lower()`, which
+ * leaves every non-ASCII letter alone, and `String.prototype.toLowerCase()` does
+ * not. Using the JavaScript one would make `emailHash()` disagree with the rules
+ * for any address containing an uppercase Ä, Ö or Å — and the rules compare
+ * *their* hash of your token email against the one you wrote, so the disagreement
+ * would refuse you your own `memberEmailHashes` entry. A Swedish user whose
+ * Google address carried one could not create a home, could not accept an
+ * invitation, and would see nothing but a failure with no cause.
+ *
+ * `tests/rules/firestore.test.ts` proves the two agree, with a non-ASCII address.
+ */
+function lowerAscii(value: string): string {
+	return value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+}
+
+/**
  * The invite's document id, and the value of its `emailHash` field.
  *
  * Both, because `documentId()` in a collection-group query compares the *full
@@ -78,7 +96,20 @@ export interface Invite {
  * — finds their invitation only by querying the field.
  */
 export function emailHash(email: string): string {
-	return sha256Hex(email.trim().toLowerCase());
+	return sha256Hex(lowerAscii(email.trim()));
+}
+
+/**
+ * A typed address, folded to the form an identity provider reports.
+ *
+ * This is the *other* half of the case problem. `emailHash()` may only fold what
+ * the rules fold, but an owner typing "Märta@Exempel.se" still has to reach an
+ * invitee whose Google address is `märta@exempel.se`. So what a human types is
+ * fully lowercased once, here, before it is ever hashed or stored — and the
+ * hashing itself stays an exact mirror of the rule.
+ */
+export function normalizeEmail(value: string): string {
+	return value.trim().toLowerCase();
 }
 
 /** Longest name a home may have, matched by `validHome()` in `firestore.rules`. */
@@ -131,7 +162,7 @@ export function inviteProblem(
 	myUid: string,
 	invitedHashes: readonly string[],
 ): InviteProblem | null {
-	const typed = address.trim();
+	const typed = normalizeEmail(address);
 	if (!isEmailAddress(typed)) return { key: "invite.invalidEmail" };
 
 	const hash = emailHash(typed);

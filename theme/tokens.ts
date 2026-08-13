@@ -7,8 +7,11 @@
  * literal appears outside `theme/`. See `CLAUDE.md`.
  */
 
-/** Spacing scale. 4pt grid, matching Material 3's density steps. */
+/** Spacing scale. 4pt grid, matching Material 3's density steps. `none` exists
+ *  so that *removing* a component's own default margin is still a token — Paper
+ *  ships `IconButton` with one, and a bare `0` is the literal this file bans. */
 export const space = {
+	none: 0,
 	xs: 4,
 	sm: 8,
 	md: 16,

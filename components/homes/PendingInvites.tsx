@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { IconButton, List, Text } from "react-native-paper";
+import { IconButton, Text } from "react-native-paper";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
+import { Row } from "@/components/ui/Row";
 import { revokeInvite } from "@/data/homes";
 import type { Invite } from "@/models/home";
 import { formatElapsed } from "@/models/relative-time";
@@ -27,6 +28,7 @@ interface PendingInvitesProps {
 export function PendingInvites({ invites, onError }: PendingInvitesProps) {
 	const { t, i18n } = useTranslation();
 	const [revoking, setRevoking] = useState<Invite | null>(null);
+	const revokeAnchorRef = useRef<View | null>(null);
 
 	if (invites.length === 0) return null;
 
@@ -47,7 +49,7 @@ export function PendingInvites({ invites, onError }: PendingInvitesProps) {
 
 			<View>
 				{invites.map((invite) => (
-					<List.Item
+					<Row
 						key={`${invite.homeId}-${invite.emailHash}`}
 						title={invite.email}
 						// Null until the server acknowledges `serverTimestamp()`, which
@@ -62,16 +64,21 @@ export function PendingInvites({ invites, onError }: PendingInvitesProps) {
 									)
 								: undefined
 						}
-						style={{ minHeight: touchTarget }}
-						left={(props) => <List.Icon {...props} icon="email-outline" />}
-						right={() => (
+						right={
 							<IconButton
+								ref={revokeAnchorRef}
 								icon="close"
-								accessibilityLabel={t("invite.revoke")}
+								accessibilityLabel={t("invite.revokeFor", {
+									email: invite.email,
+								})}
 								onPress={() => setRevoking(invite)}
-								style={{ width: touchTarget, height: touchTarget, margin: 0 }}
+								style={{
+									width: touchTarget,
+									height: touchTarget,
+									margin: space.none,
+								}}
 							/>
-						)}
+						}
 					/>
 				))}
 			</View>
@@ -85,6 +92,7 @@ export function PendingInvites({ invites, onError }: PendingInvitesProps) {
 				confirmLabel={t("invite.revoke")}
 				destructive
 				testID={revokeDialogTestID}
+				returnFocusTo={revokeAnchorRef}
 			/>
 		</View>
 	);

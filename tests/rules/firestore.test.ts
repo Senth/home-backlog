@@ -28,6 +28,7 @@ import {
 	INVITEE,
 	inviteDoc,
 	MEMBER,
+	NORDIC,
 	OUTSIDER,
 	OWNER,
 	ownerAndMember,
@@ -415,6 +416,28 @@ describe("invites", () => {
 		);
 		await assertSucceeds(
 			setDoc(doc(dbAs(env, OWNER), freshPath), inviteDoc(fresh)),
+		);
+	});
+
+	it("folds a non-ASCII address the same way the client does", async () => {
+		// The rules hash `request.auth.token.email.lower()` (CEL) and the client
+		// hashes `email.toLowerCase()` (JavaScript). Everything ASCII agrees; this
+		// is the case that would fail quietly, for Swedish addresses only, with an
+		// invitee who can never find an invitation that was really sent.
+		await seedHome();
+		const path = `${homePath}/invites/${emailHash(NORDIC.email)}`;
+		await seed(env, async (db) => {
+			await setDoc(doc(db, path), inviteDoc(NORDIC.email));
+		});
+
+		await assertSucceeds(getDoc(doc(dbAs(env, NORDIC), path)));
+		await assertSucceeds(
+			getDocs(
+				query(
+					collectionGroup(dbAs(env, NORDIC), "invites"),
+					where("emailHash", "==", emailHash(NORDIC.email)),
+				),
+			),
 		);
 	});
 

@@ -8,6 +8,7 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 import { homesQuery, profileOf, saveMyProfile, toHome } from "@/data/homes";
@@ -131,9 +132,27 @@ export function HomeProvider({
 	// *else* sees you, and nothing else would ever update it after you change
 	// your Google profile. Written only where it actually differs, so this is
 	// silent in every session but the one after a change.
+	//
+	// Once per home per session, and no more. A write the rules refuse — an
+	// account with no email hashes the empty string, which `ownHashIsOwn()`
+	// rejects — is rolled back by Firestore, the rollback is a snapshot, the
+	// snapshot re-runs this effect, and the same doomed write goes out again,
+	// forever, saying nothing but a console warning. Attempting once turns that
+	// loop into a single logged failure.
+	const profileAttempts = useRef<{ uid: string; homeIds: Set<string> }>({
+		uid,
+		homeIds: new Set(),
+	});
+
 	useEffect(() => {
 		const profile = profileOf(user);
 		const hash = emailHash(user.email ?? "");
+
+		// A different person signing in gets their own attempt in every home.
+		if (profileAttempts.current.uid !== uid) {
+			profileAttempts.current = { uid, homeIds: new Set() };
+		}
+		const attempted = profileAttempts.current.homeIds;
 
 		for (const home of homes) {
 			const known = home.memberProfiles[uid];
@@ -142,7 +161,8 @@ export function HomeProvider({
 				known?.photoURL !== profile.photoURL ||
 				home.memberEmailHashes[uid] !== hash;
 
-			if (!isStale) continue;
+			if (!isStale || attempted.has(home.id)) continue;
+			attempted.add(home.id);
 
 			saveMyProfile(home.id, user).catch((reason) => {
 				// Handled: a stale display name is cosmetic, and retried next launch.
