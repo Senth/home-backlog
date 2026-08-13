@@ -9,9 +9,9 @@ Web-first PWA via Expo + React Native Web; Android and iOS builds later.
 - **Vision, requirements, decisions, architecture** — [`docs/PROJECT.md`](docs/PROJECT.md)
 - **Working agreements for AI assistants** — [`CLAUDE.md`](CLAUDE.md)
 - **User personas** — [`docs/PERSONAS.md`](docs/PERSONAS.md), the cast used by the
-  `homeowner-review` and `ux-review` agents
+  `homeowner-review` agent at spec time
 - **Review gate** — [`/review`](.claude/skills/review/SKILL.md) hands every change to
-  `code-review`, `ux-review` and `qa-review`, three agents that did not write it
+  `code-review`, then `browser-review` in a real browser — agents that did not write it
 - **Tasks** — GitHub Issues + the Kanban board; [`TODO.md`](TODO.md) is a generated mirror
 
 ## Stack

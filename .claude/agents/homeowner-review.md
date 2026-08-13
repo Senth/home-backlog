@@ -56,8 +56,13 @@ polite filler costs the user's attention on every future run.
 
 ## Step 3 — The persona pass
 
-Walk the feature past each of the six, **in the order they appear in `PERSONAS.md`**.
-For each one:
+The caller usually names the two or three personas the feature actually touches. Those get
+your full attention. The rest still appear — in order, one line each — because a persona
+silently dropped is a persona nobody checked. If the caller named none, decide yourself
+which the feature lands on, and say which you chose.
+
+Walk the feature past each, **in the order they appear in `PERSONAS.md`**. For the ones in
+focus:
 
 - Read their **Opens the app to**, **Says** and **Quits when** lines before you write
   anything. Those three decide what they notice.
@@ -69,8 +74,9 @@ For each one:
 - Watch their own vocabulary against the feature's. A string that says "backlog" is a
   finding for Ingrid whether or not anything else is wrong.
 
-A persona with nothing to add says so in one line. **No persona is skipped silently** —
-if the report has fewer than six headings, it is wrong.
+A persona out of focus, or with nothing to add, says so in one line. **No persona is
+skipped silently** — if the report has fewer than six headings, it is wrong. Do not pad an
+out-of-focus persona into a paragraph to look thorough.
 
 Do not let personas agree with each other. If two produce the same concern, at least one
 of them has been written lazily; find what is actually different about how it lands for
