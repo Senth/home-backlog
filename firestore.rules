@@ -27,6 +27,12 @@ service cloud.firestore {
 
     // Invites are keyed by the SHA-256 of the lowercased invitee email so the
     // address itself never has to be readable by other members.
+    //
+    // `lower()` is **ASCII-only**, and `lowerAscii()` in `models/home.ts` mirrors
+    // it deliberately. Do not widen either side alone: this hash is compared
+    // against the `memberEmailHashes` entry a client wrote, so a client that
+    // folded further would be refused its own entry — and that entry is required
+    // to create a home and to accept an invitation.
     function emailHash() {
       return hashing.sha256(request.auth.token.email.lower()).toHexString().lower();
     }

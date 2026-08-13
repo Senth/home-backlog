@@ -76,6 +76,19 @@ export const size = {
 export const touchTarget = 48;
 
 /**
+ * Line height for a `SegmentedButtons` label, and the only way to make that
+ * control meet `touchTarget`.
+ *
+ * Paper hard-codes `paddingVertical: 9` on the segment's content and exposes no
+ * `contentStyle`, `hitSlop` that web honours, or any other prop that reaches the
+ * pressable — `density` only makes it smaller. The ripple is therefore exactly
+ * as tall as its label box, and growing the label is what grows the target:
+ * 9 + 30 + 9 = 48. A plain `minHeight` on the segment inflates the *box* and
+ * leaves the pressable at 38, which is the bug this exists to fix.
+ */
+export const segmentedLabelLineHeight = 30;
+
+/**
  * The keyboard focus indicator. Chrome's default is a 1 px near-black ring,
  * which all but disappears against a dark app bar — and the focus ring is the
  * one affordance a keyboard user cannot do without. Web-only: there is no Tab

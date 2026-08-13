@@ -11,9 +11,14 @@ import {
 } from "react-native-paper";
 import { sendInvite } from "@/data/homes";
 import { useOnlineStatus } from "@/hooks/use-online-status";
-import { type Home, inviteProblem, type Role } from "@/models/home";
+import {
+	type Home,
+	inviteProblem,
+	normalizeEmail,
+	type Role,
+} from "@/models/home";
 import { useAppTheme } from "@/theme";
-import { space, touchTarget } from "@/theme/tokens";
+import { segmentedLabelLineHeight, space, touchTarget } from "@/theme/tokens";
 
 interface InviteFormProps {
 	home: Home;
@@ -73,7 +78,9 @@ export function InviteForm({
 		setSending(true);
 		try {
 			await sendInvite(home, inviter, email, role);
-			onSent(email.trim());
+			// The stored address is the folded one, so the confirmation must name
+			// that and not the casing that happened to be typed.
+			onSent(normalizeEmail(email));
 			setEmail("");
 			setRole("member");
 			setSettled(false);
@@ -114,6 +121,9 @@ export function InviteForm({
 				) : null}
 			</View>
 
+			{/* `labelStyle`, not `style`: the segment's pressable is exactly as tall
+			    as its label box, so a `minHeight` here would inflate the box and
+			    leave the tappable area at 38. See `segmentedLabelLineHeight`. */}
 			<SegmentedButtons
 				value={role}
 				onValueChange={(value) => setRole(value as Role)}
@@ -121,12 +131,12 @@ export function InviteForm({
 					{
 						value: "member",
 						label: t("members.roleMember"),
-						style: { minHeight: touchTarget },
+						labelStyle: { lineHeight: segmentedLabelLineHeight },
 					},
 					{
 						value: "owner",
 						label: t("members.roleOwner"),
-						style: { minHeight: touchTarget },
+						labelStyle: { lineHeight: segmentedLabelLineHeight },
 					},
 				]}
 			/>
@@ -136,7 +146,9 @@ export function InviteForm({
 				icon="email-plus-outline"
 				onPress={submit}
 				loading={sending}
-				disabled={sending || !online || email.trim() === ""}
+				// Also while the address is unusable. Leaving it green and inert
+				// makes a validation message look like something you may ignore.
+				disabled={sending || !online || email.trim() === "" || problem !== null}
 				contentStyle={{ minHeight: touchTarget }}
 			>
 				{t("invite.send")}

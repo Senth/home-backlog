@@ -3,7 +3,7 @@ import type { User } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { Button, Card, Text } from "react-native-paper";
+import { ActivityIndicator, Button, Card, Text } from "react-native-paper";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { useHome } from "@/contexts/HomeContext";
 import { acceptInvite, declineInvite } from "@/data/homes";
@@ -38,13 +38,15 @@ interface PendingInviteCardsProps {
  * here, in post-auth form, on the card.
  *
  * Joining cannot be optimistic. `acceptsInvite()` is evaluated on the server, so
- * a queued write would show membership locally and then revert — the button
- * holds its pending state until the new home has actually arrived on the homes
+ * a queued write would show membership locally and then revert — so the *screen*
+ * holds the pending state until the new home has actually arrived on the homes
  * listener, and only then carries you into it.
  *
- * That pending state belongs to the *screen*, not to this component: accepting
- * deletes the invitation, the delete applies locally at once, and a component
- * that unmounted with the last invitation would take the waiting effect with it.
+ * It has to be the screen and not this component: accepting deletes the
+ * invitation, that delete applies locally at once, and a component that
+ * unmounted with the last invitation would take the waiting effect with it. For
+ * the same reason the invitation being joined is gone from `invites` while the
+ * write is still in flight, which is what the standalone waiting card is for.
  */
 export function PendingInviteCards({
 	invites,
@@ -54,13 +56,8 @@ export function PendingInviteCards({
 	onError,
 }: PendingInviteCardsProps) {
 	const { t } = useTranslation();
-	const theme = useAppTheme();
 	const router = useRouter();
-	const online = useOnlineStatus();
 	const { homes, setActiveHome } = useHome();
-
-	const [declining, setDeclining] = useState<Invite | null>(null);
-	const declineAnchorRef = useRef<View | null>(null);
 
 	// Not navigation as a side effect of a write, but as a consequence of the
 	// membership being *visible*: `(tabs)` sends you straight back here while the
@@ -86,11 +83,65 @@ export function PendingInviteCards({
 		}
 	};
 
-	const confirmDecline = () => {
-		const invite = declining;
-		setDeclining(null);
-		if (!invite) return;
+	const waitingAlone =
+		joining !== null && !invites.some((invite) => invite.homeId === joining);
 
+	return (
+		<View style={{ gap: space.sm }}>
+			{invites.map((invite) => (
+				<PendingInviteCard
+					key={`${invite.homeId}-${invite.emailHash}`}
+					invite={invite}
+					busy={joining === invite.homeId}
+					onJoin={() => join(invite)}
+					onError={onError}
+				/>
+			))}
+
+			{/* The invitation is already deleted locally while the membership write
+			    is still on its way back, so without this the section would go blank
+			    for the length of a round-trip and then simply navigate. */}
+			{waitingAlone ? (
+				<Card mode="outlined">
+					<Card.Content
+						style={{
+							flexDirection: "row",
+							alignItems: "center",
+							gap: space.md,
+						}}
+					>
+						<ActivityIndicator accessibilityLabel={t("invite.joining")} />
+						<Text variant="bodyLarge">{t("invite.joining")}</Text>
+					</Card.Content>
+				</Card>
+			) : null}
+		</View>
+	);
+}
+
+/**
+ * One invitation, owning its own decline dialog and anchor ref — a ref beside
+ * the `.map()` would hold whichever card rendered last.
+ */
+function PendingInviteCard({
+	invite,
+	busy,
+	onJoin,
+	onError,
+}: {
+	invite: Invite;
+	busy: boolean;
+	onJoin: () => void;
+	onError: (key: string) => void;
+}) {
+	const { t } = useTranslation();
+	const theme = useAppTheme();
+	const online = useOnlineStatus();
+	const [confirming, setConfirming] = useState(false);
+	const declineRef = useRef<View | null>(null);
+
+	const confirmDecline = () => {
+		setConfirming(false);
 		declineInvite(invite).catch((reason) => {
 			// Not `invite.failed` — "Could not join" is the wrong sentence for an
 			// invitation the person was trying to get rid of.
@@ -100,68 +151,58 @@ export function PendingInviteCards({
 	};
 
 	return (
-		<View style={{ gap: space.sm }}>
-			{invites.map((invite) => {
-				const busy = joining === invite.homeId;
-
-				return (
-					<Card key={`${invite.homeId}-${invite.emailHash}`} mode="outlined">
-						<Card.Content>
-							<Text variant="bodyLarge">
-								{t("invite.pending", {
-									inviter: invite.invitedByName,
-									home: invite.homeName,
-								})}
-							</Text>
-							{online ? null : (
-								<Text
-									variant="bodyMedium"
-									style={{
-										color: theme.colors.onSurfaceVariant,
-										paddingTop: space.xs,
-									}}
-								>
-									{t("invite.offlineHint")}
-								</Text>
-							)}
-						</Card.Content>
-						<Card.Actions>
-							<Button
-								ref={declineAnchorRef}
-								onPress={() => setDeclining(invite)}
-								disabled={busy || !online}
-								textColor={theme.colors.onSurfaceVariant}
-								contentStyle={{ minHeight: touchTarget }}
-							>
-								{t("invite.decline")}
-							</Button>
-							<Button
-								mode="contained"
-								onPress={() => join(invite)}
-								loading={busy}
-								disabled={busy || !online}
-								contentStyle={{ minHeight: touchTarget }}
-							>
-								{busy ? t("invite.joining") : t("invite.join")}
-							</Button>
-						</Card.Actions>
-					</Card>
-				);
-			})}
+		<Card mode="outlined">
+			<Card.Content>
+				<Text variant="bodyLarge">
+					{t("invite.pending", {
+						inviter: invite.invitedByName,
+						home: invite.homeName,
+					})}
+				</Text>
+				{online ? null : (
+					<Text
+						variant="bodyMedium"
+						style={{
+							color: theme.colors.onSurfaceVariant,
+							paddingTop: space.xs,
+						}}
+					>
+						{t("invite.offlineHint")}
+					</Text>
+				)}
+			</Card.Content>
+			<Card.Actions>
+				<Button
+					ref={declineRef}
+					onPress={() => setConfirming(true)}
+					disabled={busy || !online}
+					textColor={theme.colors.onSurfaceVariant}
+					contentStyle={{ minHeight: touchTarget }}
+				>
+					{t("invite.decline")}
+				</Button>
+				<Button
+					mode="contained"
+					onPress={onJoin}
+					loading={busy}
+					disabled={busy || !online}
+					contentStyle={{ minHeight: touchTarget }}
+				>
+					{busy ? t("invite.joining") : t("invite.join")}
+				</Button>
+			</Card.Actions>
 
 			<ConfirmDialog
-				visible={declining !== null}
-				onDismiss={() => setDeclining(null)}
+				visible={confirming}
+				onDismiss={() => setConfirming(false)}
 				onConfirm={confirmDecline}
 				title={t("invite.declineTitle")}
-				body={t("invite.declineBody", {
-					inviter: declining?.invitedByName ?? "",
-				})}
+				body={t("invite.declineBody", { inviter: invite.invitedByName })}
 				confirmLabel={t("invite.decline")}
 				destructive
-				testID={declineDialogTestID}
-				returnFocusTo={declineAnchorRef}
+				testID={`${declineDialogTestID}-${invite.emailHash}`}
+				returnFocusTo={declineRef}
 			/>
-		</View>
+		</Card>
 	);
 }

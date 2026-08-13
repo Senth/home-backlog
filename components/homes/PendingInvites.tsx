@@ -26,17 +26,47 @@ interface PendingInvitesProps {
  * plaintext disappears with the invite the moment it is consumed.
  */
 export function PendingInvites({ invites, onError }: PendingInvitesProps) {
-	const { t, i18n } = useTranslation();
-	const [revoking, setRevoking] = useState<Invite | null>(null);
-	const revokeAnchorRef = useRef<View | null>(null);
+	const { t } = useTranslation();
 
 	if (invites.length === 0) return null;
 
-	const confirmRevoke = () => {
-		const invite = revoking;
-		setRevoking(null);
-		if (!invite) return;
+	return (
+		<View style={{ gap: space.sm }}>
+			<Text variant="titleMedium">{t("invite.pendingTitle")}</Text>
+			<View>
+				{invites.map((invite) => (
+					<PendingInviteRow
+						key={`${invite.homeId}-${invite.emailHash}`}
+						invite={invite}
+						onError={onError}
+					/>
+				))}
+			</View>
+		</View>
+	);
+}
 
+/**
+ * One row, owning its own dialog and its own anchor ref.
+ *
+ * A component per row rather than a ref beside the `.map()`: one ref shared
+ * across the list holds whichever row rendered last, so withdrawing the first
+ * invitation would return focus to the last row's button — worse than the
+ * fallback it overrides.
+ */
+function PendingInviteRow({
+	invite,
+	onError,
+}: {
+	invite: Invite;
+	onError: () => void;
+}) {
+	const { t, i18n } = useTranslation();
+	const [confirming, setConfirming] = useState(false);
+	const anchorRef = useRef<View | null>(null);
+
+	const confirmRevoke = () => {
+		setConfirming(false);
 		revokeInvite(invite.homeId, invite.emailHash).catch((reason) => {
 			console.error("Could not withdraw the invitation:", reason);
 			onError();
@@ -44,56 +74,47 @@ export function PendingInvites({ invites, onError }: PendingInvitesProps) {
 	};
 
 	return (
-		<View style={{ gap: space.sm }}>
-			<Text variant="titleMedium">{t("invite.pendingTitle")}</Text>
-
-			<View>
-				{invites.map((invite) => (
-					<Row
-						key={`${invite.homeId}-${invite.emailHash}`}
-						title={invite.email}
-						// Null until the server acknowledges `serverTimestamp()`, which
-						// is a second or two on a fresh invitation — no age is better
-						// than "just now" that turns out to be wrong.
-						description={
-							invite.createdAt
-								? formatElapsed(
-										invite.createdAt.toDate(),
-										new Date(),
-										i18n.language,
-									)
-								: undefined
-						}
-						right={
-							<IconButton
-								ref={revokeAnchorRef}
-								icon="close"
-								accessibilityLabel={t("invite.revokeFor", {
-									email: invite.email,
-								})}
-								onPress={() => setRevoking(invite)}
-								style={{
-									width: touchTarget,
-									height: touchTarget,
-									margin: space.none,
-								}}
-							/>
-						}
+		<>
+			<Row
+				title={invite.email}
+				// Null until the server acknowledges `serverTimestamp()`, which is a
+				// second or two on a fresh invitation — no age is better than a
+				// "just now" that turns out to be wrong.
+				description={
+					invite.createdAt
+						? formatElapsed(
+								invite.createdAt.toDate(),
+								new Date(),
+								i18n.language,
+							)
+						: undefined
+				}
+				right={
+					<IconButton
+						ref={anchorRef}
+						icon="close"
+						accessibilityLabel={t("invite.revokeFor", { email: invite.email })}
+						onPress={() => setConfirming(true)}
+						style={{
+							width: touchTarget,
+							height: touchTarget,
+							margin: space.none,
+						}}
 					/>
-				))}
-			</View>
+				}
+			/>
 
 			<ConfirmDialog
-				visible={revoking !== null}
-				onDismiss={() => setRevoking(null)}
+				visible={confirming}
+				onDismiss={() => setConfirming(false)}
 				onConfirm={confirmRevoke}
 				title={t("invite.revokeTitle")}
-				body={t("invite.revokeBody", { email: revoking?.email ?? "" })}
+				body={t("invite.revokeBody", { email: invite.email })}
 				confirmLabel={t("invite.revoke")}
 				destructive
-				testID={revokeDialogTestID}
-				returnFocusTo={revokeAnchorRef}
+				testID={`${revokeDialogTestID}-${invite.emailHash}`}
+				returnFocusTo={anchorRef}
 			/>
-		</View>
+		</>
 	);
 }
