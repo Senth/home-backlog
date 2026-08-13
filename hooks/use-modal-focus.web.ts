@@ -176,8 +176,18 @@ export function useAnchorFocusGuard(ref: RefObject<View | null>) {
 		const markActed = () => {
 			userActed = true;
 		};
-		const onFocus = () => {
-			if (!userActed) node.blur();
+		const onFocus = (event: FocusEvent) => {
+			if (userActed) return;
+			// Put focus back where it came from rather than dropping it on
+			// `<body>`: activating a tab with the keyboard mounts that screen, and
+			// its `Menu` grabs focus before this listener has seen a single key —
+			// so a bare `blur()` would leave a keyboard user with no focus at all
+			// and the next Tab starting again from the top of the document.
+			const previous = event.relatedTarget;
+			node.blur();
+			if (previous instanceof HTMLElement && previous.isConnected) {
+				previous.focus();
+			}
 		};
 
 		window.addEventListener("pointerdown", markActed, true);

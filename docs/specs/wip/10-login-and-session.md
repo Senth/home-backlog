@@ -281,12 +281,17 @@ plain, no hedging.
 | `account.signedInAs` | Signed in as {{email}} | Inloggad som {{email}} |
 | `account.signOut.title` | Sign out? | Logga ut? |
 | `account.signOut.body` | You will need to sign in with Google again. | Du behöver logga in med Google igen. |
-| `screen.login.offlineHint` | Signing in needs a connection. | Du måste vara uppkopplad för att logga in. |
+| `screen.login.offlineHint` | Signing in needs a connection. | Knappen fungerar igen när du är uppkopplad. |
 | `status.offlineSignedOut` | Offline — you need a connection to sign in. | Offline — du måste vara uppkopplad för att logga in. |
 | `error.offline` | You are offline. Signing in needs a connection. | Du är offline. Du måste vara uppkopplad för att logga in. |
 
 `common.signOut`, `status.offline`, `screen.login.*` and `error.googleSignIn` already exist
 and keep their wording. No key is removed.
+
+The Swedish `offlineHint` deliberately does not translate the English. A literal "Du måste
+vara uppkopplad för att logga in" repeats the offline bar directly above it word for word,
+which reads as the app saying the same thing twice rather than as two pieces of
+information; the shipped line tells the user what will happen instead.
 
 ## 7. What this does NOT change
 
@@ -395,6 +400,28 @@ round-1 list plus: `initializeAuth`'s bare `catch` swallowing a real failure,
 `window.location.hostname` dropping the port, avatar state not keyed on `photoURL`, the
 account-menu email breaking mid-token at 195 px, the splash never naming the app, the
 desktop layout being the phone layout stretched, and the display-name chip's 12 px inset.
+
+### Round 3 (2026-08-13)
+
+`code-review` and `ux-review` re-ran; both said FAIL, and both landed on the same
+`blocking` finding — round 2's themed focus ring. `qa-review` has still not re-run since
+round 1.
+
+| Report | Severity | Finding | What was done |
+| ------ | -------- | ------- | ------------- |
+| code 1, ux 1 | blocking | the `focusRing` style prop painted **always**: React Native Web compiles `outline*` to atomic classes with no selector, so the ring sat permanently round the avatar on every tab — keyboard focus became indistinguishable from rest, worse than the UA ring it replaced | the ring moved to a real `:focus-visible` rule in `theme/focus-visible.ts`, injected by `app/+html.tsx`, colours from `themeColor`. Every control gets it, not just the avatar (which also closes ux `idea` 3). The `Platform.OS` branch and the `ViewStyle` cast are gone from the shared component |
+| ux 2 | should-fix | all three tab screens stay mounted, so two `aria-hidden` "Account" buttons kept `tabindex=0`; Enter on one opened a menu anchored to a screen that was not on top | `tabIndex={isFocused ? 0 : -1}` via `useIsFocused()`. **Not `focusable`** — RNW's `Pressable` always writes its own `tabIndex`, and `createDOMProps` only consults `focusable` when none was given |
+| code 2 | should-fix | the anchor guard's bare `blur()` dropped focus on `<body>`, so activating a tab by keyboard left focus nowhere | focus returns to `event.relatedTarget` |
+| code 3 | should-fix | §6 still listed the pre-round-1 Swedish `offlineHint`, and §§1–8 is what phase 6 folds into the durable spec | row corrected, with a note on why the Swedish is not a translation |
+| ux 1 | — | the ring had no room at the window edge (trigger right edge 386 of 390) | `marginRight: space.xs`; measured 8 px of clearance for a 4 px ring |
+
+Verified in the browser after the fixes: no outline at rest (`outline-style: none`), the themed
+2 px ring on Tab and **not** after a mouse click (`:focus-visible` false), one tabbable trigger
+of three mounted, keyboard tab activation keeps focus on the tab link, dialog still traps and
+restores to the visible trigger, actions still inside the card.
+
+**Round 3 was the last the cap allows, and it did not reach a PASS** — the fixes above are
+unreviewed, and `qa-review` has not run since round 1. See the summary handed to the user.
 
 ### Where this stopped (2026-08-12)
 

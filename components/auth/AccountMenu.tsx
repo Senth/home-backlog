@@ -1,12 +1,8 @@
+import { useIsFocused } from "@react-navigation/native";
 import type { User } from "firebase/auth";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-	Platform,
-	useWindowDimensions,
-	View,
-	type ViewStyle,
-} from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import {
 	Avatar,
 	Button,
@@ -26,30 +22,11 @@ import { useAppTheme } from "@/theme";
 import {
 	compactBreakpoint,
 	contentWidth,
-	focusRing,
 	radius,
 	size,
 	space,
 	touchTarget,
 } from "@/theme/tokens";
-
-/**
- * A focus ring in the app's own colour instead of Chrome's 1 px near-black
- * default, which is close to invisible against a dark app bar.
- *
- * The `outline*` style props are React Native Web's, absent from React
- * Native's `ViewStyle`, hence the cast — and applied only on web, where the
- * Tab key exists.
- */
-function focusRingStyle(color: string): ViewStyle {
-	if (Platform.OS !== "web") return {};
-	return {
-		outlineColor: color,
-		outlineStyle: "solid",
-		outlineWidth: focusRing.width,
-		outlineOffset: focusRing.offset,
-	} as unknown as ViewStyle;
-}
 
 const signOutDialogTestID = "sign-out-dialog";
 
@@ -123,6 +100,7 @@ export function AccountMenu() {
 	const theme = useAppTheme();
 	const { user, signOut } = useAuth();
 	const { width } = useWindowDimensions();
+	const isFocused = useIsFocused();
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [error, setError] = useState<AuthErrorKey | null>(null);
@@ -177,13 +155,26 @@ export function AccountMenu() {
 						testID={triggerTestID}
 						onPress={() => setMenuOpen(true)}
 						borderless
+						// Every visited tab stays mounted, so the app bars of the screens
+						// you are *not* looking at are still in the DOM. They are
+						// `aria-hidden`, but without this they keep their place in the
+						// tab order: two invisible "Account" buttons between the board
+						// and the tab bar, one of which opens a menu anchored to a
+						// screen that is not on top.
+						//
+						// `tabIndex`, not `focusable`: React Native Web's `Pressable`
+						// always writes a `tabIndex` of its own, and `createDOMProps`
+						// only consults `focusable` when no `tabIndex` was given.
+						tabIndex={isFocused ? 0 : -1}
 						style={{
 							justifyContent: "center",
 							minWidth: touchTarget,
 							minHeight: touchTarget,
 							paddingHorizontal: space.sm,
 							borderRadius: radius.full,
-							...focusRingStyle(theme.colors.primary),
+							// Room for the focus ring, which would otherwise be drawn
+							// flush against the edge of the window and read as sliced.
+							marginRight: space.xs,
 						}}
 					>
 						<View

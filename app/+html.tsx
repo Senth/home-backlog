@@ -1,6 +1,7 @@
 import { ScrollViewStyleReset } from "expo-router/html";
 import type { PropsWithChildren } from "react";
 import { themeColor } from "@/theme";
+import { focusVisibleCss } from "@/theme/focus-visible";
 
 /**
  * The static HTML shell every exported web page is rendered into. Runs in Node
@@ -45,6 +46,10 @@ export default function Root({ children }: PropsWithChildren) {
 				<meta name="apple-mobile-web-app-title" content="Home Backlog" />
 
 				<ScrollViewStyleReset />
+
+				{/* The keyboard focus ring. A stylesheet because React Native Web
+				    has no way to express `:focus-visible` — see the module. */}
+				<style>{focusVisibleCss}</style>
 			</head>
 			<body>{children}</body>
 		</html>
