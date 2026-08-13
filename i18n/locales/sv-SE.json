@@ -81,6 +81,7 @@
 	},
 	"members": {
 		"title": "Medlemmar",
+		"unknown": "Någon",
 		"roleOwner": "Administratör",
 		"roleMember": "Medlem",
 		"you": "Du",

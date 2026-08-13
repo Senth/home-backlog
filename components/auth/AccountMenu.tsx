@@ -4,7 +4,6 @@ import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View } from "react-native";
 import {
-	Avatar,
 	Button,
 	Dialog,
 	Divider,
@@ -14,8 +13,9 @@ import {
 	Text,
 	TouchableRipple,
 } from "react-native-paper";
-import { displayLabel, initials } from "@/auth/display-name";
+import { displayLabel } from "@/auth/display-name";
 import { type AuthErrorKey, mapAuthError } from "@/auth/errors";
+import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAnchorFocusGuard, useModalFocus } from "@/hooks/use-modal-focus";
 import { useAppTheme } from "@/theme";
@@ -43,42 +43,11 @@ const signOutDialogSurfaceTestID = `${signOutDialogTestID}-surface`;
  *  dialog gets a ref to this instance instead. */
 const triggerTestID = "account-menu-trigger";
 
-/**
- * The avatar, with initials underneath it.
- *
- * The photo is a `googleusercontent.com` request, so it can be slow, blocked or
- * simply unavailable offline. Painting the initials *over* the image and
- * removing them only once it has loaded means the app bar never shows a hole,
- * never shifts layout, and keeps the initials if the request fails.
- */
+/** The signed-in user's avatar. Same photo-over-initials behaviour the members
+ *  list uses, which is why it lives in one place. */
 function AccountAvatar({ user, px }: { user: User; px: number }) {
-	const theme = useAppTheme();
-	const [photoLoaded, setPhotoLoaded] = useState(false);
-	const [photoFailed, setPhotoFailed] = useState(false);
-	const photoURL = user.photoURL;
-
 	return (
-		<View style={{ width: px, height: px }}>
-			{photoURL && !photoFailed ? (
-				<Avatar.Image
-					size={px}
-					source={{ uri: photoURL }}
-					onLoad={() => setPhotoLoaded(true)}
-					onError={() => setPhotoFailed(true)}
-				/>
-			) : null}
-			{photoLoaded ? null : (
-				<Avatar.Text
-					size={px}
-					label={initials(user)}
-					style={{
-						position: "absolute",
-						backgroundColor: theme.colors.primaryContainer,
-					}}
-					labelStyle={{ color: theme.colors.onPrimaryContainer }}
-				/>
-			)}
-		</View>
+		<PersonAvatar name={displayLabel(user)} photoURL={user.photoURL} px={px} />
 	);
 }
 

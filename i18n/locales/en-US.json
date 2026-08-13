@@ -81,6 +81,7 @@
 	},
 	"members": {
 		"title": "Members",
+		"unknown": "Someone",
 		"roleOwner": "Admin",
 		"roleMember": "Member",
 		"you": "You",

@@ -97,6 +97,20 @@ service cloud.firestore {
           || (hasEmail() && hashes(data).get(request.auth.uid, null) == emailHash());
       }
 
+      // A member removes *only* themselves — the one membership change that is
+      // not an owner's to make, and without it nobody but an owner could ever
+      // leave. Still subject to validHome(), which is what traps the last owner
+      // until they make somebody else an admin.
+      function leavesHome() {
+        return memberOfThis()
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['members', 'memberProfiles', 'memberEmailHashes'])
+          && request.resource.data.members.diff(resource.data.members).affectedKeys().hasOnly([request.auth.uid])
+          && !(request.auth.uid in request.resource.data.members)
+          && touchesOnlyMe(profiles(request.resource.data), profiles(resource.data))
+          && touchesOnlyMe(hashes(request.resource.data), hashes(resource.data));
+      }
+
       // An invited user adds *only* themselves, with *only* the role their
       // invite grants, and touches nobody else's profile or hash.
       function acceptsInvite() {
@@ -131,6 +145,7 @@ service cloud.firestore {
               && request.resource.data.members == resource.data.members
               && touchesOnlyMe(profiles(request.resource.data), profiles(resource.data))
               && touchesOnlyMe(hashes(request.resource.data), hashes(resource.data)))
+          || leavesHome()
           || acceptsInvite()
         );
       // Deleting a home leaves its nodes, locations and recurring rules stored

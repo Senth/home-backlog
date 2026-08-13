@@ -7,6 +7,7 @@ import {
 	collection,
 	collectionGroup,
 	deleteDoc,
+	deleteField,
 	doc,
 	FieldPath,
 	getDoc,
@@ -260,6 +261,72 @@ describe("homes/{homeId}", () => {
 					[`memberEmailHashes.${user.uid}`]: emailHash(OUTSIDER.email),
 				}),
 			);
+		});
+	});
+
+	describe("leaving", () => {
+		/** What the manage screen writes for "Leave this home". */
+		function leave(db: ReturnType<typeof dbAs>, uid: string) {
+			return updateDoc(doc(db, homePath), {
+				[`members.${uid}`]: deleteField(),
+				[`memberProfiles.${uid}`]: deleteField(),
+				[`memberEmailHashes.${uid}`]: deleteField(),
+			});
+		}
+
+		it("lets a member remove themselves", async () => {
+			// The one membership change that is not an owner's to make. Without it
+			// only owners could ever leave a home.
+			await seedHome();
+
+			await assertSucceeds(leave(dbAs(env, MEMBER), MEMBER.uid));
+		});
+
+		it("does not let them take somebody else with them", async () => {
+			await seedHome();
+
+			await assertFails(
+				updateDoc(doc(dbAs(env, MEMBER), homePath), {
+					[`members.${MEMBER.uid}`]: deleteField(),
+					[`members.${OWNER.uid}`]: deleteField(),
+				}),
+			);
+		});
+
+		it("does not let them rename the home on the way out", async () => {
+			await seedHome();
+
+			await assertFails(
+				updateDoc(doc(dbAs(env, MEMBER), homePath), {
+					name: "Parting shot",
+					[`members.${MEMBER.uid}`]: deleteField(),
+				}),
+			);
+		});
+
+		it("is not a way for a member to change their own role", async () => {
+			// `leavesHome()` requires that you end up *gone*, not merely different —
+			// otherwise the branch that lets you out would also let you promote
+			// yourself on the way.
+			await seedHome();
+
+			await assertFails(
+				updateDoc(doc(dbAs(env, MEMBER), homePath), {
+					[`members.${MEMBER.uid}`]: "owner",
+				}),
+			);
+		});
+
+		it("traps the last owner until somebody else is one", async () => {
+			await seedHome();
+
+			await assertFails(leave(dbAs(env, OWNER), OWNER.uid));
+		});
+
+		it("lets an owner leave once there is a second one", async () => {
+			await seedHome({ [OWNER.uid]: "owner", [MEMBER.uid]: "owner" });
+
+			await assertSucceeds(leave(dbAs(env, OWNER), OWNER.uid));
 		});
 	});
 

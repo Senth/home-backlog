@@ -11,7 +11,9 @@ import {
 	Text,
 	TextInput,
 } from "react-native-paper";
+import { DangerZone } from "@/components/homes/DangerZone";
 import { InviteForm } from "@/components/homes/InviteForm";
+import { MembersList } from "@/components/homes/MembersList";
 import { PendingInvites } from "@/components/homes/PendingInvites";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
@@ -133,6 +135,15 @@ export default function ManageHome() {
 							</Button>
 						</View>
 
+						{user ? (
+							<MembersList
+								home={home}
+								myUid={user.uid}
+								canManage={isOwner}
+								onError={() => setNotice("error.saveFailed")}
+							/>
+						) : null}
+
 						{isOwner && user ? (
 							<>
 								<Divider />
@@ -145,6 +156,17 @@ export default function ManageHome() {
 								/>
 								<PendingInvites
 									invites={invites}
+									onError={() => setNotice("error.saveFailed")}
+								/>
+							</>
+						) : null}
+
+						{user ? (
+							<>
+								<Divider />
+								<DangerZone
+									home={home}
+									myUid={user.uid}
 									onError={() => setNotice("error.saveFailed")}
 								/>
 							</>
