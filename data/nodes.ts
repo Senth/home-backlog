@@ -136,15 +136,19 @@ export function sharedSubtreeQuery(
 }
 
 /**
- * Every private node I am a participant of, from which a private subtree is
+ * Every *private* node I am a participant of, from which a private subtree is
  * filtered client-side.
  *
  * A query may contain only one `array-contains` clause, so `ancestorIds
  * array-contains X && participantIds array-contains me` is not expressible.
  * Complete by participant inheritance — I am a participant of every descendant
- * of a private node I can read — and bounded by how many private nodes one
- * person is in, which is small by construction. Served by the automatic array
- * index; it needs no composite.
+ * of a private node I can read — and safe by the read rule's second disjunct,
+ * which the `participantIds` clause alone already proves.
+ *
+ * The `visibility` clause is what *bounds* it. Being a participant is also how
+ * assignment on an ordinary shared card works, so without it this reads every
+ * card assigned to me anywhere in the home on each private reparent or delete.
+ * Private nodes are small by construction; assigned ones are not.
  */
 export function privateSubtreeQuery(
 	homeId: string,
@@ -152,6 +156,7 @@ export function privateSubtreeQuery(
 ): Query<DocumentData> {
 	return query(
 		nodesRef(homeId),
+		where("visibility", "==", "private"),
 		where("participantIds", "array-contains", uid),
 	);
 }
@@ -191,18 +196,33 @@ export function createNode(
 	const data = newNodeData(input);
 	const ref = doc(nodesRef(homeId));
 
-	return {
-		id: ref.id,
-		acknowledged: setDoc(ref, {
-			...data,
-			// A node created straight into Done is unusual by hand and ordinary
-			// over the REST API (#7). The rules require the two to agree.
-			completedAt: data.status === "done" ? serverTimestamp() : null,
-			createdAt: serverTimestamp(),
-			createdBy: uid,
-			updatedAt: serverTimestamp(),
-		}),
-	};
+	const written = setDoc(ref, {
+		...data,
+		// Writing yourself out of your own private node strands it where nobody
+		// can read or delete it, so the rules refuse it — and the caller of a
+		// private *root* card has no parent to inherit participants from.
+		participantIds:
+			data.visibility === "private" && !data.participantIds.includes(uid)
+				? [uid, ...data.participantIds]
+				: data.participantIds,
+		// A node created straight into Done is unusual by hand and ordinary
+		// over the REST API (#7). The rules require the two to agree.
+		completedAt: data.status === "done" ? serverTimestamp() : null,
+		createdAt: serverTimestamp(),
+		createdBy: uid,
+		updatedAt: serverTimestamp(),
+	});
+
+	// Handled here, and still returned. A caller that only wants the id leaves
+	// the promise alone — and an ignored rejection is an unhandled one, which
+	// surfaces as a console error nobody owns. Attaching the log keeps the
+	// failure reportable while leaving `acknowledged` awaitable by anyone who
+	// does want to know.
+	written.catch((reason) => {
+		console.error("Could not save the card:", reason);
+	});
+
+	return { id: ref.id, acknowledged: written };
 }
 
 export function updateNode(
@@ -281,14 +301,22 @@ async function subtreeOf(
  * `get()`, and no descendant's `parentId` changes here — so every document in
  * the batch passes against *committed* state, which is all a rule can see.
  *
- * `locationId` is deliberately untouched. A node moving in the project tree
- * never moves in the location tree; the two hierarchies are independent, and
- * neither is a parent of the other.
+ * `rank` is rewritten because a rank is ordered within its `(parentId, status)`
+ * column, and a new parent is a new column: the caller passes one computed from
+ * the target board's neighbours, the same way a column change does. `locationId`
+ * is deliberately untouched — a node moving in the project tree never moves in
+ * the location tree; the two hierarchies are independent, and neither is a
+ * parent of the other.
+ *
+ * Only the moved node's own write costs a `get()` in the rules, which is what
+ * keeps a subtree of any size inside a batched write's twenty-document-access
+ * budget. See `privacyUnchanged()` in `firestore.rules`.
  */
 export async function reparentNode(
 	homeId: string,
 	node: Node,
 	parent: Node | null,
+	rank: string,
 	uid: string,
 ): Promise<void> {
 	if (
@@ -305,6 +333,7 @@ export async function reparentNode(
 	batch.update(nodeRef(homeId, node.id), {
 		parentId: parent?.id ?? null,
 		ancestorIds,
+		rank,
 		updatedAt: serverTimestamp(),
 	});
 	for (const snapshot of descendants) {

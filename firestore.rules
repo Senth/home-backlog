@@ -225,6 +225,7 @@ service cloud.firestore {
             && data.photos is list
             && data.photos.size() <= 50
             && data.archived is bool
+            && (data.completedAt == null || data.completedAt is timestamp)
             // A completion date is not reconstructible after the fact, and
             // deriving it from `updatedAt` is wrong the moment anyone edits a
             // finished node. So the two agree, in both directions.
@@ -289,6 +290,29 @@ service cloud.firestore {
           return data.parentId == null || inheritsFrom(data, parentOf(data));
         }
 
+        // A batched write may make at most **20 document access calls** in
+        // total, across every document in it — so an update rule that always
+        // reads the parent caps a subtree operation at twenty nodes, and a
+        // project with twenty tasks is ordinary rather than exotic. It fails as
+        // a bare permission error, with nothing to say that size was the cause.
+        //
+        // So the get() is spent only on a write that could break the invariant.
+        // A reparent changes the moved node's parentId — that one still pays —
+        // while its descendants change only their ancestorIds, and an ordinary
+        // edit changes neither. What is skipped is a re-proof of something the
+        // document already satisfied and this write does not touch.
+        //
+        // The one window it opens is during a top-down visibility flip (#61),
+        // where a child edited between its parent's flip and its own is allowed
+        // through while temporarily mismatched. The flip then reaches it and
+        // corrects it; the unrecoverable failure this all exists to prevent is
+        // a *silent orphan*, and that needs parentId or visibility to change.
+        function privacyUnchanged(next, current) {
+          return next.parentId == current.parentId
+            && next.visibility == current.visibility
+            && next.participantIds == current.participantIds;
+        }
+
         function immutable(next, current) {
           return next.createdAt == current.createdAt
             && next.createdBy == current.createdBy;
@@ -306,7 +330,8 @@ service cloud.firestore {
           && validNode(request.resource.data)
           && structure(request.resource.data)
           && immutable(request.resource.data, resource.data)
-          && inherits(request.resource.data);
+          && (privacyUnchanged(request.resource.data, resource.data)
+              || inherits(request.resource.data));
         allow delete: if isMember(homeId) && visibleToMe(resource.data);
       }
 

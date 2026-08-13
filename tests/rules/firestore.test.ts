@@ -882,6 +882,17 @@ describe("homes/{homeId}/nodes", () => {
 			);
 		});
 
+		it("refuses a completedAt that is not a timestamp", async () => {
+			// The agreement check alone is satisfied by any non-null value, and a
+			// string typed as a Timestamp throws on the first .toDate() (#54).
+			await assertFails(
+				create(dbAs(env, MEMBER), "done-string", {
+					status: "done",
+					completedAt: "yesterday",
+				}),
+			);
+		});
+
 		it("refuses changing createdAt or createdBy after the fact", async () => {
 			await seedNodes();
 			const db = dbAs(env, MEMBER);
@@ -1066,6 +1077,101 @@ describe("homes/{homeId}/nodes", () => {
 
 			await assertSucceeds(batch.commit());
 		});
+
+		/**
+		 * A batched write may make at most **twenty document access calls**, in
+		 * total, across every document in it. An update rule that always read the
+		 * parent would therefore cap a subtree move — and fail as a bare
+		 * permission error, with nothing to say that size was the cause.
+		 *
+		 * The shape matters as much as the size: a rule evaluation caches a
+		 * `get()` per *path*, so twenty siblings under one parent cost one call
+		 * between them. What spends the budget is **distinct** parents, which is
+		 * what a project of tasks that each have subtasks is. Twenty of those is
+		 * an ordinary Saturday, so a three-node test proves nothing here.
+		 */
+		it("moves a subtree past a batch's document-access budget", async () => {
+			await seedHome();
+			const tasks = 20;
+			await seed(env, async (db) => {
+				await setDoc(doc(db, nodesPath, "old-home"), nodeDoc());
+				await setDoc(doc(db, nodesPath, "new-home"), nodeDoc());
+				await setDoc(
+					doc(db, nodesPath, "moved"),
+					nodeDoc({ parentId: "old-home", ancestorIds: ["old-home"] }),
+				);
+				for (let index = 0; index < tasks; index += 1) {
+					await setDoc(
+						doc(db, nodesPath, `task-${index}`),
+						nodeDoc({ parentId: "moved", ancestorIds: ["old-home", "moved"] }),
+					);
+					await setDoc(
+						doc(db, nodesPath, `subtask-${index}`),
+						nodeDoc({
+							parentId: `task-${index}`,
+							ancestorIds: ["old-home", "moved", `task-${index}`],
+						}),
+					);
+				}
+			});
+
+			const db = dbAs(env, MEMBER);
+			const batch = writeBatch(db);
+			batch.update(doc(db, nodesPath, "moved"), {
+				parentId: "new-home",
+				ancestorIds: ["new-home"],
+			});
+			for (let index = 0; index < tasks; index += 1) {
+				batch.update(doc(db, nodesPath, `task-${index}`), {
+					ancestorIds: ["new-home", "moved"],
+				});
+				batch.update(doc(db, nodesPath, `subtask-${index}`), {
+					ancestorIds: ["new-home", "moved", `task-${index}`],
+				});
+			}
+
+			await assertSucceeds(batch.commit());
+		});
+
+		it("still proves inheritance on a write that changes privacy", async () => {
+			// What the budget fix must not give away: skipping the parent get() is
+			// only sound while parentId, visibility and participantIds all stand
+			// still. Narrowing a private child below its parent is the write that
+			// would strand a subtree, and it stays refused.
+			await seedHome();
+			await seed(env, async (db) => {
+				await setDoc(
+					doc(db, nodesPath, "surprise"),
+					nodeDoc({
+						visibility: "private",
+						participantIds: [OWNER.uid, MEMBER.uid],
+					}),
+				);
+				await setDoc(
+					doc(db, nodesPath, "cake"),
+					nodeDoc({
+						parentId: "surprise",
+						ancestorIds: ["surprise"],
+						visibility: "private",
+						participantIds: [OWNER.uid, MEMBER.uid],
+					}),
+				);
+			});
+
+			const db = dbAs(env, MEMBER);
+			await assertFails(
+				updateDoc(doc(db, nodesPath, "cake"), {
+					participantIds: [MEMBER.uid],
+				}),
+			);
+			await assertFails(
+				updateDoc(doc(db, nodesPath, "cake"), { visibility: "shared" }),
+			);
+			// An ordinary edit touches none of the three, and pays no get().
+			await assertSucceeds(
+				updateDoc(doc(db, nodesPath, "cake"), { title: "Order the cake" }),
+			);
+		});
 	});
 
 	describe("the board queries", () => {
@@ -1152,15 +1258,20 @@ describe("homes/{homeId}/nodes", () => {
 
 		it("runs a private subtree read as a participant", async () => {
 			// The second array-contains is not expressible, so the ancestor test is
-			// client-side. Bounded by how many private nodes one person is in.
-			await assertSucceeds(
+			// client-side. `participantIds` alone is what makes it safe; the
+			// `visibility` clause is what keeps it from reading every card assigned
+			// to me anywhere in the home.
+			const result = await assertSucceeds(
 				getDocs(
 					query(
 						board(dbAs(env, OWNER)),
+						where("visibility", "==", "private"),
 						where("participantIds", "array-contains", OWNER.uid),
 					),
 				),
 			);
+
+			expect(result.docs.map((snapshot) => snapshot.id)).toEqual(["surprise"]);
 		});
 	});
 });

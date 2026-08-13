@@ -27,6 +27,14 @@
 				{ "fieldPath": "visibility", "order": "ASCENDING" },
 				{ "fieldPath": "ancestorIds", "arrayConfig": "CONTAINS" }
 			]
+		},
+		{
+			"collectionGroup": "nodes",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{ "fieldPath": "visibility", "order": "ASCENDING" },
+				{ "fieldPath": "participantIds", "arrayConfig": "CONTAINS" }
+			]
 		}
 	],
 	"fieldOverrides": [
