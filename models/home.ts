@@ -105,6 +105,56 @@ export function isEmailAddress(value: string): boolean {
 	return emailPattern.test(value.trim());
 }
 
+/** Why a typed address cannot be invited, with what the message needs to say it. */
+export type InviteProblem =
+	| { key: "invite.invalidEmail" }
+	| { key: "invite.selfError" }
+	| { key: "invite.alreadyMember"; name: string }
+	| { key: "invite.alreadyInvited" };
+
+/**
+ * Whether an address can be invited to this home, answered without ever
+ * learning anyone's address.
+ *
+ * The home carries `memberEmailHashes`, not addresses, so the check is done by
+ * hashing what was typed and looking for it — enough to answer "already a
+ * member?" and "that's you?" without exposing a single member's address to
+ * whoever is holding the phone.
+ *
+ * Order matters: your own address is also a member's, and saying "you are
+ * already in this home" instead of "that is your own address" answers a question
+ * nobody asked.
+ */
+export function inviteProblem(
+	address: string,
+	home: Home,
+	myUid: string,
+	invitedHashes: readonly string[],
+): InviteProblem | null {
+	const typed = address.trim();
+	if (!isEmailAddress(typed)) return { key: "invite.invalidEmail" };
+
+	const hash = emailHash(typed);
+	if (home.memberEmailHashes[myUid] === hash)
+		return { key: "invite.selfError" };
+
+	const member = Object.entries(home.memberEmailHashes).find(
+		([, value]) => value === hash,
+	);
+	if (member) {
+		return {
+			key: "invite.alreadyMember",
+			// A member who has not opened the app since joining has no profile yet.
+			// The address is a fine second choice: they typed it themselves.
+			name: home.memberProfiles[member[0]]?.displayName || typed,
+		};
+	}
+
+	if (invitedHashes.includes(hash)) return { key: "invite.alreadyInvited" };
+
+	return null;
+}
+
 /**
  * The three maps joined into rows, owners first and then alphabetically, so a
  * member's position does not move when somebody edits their own display name

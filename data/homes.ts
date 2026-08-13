@@ -112,6 +112,14 @@ export function homesQuery(uid: string): Query<DocumentData> {
  *
  * Provably query-safe: every matching document carries my own hash by
  * definition, which is exactly what the collection-group read rule tests.
+ *
+ * It needs the `emailHash` entry in `firestore.indexes.json`. Firestore's
+ * automatic single-field indexes are COLLECTION-scoped, and a collection-group
+ * filter needs a COLLECTION_GROUP-scoped one declared. The emulator indexes
+ * everything on the fly, so it can never surface the omission — it would appear
+ * only in production, as an invitee who can never find an invitation that was
+ * really sent. A field override *replaces* automatic indexing for the field, so
+ * the two default COLLECTION-scoped indexes are restated there rather than lost.
  */
 export function pendingInvitesQuery(email: string): Query<DocumentData> {
 	return query(

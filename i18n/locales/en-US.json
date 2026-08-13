@@ -63,6 +63,7 @@
 		"declineTitle": "Decline the invitation?",
 		"declineBody": "{{inviter}} would have to invite you again.",
 		"offlineHint": "Joining a home needs a connection.",
+		"sendOfflineHint": "Sending an invitation needs a connection.",
 		"failed": "Could not join. The invitation may have been withdrawn.",
 		"sendTitle": "Invite someone",
 		"emailLabel": "Email address",

@@ -3,6 +3,7 @@ import type { Home, Role } from "@/models/home";
 import {
 	emailHash,
 	homeNameError,
+	inviteProblem,
 	isEmailAddress,
 	isLastOwner,
 	maxHomeNameLength,
@@ -104,6 +105,66 @@ describe("isEmailAddress", () => {
 		"a b@example.com",
 	])("rejects %p", (value) => {
 		expect(isEmailAddress(value)).toBe(false);
+	});
+});
+
+describe("inviteProblem", () => {
+	const marcus = "marcus@example.com";
+	const nadia = "nadia@example.com";
+	const ingrid = "ingrid@example.com";
+
+	const villa = home({
+		memberEmailHashes: {
+			"uid-a": emailHash(marcus),
+			"uid-b": emailHash(nadia),
+		},
+	});
+
+	const check = (address: string, invited: string[] = []) =>
+		inviteProblem(address, villa, "uid-a", invited.map(emailHash));
+
+	it("accepts somebody who is not here yet", () => {
+		expect(check(ingrid)).toBeNull();
+	});
+
+	it("rejects an address that is not one", () => {
+		expect(check("ingrid")).toEqual({ key: "invite.invalidEmail" });
+	});
+
+	it("recognises your own address before it recognises a member's", () => {
+		// You are also a member, and "you are already in this home" answers a
+		// question nobody asked.
+		expect(check(marcus)).toEqual({ key: "invite.selfError" });
+	});
+
+	it("names the member who already has that address", () => {
+		expect(check(nadia)).toEqual({
+			key: "invite.alreadyMember",
+			name: "Nadia",
+		});
+	});
+
+	it("falls back to the typed address for a member with no profile yet", () => {
+		const bare = home({
+			memberProfiles: {},
+			memberEmailHashes: { "uid-b": emailHash(nadia) },
+		});
+
+		expect(inviteProblem(nadia, bare, "uid-a", [])).toEqual({
+			key: "invite.alreadyMember",
+			name: nadia,
+		});
+	});
+
+	it("rejects an address that has already been invited", () => {
+		expect(check(ingrid, [ingrid])).toEqual({ key: "invite.alreadyInvited" });
+	});
+
+	it("is case- and whitespace-insensitive, as the hash is", () => {
+		expect(check("  Nadia@Example.COM ")).toEqual({
+			key: "invite.alreadyMember",
+			name: "Nadia",
+		});
 	});
 });
 

@@ -63,6 +63,7 @@
 		"declineTitle": "Avböja inbjudan?",
 		"declineBody": "{{inviter}} måste bjuda in dig igen.",
 		"offlineHint": "Du måste vara uppkopplad för att gå med.",
+		"sendOfflineHint": "Du måste vara uppkopplad för att skicka en inbjudan.",
 		"failed": "Kunde inte gå med. Inbjudan kan ha tagits tillbaka.",
 		"sendTitle": "Bjud in någon",
 		"emailLabel": "E-postadress",
