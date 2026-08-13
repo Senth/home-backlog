@@ -4,6 +4,7 @@ import {
 	compareNodes,
 	completionChange,
 	mergeNodeResults,
+	movedAncestorIds,
 	type Node,
 	newNodeData,
 	rankAtEnd,
@@ -153,6 +154,40 @@ describe("childAncestorIds", () => {
 		const parent = node({ id: "task", ancestorIds: ["project"] });
 
 		expect(childAncestorIds(parent)).toEqual(["project", "task"]);
+	});
+});
+
+describe("movedAncestorIds", () => {
+	it("splices in the moved node's new path and keeps the rest", () => {
+		const grandchild = node({
+			id: "grandchild",
+			parentId: "child",
+			ancestorIds: ["old-home", "moved", "child"],
+		});
+
+		expect(movedAncestorIds(grandchild, "moved", ["new-home"])).toEqual([
+			"new-home",
+			"moved",
+			"child",
+		]);
+	});
+
+	it("moves a subtree to the root", () => {
+		const child = node({
+			id: "child",
+			parentId: "moved",
+			ancestorIds: ["old-home", "moved"],
+		});
+
+		expect(movedAncestorIds(child, "moved", [])).toEqual(["moved"]);
+	});
+
+	it("leaves a node that is not in the moved subtree alone", () => {
+		const elsewhere = node({ id: "elsewhere", ancestorIds: ["other"] });
+
+		expect(movedAncestorIds(elsewhere, "moved", ["new-home"])).toEqual([
+			"other",
+		]);
 	});
 });
 

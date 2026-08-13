@@ -244,6 +244,29 @@ export function childAncestorIds(parent: Node | null): string[] {
 }
 
 /**
+ * A descendant's `ancestorIds` after the subtree it sits in has been moved.
+ *
+ * `movedAncestors` is the moved node's *new* path. Everything from the moved
+ * node downwards keeps its own relative path — a reparent moves a subtree
+ * whole, and no descendant's `parentId` changes — so the rewrite is a splice at
+ * the point where the moved node appears.
+ *
+ * This is the function the split in `firestore.rules` leans on. The rules check
+ * the path structurally rather than walking it, so a wrong *grandparent* id
+ * passes them; `parentId` stays the source of truth and this is what derives
+ * the rest of it, which is why it is tested rather than trusted.
+ */
+export function movedAncestorIds(
+	descendant: Node,
+	movedId: string,
+	movedAncestors: readonly string[],
+): string[] {
+	const index = descendant.ancestorIds.indexOf(movedId);
+	if (index === -1) return [...descendant.ancestorIds];
+	return [...movedAncestors, ...descendant.ancestorIds.slice(index)];
+}
+
+/**
  * The results of the two board queries, as one board.
  *
  * Deduping is required rather than defensive: a *shared* node I participate in
