@@ -1,6 +1,6 @@
 // The service worker's routing table is plain JS served from `public/`, so it
 // is required by path rather than imported through the module graph.
-const { chooseStrategy } = require("../public/sw-routing.js") as {
+const { chooseStrategy } = require("@/public/sw-routing.js") as {
 	chooseStrategy: (request: {
 		method: string;
 		mode: string;
@@ -30,6 +30,25 @@ describe("chooseStrategy", () => {
 		expect(
 			chooseStrategy({ ...GET, sameOrigin: false, mode: "navigate" }),
 		).toBe("passthrough");
+	});
+
+	it("never touches Firebase's reserved namespace", () => {
+		// `authDomain` is the app's own origin, so the OAuth handler and the
+		// hidden auth iframe are same-origin. Caching either would overwrite the
+		// offline app shell with Google's sign-in page.
+		expect(
+			chooseStrategy({
+				...GET,
+				mode: "navigate",
+				pathname: "/__/auth/handler",
+			}),
+		).toBe("passthrough");
+		expect(
+			chooseStrategy({ ...GET, mode: "navigate", pathname: "/__/auth/iframe" }),
+		).toBe("passthrough");
+		expect(chooseStrategy({ ...GET, pathname: "/__/firebase/init.json" })).toBe(
+			"passthrough",
+		);
 	});
 
 	it("serves navigations network-first", () => {

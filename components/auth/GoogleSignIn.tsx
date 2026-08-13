@@ -1,12 +1,12 @@
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Platform } from "react-native";
 import { Button } from "react-native-paper";
-import { auth } from "@/config/firebase";
+import { mapAuthError } from "@/auth/errors";
+import type { GoogleSignInButtonProps } from "@/components/auth/GoogleSignIn.types";
 import { useAuth } from "@/contexts/AuthContext";
+import { touchTarget } from "@/theme/tokens";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -15,59 +15,20 @@ const discovery = {
 	tokenEndpoint: "https://oauth2.googleapis.com/token",
 };
 
-interface GoogleSignInButtonProps {
-	onError?: (message: string) => void;
-}
-
 /**
- * Google is the only sign-in method (see `docs/PROJECT.md`).
+ * Native Google sign-in. Web is a separate file — `GoogleSignIn.web.tsx` — and
+ * uses `signInWithRedirect`, which does not exist in Firebase's React Native
+ * build.
  *
- * Web uses `signInWithPopup`, which the Firebase Auth emulator intercepts with
- * its own account picker — so local development against the emulators works
- * without a real Google account. Native cannot use a popup and goes through
- * `expo-auth-session` with PKCE instead.
+ * Native cannot use a browser redirect and goes through `expo-auth-session`
+ * with PKCE instead, exchanging the code for an ID token that `AuthContext`
+ * turns into a Firebase session. Native session persistence and this flow are
+ * issue #8; nothing here has been verified on a device.
  */
-export function GoogleSignInButton({ onError }: GoogleSignInButtonProps = {}) {
-	return Platform.OS === "web" ? (
-		<GoogleSignInWeb onError={onError} />
-	) : (
-		<GoogleSignInNative onError={onError} />
-	);
-}
-
-function GoogleSignInWeb({ onError }: GoogleSignInButtonProps) {
-	const { t } = useTranslation();
-	const [loading, setLoading] = useState(false);
-
-	const handlePress = async () => {
-		setLoading(true);
-		try {
-			const provider = new GoogleAuthProvider();
-			provider.addScope("profile");
-			provider.addScope("email");
-			await signInWithPopup(auth, provider);
-		} catch (error) {
-			console.error("Google sign-in error:", error);
-			onError?.(t("error.googleSignIn"));
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	return (
-		<Button
-			mode="contained"
-			icon="google"
-			onPress={handlePress}
-			loading={loading}
-			disabled={loading}
-		>
-			{t("screen.login.google")}
-		</Button>
-	);
-}
-
-function GoogleSignInNative({ onError }: GoogleSignInButtonProps) {
+export function GoogleSignInButton({
+	onError,
+	disabled,
+}: GoogleSignInButtonProps = {}) {
 	const { t } = useTranslation();
 	const { signInWithGoogle } = useAuth();
 	const [loading, setLoading] = useState(false);
@@ -90,7 +51,7 @@ function GoogleSignInNative({ onError }: GoogleSignInButtonProps) {
 			console.warn(
 				"EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is not set; Google sign-in is disabled.",
 			);
-			onError?.(t("error.googleSignIn"));
+			onError?.("error.googleSignIn");
 			return;
 		}
 
@@ -112,7 +73,7 @@ function GoogleSignInNative({ onError }: GoogleSignInButtonProps) {
 			if (tokens.idToken) await signInWithGoogle(tokens.idToken);
 		} catch (error) {
 			console.error("Google sign-in error:", error);
-			onError?.(t("error.googleSignIn"));
+			onError?.(mapAuthError(error));
 		} finally {
 			setLoading(false);
 		}
@@ -124,7 +85,9 @@ function GoogleSignInNative({ onError }: GoogleSignInButtonProps) {
 			icon="google"
 			onPress={handlePress}
 			loading={loading}
-			disabled={loading || !request}
+			disabled={loading || disabled || !request}
+			// Paper's own button is 40 dp tall, under the project's 48.
+			contentStyle={{ minHeight: touchTarget }}
 		>
 			{t("screen.login.google")}
 		</Button>

@@ -4,9 +4,19 @@
 		"tagline": "Allt som behöver göras hemma, på ett ställe."
 	},
 	"common": {
+		"cancel": "Avbryt",
 		"dismiss": "Stäng",
+		"loading": "Laddar",
 		"retry": "Försök igen",
 		"signOut": "Logga ut"
+	},
+	"account": {
+		"label": "Konto",
+		"signedInAs": "Inloggad som {{email}}",
+		"signOut": {
+			"title": "Logga ut?",
+			"body": "Du behöver logga in med Google igen."
+		}
 	},
 	"tab": {
 		"projects": "Projekt",
@@ -17,7 +27,8 @@
 		"login": {
 			"title": "Home Backlog",
 			"tagline": "Allt som behöver göras hemma, på ett ställe.",
-			"google": "Fortsätt med Google"
+			"google": "Fortsätt med Google",
+			"offlineHint": "Knappen fungerar igen när du är uppkopplad."
 		},
 		"projects": {
 			"title": "Projekt",
@@ -33,10 +44,12 @@
 		}
 	},
 	"error": {
-		"googleSignIn": "Kunde inte logga in med Google. Försök igen."
+		"googleSignIn": "Kunde inte logga in med Google. Försök igen.",
+		"offline": "Du är offline. Du måste vara uppkopplad för att logga in."
 	},
 	"status": {
-		"offline": "Offline — ändringar sparas och synkas när du är uppkopplad igen."
+		"offline": "Offline — ändringar sparas och synkas när du är uppkopplad igen.",
+		"offlineSignedOut": "Offline — du måste vara uppkopplad för att logga in."
 	},
 	"update": {
 		"available": "En ny version finns tillgänglig.",

@@ -15,8 +15,7 @@ rewrite — the *why*, the rejected alternatives, formulas, thresholds, tables.
 
 | Spec | Description | Tags |
 | ---- | ----------- | ---- |
-
-_Empty — nothing has shipped yet._
+| [`platform-offline`](platform-offline.md) | How the app gets onto a device, who it lets in, what language it speaks, and what survives losing the connection. Google redirect sign-in on a same-origin `authDomain`, the splash that holds the router until auth resolves, the account menu and its deliberate sign-out, the service worker and install offer, `en-US` / `sv-SE`. | auth, pwa, offline, i18n |
 
 ## Planned areas
 
@@ -33,5 +32,4 @@ when the first feature touching it lands; this list is a naming convention, not 
   provably-safe query pairs that privacy depends on.
 - `rest-api` — Cloud Functions surface, hashed API keys, the agent-facing `SKILL.md`.
 - `suggestions` — the on-device weighted score and the reasons it shows.
-- `platform-offline` — PWA install, service worker, offline persistence, the pending photo
-  upload queue, auth and i18n.
+_(`platform-offline` has landed — see the table above.)_

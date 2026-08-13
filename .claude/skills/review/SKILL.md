@@ -27,7 +27,7 @@ Combine committed-on-branch and uncommitted paths, then classify:
 | Diff touches | Run |
 |---|---|
 | `app/ components/ screens/ theme/ i18n/ hooks/` | code + ux + qa |
-| only `utils/ models/ firestore.rules storage.rules tests/ config/` | code only |
+| only `auth/ models/ firestore.rules storage.rules tests/ config/` | code only |
 | only `docs/ .claude/ scripts/ .github/ README.md TODO.md` | nothing — say so in two lines and stop |
 
 `--all` and `--code` override the table. An empty diff stops the run.
