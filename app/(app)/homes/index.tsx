@@ -15,11 +15,13 @@ import {
 } from "react-native-paper";
 import { displayLabel } from "@/auth/display-name";
 import { AccountMenu } from "@/components/auth/AccountMenu";
+import { PendingInviteCards } from "@/components/homes/PendingInviteCards";
 import { AppDialog } from "@/components/ui/AppDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { createHome } from "@/data/homes";
 import { useOnlineStatus } from "@/hooks/use-online-status";
+import { usePendingInvites } from "@/hooks/use-pending-invites";
 import { type HomeNameError, homeNameError } from "@/models/home";
 import { useAppTheme } from "@/theme";
 import { contentWidth, space, touchTarget } from "@/theme/tokens";
@@ -45,6 +47,7 @@ export default function Homes() {
 	const online = useOnlineStatus();
 	const { user } = useAuth();
 	const { homes, activeHome, setActiveHome } = useHome();
+	const { invites } = usePendingInvites();
 
 	const [createOpen, setCreateOpen] = useState(false);
 	const [name, setName] = useState("");
@@ -160,6 +163,17 @@ export default function Homes() {
 						))}
 					</List.Section>
 				)}
+
+				{user && invites.length > 0 ? (
+					<>
+						<Divider />
+						<PendingInviteCards
+							invites={invites}
+							user={user}
+							onError={() => setError("invite.failed")}
+						/>
+					</>
+				) : null}
 
 				<Divider />
 
