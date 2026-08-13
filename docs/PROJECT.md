@@ -173,6 +173,13 @@ multi-tenancy, sharing, or store release.
 - **Google sign-in only** for now. Email/password and others can follow.
   ⚠️ **Pre-launch task**: the Apple App Store requires Sign in with Apple wherever
   third-party sign-in is offered.
+- **Web sign-in is a redirect, on an `authDomain` that is the app's own origin.** A popup
+  works in a desktop tab and dead-ends in an installed PWA, which is the shipping product
+  for the least technical person in [`PERSONAS.md`](PERSONAS.md); and a redirect through
+  `<project>.firebaseapp.com` relies on cross-site storage that Safari discards. Firebase
+  Hosting reserves `/__/auth/` on every domain it serves, so the handler is same-origin.
+  Setup is in [`OPERATIONS.md`](OPERATIONS.md); the full rationale is in
+  [`specs/platform-offline.md`](specs/platform-offline.md).
 - **i18next with `en-US` and `sv-SE` from day one.** Every string goes through `t()`.
 
 ### Drag & drop

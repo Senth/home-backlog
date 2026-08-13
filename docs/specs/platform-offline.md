@@ -178,18 +178,43 @@ has the cliff one tap away).
 Paper gives a web dialog no focus management at all, so `useModalFocus` traps Tab inside
 it, closes it on Escape, and hands focus back to the avatar that opened it — by ref, not
 by `testID`, because every visited tab stays mounted and three identical `testID`s are in
-the DOM at once. Its sibling `useAnchorFocusGuard` undoes a focus nobody asked for: a
-closed Paper `Menu` focuses its own anchor on mount, so without it every screen greeted
-the user with a focus ring drawn around the one control that signs them out. And the
-dialog's two actions wrap rather than sitting in a row that overflows the card — below
-about 230 px, which is a phone at 200 % zoom, the unwrapped row pushed *Cancel* off the
-screen and left only the destructive answer visible.
+the DOM at once. That same fact is why the trigger is `tabIndex={-1}` unless its own
+screen is focused: otherwise the app bars of the screens you are *not* looking at keep
+their place in the tab order, as invisible buttons that still open a menu. (`focusable`
+does not work for this — React Native Web's `Pressable` always writes a `tabIndex` of its
+own, and only falls back to `focusable` when none was given.)
+
+`useAnchorFocusGuard` undoes a focus nobody asked for: a closed Paper `Menu` focuses its
+own anchor on mount, so without it every screen and every tab change greeted the user
+with a focus ring drawn around the one control that signs them out. It returns focus
+where it came from rather than blurring, so activating a tab from the keyboard does not
+leave focus on `<body>`.
+
+The dialog's two actions wrap rather than sitting in a row that overflows the card —
+below about 230 px, which is a phone at 200 % zoom, the unwrapped row pushed *Cancel* off
+the screen and left only the destructive answer visible.
 
 The menu is built as an *account* menu with room for more rows, not a sign-out drawer,
 because "Switch home" ([#21](https://github.com/Senth/home-backlog/issues/21)) lands
 here, and API keys will once the REST API exists
 ([#7](https://github.com/Senth/home-backlog/issues/7)) — web sign-out will not invalidate
 an agent's key, and the menu should say so when keys exist.
+
+## The keyboard focus ring
+
+One CSS rule, app-wide, in `theme/focus-visible.ts` and injected by `app/+html.tsx` the
+same way that file sources its `theme-color` metas — so the ring colour cannot drift from
+`primary`, in either scheme.
+
+It has to be CSS rather than a style prop. React Native Web compiles `outline*` style
+props to atomic classes with no selector attached, so an outline in a style prop is
+painted *always*: it decorates a control rather than indicating focus, and it leaves a
+keyboard user with focused and unfocused rendering identically. React Native has no
+`:focus-visible` equivalent, and `Pressable`'s `focused` state is true for a mouse click
+too, so it would strand a ring behind after every tap.
+
+Chrome's default — a 1 px near-black outline — is what this replaces, because it all but
+disappears against a dark app bar.
 
 ## Offline
 
@@ -274,3 +299,8 @@ so it is testable in plain Node.
   The account menu is shaped to hold the row; it does not hold it yet.
 - **Telling a visitor what the app is, or who invited them** —
   [#22](https://github.com/Senth/home-backlog/issues/22). Layout room is reserved.
+- **The redirect's edges are the browser's, not ours.** A back-navigation straight after
+  signing in leaves the app for Google's chooser rather than returning to the board, and
+  losing the connection between the tap and the handler lands on the browser's own error
+  page — the app is not running at that moment, so it cannot say anything better. Both
+  are known and unhandled.

@@ -71,7 +71,7 @@ is reported as passing. Silence is not evidence.
 | 6 | Every user-facing string goes through `t()` | read the changed JSX for bare text in `<Text>`, `label=`, `title=`, `placeholder=`, `accessibilityLabel=` |
 | 7 | `i18n/locales/en-US.json` and `sv-SE.json` have identical key sets | compare sorted key paths of both files; report any key present in one and not the other, and any key added by the diff to only one |
 | 8 | `firestore.rules` / `storage.rules` changed ⇒ `tests/rules/` changed in the same diff | `git diff --name-only` |
-| 9 | New file in `utils/` or `models/` ⇒ a test exists for it | `git diff --name-only`, then look for the sibling `*.test.ts` |
+| 9 | New domain module (logic of its own — `auth/`, `models/`, `i18n/resolve-locale.ts`) ⇒ a test exists for it. A one-line SDK wrapper is not one | `git diff --name-only`, then look for the sibling `*.test.ts` |
 | 10 | Platform splits are `.web.tsx` / `.native.tsx`, not `Platform.OS` branching in a shared file where a split is cleaner | read the changed components |
 
 Also reject on sight: a snapshot test, or a component render test that only asserts

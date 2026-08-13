@@ -31,9 +31,11 @@ Setup and scripts: [`README.md`](README.md) · vision and architecture:
   risk here is listener breadth, not data volume.
 - Changing `firestore.rules` or `storage.rules` means updating `tests/rules/`
   in the same change.
-- Must have tests: everything in `utils/` and `models/`, and every rule. Must
-  not: snapshot tests, or component render tests that only assert layout —
-  verify visuals in the browser instead.
+- Must have tests: every **domain module** — anything with logic of its own,
+  such as `auth/`, `i18n/resolve-locale.ts` or a future `models/` — and every
+  rule. Must not: snapshot tests, or component render tests that only assert
+  layout — verify visuals in the browser instead. A one-line wrapper around an
+  SDK call is not a domain module.
 - After implementing anything, run `yarn lint --write`, `yarn typecheck` and
   `yarn test`. Fix everything they report, including pre-existing failures.
 - Then run the `/review` skill and ship only on a PASS. It hands the change to

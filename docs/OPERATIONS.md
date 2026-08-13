@@ -61,6 +61,37 @@ The `prod` GitHub environment holds the secrets `ENV` (the contents of
 nothing does it automatically, and a stale `ENV` ships a working build pointed
 at the wrong config.
 
+### The auth domain has to be set up in three places
+
+Web sign-in is a redirect whose `authDomain` is the app's own origin rather
+than `home-backlog.firebaseapp.com` — the *why* is in
+[`specs/platform-offline.md`](specs/platform-offline.md). Three things have to
+be true for a host, and only the first is visible from the Firebase console's
+happy path:
+
+1. The host is on the **authorized domains** list (Authentication → Settings).
+   `hb.senth.org`, `home-backlog.web.app`, `home-backlog.firebaseapp.com` and
+   `localhost` are on it.
+2. `https://<host>/__/auth/handler` is an **authorized redirect URI** on the
+   web OAuth client — the one named "Web client (auto created by Google
+   Service)". This is added by hand in the Google Cloud console; there is no
+   public API for it, so it cannot be scripted and it is the step that gets
+   forgotten. The `firebaseapp.com` handler URI is kept alongside it, so the
+   old auth domain still works and reverting costs nothing.
+3. `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN` in `.env.local` names the host, and that
+   file has been pushed to the `ENV` secret above. Unset or blank, the app
+   falls back to the origin it is served from, which is right for every
+   Hosting-served origin and wrong for a local `expo export` preview on a port
+   (the fallback drops the port).
+
+Hosting serves `/__/auth/handler` on every domain it serves, so nothing needs
+deploying for it — but **do not add a rewrite that shadows `/__/`**, and note
+that `public/sw.js` passes that prefix straight through: a service worker that
+caches it answers Google's handler with a copy of the app.
+
+Local development is unaffected. `__DEV__` connects the Auth emulator, which
+serves its own handler and its own account picker.
+
 ## Rules tests
 
 `yarn test:rules` boots the emulators and runs `tests/rules/` against them,

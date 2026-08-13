@@ -1,6 +1,6 @@
 // The service worker's routing table is plain JS served from `public/`, so it
 // is required by path rather than imported through the module graph.
-const { chooseStrategy } = require("../public/sw-routing.js") as {
+const { chooseStrategy } = require("@/public/sw-routing.js") as {
 	chooseStrategy: (request: {
 		method: string;
 		mode: string;
