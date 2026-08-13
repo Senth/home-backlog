@@ -1,4 +1,4 @@
-import { getRedirectResult } from "firebase/auth";
+import { browserPopupRedirectResolver, getRedirectResult } from "firebase/auth";
 import { auth } from "@/config/firebase";
 
 /**
@@ -14,7 +14,11 @@ import { auth } from "@/config/firebase";
  * screen — there is no result and no error, and the user simply sees login
  * again. It rejects only on a real failure, which the caller maps through
  * `mapAuthError()`.
+ *
+ * The resolver is passed here rather than to `initializeAuth`, so the handler
+ * iframe's 30–60 s timeout cannot delay the first `onAuthStateChanged` — see
+ * `config/firebase.ts`.
  */
 export async function consumeRedirectResult(): Promise<void> {
-	await getRedirectResult(auth);
+	await getRedirectResult(auth, browserPopupRedirectResolver);
 }

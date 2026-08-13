@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
+import type { View } from "react-native";
 
 /**
  * Everything inside a modal that a Tab can land on.
@@ -29,6 +30,15 @@ function byTestID(testID: string): HTMLElement | null {
 	return document.querySelector<HTMLElement>(`[data-testid="${testID}"]`);
 }
 
+/**
+ * React Native Web hands back the DOM node as the `View` ref, which the React
+ * Native types have no way to say.
+ */
+function domNode(ref: RefObject<View | null>): HTMLElement | null {
+	const node = ref.current as unknown;
+	return node instanceof HTMLElement ? node : null;
+}
+
 function visibleFocusable(root: HTMLElement): HTMLElement[] {
 	return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
 		// Not `offsetParent`, which is null for anything inside a
@@ -39,13 +49,18 @@ function visibleFocusable(root: HTMLElement): HTMLElement[] {
 
 interface ModalFocusOptions {
 	/**
-	 * `testID` of the element that should get focus back when the modal closes,
-	 * usually whatever opens it. Needed because the control that was focused
-	 * when the modal opened is often a menu item that no longer exists by the
-	 * time it closes, and focusing a detached node silently drops focus on
-	 * `<body>`.
+	 * The element that should get focus back when the modal closes, usually
+	 * whatever opens it. Needed because the control that was focused when the
+	 * modal opened is often a menu item that no longer exists by the time it
+	 * closes, and focusing a detached node silently drops focus on `<body>`.
+	 *
+	 * A ref rather than a `testID`: `@react-navigation/bottom-tabs` keeps every
+	 * visited tab mounted, so three app bars — and three identical `testID`s —
+	 * are in the DOM at once, and a `querySelector` returns the first one, which
+	 * belongs to a screen that is `display: none`. Focusing that drops focus on
+	 * `<body>`, which is the failure this option exists to prevent.
 	 */
-	returnFocusTo?: string;
+	returnFocusTo?: RefObject<View | null>;
 }
 
 /**
@@ -58,8 +73,8 @@ interface ModalFocusOptions {
  * on `<body>`. For a dialog whose whole purpose is to be a deliberate stop
  * before losing access, that is the dialog not doing its job.
  *
- * Elements are found by `testID`, which React Native Web renders as
- * `data-testid`.
+ * The modal itself is found by `testID`, which React Native Web renders as
+ * `data-testid`, and which is unique because only one dialog is ever mounted.
  */
 export function useModalFocus(
 	visible: boolean,
@@ -68,9 +83,13 @@ export function useModalFocus(
 	{ returnFocusTo }: ModalFocusOptions = {},
 ) {
 	// Kept in a ref so a new callback identity each render does not tear the
-	// listener down and re-run the focus move.
+	// listener down and re-run the focus move. Written in an effect, not during
+	// render: `app.json` turns the React Compiler on, and a ref mutation while
+	// rendering is exactly what it is allowed to assume never happens.
 	const dismiss = useRef(onDismiss);
-	dismiss.current = onDismiss;
+	useEffect(() => {
+		dismiss.current = onDismiss;
+	});
 
 	useEffect(() => {
 		if (!visible || typeof document === "undefined") return;
@@ -127,8 +146,48 @@ export function useModalFocus(
 			document.removeEventListener("keydown", onKeyDown, true);
 			// Back to whatever opened the dialog, so a keyboard user is not
 			// dropped at the top of the document.
-			const back = returnFocusTo ? byTestID(returnFocusTo) : null;
+			const back = returnFocusTo ? domNode(returnFocusTo) : null;
 			(back ?? (opener?.isConnected ? opener : null))?.focus?.();
 		};
 	}, [visible, testID, returnFocusTo]);
+}
+
+/**
+ * Stops a closed Paper `Menu` from focusing its own anchor on mount.
+ *
+ * `Menu` starts `prevVisible` at `null`, so the first render of a *closed* menu
+ * takes the `null !== false` branch and runs the hide path, whose animation
+ * callback calls `focusFirstDOMNode(anchorRef)` (`Menu.tsx:216`, `:384`,
+ * `:429`). The anchor here is the account trigger, so every signed-in screen —
+ * and every tab change, since each screen mounts its own app bar — ends with
+ * focus on the avatar and Chrome's default ring drawn round it, before the user
+ * has touched anything.
+ *
+ * The guard blurs a focus the user did not ask for, and stops as soon as they
+ * act: a pointer or key event means any focus that follows is theirs, including
+ * Paper's legitimate restore-on-close.
+ */
+export function useAnchorFocusGuard(ref: RefObject<View | null>) {
+	useEffect(() => {
+		const node = domNode(ref);
+		if (!node) return;
+
+		let userActed = false;
+		const markActed = () => {
+			userActed = true;
+		};
+		const onFocus = () => {
+			if (!userActed) node.blur();
+		};
+
+		window.addEventListener("pointerdown", markActed, true);
+		window.addEventListener("keydown", markActed, true);
+		node.addEventListener("focus", onFocus);
+
+		return () => {
+			window.removeEventListener("pointerdown", markActed, true);
+			window.removeEventListener("keydown", markActed, true);
+			node.removeEventListener("focus", onFocus);
+		};
+	}, [ref]);
 }

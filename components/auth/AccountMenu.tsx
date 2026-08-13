@@ -1,7 +1,12 @@
 import type { User } from "firebase/auth";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions, View } from "react-native";
+import {
+	Platform,
+	useWindowDimensions,
+	View,
+	type ViewStyle,
+} from "react-native";
 import {
 	Avatar,
 	Button,
@@ -16,16 +21,35 @@ import {
 import { displayLabel, initials } from "@/auth/display-name";
 import { type AuthErrorKey, mapAuthError } from "@/auth/errors";
 import { useAuth } from "@/contexts/AuthContext";
-import { useModalFocus } from "@/hooks/use-modal-focus";
+import { useAnchorFocusGuard, useModalFocus } from "@/hooks/use-modal-focus";
 import { useAppTheme } from "@/theme";
 import {
 	compactBreakpoint,
 	contentWidth,
+	focusRing,
 	radius,
 	size,
 	space,
 	touchTarget,
 } from "@/theme/tokens";
+
+/**
+ * A focus ring in the app's own colour instead of Chrome's 1 px near-black
+ * default, which is close to invisible against a dark app bar.
+ *
+ * The `outline*` style props are React Native Web's, absent from React
+ * Native's `ViewStyle`, hence the cast — and applied only on web, where the
+ * Tab key exists.
+ */
+function focusRingStyle(color: string): ViewStyle {
+	if (Platform.OS !== "web") return {};
+	return {
+		outlineColor: color,
+		outlineStyle: "solid",
+		outlineWidth: focusRing.width,
+		outlineOffset: focusRing.offset,
+	} as unknown as ViewStyle;
+}
 
 const signOutDialogTestID = "sign-out-dialog";
 
@@ -37,9 +61,9 @@ const signOutDialogTestID = "sign-out-dialog";
  */
 const signOutDialogSurfaceTestID = `${signOutDialogTestID}-surface`;
 
-/** Where focus goes when the dialog closes. The menu item that opened it has
- *  been unmounted by then, and focusing a detached node drops focus on
- *  `<body>`. */
+/** Kept for the browser reviewers to hook onto. Focus is *not* restored by
+ *  this ID — three tab screens stay mounted at once, so it is not unique; the
+ *  dialog gets a ref to this instance instead. */
 const triggerTestID = "account-menu-trigger";
 
 /**
@@ -102,6 +126,7 @@ export function AccountMenu() {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [error, setError] = useState<AuthErrorKey | null>(null);
+	const triggerRef = useRef<View | null>(null);
 
 	const closeConfirm = useCallback(() => setConfirmOpen(false), []);
 
@@ -109,8 +134,11 @@ export function AccountMenu() {
 	// only by tabbing through the tab bar behind the scrim, and Escape does
 	// nothing. A dialog that exists to be a deliberate stop has to be operable.
 	useModalFocus(confirmOpen, signOutDialogSurfaceTestID, closeConfirm, {
-		returnFocusTo: triggerTestID,
+		returnFocusTo: triggerRef,
 	});
+
+	// And Paper's `Menu` focuses this trigger on mount, unasked — see the hook.
+	useAnchorFocusGuard(triggerRef);
 
 	if (!user) return null;
 
@@ -143,6 +171,7 @@ export function AccountMenu() {
 				contentStyle={{ maxWidth: width - space.md * 2 }}
 				anchor={
 					<TouchableRipple
+						ref={triggerRef}
 						accessibilityRole="button"
 						accessibilityLabel={t("account.label")}
 						testID={triggerTestID}
@@ -154,6 +183,7 @@ export function AccountMenu() {
 							minHeight: touchTarget,
 							paddingHorizontal: space.sm,
 							borderRadius: radius.full,
+							...focusRingStyle(theme.colors.primary),
 						}}
 					>
 						<View
@@ -221,7 +251,13 @@ export function AccountMenu() {
 					<Dialog.Content>
 						<Text variant="bodyMedium">{t("account.signOut.body")}</Text>
 					</Dialog.Content>
-					<Dialog.Actions style={{ gap: space.md }}>
+					{/* Wrapping, because below ~230 px the two labels no longer fit
+					    side by side and Paper's row simply overflows its own card:
+					    "Cancel" — the safe answer — ends up on the scrim with its
+					    left edge off the screen while "Sign out" sits square in the
+					    middle. That is a phone at 200 % zoom, which is exactly the
+					    person this dialog exists to protect. */}
+					<Dialog.Actions style={{ gap: space.md, flexWrap: "wrap" }}>
 						{/* The two answers must not look alike. Paper's default gives
 						    both actions `primary`, so the one that ends your access
 						    reads exactly like the one that does not — and it sits on

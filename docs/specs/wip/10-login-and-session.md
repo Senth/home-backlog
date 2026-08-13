@@ -368,6 +368,34 @@ must scroll rather than clip; both avatar branches; and reload-and-back behaviou
 deferred only with a stated reason; `idea` findings go to the user, who decides which
 become issues.
 
+### Round 2 (2026-08-13)
+
+`code-review` and `ux-review` re-ran against the round-1 fixes; both said FAIL, and both
+confirmed every round-1 finding is genuinely closed. `qa-review` did not run in this round —
+the fixes below landed first, so it runs in round 3 against the fixed tree. Reports are in
+`.tmp/review/` (gitignored).
+
+Everything found was `should-fix`; all six are fixed:
+
+| Report | Finding | What was done |
+| ------ | ------- | ------------- |
+| code 1 | `popupRedirectResolver` at `initializeAuth` blocks the first `onAuthStateChanged` for up to 30 s on lie-fi — Firebase awaits `resolver._initialize()` before `initializeCurrentUser()` on every mobile browser, Safari and iOS | resolver passed per call to `signInWithRedirect` / `getRedirectResult` instead |
+| code 2 | focus restore used a `testID` shared by three mounted tab screens, so it restored to the hidden Projects trigger | `returnFocusTo` takes an element ref; verified focus lands on the Locations trigger |
+| code 3 | ref written during render with the React Compiler on | moved into an effect |
+| code 4 | the phase-6 draft lost the `/__/` passthrough and the `redirectGraceMs` cap | both written into the draft, with their *why* |
+| ux 1 | every screen and every tab change stole focus to the account trigger, with Chrome's near-black ring — Paper's `Menu` inits `prevVisible` to `null` and runs its hide path on mount, which focuses the anchor | `useAnchorFocusGuard` blurs a focus no user action caused; themed `focusRing` token replaces the UA default |
+| ux 2 | below ~230 px the dialog's action row overflowed the card, pushing *Cancel* off-screen while *Sign out* stayed | `Dialog.Actions` wraps; measured inside the card at 195 / 220 / 240 px, unchanged row at 390 / 2560 |
+
+Verified in the browser after the fixes: sign-in redirect completes, focus stays on `<body>`
+through reload and tab changes, Tab still reaches the trigger and now draws a
+`rgb(46,125,50)` 2 px ring, dialog actions sit inside the card at every width tested.
+
+`idea` findings from both reports are unactioned and listed for the user — they are the
+round-1 list plus: `initializeAuth`'s bare `catch` swallowing a real failure,
+`window.location.hostname` dropping the port, avatar state not keyed on `photoURL`, the
+account-menu email breaking mid-token at 195 px, the splash never naming the app, the
+desktop layout being the phone layout stretched, and the display-name chip's 12 px inset.
+
 ### Where this stopped (2026-08-12)
 
 Phases 1–4 are committed and green. Round 1 of the review has run and every
@@ -405,10 +433,15 @@ What round 1 fixed, so a re-reviewer can check the specific claims:
 Two things were **not** done and need a decision:
 
 - **qa 3 (`should-fix`) — three React Native Web deprecation warnings** on every screen
-  (`props.pointerEvents`, `useNativeDriver`, `shadow*`). Not yet traced to app code versus
-  `react-native-paper` internals. If they are library-internal, defer with that as the
-  stated reason; if any come from app code, fix them. **This is the one outstanding
-  `should-fix`** and must be resolved before a PASS.
+  (`props.pointerEvents`, `useNativeDriver`, `shadow*`). **Traced 2026-08-13 and deferred:
+  every one is library-internal.** App code (`app/`, `components/`, `hooks/`, `contexts/`,
+  `theme/`, `auth/`, `config/`) contains no `pointerEvents` prop, no `useNativeDriver` and
+  no `shadow*` style — `elevation` appears only as a Paper prop. The sources are
+  `react-native-paper` (`Surface.tsx`, `MaterialCommunityIcon.tsx`, `PortalHost.tsx` for
+  `pointerEvents`; `ActivityIndicator.tsx`, `Snackbar.tsx` for `useNativeDriver`, which has
+  no native animated module on web; `styles/shadow.tsx` + `Surface.tsx` for `shadow*`) and
+  `@react-navigation/elements` (`Header.tsx`). Nothing in this feature can silence them
+  short of forking a dependency; they clear when those libraries adopt the new APIs.
 - **All `idea` findings** — none acted on, per the skill. They are listed for the user at
   the end of the round-1 summary and in the three reports. The user decides which become
   `gh issue create --label idea`. Notable ones: `primary` misses 4.5:1 on elevated light

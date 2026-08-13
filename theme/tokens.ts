@@ -73,6 +73,17 @@ export const size = {
 export const touchTarget = 48;
 
 /**
+ * The keyboard focus indicator. Chrome's default is a 1 px near-black ring,
+ * which all but disappears against a dark app bar — and the focus ring is the
+ * one affordance a keyboard user cannot do without. Web-only: there is no Tab
+ * key on a phone.
+ */
+export const focusRing = {
+	width: 2,
+	offset: 2,
+} as const;
+
+/**
  * Width below which the layout is treated as a phone. Boards show one column
  * per screen under this, several side by side above it.
  */

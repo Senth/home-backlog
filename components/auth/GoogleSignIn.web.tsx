@@ -1,4 +1,8 @@
-import { GoogleAuthProvider, signInWithRedirect } from "firebase/auth";
+import {
+	browserPopupRedirectResolver,
+	GoogleAuthProvider,
+	signInWithRedirect,
+} from "firebase/auth";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TextStyle } from "react-native";
@@ -59,7 +63,9 @@ export function GoogleSignInButton({
 			// personal account is locked out of their own board with no way back
 			// from inside the app.
 			provider.setCustomParameters({ prompt: "select_account" });
-			await signInWithRedirect(auth, provider);
+			// The resolver is passed per call, not given to `initializeAuth` — see
+			// `config/firebase.ts`. Here is where loading the handler is wanted.
+			await signInWithRedirect(auth, provider, browserPopupRedirectResolver);
 		} catch (error) {
 			console.error("Google sign-in error:", error);
 			onError?.(mapAuthError(error));

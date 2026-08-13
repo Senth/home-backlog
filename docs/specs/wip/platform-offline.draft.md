@@ -108,6 +108,15 @@ Awaiting the redirect result is what stops the login screen appearing for half a
 on the way back from Google: `onAuthStateChanged` can report "no user" before the
 redirect credential has been exchanged.
 
+That wait is capped at five seconds. The gate holds the entire router, and Firebase's
+redirect resolver sits on a 30–60 s network timeout, so on lie-fi an already signed-in
+user would stare at a splash — the exact failure the splash was built to prevent, in a
+new costume. After the cap the app routes on what `onAuthStateChanged` alone has said; a
+credential that lands later still arrives through it, which is the only path that can
+sign anyone in. For the same reason the popup/redirect resolver is passed per call rather
+than to `initializeAuth`, which would otherwise load the handler iframe — on that same
+timeout — before the first `onAuthStateChanged` can fire at all.
+
 The splash is the app mark, a spinner, and nothing else. It deliberately does not
 resemble the login screen — a splash that looks like login is a login screen that keeps
 refusing to accept a tap.
@@ -166,6 +175,16 @@ has to be making sign-out hard to hit by accident rather than adding a second pr
 far has needed to invent one) and a menu with no dialog (a menu opened by accident still
 has the cliff one tap away).
 
+Paper gives a web dialog no focus management at all, so `useModalFocus` traps Tab inside
+it, closes it on Escape, and hands focus back to the avatar that opened it — by ref, not
+by `testID`, because every visited tab stays mounted and three identical `testID`s are in
+the DOM at once. Its sibling `useAnchorFocusGuard` undoes a focus nobody asked for: a
+closed Paper `Menu` focuses its own anchor on mount, so without it every screen greeted
+the user with a focus ring drawn around the one control that signs them out. And the
+dialog's two actions wrap rather than sitting in a row that overflows the card — below
+about 230 px, which is a phone at 200 % zoom, the unwrapped row pushed *Cancel* off the
+screen and left only the destructive answer visible.
+
 The menu is built as an *account* menu with room for more rows, not a sign-out drawer,
 because "Switch home" ([#21](https://github.com/Senth/home-backlog/issues/21)) lands
 here, and API keys will once the REST API exists
@@ -214,7 +233,11 @@ and `importScripts` also makes the browser check it for updates.
 
 The strategies: writes and cross-origin requests pass through untouched (Firestore, Google
 auth and fonts run their own offline handling, and the Firestore write queue breaks if the
-worker answers for it); navigations are network-first and store the single app shell,
+worker answers for it); **anything under `/__/` is passed straight through**, because
+`authDomain` is now the app's own origin, which puts Firebase's OAuth handler on a path the
+worker would otherwise treat as a navigation and cache as the app shell — sign-in would
+then be answered by a cached copy of the app instead of by Google, and the cached shell
+would be a Google page; navigations are network-first and store the single app shell,
 never a per-route copy, because each exported HTML file names a content-hashed bundle and
 a stale per-route copy would boot old app code on one route while others ran the new
 build; content-hashed assets under `/_expo/static/` are cache-first forever; everything

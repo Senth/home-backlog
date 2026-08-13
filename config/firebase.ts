@@ -1,7 +1,6 @@
 import { initializeApp } from "firebase/app";
 import {
 	browserLocalPersistence,
-	browserPopupRedirectResolver,
 	browserSessionPersistence,
 	connectAuthEmulator,
 	getAuth,
@@ -69,8 +68,18 @@ const app = initializeApp(firebaseConfig);
  * The chain is kept rather than pinning IndexedDB alone: a browser that blocks
  * IndexedDB (a Firefox private window, some embedded webviews) would fail
  * outright and make sign-in impossible, where the chain degrades to a
- * session-only login that still works. `browserPopupRedirectResolver` is what
- * `signInWithRedirect` needs to find the handler.
+ * session-only login that still works.
+ *
+ * `popupRedirectResolver` is deliberately **not** set here, and passed to
+ * `signInWithRedirect` / `getRedirectResult` per call instead. Given it at
+ * init, `@firebase/auth` awaits `resolver._initialize()` *before*
+ * `initializeCurrentUser()` whenever `_shouldInitProactively` — which is
+ * `_isMobileBrowser() || _isSafari() || _isIOS()`, so every phone this app
+ * targets. That loads the handler iframe on a 30–60 s network timeout, and
+ * until it settles the first `onAuthStateChanged` cannot fire: on lie-fi a
+ * user whose session is already in IndexedDB would sit on the splash for half
+ * a minute. Per call, the iframe loads only when someone is actually signing
+ * in.
  *
  * TODO(native): `initializeAuth` without a persistence adapter keeps the
  * session in memory, so a native app forgets the user on relaunch. The fix is
@@ -88,7 +97,6 @@ function createAuth() {
 				browserLocalPersistence,
 				browserSessionPersistence,
 			],
-			popupRedirectResolver: browserPopupRedirectResolver,
 		});
 	} catch {
 		// Fast Refresh can re-run this module while the Auth instance from the
