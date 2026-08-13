@@ -27,7 +27,7 @@
 			"<rootDir>/tests/rules/"
 		],
 		"transformIgnorePatterns": [
-			"node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|@react-native-firebase|firebase|react-native-paper))"
+			"node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|@react-native-firebase|firebase|react-native-paper|fractional-indexing))"
 		]
 	},
 	"dependencies": {
@@ -45,6 +45,7 @@
 		"expo-status-bar": "55.0.6",
 		"expo-web-browser": "~55.0.18",
 		"firebase": "12.13.0",
+		"fractional-indexing": "^4.0.0",
 		"i18next": "26.0.10",
 		"react": "19.2.0",
 		"react-dom": "19.2.0",
