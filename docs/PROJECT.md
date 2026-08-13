@@ -203,7 +203,9 @@ multi-tenancy, sharing, or store release.
 
 ### Post-MVP, roughly in order
 
-1. Dashboard home: ongoing projects, upcoming maintenance, 30-day completed summary.
+1. Overview: ongoing projects, upcoming maintenance, 30-day completed summary. Named
+   *Overview* / *Översikt* rather than "dashboard home", because **home** is the
+   household you are in — see [`specs/home-and-members.md`](specs/home-and-members.md).
 2. Next-task suggestion engine (needs real data before its weights mean anything).
 3. Drag and drop on boards.
 4. Calendar view for recurring tasks.

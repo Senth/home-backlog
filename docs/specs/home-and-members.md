@@ -320,6 +320,11 @@ out.
 
 ### `/homes/[homeId]` — manage
 
+The back arrow goes **up** to `/homes` rather than calling `router.back()`. This screen is
+reachable with no in-app history — a reload, a bookmark, a pasted URL — and there `back()`
+is a no-op that logs "GO_BACK was not handled by any navigator" and leaves the arrow dead.
+The destination is the same either way, so it is named.
+
 - **Name** — a field and a Save button. Any member may rename.
 - **Members** — a row per person with their avatar, a role chip, "You" on your own row,
   and for an owner an overflow menu with Make admin / Make member / Remove. Actions that
@@ -357,6 +362,25 @@ the app opens, and Paper's action spacing never lands. The prop type enforces it
 `aria-disabled="true"` on itself, and everything nested inside inherits it. That made the
 member overflow menu unopenable and announced the withdraw button as disabled. Rows that
 really are tappable keep `List.Item`.
+
+**A `SegmentedButtons` segment is as tall as its label box, and nothing else.** Paper
+hard-codes `paddingVertical: 9` on the segment content and exposes no prop that reaches
+the pressable: there is no `contentStyle`, `density` only makes it smaller, and `hitSlop`
+is honoured by React Native Web's legacy `Touchable` but not by the `Pressable` Paper
+renders. A `minHeight` on the segment inflates the *box* and leaves the tap target at
+38px. Growing the label's line height is what grows the target — see
+`segmentedLabelLineHeight`.
+
+**`returnFocusTo` must reach a focusable node.** Paper's `Button` forwards its ref to the
+outer `Surface` and keeps the pressable on a private `touchableRef`, so a ref to a
+`Button` points at a plain `div` with no tabindex; focusing it drops focus on `<body>`,
+which is the failure the prop exists to prevent. `useModalFocus` therefore focuses the
+first focusable *inside* the referenced node, falling back to the node itself.
+
+**One anchor ref per row, never one beside a `.map()`.** A single ref shared across a list
+holds whichever row rendered last, so a dialog opened from the first row would return
+focus to the last one — worse than the fallback it overrides. Each row is its own
+component and owns its ref and its dialog.
 
 ## Offline
 
