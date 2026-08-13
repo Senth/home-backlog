@@ -7,7 +7,6 @@ export default function Maintenance() {
 
 	return (
 		<PlaceholderScreen
-			title={t("screen.maintenance.title")}
 			body={t("screen.maintenance.empty")}
 			action={<AccountMenu />}
 		/>

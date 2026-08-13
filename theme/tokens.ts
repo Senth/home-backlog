@@ -7,8 +7,11 @@
  * literal appears outside `theme/`. See `CLAUDE.md`.
  */
 
-/** Spacing scale. 4pt grid, matching Material 3's density steps. */
+/** Spacing scale. 4pt grid, matching Material 3's density steps. `none` exists
+ *  so that *removing* a component's own default margin is still a token — Paper
+ *  ships `IconButton` with one, and a bare `0` is the literal this file bans. */
 export const space = {
+	none: 0,
 	xs: 4,
 	sm: 8,
 	md: 16,
@@ -71,6 +74,19 @@ export const size = {
  * and set `minWidth` / `minHeight` on custom pressables.
  */
 export const touchTarget = 48;
+
+/**
+ * Line height for a `SegmentedButtons` label, and the only way to make that
+ * control meet `touchTarget`.
+ *
+ * Paper hard-codes `paddingVertical: 9` on the segment's content and exposes no
+ * `contentStyle`, `hitSlop` that web honours, or any other prop that reaches the
+ * pressable — `density` only makes it smaller. The ripple is therefore exactly
+ * as tall as its label box, and growing the label is what grows the target:
+ * 9 + 30 + 9 = 48. A plain `minHeight` on the segment inflates the *box* and
+ * leaves the pressable at 38, which is the bug this exists to fix.
+ */
+export const segmentedLabelLineHeight = 30;
 
 /**
  * The keyboard focus indicator. Chrome's default is a 1 px near-black ring,

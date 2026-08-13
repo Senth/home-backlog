@@ -10,7 +10,6 @@ export default function Projects() {
 
 	return (
 		<PlaceholderScreen
-			title={t("screen.projects.title")}
 			body={t("screen.projects.empty")}
 			// "No projects yet" looks the same whether the board is empty, the app
 			// is broken, or you signed in with the wrong Google account. Naming the

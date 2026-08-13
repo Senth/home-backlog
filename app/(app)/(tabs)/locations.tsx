@@ -7,7 +7,6 @@ export default function Locations() {
 
 	return (
 		<PlaceholderScreen
-			title={t("screen.locations.title")}
 			body={t("screen.locations.empty")}
 			action={<AccountMenu />}
 		/>

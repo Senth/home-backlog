@@ -31,21 +31,87 @@
 			"offlineHint": "Knappen fungerar igen när du är uppkopplad."
 		},
 		"projects": {
-			"title": "Projekt",
 			"empty": "Inga projekt än."
 		},
 		"locations": {
-			"title": "Platser",
 			"empty": "Inga platser än."
 		},
 		"maintenance": {
-			"title": "Underhåll",
 			"empty": "Inget som behöver göras."
 		}
 	},
+	"homes": {
+		"title": "Mina hem",
+		"empty": "Du är inte med i något hem än.",
+		"create": "Skapa ett nytt hem",
+		"nameLabel": "Namn",
+		"nameHint": "Det ni själva kallar det — ”Huset”, ”Stugan”.",
+		"defaultName": "{{name}}s hem",
+		"createAction": "Skapa",
+		"nameRequired": "Ge hemmet ett namn.",
+		"nameTooLong": "Namnet är för långt.",
+		"current": "Nuvarande",
+		"memberCount_one": "{{count}} person",
+		"memberCount_other": "{{count}} personer",
+		"offlineHint": "Du måste vara uppkopplad för att skapa ett hem."
+	},
+	"invite": {
+		"pending": "{{inviter}} har bjudit in dig till {{home}}",
+		"join": "Gå med",
+		"joining": "Går med…",
+		"decline": "Avböj",
+		"declineTitle": "Avböja inbjudan?",
+		"declineBody": "{{inviter}} måste bjuda in dig igen.",
+		"offlineHint": "Du måste vara uppkopplad för att gå med.",
+		"sendOfflineHint": "Du måste vara uppkopplad för att skicka en inbjudan.",
+		"failed": "Kunde inte gå med. Inbjudan kan ha tagits tillbaka.",
+		"sendTitle": "Bjud in någon",
+		"emailLabel": "E-postadress",
+		"send": "Skicka inbjudan",
+		"sent": "Inbjudan skickad till {{email}}.",
+		"sentBody": "Den syns nästa gång de öppnar Home Backlog.",
+		"selfError": "Det är din egen adress.",
+		"alreadyMember": "{{name}} är redan med i hemmet.",
+		"alreadyInvited": "Adressen är redan inbjuden.",
+		"invalidEmail": "Det ser inte ut som en e-postadress.",
+		"pendingTitle": "Skickade inbjudningar",
+		"revoke": "Ta tillbaka",
+		"revokeTitle": "Ta tillbaka inbjudan?",
+		"revokeBody": "{{email}} kan inte längre gå med.",
+		"revokeFor": "Ta tillbaka inbjudan till {{email}}"
+	},
+	"members": {
+		"title": "Medlemmar",
+		"unknown": "Någon",
+		"roleOwner": "Administratör",
+		"roleMember": "Medlem",
+		"you": "Du",
+		"promote": "Gör till administratör",
+		"demote": "Gör till medlem",
+		"remove": "Ta bort från hemmet",
+		"removeTitle": "Ta bort {{name}}?",
+		"removeBody": "Hen förlorar åtkomst till hemmet. Sådant som bara hen kunde se — hens privata uppgifter — försvinner för alla.",
+		"lastAdmin": "Gör någon annan till administratör först.",
+		"manage": "Hantera {{name}}"
+	},
+	"manageHome": {
+		"title": "Hantera hem",
+		"save": "Spara",
+		"saved": "Namnet sparat.",
+		"leave": "Lämna hemmet",
+		"leaveTitle": "Lämna {{home}}?",
+		"leaveBody": "Du behöver en ny inbjudan för att komma tillbaka.",
+		"delete": "Radera hemmet",
+		"deleteTitle": "Radera {{home}}?",
+		"deleteBody": "Alla projekt, platser och underhåll i det raderas. Det går inte att ångra.",
+		"deleteConfirm": "Radera",
+		"deleteOnlyAlone": "Ta bort alla andra först.",
+		"manageNamed": "Hantera {{home}}"
+	},
 	"error": {
 		"googleSignIn": "Kunde inte logga in med Google. Försök igen.",
-		"offline": "Du är offline. Du måste vara uppkopplad för att logga in."
+		"offline": "Du är offline. Du måste vara uppkopplad för att logga in.",
+		"saveFailed": "Det gick inte att spara. Försök igen."
 	},
 	"status": {
 		"offline": "Offline — ändringar sparas och synkas när du är uppkopplad igen.",

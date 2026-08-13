@@ -14,6 +14,14 @@ export const OWNER = { uid: "uid-owner", email: "owner@example.com" };
 export const MEMBER = { uid: "uid-member", email: "member@example.com" };
 export const INVITEE = { uid: "uid-invitee", email: "Invitee@Example.com" };
 export const OUTSIDER = { uid: "uid-outsider", email: "nobody@example.com" };
+/**
+ * An uppercase non-ASCII address, which is the one case where the two sides of
+ * the hash could silently disagree: `firestore.rules` folds case with CEL's
+ * `lower()` and the client with JavaScript's `toLowerCase()`. If those differ on
+ * Ä, a Swedish invitee never finds an invitation that was really sent, and
+ * nothing on screen can explain why.
+ */
+export const NORDIC = { uid: "uid-nordic", email: "MÄRTA@exempel.se" };
 
 export interface TestUser {
 	uid: string;
@@ -24,13 +32,87 @@ export interface TestUser {
  * Mirrors the `emailHash()` function in firestore.rules: SHA-256 of the
  * lowercased email, lowercase hex. If these two ever disagree, an invitee
  * cannot find their own invite.
+ *
+ * The fold is **ASCII only**, because CEL's `lower()` is — `toLowerCase()` here
+ * would quietly pass every ASCII test while disagreeing with the rule on Ä, and
+ * the one case that matters is the one it would not cover.
  */
 export function emailHash(email: string): string {
-	return createHash("sha256").update(email.toLowerCase()).digest("hex");
+	const lowered = email.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+	return createHash("sha256").update(lowered).digest("hex");
 }
 
 export function ownerAndMember(): Record<string, string> {
 	return { [OWNER.uid]: "owner", [MEMBER.uid]: "member" };
+}
+
+/** Everyone the tests can sign in as, so a uid can be resolved to an address. */
+const USERS: TestUser[] = [OWNER, MEMBER, INVITEE, OUTSIDER];
+
+function userByUid(uid: string): TestUser | undefined {
+	return USERS.find((user) => user.uid === uid);
+}
+
+export function profilesFor(
+	members: Record<string, string>,
+): Record<string, { displayName: string; photoURL: string | null }> {
+	return Object.fromEntries(
+		Object.keys(members).map((uid) => [
+			uid,
+			{ displayName: userByUid(uid)?.email ?? uid, photoURL: null },
+		]),
+	);
+}
+
+export function hashesFor(
+	members: Record<string, string>,
+): Record<string, string> {
+	return Object.fromEntries(
+		Object.keys(members).flatMap((uid) => {
+			const user = userByUid(uid);
+			return user ? [[uid, emailHash(user.email)]] : [];
+		}),
+	);
+}
+
+/**
+ * A home document in the shape the app writes it. Membership is the only part a
+ * test usually cares about, so the sibling maps are derived from it — a seed
+ * whose `memberEmailHashes` disagreed with its `members` would fail rules that
+ * have nothing to do with the case under test.
+ */
+export function homeDoc(
+	members: Record<string, string> = ownerAndMember(),
+): Record<string, unknown> {
+	return {
+		name: "Home",
+		members,
+		memberProfiles: profilesFor(members),
+		memberEmailHashes: hashesFor(members),
+		createdBy: OWNER.uid,
+	};
+}
+
+/**
+ * An invite document, keyed elsewhere by the same hash it carries as a field.
+ *
+ * `createdAt` is not decoration: the owner's pending list orders by it, and a
+ * Firestore query on a field drops every document that lacks it — so a seed
+ * without one would pass these tests while being invisible to the query the app
+ * actually runs.
+ */
+export function inviteDoc(
+	email: string,
+	role = "member",
+): Record<string, unknown> {
+	return {
+		emailHash: emailHash(email),
+		email,
+		role,
+		homeName: "Home",
+		invitedByName: "Owner",
+		createdAt: new Date("2026-01-01T00:00:00Z"),
+	};
 }
 
 export async function createTestEnv(): Promise<RulesTestEnvironment> {

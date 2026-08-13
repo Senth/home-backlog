@@ -146,7 +146,16 @@ export function useModalFocus(
 			document.removeEventListener("keydown", onKeyDown, true);
 			// Back to whatever opened the dialog, so a keyboard user is not
 			// dropped at the top of the document.
-			const back = returnFocusTo ? domNode(returnFocusTo) : null;
+			//
+			// Not the referenced node itself: Paper's `Button` forwards its ref to
+			// the outer `Surface` and keeps the pressable on a private
+			// `touchableRef`, so focusing the ref lands on a plain `div` with no
+			// tabindex — which drops focus on `<body>`, the exact failure this is
+			// here to prevent. The first focusable *inside* it is the control.
+			const referenced = returnFocusTo ? domNode(returnFocusTo) : null;
+			const back = referenced
+				? (visibleFocusable(referenced)[0] ?? referenced)
+				: null;
 			(back ?? (opener?.isConnected ? opener : null))?.focus?.();
 		};
 	}, [visible, testID, returnFocusTo]);

@@ -1,11 +1,13 @@
+import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Appbar, Text } from "react-native-paper";
+import { useHome } from "@/contexts/HomeContext";
 import { useAppTheme } from "@/theme";
 import { space } from "@/theme/tokens";
 
 interface PlaceholderScreenProps {
-	title: string;
 	body: string;
 	/**
 	 * Quieter line under the empty state. Used for "signed in as", which is the
@@ -23,20 +25,32 @@ interface PlaceholderScreenProps {
  * Standing in for the Projects, Locations and Maintenance screens until each
  * feature lands. Deliberately a single shared component: the real screens will
  * replace it one at a time, and nothing here should be worth keeping.
+ *
+ * The app bar names the *home*, not the screen — the bottom tab bar already
+ * names the screen, and which home you are in has to be visible without a tap.
+ * Without it, work on the cabin gets recorded on the house board and nothing on
+ * screen ever said otherwise. The back action is the way up to "My homes",
+ * which is where switching happens.
  */
 export function PlaceholderScreen({
-	title,
 	body,
 	footnote,
 	children,
 	action,
 }: PlaceholderScreenProps) {
+	const { t } = useTranslation();
 	const theme = useAppTheme();
+	const router = useRouter();
+	const { activeHome } = useHome();
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
 			<Appbar.Header>
-				<Appbar.Content title={title} />
+				<Appbar.BackAction
+					accessibilityLabel={t("homes.title")}
+					onPress={() => router.push("/homes")}
+				/>
+				<Appbar.Content title={activeHome?.name ?? ""} />
 				{action}
 			</Appbar.Header>
 			{children}
