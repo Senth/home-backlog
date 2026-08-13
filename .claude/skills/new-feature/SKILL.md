@@ -1,6 +1,6 @@
 ---
 name: new-feature
-description: "Structured new-feature kickoff for Home Backlog. Use when starting a feature from the Kanban board, picking up a backlog issue, or planning the next feature. Runs the homeowner-review agent, then grill-me, then writes a temporary implementation spec under docs/specs/wip/ and hands it off. Stops before implementation. Not for bug fixes or cleanups."
+description: "Structured new-feature kickoff for Home Backlog. Use when starting a feature from the Kanban board, picking up a backlog issue, or planning the next feature. Runs the homeowner-review agent when the feature has user-visible surface, then a bounded grill-me, then writes a temporary implementation spec under docs/specs/wip/ and hands it off. Stops before implementation. Not for bug fixes or cleanups."
 ---
 
 # New Feature Skill
@@ -42,9 +42,14 @@ edge cases, boundaries — belongs to Step 4 and must not be asked twice.
 
 ## Step 3 — Homeowner review
 
-Invoke the `homeowner-review` agent with the issue number (or the description plus the
-Step 2 answers). This step always runs; the agent decides for itself when a feature is
-invisible to a household and exits in two lines.
+**Run it only when the feature adds or changes surface a household perceives** — a screen,
+a flow, a notification, wording. Plumbing has nothing for personas to react to: an index,
+a rules refactor, CI, i18n wiring, a data-model change with no visible effect. Say in one
+line that you are skipping it and why, then go to Step 4.
+
+When it does run, invoke the `homeowner-review` agent with the issue number (or the
+description plus the Step 2 answers), and **name the personas the feature actually
+touches** — usually two or three. The rest answer in one line each.
 
 Summarise its report, then split the findings:
 
@@ -66,7 +71,9 @@ Invoke the `grill-me` skill, seeded with:
 2. Every `blocking` and `should-fix` finding
 3. Every open question the review emitted
 
-The grilling must settle:
+Give it a fixed agenda and a stopping condition: **settle the topics below, then stop.**
+Not "grill until shared understanding" — that has no end. A topic the issue already
+answers is not asked about. Topics:
 
 - Scope and boundaries; what is explicitly out
 - Data model: `nodes` / `locations` / `recurring` fields, types, indexes
@@ -78,7 +85,8 @@ The grilling must settle:
 - Interaction with the settled decisions in `docs/PROJECT.md` — never re-open one by
   accident
 
-Do not proceed until it reaches shared understanding.
+When every topic has an answer, stop and write the spec. If one topic is genuinely
+unresolvable, record it in the spec as an open decision rather than grinding on it.
 
 ## Step 5 — Write the spec
 
@@ -115,24 +123,23 @@ Phase 1  models + rules + tests/rules
 Phase 2  data hooks and queries
 Phase 3  UI screens + strings (en-US + sv-SE)
 ...
-Phase N-1  review: smoke-test, then /review until PASS
+Phase N-1  review: /review until PASS
 Phase N    cleanup (below) + commit, PR, merge
 ```
 
 The last two phases are **mandatory**. Component render tests that only assert layout are
 forbidden by `CLAUDE.md`, so the browser pass is how visuals are verified — and it is done
-by agents that did not write the code.
+by an agent that did not write the code.
 
-Phase N-1 is, in order:
+Phase N-1 is **`/review`**: `code-review` first, its fixes applied and green, then
+`browser-review` against the clean change, then the fix loop, capped at two rounds. The
+skill smoke-tests the primary path itself before opening a browser agent.
 
-1. **Smoke-test** — the implementing session confirms the app boots and the feature's
-   primary path works. Spending a three-agent review on a white screen is the expensive
-   failure mode; this is a paragraph of work, not a phase of its own.
-2. **`/review`** — `code-review`, `ux-review` and `qa-review` on the change, then the fix
-   loop, capped at three rounds.
-3. **PASS required.** `blocking` findings are never deferrable; a `should-fix` may be
-   deferred only with a stated reason. `idea` findings are shown to the user, who decides
-   which become issues.
+**PASS required.** `blocking` findings are never deferrable; a `should-fix` may be
+deferred only with a stated reason. `idea` findings are shown to the user, who decides
+which become issues.
+
+A feature with no user-visible surface takes `/review --code` and says so.
 
 **If the total comes to more than 8 phases**, stop and offer three options:
 
