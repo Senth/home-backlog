@@ -115,6 +115,46 @@ export function inviteDoc(
 	};
 }
 
+/**
+ * A node document in the shape the app writes it: **every** field, with a
+ * value. That is the contract `validNode()` enforces — a field that is absent
+ * can never be queried, because Firestore does not index one — so a helper that
+ * wrote only the interesting fields would make every test fail for the same
+ * uninteresting reason.
+ *
+ * The timestamps are real dates rather than `serverTimestamp()` so that a seed
+ * and a client write are comparable, and so `immutable()` has a value to hold
+ * an update against.
+ */
+export function nodeDoc(
+	overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+	return {
+		title: "Fix the gutter",
+		status: "backlog",
+		rank: "a0",
+		parentId: null,
+		ancestorIds: [],
+		locationId: null,
+		locationAncestorIds: [],
+		participantIds: [],
+		visibility: "shared",
+		dueDate: null,
+		priority: null,
+		blockedBy: [],
+		notes: "",
+		checklist: [],
+		effort: null,
+		photos: [],
+		archived: false,
+		completedAt: null,
+		createdAt: new Date("2026-01-01T00:00:00Z"),
+		createdBy: OWNER.uid,
+		updatedAt: new Date("2026-01-01T00:00:00Z"),
+		...overrides,
+	};
+}
+
 export async function createTestEnv(): Promise<RulesTestEnvironment> {
 	return initializeTestEnvironment({
 		// Must match the `--project` in the `test:rules` script. firebase.json runs

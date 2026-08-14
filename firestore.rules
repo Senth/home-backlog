@@ -175,20 +175,163 @@ service cloud.firestore {
           || (hasEmail() && emailHashId == emailHash());
       }
 
+      // The one document type every board, task and subtask is made of. These
+      // invariants live here rather than in a component so the REST API (#7)
+      // and any agent driving it inherit every one of them.
       match /nodes/{nodeId} {
         function visibleToMe(node) {
           return node.visibility == 'shared'
             || request.auth.uid in node.participantIds;
         }
 
+        // Every field is written on create, so reading an absent one here is an
+        // error — which denies the write, which is the answer wanted. A field
+        // that is absent can never be queried either: Firestore does not index
+        // one, so `archived == false` would silently skip every document
+        // written before `archived` existed.
+        //
+        // `request.resource.data` is the full post-update document, so this
+        // costs the same on an update as on a create and no partial patch can
+        // slip past it.
+        function validNode(data) {
+          return data.title is string
+            && data.title.size() >= 1
+            && data.title.size() <= 200
+            && data.status in ['backlog', 'next_up', 'research', 'planning',
+                               'execution', 'review', 'done', 'blocked']
+            && data.rank is string
+            && data.rank.size() > 0
+            && (data.parentId == null || data.parentId is string)
+            && data.ancestorIds is list
+            && (data.locationId == null || data.locationId is string)
+            && data.locationAncestorIds is list
+            && data.participantIds is list
+            && data.blockedBy is list
+            && data.visibility in ['shared', 'private']
+            // A calendar day, not an instant: "by Sep 30" is the same day in
+            // every timezone, and lexicographic order is chronological.
+            && (data.dueDate == null
+                || (data.dueDate is string
+                    && data.dueDate.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+            && (data.priority == null
+                || data.priority in ['low', 'normal', 'high', 'urgent'])
+            && (data.effort == null
+                || data.effort in ['quick', 'hours', 'evening', 'weekend',
+                                   'multi_week'])
+            && data.notes is string
+            && data.notes.size() <= 10000
+            && data.checklist is list
+            && data.checklist.size() <= 200
+            && data.photos is list
+            && data.photos.size() <= 50
+            && data.archived is bool
+            && (data.completedAt == null || data.completedAt is timestamp)
+            // A completion date is not reconstructible after the fact, and
+            // deriving it from `updatedAt` is wrong the moment anyone edits a
+            // finished node. So the two agree, in both directions.
+            && (data.status == 'done') == (data.completedAt != null)
+            // Required so that immutable() below has something to compare. A
+            // document created without them could never be updated again.
+            && data.createdAt is timestamp
+            && data.createdBy is string
+            && data.updatedAt is timestamp;
+        }
+
+        // Validated structurally, with no get(): a rule's get() reads
+        // *committed* state and cannot see the rest of a writeBatch, so a check
+        // against the parent's new value would refuse every reparent — which
+        // rewrites a node and its descendants at once. A descendant's parentId
+        // does not change during a reparent, so its rewritten ancestorIds
+        // passes here inside the batch.
+        //
+        // What this gives up is full-path verification: a wrong *grandparent*
+        // id passes. That is the recoverable class of error — parentId is the
+        // source of truth and ancestorIds is derived from it, so a corrupt path
+        // is always recomputable.
+        function structure(data) {
+          return (data.parentId == null
+                  ? data.ancestorIds.size() == 0
+                  : (data.ancestorIds.size() > 0
+                     && data.ancestorIds[data.ancestorIds.size() - 1] == data.parentId))
+            && !(nodeId in data.ancestorIds);
+        }
+
+        // The invariant that makes privacy *queryable*: a node's visibility
+        // equals its parent's, and a private node carries all of its parent's
+        // participants.
+        //
+        // Firestore has no field-level read rules, and a query may contain only
+        // one array-contains clause — so `ancestorIds array-contains X &&
+        // participantIds array-contains me` is not expressible. Without this,
+        // no client query can see another member's private descendant, so a
+        // reparent leaves it with stale ancestorIds and a delete orphans it
+        // permanently, with no error anywhere and no way to find it afterwards.
+        //
+        // The cost is a product restriction: a private card cannot live inside
+        // a shared project. It sits at the root, or under another private card.
+        //
+        // This one *does* need a get(), and can afford it: during a reparent
+        // the new parent is not itself in the batch and its visibility does not
+        // change, so the get() reads correct state. Operations that do change
+        // visibility (#61) or create a parent and a child together (#7) must
+        // write top-down, one document at a time; they fail loudly here if they
+        // forget.
+        function parentOf(data) {
+          return get(/databases/$(database)/documents/homes/$(homeId)/nodes/$(data.parentId)).data;
+        }
+
+        function inheritsFrom(data, parent) {
+          return data.visibility == parent.visibility
+            && (data.visibility != 'private'
+                || data.participantIds.hasAll(parent.participantIds));
+        }
+
+        function inherits(data) {
+          return data.parentId == null || inheritsFrom(data, parentOf(data));
+        }
+
+        // A batched write may make at most **20 document access calls** in
+        // total, across every document in it — so an update rule that always
+        // reads the parent caps a subtree operation at twenty nodes, and a
+        // project with twenty tasks is ordinary rather than exotic. It fails as
+        // a bare permission error, with nothing to say that size was the cause.
+        //
+        // So the get() is spent only on a write that could break the invariant.
+        // A reparent changes the moved node's parentId — that one still pays —
+        // while its descendants change only their ancestorIds, and an ordinary
+        // edit changes neither. What is skipped is a re-proof of something the
+        // document already satisfied and this write does not touch.
+        //
+        // The one window it opens is during a top-down visibility flip (#61),
+        // where a child edited between its parent's flip and its own is allowed
+        // through while temporarily mismatched. The flip then reaches it and
+        // corrects it; the unrecoverable failure this all exists to prevent is
+        // a *silent orphan*, and that needs parentId or visibility to change.
+        function privacyUnchanged(next, current) {
+          return next.parentId == current.parentId
+            && next.visibility == current.visibility
+            && next.participantIds == current.participantIds;
+        }
+
+        function immutable(next, current) {
+          return next.createdAt == current.createdAt
+            && next.createdBy == current.createdBy;
+        }
+
         allow get, list: if isMember(homeId) && visibleToMe(resource.data);
         allow create: if isMember(homeId)
-          && request.resource.data.visibility in ['shared', 'private']
-          && visibleToMe(request.resource.data);
+          && visibleToMe(request.resource.data)
+          && validNode(request.resource.data)
+          && structure(request.resource.data)
+          && inherits(request.resource.data);
         allow update: if isMember(homeId)
           && visibleToMe(resource.data)
-          && request.resource.data.visibility in ['shared', 'private']
-          && visibleToMe(request.resource.data);
+          && visibleToMe(request.resource.data)
+          && validNode(request.resource.data)
+          && structure(request.resource.data)
+          && immutable(request.resource.data, resource.data)
+          && (privacyUnchanged(request.resource.data, resource.data)
+              || inherits(request.resource.data));
         allow delete: if isMember(homeId) && visibleToMe(resource.data);
       }
 

@@ -12,10 +12,12 @@ import {
 	FieldPath,
 	getDoc,
 	getDocs,
+	orderBy,
 	query,
 	setDoc,
 	updateDoc,
 	where,
+	writeBatch,
 } from "firebase/firestore";
 import {
 	createTestEnv,
@@ -29,6 +31,7 @@ import {
 	inviteDoc,
 	MEMBER,
 	NORDIC,
+	nodeDoc,
 	OUTSIDER,
 	OWNER,
 	ownerAndMember,
@@ -667,90 +670,613 @@ describe("invite acceptance", () => {
 });
 
 describe("homes/{homeId}/nodes", () => {
-	const sharedPath = `${homePath}/nodes/shared-node`;
-	const privatePath = `${homePath}/nodes/private-node`;
+	const nodesPath = `${homePath}/nodes`;
+	const sharedPath = `${nodesPath}/shared-node`;
+	const privatePath = `${nodesPath}/private-node`;
+
+	/** Creating a node the way the app does: every field, with a value. */
+	function create(
+		db: ReturnType<typeof dbAs>,
+		id: string,
+		overrides: Record<string, unknown> = {},
+	) {
+		return setDoc(doc(db, nodesPath, id), nodeDoc(overrides));
+	}
 
 	async function seedNodes() {
 		await seedHome();
 		await seed(env, async (db) => {
-			await setDoc(doc(db, sharedPath), {
-				title: "Fix the gutter",
-				visibility: "shared",
-				participantIds: [],
-			});
-			await setDoc(doc(db, privatePath), {
-				title: "Birthday surprise",
-				visibility: "private",
-				participantIds: [OWNER.uid],
-			});
+			await setDoc(doc(db, sharedPath), nodeDoc());
+			await setDoc(
+				doc(db, privatePath),
+				nodeDoc({
+					title: "Birthday surprise",
+					visibility: "private",
+					participantIds: [OWNER.uid],
+				}),
+			);
 		});
 	}
 
-	it("lets any member read a shared node", async () => {
-		await seedNodes();
-		await assertSucceeds(getDoc(doc(dbAs(env, MEMBER), sharedPath)));
+	describe("visibility", () => {
+		it("lets any member read a shared node", async () => {
+			await seedNodes();
+			await assertSucceeds(getDoc(doc(dbAs(env, MEMBER), sharedPath)));
+		});
+
+		it("hides a private node from a member who is not a participant", async () => {
+			await seedNodes();
+			await assertFails(getDoc(doc(dbAs(env, MEMBER), privatePath)));
+		});
+
+		it("shows a private node to its participant", async () => {
+			await seedNodes();
+			await assertSucceeds(getDoc(doc(dbAs(env, OWNER), privatePath)));
+		});
+
+		it("hides everything from a non-member", async () => {
+			await seedNodes();
+			const db = dbAs(env, OUTSIDER);
+			await assertFails(getDoc(doc(db, sharedPath)));
+			await assertFails(getDoc(doc(db, privatePath)));
+		});
+
+		it("refuses a private node its own author could not read back", async () => {
+			await seedHome();
+			const db = dbAs(env, MEMBER);
+
+			// Writing yourself out of your own private node would strand the
+			// document where nobody can read or delete it.
+			await assertFails(
+				create(db, "orphan", { visibility: "private", participantIds: [] }),
+			);
+			await assertSucceeds(
+				create(db, "mine", {
+					visibility: "private",
+					participantIds: [MEMBER.uid],
+				}),
+			);
+		});
+
+		it("refuses stranding a private node by clearing its participants", async () => {
+			await seedNodes();
+			await assertFails(
+				updateDoc(doc(dbAs(env, OWNER), privatePath), { participantIds: [] }),
+			);
+		});
+
+		it("does not let a non-participant delete a private node", async () => {
+			await seedNodes();
+			await assertFails(deleteDoc(doc(dbAs(env, MEMBER), privatePath)));
+		});
 	});
 
-	it("hides a private node from a member who is not a participant", async () => {
-		await seedNodes();
-		await assertFails(getDoc(doc(dbAs(env, MEMBER), privatePath)));
+	describe("the field set", () => {
+		beforeEach(seedHome);
+
+		it("accepts a node with every field written", async () => {
+			await assertSucceeds(create(dbAs(env, MEMBER), "valid"));
+		});
+
+		it.each([
+			"title",
+			"status",
+			"rank",
+			"archived",
+			"completedAt",
+			"createdAt",
+		])("refuses a node with no %s", async (field) => {
+			const data = nodeDoc();
+			delete data[field];
+
+			await assertFails(
+				setDoc(doc(dbAs(env, MEMBER), nodesPath, "incomplete"), data),
+			);
+		});
+
+		it.each([
+			["empty", ""],
+			["over 200 characters", "x".repeat(201)],
+			["not a string", 42],
+		])("refuses a title that is %s", async (_label, title) => {
+			await assertFails(create(dbAs(env, MEMBER), "bad-title", { title }));
+		});
+
+		it("accepts a title of exactly 200 characters", async () => {
+			await assertSucceeds(
+				create(dbAs(env, MEMBER), "long-title", { title: "x".repeat(200) }),
+			);
+		});
+
+		it.each([
+			["status", "in_progress"],
+			["priority", "critical"],
+			["effort", "a fortnight"],
+			["visibility", "secret"],
+		])("refuses a %s outside its enum", async (field, value) => {
+			await assertFails(
+				create(dbAs(env, MEMBER), "bad-enum", {
+					[field]: value,
+					// A private-looking node still has to be readable by its author,
+					// so the visibility case fails on the enum and nothing else.
+					participantIds: [MEMBER.uid],
+				}),
+			);
+		});
+
+		it.each([
+			"2026-9-1",
+			"01/09/2026",
+			"not a date",
+			"2026-09-30T00:00:00Z",
+		])("refuses a dueDate of %s", async (dueDate) => {
+			await assertFails(create(dbAs(env, MEMBER), "bad-date", { dueDate }));
+		});
+
+		it("accepts a dueDate that is a calendar day", async () => {
+			await assertSucceeds(
+				create(dbAs(env, MEMBER), "dated", { dueDate: "2026-09-30" }),
+			);
+		});
+
+		it("refuses notes over 10 000 characters", async () => {
+			await assertFails(
+				create(dbAs(env, MEMBER), "wordy", { notes: "x".repeat(10001) }),
+			);
+			await assertSucceeds(
+				create(dbAs(env, MEMBER), "long-notes", { notes: "x".repeat(10000) }),
+			);
+		});
+
+		it("refuses a checklist over 200 items", async () => {
+			const item = (index: number) => ({
+				id: `c${index}`,
+				text: "Buy brackets",
+				done: false,
+			});
+
+			await assertFails(
+				create(dbAs(env, MEMBER), "listy", {
+					checklist: Array.from({ length: 201 }, (_value, index) =>
+						item(index),
+					),
+				}),
+			);
+		});
+
+		it("refuses more than 50 photos", async () => {
+			const photo = (index: number) => ({
+				id: `p${index}`,
+				path: `homes/${HOME_ID}/nodes/snappy/p${index}.jpg`,
+				uploadedAt: new Date("2026-01-01T00:00:00Z"),
+				uploadedBy: MEMBER.uid,
+			});
+
+			await assertFails(
+				create(dbAs(env, MEMBER), "snappy", {
+					photos: Array.from({ length: 51 }, (_value, index) => photo(index)),
+				}),
+			);
+		});
+
+		it("keeps status and completedAt in agreement, both ways", async () => {
+			// A completion date is not reconstructible after the fact, and deriving
+			// it from updatedAt is wrong the moment anyone edits a finished node.
+			await assertFails(
+				create(dbAs(env, MEMBER), "done-undated", {
+					status: "done",
+					completedAt: null,
+				}),
+			);
+			await assertFails(
+				create(dbAs(env, MEMBER), "dated-undone", {
+					status: "execution",
+					completedAt: new Date("2026-01-01T00:00:00Z"),
+				}),
+			);
+			await assertSucceeds(
+				create(dbAs(env, MEMBER), "finished", {
+					status: "done",
+					completedAt: new Date("2026-01-01T00:00:00Z"),
+				}),
+			);
+		});
+
+		it("refuses a completedAt that is not a timestamp", async () => {
+			// The agreement check alone is satisfied by any non-null value, and a
+			// string typed as a Timestamp throws on the first .toDate() (#54).
+			await assertFails(
+				create(dbAs(env, MEMBER), "done-string", {
+					status: "done",
+					completedAt: "yesterday",
+				}),
+			);
+		});
+
+		it("refuses changing createdAt or createdBy after the fact", async () => {
+			await seedNodes();
+			const db = dbAs(env, MEMBER);
+
+			await assertFails(
+				updateDoc(doc(db, sharedPath), {
+					createdAt: new Date("2026-06-01T00:00:00Z"),
+				}),
+			);
+			await assertFails(
+				updateDoc(doc(db, sharedPath), { createdBy: MEMBER.uid }),
+			);
+			await assertSucceeds(
+				updateDoc(doc(db, sharedPath), { title: "Fix the gutter, properly" }),
+			);
+		});
 	});
 
-	it("shows a private node to its participant", async () => {
-		await seedNodes();
-		await assertSucceeds(getDoc(doc(dbAs(env, OWNER), privatePath)));
+	describe("the ancestor path", () => {
+		beforeEach(async () => {
+			await seedHome();
+			await seed(env, async (db) => {
+				await setDoc(doc(db, nodesPath, "project"), nodeDoc());
+			});
+		});
+
+		it("is empty on a root node", async () => {
+			const db = dbAs(env, MEMBER);
+
+			await assertFails(
+				create(db, "rootish", { parentId: null, ancestorIds: ["project"] }),
+			);
+			await assertSucceeds(
+				create(db, "root", { parentId: null, ancestorIds: [] }),
+			);
+		});
+
+		it("ends in the node's own parentId", async () => {
+			const db = dbAs(env, MEMBER);
+
+			await assertFails(
+				create(db, "task", { parentId: "project", ancestorIds: [] }),
+			);
+			await assertFails(
+				create(db, "task", { parentId: "project", ancestorIds: ["somewhere"] }),
+			);
+			await assertSucceeds(
+				create(db, "task", { parentId: "project", ancestorIds: ["project"] }),
+			);
+		});
+
+		it("never contains the node itself", async () => {
+			// A node that is its own ancestor is a cycle: its subtree query returns
+			// it, and every walk of the tree from it never terminates.
+			await assertFails(
+				create(dbAs(env, MEMBER), "loop", {
+					parentId: "project",
+					ancestorIds: ["loop", "project"],
+				}),
+			);
+		});
 	});
 
-	it("hides everything from a non-member", async () => {
-		await seedNodes();
-		const db = dbAs(env, OUTSIDER);
-		await assertFails(getDoc(doc(db, sharedPath)));
-		await assertFails(getDoc(doc(db, privatePath)));
+	describe("inherited privacy", () => {
+		beforeEach(async () => {
+			await seedHome();
+			await seed(env, async (db) => {
+				await setDoc(doc(db, nodesPath, "project"), nodeDoc());
+				await setDoc(
+					doc(db, nodesPath, "surprise"),
+					nodeDoc({
+						title: "Birthday surprise",
+						visibility: "private",
+						participantIds: [OWNER.uid, MEMBER.uid],
+					}),
+				);
+			});
+		});
+
+		function child(
+			db: ReturnType<typeof dbAs>,
+			id: string,
+			parentId: string,
+			overrides: Record<string, unknown> = {},
+		) {
+			return create(db, id, {
+				parentId,
+				ancestorIds: [parentId],
+				...overrides,
+			});
+		}
+
+		it("refuses a private child under a shared parent", async () => {
+			// The restriction this buys: a private card cannot live inside a shared
+			// project. Without it nobody but its participants could ever *find* the
+			// card again, so a reparent would strand it and a delete would orphan it.
+			await assertFails(
+				child(dbAs(env, MEMBER), "hidden", "project", {
+					visibility: "private",
+					participantIds: [MEMBER.uid],
+				}),
+			);
+		});
+
+		it("refuses a shared child under a private parent", async () => {
+			await assertFails(
+				child(dbAs(env, MEMBER), "leak", "surprise", { visibility: "shared" }),
+			);
+		});
+
+		it("refuses a private child missing one of its parent's participants", async () => {
+			await assertFails(
+				child(dbAs(env, MEMBER), "narrower", "surprise", {
+					visibility: "private",
+					participantIds: [MEMBER.uid],
+				}),
+			);
+		});
+
+		it("allows a private child that adds a participant of its own", async () => {
+			await assertSucceeds(
+				child(dbAs(env, MEMBER), "wider", "surprise", {
+					visibility: "private",
+					participantIds: [OWNER.uid, MEMBER.uid, OUTSIDER.uid],
+				}),
+			);
+		});
+
+		it("allows a shared child under a shared parent", async () => {
+			await assertSucceeds(child(dbAs(env, MEMBER), "task", "project"));
+		});
+
+		it("refuses a child of a parent that does not exist", async () => {
+			// Bulk subtree create (#7) must therefore write top-down, one document
+			// at a time — which is exactly the constraint that keeps a batch from
+			// creating a private child under a parent the rules cannot yet see.
+			await assertFails(child(dbAs(env, MEMBER), "orphan", "no-such-node"));
+		});
 	});
 
-	it("refuses a private node its own author could not read back", async () => {
-		await seedHome();
-		const db = dbAs(env, MEMBER);
+	describe("a reparent in one batch", () => {
+		/**
+		 * The proof that splitting the two invariants was necessary. A rule's
+		 * get() reads *committed* state and cannot see the rest of a batch, so
+		 * `ancestorIds` is validated structurally and privacy through a get() on a
+		 * parent that the batch does not touch. Both hold here, in one commit.
+		 */
+		it("moves a node and rewrites its descendants at once", async () => {
+			await seedHome();
+			await seed(env, async (db) => {
+				await setDoc(doc(db, nodesPath, "old-home"), nodeDoc());
+				await setDoc(doc(db, nodesPath, "new-home"), nodeDoc());
+				await setDoc(
+					doc(db, nodesPath, "moved"),
+					nodeDoc({ parentId: "old-home", ancestorIds: ["old-home"] }),
+				);
+				await setDoc(
+					doc(db, nodesPath, "child"),
+					nodeDoc({ parentId: "moved", ancestorIds: ["old-home", "moved"] }),
+				);
+				await setDoc(
+					doc(db, nodesPath, "grandchild"),
+					nodeDoc({
+						parentId: "child",
+						ancestorIds: ["old-home", "moved", "child"],
+					}),
+				);
+			});
 
-		// Writing yourself out of your own private node would strand the document
-		// where nobody can read or delete it.
-		await assertFails(
-			setDoc(doc(db, `${homePath}/nodes/orphan`), {
-				title: "Orphan",
-				visibility: "private",
-				participantIds: [],
-			}),
-		);
-		await assertSucceeds(
-			setDoc(doc(db, `${homePath}/nodes/mine`), {
-				title: "Mine",
-				visibility: "private",
-				participantIds: [MEMBER.uid],
-			}),
-		);
+			const db = dbAs(env, MEMBER);
+			const batch = writeBatch(db);
+			batch.update(doc(db, nodesPath, "moved"), {
+				parentId: "new-home",
+				ancestorIds: ["new-home"],
+			});
+			batch.update(doc(db, nodesPath, "child"), {
+				ancestorIds: ["new-home", "moved"],
+			});
+			batch.update(doc(db, nodesPath, "grandchild"), {
+				ancestorIds: ["new-home", "moved", "child"],
+			});
+
+			await assertSucceeds(batch.commit());
+		});
+
+		/**
+		 * A batched write may make at most **twenty document access calls**, in
+		 * total, across every document in it. An update rule that always read the
+		 * parent would therefore cap a subtree move — and fail as a bare
+		 * permission error, with nothing to say that size was the cause.
+		 *
+		 * The shape matters as much as the size: a rule evaluation caches a
+		 * `get()` per *path*, so twenty siblings under one parent cost one call
+		 * between them. What spends the budget is **distinct** parents, which is
+		 * what a project of tasks that each have subtasks is. Twenty of those is
+		 * an ordinary Saturday, so a three-node test proves nothing here.
+		 */
+		it("moves a subtree past a batch's document-access budget", async () => {
+			await seedHome();
+			// 32 distinct parent paths plus the home `get()` that `isMember` costs,
+			// against a budget of twenty — clear of the cliff rather than three
+			// calls past it, so this keeps catching the regression if the platform
+			// limit is ever raised.
+			const tasks = 30;
+			await seed(env, async (db) => {
+				await setDoc(doc(db, nodesPath, "old-home"), nodeDoc());
+				await setDoc(doc(db, nodesPath, "new-home"), nodeDoc());
+				await setDoc(
+					doc(db, nodesPath, "moved"),
+					nodeDoc({ parentId: "old-home", ancestorIds: ["old-home"] }),
+				);
+				for (let index = 0; index < tasks; index += 1) {
+					await setDoc(
+						doc(db, nodesPath, `task-${index}`),
+						nodeDoc({ parentId: "moved", ancestorIds: ["old-home", "moved"] }),
+					);
+					await setDoc(
+						doc(db, nodesPath, `subtask-${index}`),
+						nodeDoc({
+							parentId: `task-${index}`,
+							ancestorIds: ["old-home", "moved", `task-${index}`],
+						}),
+					);
+				}
+			});
+
+			const db = dbAs(env, MEMBER);
+			const batch = writeBatch(db);
+			batch.update(doc(db, nodesPath, "moved"), {
+				parentId: "new-home",
+				ancestorIds: ["new-home"],
+			});
+			for (let index = 0; index < tasks; index += 1) {
+				batch.update(doc(db, nodesPath, `task-${index}`), {
+					ancestorIds: ["new-home", "moved"],
+				});
+				batch.update(doc(db, nodesPath, `subtask-${index}`), {
+					ancestorIds: ["new-home", "moved", `task-${index}`],
+				});
+			}
+
+			await assertSucceeds(batch.commit());
+		});
+
+		it("still proves inheritance on a write that changes privacy", async () => {
+			// What the budget fix must not give away: skipping the parent get() is
+			// only sound while parentId, visibility and participantIds all stand
+			// still. Narrowing a private child below its parent is the write that
+			// would strand a subtree, and it stays refused.
+			await seedHome();
+			await seed(env, async (db) => {
+				await setDoc(
+					doc(db, nodesPath, "surprise"),
+					nodeDoc({
+						visibility: "private",
+						participantIds: [OWNER.uid, MEMBER.uid],
+					}),
+				);
+				await setDoc(
+					doc(db, nodesPath, "cake"),
+					nodeDoc({
+						parentId: "surprise",
+						ancestorIds: ["surprise"],
+						visibility: "private",
+						participantIds: [OWNER.uid, MEMBER.uid],
+					}),
+				);
+			});
+
+			const db = dbAs(env, MEMBER);
+			await assertFails(
+				updateDoc(doc(db, nodesPath, "cake"), {
+					participantIds: [MEMBER.uid],
+				}),
+			);
+			await assertFails(
+				updateDoc(doc(db, nodesPath, "cake"), { visibility: "shared" }),
+			);
+			// An ordinary edit touches none of the three, and pays no get().
+			await assertSucceeds(
+				updateDoc(doc(db, nodesPath, "cake"), { title: "Order the cake" }),
+			);
+		});
 	});
 
-	it("refuses a visibility outside the enum", async () => {
-		await seedHome();
-		await assertFails(
-			setDoc(doc(dbAs(env, MEMBER), `${homePath}/nodes/weird`), {
-				title: "Weird",
-				visibility: "secret",
-				participantIds: [MEMBER.uid],
-			}),
-		);
-	});
+	describe("the board queries", () => {
+		beforeEach(async () => {
+			await seedHome();
+			await seed(env, async (db) => {
+				await setDoc(doc(db, nodesPath, "project"), nodeDoc());
+				await setDoc(
+					doc(db, nodesPath, "surprise"),
+					nodeDoc({
+						visibility: "private",
+						participantIds: [OWNER.uid],
+						rank: "a1",
+					}),
+				);
+			});
+		});
 
-	it("refuses stranding a private node by clearing its participants", async () => {
-		await seedNodes();
-		await assertFails(
-			updateDoc(doc(dbAs(env, OWNER), privatePath), { participantIds: [] }),
-		);
-	});
+		const board = (db: ReturnType<typeof dbAs>) =>
+			collection(db, nodesPath) as ReturnType<typeof collection>;
 
-	it("does not let a non-participant delete a private node", async () => {
-		await seedNodes();
-		await assertFails(deleteDoc(doc(dbAs(env, MEMBER), privatePath)));
+		it("runs the shared half of a board load", async () => {
+			// Q1. Provably safe: `visibility == 'shared'` is the read rule's first
+			// disjunct, so no matching document can be denied.
+			const result = await assertSucceeds(
+				getDocs(
+					query(
+						board(dbAs(env, MEMBER)),
+						where("archived", "==", false),
+						where("parentId", "==", null),
+						where("visibility", "==", "shared"),
+						orderBy("rank"),
+					),
+				),
+			);
+
+			expect(result.docs.map((snapshot) => snapshot.id)).toEqual(["project"]);
+		});
+
+		it("runs the participating half of a board load", async () => {
+			// Q2, the rule's second disjunct. Returns the private nodes I am in —
+			// and any shared one I also participate in, which is why the client
+			// dedupes the two results by id.
+			const result = await assertSucceeds(
+				getDocs(
+					query(
+						board(dbAs(env, OWNER)),
+						where("archived", "==", false),
+						where("parentId", "==", null),
+						where("participantIds", "array-contains", OWNER.uid),
+						orderBy("rank"),
+					),
+				),
+			);
+
+			expect(result.docs.map((snapshot) => snapshot.id)).toEqual(["surprise"]);
+		});
+
+		it("refuses an unconstrained list of the collection", async () => {
+			// What makes the two-query shape necessary rather than stylistic: this
+			// query matches a private node the member cannot read, and Firestore
+			// rejects the whole query rather than filtering it.
+			await assertFails(getDocs(board(dbAs(env, MEMBER))));
+		});
+
+		it("runs a shared subtree read, and refuses it unconstrained", async () => {
+			const subtree = (db: ReturnType<typeof dbAs>, constrained: boolean) =>
+				getDocs(
+					constrained
+						? query(
+								board(db),
+								where("visibility", "==", "shared"),
+								where("ancestorIds", "array-contains", "project"),
+							)
+						: query(
+								board(db),
+								where("ancestorIds", "array-contains", "project"),
+							),
+				);
+
+			await assertSucceeds(subtree(dbAs(env, MEMBER), true));
+			await assertFails(subtree(dbAs(env, MEMBER), false));
+		});
+
+		it("runs a private subtree read as a participant", async () => {
+			// The second array-contains is not expressible, so the ancestor test is
+			// client-side. `participantIds` alone is what makes it safe; the
+			// `visibility` clause is what keeps it from reading every card assigned
+			// to me anywhere in the home.
+			const result = await assertSucceeds(
+				getDocs(
+					query(
+						board(dbAs(env, OWNER)),
+						where("visibility", "==", "private"),
+						where("participantIds", "array-contains", OWNER.uid),
+					),
+				),
+			);
+
+			expect(result.docs.map((snapshot) => snapshot.id)).toEqual(["surprise"]);
+		});
 	});
 });
 

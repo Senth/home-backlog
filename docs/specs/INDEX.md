@@ -17,19 +17,18 @@ rewrite — the *why*, the rejected alternatives, formulas, thresholds, tables.
 | ---- | ----------- | ---- |
 | [`platform-offline`](platform-offline.md) | How the app gets onto a device, who it lets in, what language it speaks, and what survives losing the connection. Google redirect sign-in on a same-origin `authDomain`, the splash that holds the router until auth resolves, the account menu and its deliberate sign-out, the service worker and install offer, `en-US` / `sv-SE`. | auth, pwa, offline, i18n |
 | [`home-and-members`](home-and-members.md) | The container everything else lives in. Creating a home and moving between several from a `/homes` level above the boards, membership and roles, invitations keyed by a hash of the invitee's address and found with a collection-group query, the last-owner rule, and a deliberately narrow delete. | homes, membership, invites, privacy |
+| [`boards-and-nodes`](boards-and-nodes.md) | The one document every board, project, task and subtask is made of. Its full field set, the uniform-visibility invariant that makes privacy queryable, the two provably safe queries a board load merges, fractional `rank`, and the writes that create, edit, move and delete a subtree. | nodes, boards, rank, privacy, indexes |
 
 ## Planned areas
 
 Candidate homes for the first specs, from [`../PROJECT.md`](../PROJECT.md). A file is born
 when the first feature touching it lands; this list is a naming convention, not a promise.
 
-- `boards-and-nodes` — the unified node, nesting and drill-down, statuses and board column
-  sets, rank ordering, effort, blocked-by.
 - `location-tree` — the second hierarchy, `locationId` / `locationAncestorIds[]`,
   inheritance, roll-up views.
 - `recurring-maintenance` — templates, lazy instance materialization, the three rule types,
   one open instance per rule.
 - `rest-api` — Cloud Functions surface, hashed API keys, the agent-facing `SKILL.md`.
 - `suggestions` — the on-device weighted score and the reasons it shows.
-_(`platform-offline` and `home-and-members` have landed — see the table above. Node
-`visibility` and the participant model still belong to `boards-and-nodes`.)_
+_(`platform-offline`, `home-and-members` and `boards-and-nodes` have landed — see the table
+above.)_

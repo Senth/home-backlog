@@ -1,5 +1,42 @@
 {
-	"indexes": [],
+	"indexes": [
+		{
+			"collectionGroup": "nodes",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{ "fieldPath": "archived", "order": "ASCENDING" },
+				{ "fieldPath": "parentId", "order": "ASCENDING" },
+				{ "fieldPath": "visibility", "order": "ASCENDING" },
+				{ "fieldPath": "rank", "order": "ASCENDING" }
+			]
+		},
+		{
+			"collectionGroup": "nodes",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{ "fieldPath": "archived", "order": "ASCENDING" },
+				{ "fieldPath": "parentId", "order": "ASCENDING" },
+				{ "fieldPath": "participantIds", "arrayConfig": "CONTAINS" },
+				{ "fieldPath": "rank", "order": "ASCENDING" }
+			]
+		},
+		{
+			"collectionGroup": "nodes",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{ "fieldPath": "visibility", "order": "ASCENDING" },
+				{ "fieldPath": "ancestorIds", "arrayConfig": "CONTAINS" }
+			]
+		},
+		{
+			"collectionGroup": "nodes",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{ "fieldPath": "visibility", "order": "ASCENDING" },
+				{ "fieldPath": "participantIds", "arrayConfig": "CONTAINS" }
+			]
+		}
+	],
 	"fieldOverrides": [
 		{
 			"collectionGroup": "invites",
@@ -9,6 +46,16 @@
 				{ "order": "DESCENDING", "queryScope": "COLLECTION" },
 				{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
 			]
-		}
+		},
+		{ "collectionGroup": "nodes", "fieldPath": "title", "indexes": [] },
+		{ "collectionGroup": "nodes", "fieldPath": "notes", "indexes": [] },
+		{ "collectionGroup": "nodes", "fieldPath": "checklist", "indexes": [] },
+		{ "collectionGroup": "nodes", "fieldPath": "photos", "indexes": [] },
+		{ "collectionGroup": "nodes", "fieldPath": "effort", "indexes": [] },
+		{ "collectionGroup": "nodes", "fieldPath": "priority", "indexes": [] },
+		{ "collectionGroup": "nodes", "fieldPath": "rank", "indexes": [] },
+		{ "collectionGroup": "nodes", "fieldPath": "archived", "indexes": [] },
+		{ "collectionGroup": "nodes", "fieldPath": "createdBy", "indexes": [] },
+		{ "collectionGroup": "nodes", "fieldPath": "updatedAt", "indexes": [] }
 	]
 }
