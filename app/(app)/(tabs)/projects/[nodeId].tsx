@@ -74,10 +74,10 @@ export default function NodeBoard() {
 					accessibilityLabel={t("board.root")}
 					onPress={() => router.dismissTo(boardHref(node?.parentId ?? null))}
 				/>
-				<Appbar.Content
-					title={node?.title ?? ""}
-					subtitle={activeHome?.name ?? ""}
-				/>
+				{/* No `subtitle`: Paper renders it only outside Material 3, so the
+				    home's name lives on the root board's app bar and one crumb away
+				    — the first crumb goes there. */}
+				<Appbar.Content title={node?.title ?? ""} />
 				<AccountMenu />
 			</Appbar.Header>
 

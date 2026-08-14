@@ -23,6 +23,8 @@ export const space = {
 /** Corner radii. `full` is a large number rather than a percentage because
  *  React Native has no `border-radius: 50%`. */
 export const radius = {
+	/** No rounding — the same reason `space.none` exists: a bare `0` is a literal. */
+	none: 0,
 	sm: 8,
 	md: 12,
 	lg: 16,

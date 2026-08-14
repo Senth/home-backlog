@@ -4,7 +4,7 @@ import { ScrollView, View } from "react-native";
 import { Button, Text } from "react-native-paper";
 import type { Node, Status } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { space, touchTarget } from "@/theme/tokens";
+import { radius, space, touchTarget } from "@/theme/tokens";
 import { BoardCard } from "./BoardCard";
 
 interface BoardColumnProps {
@@ -47,7 +47,17 @@ export function BoardColumn({
 	const label = t(`status.${status}`);
 
 	return (
-		<View style={{ width }}>
+		<View
+			style={{
+				width,
+				// Side by side, a column needs an edge or the board reads as one
+				// undifferentiated field of cards. A full-width pane does not: the
+				// strip above it already says which column you are on.
+				backgroundColor: wide ? theme.colors.elevation.level1 : undefined,
+				borderRadius: wide ? radius.md : radius.none,
+				paddingTop: wide ? space.sm : space.none,
+			}}
+		>
 			{wide ? (
 				<View
 					style={{
@@ -75,7 +85,7 @@ export function BoardColumn({
 					gap: space.sm,
 					// A pane spans the screen below the breakpoint, so its cards need
 					// the margin the gap between side-by-side columns already gives.
-					paddingHorizontal: wide ? space.none : space.md,
+					paddingHorizontal: wide ? space.sm : space.md,
 					// Clear of the FAB, which floats over the bottom-right corner.
 					paddingBottom: space.xxl,
 				}}

@@ -39,6 +39,10 @@ export function Breadcrumbs({ crumbs, current, onNavigate }: BreadcrumbsProps) {
 			horizontal
 			showsHorizontalScrollIndicator={false}
 			accessibilityLabel={t("board.trail")}
+			// A `ScrollView` in a column parent grows to fill it, which would give
+			// one line of crumbs half the screen and push the board off the bottom.
+			// It hugs its content instead.
+			style={{ flexGrow: 0 }}
 			contentContainerStyle={{
 				alignItems: "center",
 				paddingHorizontal: space.sm,

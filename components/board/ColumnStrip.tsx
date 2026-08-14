@@ -35,6 +35,9 @@ export function ColumnStrip({
 		<ScrollView
 			horizontal
 			showsHorizontalScrollIndicator={false}
+			// Hugs its content: a `ScrollView` in a column parent otherwise grows to
+			// fill it, and one row of chips would take half the board.
+			style={{ flexGrow: 0 }}
 			contentContainerStyle={{
 				gap: space.sm,
 				paddingHorizontal: space.md,
@@ -50,6 +53,10 @@ export function ColumnStrip({
 				return (
 					<Chip
 						key={status}
+						// Filled against outlined, not Paper's selected tint alone: on a
+						// strip of eight, a slightly different shade of the same green is
+						// not a mark anyone can find while swiping.
+						mode={index === current ? "flat" : "outlined"}
 						selected={index === current}
 						showSelectedCheck={false}
 						onPress={() => onSelect(index)}
