@@ -7,46 +7,57 @@ import { type TitleError, titleError } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { touchTarget } from "@/theme/tokens";
 
-const dialogTestID = "new-card-dialog";
-
-interface NewCardDialogProps {
+interface TitleDialogProps {
 	visible: boolean;
 	onDismiss: () => void;
-	/** Called with the typed title. Never awaited — see below. */
+	/** The dialog's own heading — "New card" or "Rename card". */
+	heading: string;
+	confirmLabel: string;
+	/** What the field starts with. A rename starts from the current title. */
+	initialTitle?: string;
+	/** Called with the trimmed title. Never awaited — see below. */
 	onSubmit: (title: string) => void;
+	/** Unique per dialog: the focus trap finds the surface by `${testID}-surface`. */
+	testID: string;
 	returnFocusTo?: RefObject<View | null>;
 }
 
 /**
- * Title only. Due date, priority, effort and notes are on the document and
- * belong to node detail (#49); a form that asks five questions is a form nobody
- * fills in from a shed.
+ * A title, and nothing else — used to create a card and to rename one.
  *
- * The sheet closes on submit without waiting for anything. `createNode` queues
- * offline — the card is on the board immediately and the write lands when the
- * connection does — so awaiting the acknowledgement here would build a form that
- * hangs in a shed.
+ * Creation is title only because due date, priority, effort and notes are on the
+ * document and belong to node detail (#49); a form that asks five questions is a
+ * form nobody fills in from a shed. Rename is here at all because a card with no
+ * way to fix a typo is a permanent mistake.
+ *
+ * The dialog closes on submit without waiting for anything. Both writes queue
+ * offline — the change is on the board immediately and lands when the connection
+ * does — so awaiting the acknowledgement would build a form that hangs in a shed.
  */
-export function NewCardDialog({
+export function TitleDialog({
 	visible,
 	onDismiss,
+	heading,
+	confirmLabel,
+	initialTitle = "",
 	onSubmit,
+	testID,
 	returnFocusTo,
-}: NewCardDialogProps) {
+}: TitleDialogProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 
-	const [title, setTitle] = useState("");
+	const [title, setTitle] = useState(initialTitle);
 	const [error, setError] = useState<TitleError | null>(null);
 
-	// Cleared on open rather than on close: the dialog animates out, and wiping
-	// the field first shows an empty box on the way.
+	// Reset on open rather than on close: the dialog animates out, and wiping the
+	// field first shows an empty box on the way.
 	useEffect(() => {
 		if (visible) {
-			setTitle("");
+			setTitle(initialTitle);
 			setError(null);
 		}
-	}, [visible]);
+	}, [visible, initialTitle]);
 
 	const submit = () => {
 		const problem = titleError(title);
@@ -63,8 +74,8 @@ export function NewCardDialog({
 		<AppDialog
 			visible={visible}
 			onDismiss={onDismiss}
-			title={t("board.newCard")}
-			testID={dialogTestID}
+			title={heading}
+			testID={testID}
 			returnFocusTo={returnFocusTo}
 			actions={[
 				<Button
@@ -76,11 +87,11 @@ export function NewCardDialog({
 					{t("common.cancel")}
 				</Button>,
 				<Button
-					key="add"
+					key="confirm"
 					onPress={submit}
 					contentStyle={{ minHeight: touchTarget }}
 				>
-					{t("board.add")}
+					{confirmLabel}
 				</Button>,
 			]}
 		>
@@ -94,6 +105,7 @@ export function NewCardDialog({
 				}}
 				onSubmitEditing={submit}
 				autoFocus
+				selectTextOnFocus
 				error={error !== null}
 			/>
 			<HelperText type="error" visible={error !== null}>

@@ -7,7 +7,7 @@ import {
 	ScrollView,
 	View,
 } from "react-native";
-import { ActivityIndicator, FAB, Text } from "react-native-paper";
+import { ActivityIndicator, FAB, Snackbar, Text } from "react-native-paper";
 import { useAuth } from "@/contexts/AuthContext";
 import { createNode } from "@/data/nodes";
 import {
@@ -19,8 +19,9 @@ import {
 import { useAppTheme } from "@/theme";
 import { compactBreakpoint, size, space } from "@/theme/tokens";
 import { BoardColumn } from "./BoardColumn";
+import { CardMenu, type Notice } from "./CardMenu";
 import { ColumnStrip } from "./ColumnStrip";
-import { NewCardDialog } from "./NewCardDialog";
+import { TitleDialog } from "./TitleDialog";
 
 interface BoardProps {
 	homeId: string;
@@ -55,6 +56,7 @@ export function Board({ homeId, parent, columns, nodes, loading }: BoardProps) {
 	const [boardWidth, setBoardWidth] = useState(0);
 	const [current, setCurrent] = useState(0);
 	const [adding, setAdding] = useState<Status | null>(null);
+	const [notice, setNotice] = useState<Notice | null>(null);
 	const pager = useRef<ScrollView | null>(null);
 
 	// The frozen set, plus a column for any status that is on this board but not
@@ -103,6 +105,17 @@ export function Board({ homeId, parent, columns, nodes, loading }: BoardProps) {
 			params: { nodeId: node.id },
 		});
 	};
+
+	const menu = (node: Node) => (
+		<CardMenu
+			homeId={homeId}
+			node={node}
+			parent={parent}
+			columns={columns}
+			nodes={nodes}
+			onNotice={setNotice}
+		/>
+	);
 
 	return (
 		<View
@@ -161,6 +174,7 @@ export function Board({ homeId, parent, columns, nodes, loading }: BoardProps) {
 								wide={false}
 								onAdd={() => setAdding(status)}
 								onOpen={open}
+								renderMenu={menu}
 							/>
 						))}
 					</ScrollView>
@@ -184,6 +198,7 @@ export function Board({ homeId, parent, columns, nodes, loading }: BoardProps) {
 							wide
 							onAdd={() => setAdding(status)}
 							onOpen={open}
+							renderMenu={menu}
 						/>
 					))}
 				</ScrollView>
@@ -205,14 +220,39 @@ export function Board({ homeId, parent, columns, nodes, loading }: BoardProps) {
 				/>
 			) : null}
 
-			<NewCardDialog
+			<TitleDialog
 				visible={adding !== null}
 				onDismiss={() => setAdding(null)}
+				heading={t("board.newCard")}
+				confirmLabel={t("board.add")}
 				onSubmit={add}
+				testID={newCardDialogTestID}
 			/>
+
+			{/* The destination of a move is off-screen by definition — saying
+			    nothing makes it read as a delete. */}
+			<Snackbar
+				visible={notice !== null}
+				onDismiss={() => setNotice(null)}
+				action={
+					notice?.undo
+						? {
+								label: t("common.undo"),
+								onPress: () => {
+									notice.undo?.();
+									setNotice(null);
+								},
+							}
+						: undefined
+				}
+			>
+				{notice?.text ?? ""}
+			</Snackbar>
 		</View>
 	);
 }
+
+const newCardDialogTestID = "new-card-dialog";
 
 /** 16 ms — one frame. The pager's current pane is read from the scroll offset. */
 const pagerScrollThrottleMs = 16;
