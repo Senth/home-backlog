@@ -1092,7 +1092,11 @@ describe("homes/{homeId}/nodes", () => {
 		 */
 		it("moves a subtree past a batch's document-access budget", async () => {
 			await seedHome();
-			const tasks = 20;
+			// 32 distinct parent paths plus the home `get()` that `isMember` costs,
+			// against a budget of twenty — clear of the cliff rather than three
+			// calls past it, so this keeps catching the regression if the platform
+			// limit is ever raised.
+			const tasks = 30;
 			await seed(env, async (db) => {
 				await setDoc(doc(db, nodesPath, "old-home"), nodeDoc());
 				await setDoc(doc(db, nodesPath, "new-home"), nodeDoc());

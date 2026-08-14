@@ -1,8 +1,9 @@
 # Homes and members
 
-A home is the container everything else in the app lives in. Nodes, locations and
-recurring rules all hang off one, membership decides who can read them, and no other
-feature can be built until a home exists and the app knows which one is active.
+A home is the container everything else in the app lives in.
+[Nodes](boards-and-nodes.md), locations and recurring rules all hang off one, membership
+decides who can read them, and no other feature can be built until a home exists and the
+app knows which one is active.
 
 This spec covers creating a home, moving between several, managing a home's name and its
 people, inviting somebody by email address, and joining a home you were invited to.
@@ -63,7 +64,9 @@ per-user state knows where it goes, and knows it does not go on the home doc.
 
 Three, each one shaped so that *every document it can match* is one the caller may read.
 Firestore rejects an entire query if any matching document could be denied, so being
-rule-safe is not enough.
+rule-safe is not enough. The node queries follow the same discipline — see
+[`boards-and-nodes`](boards-and-nodes.md), where the two halves of a board load each
+constrain one disjunct of the node read rule.
 
 **The homes I belong to** — fired once per session by `HomeProvider`.
 
@@ -241,7 +244,8 @@ gone rather than merely different. Without it only owners could ever leave, beca
 member update branch requires `members` to be unchanged. `validHome()` still applies,
 which is what traps the last admin until they promote somebody.
 
-Deleting a home doc does **not** delete its `nodes`, `locations` and `recurring`. Every
+Deleting a home doc does **not** delete its [`nodes`](boards-and-nodes.md), `locations`
+and `recurring`. Every
 one of those rules resolves membership through a `get()` on the home doc, so once it is
 gone those documents are unreachable by anyone, permanently, while still stored. There is
 no Cloud Function to cascade — [#1](https://github.com/Senth/home-backlog/issues/1) is
