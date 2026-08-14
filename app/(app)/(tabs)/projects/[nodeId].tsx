@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { Appbar, Snackbar } from "react-native-paper";
+import { ActivityIndicator, Appbar, Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
 import { Breadcrumbs } from "@/components/board/Breadcrumbs";
@@ -13,8 +13,8 @@ import { useAncestors } from "@/hooks/use-ancestors";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useNode } from "@/hooks/use-node";
 import { useNodes } from "@/hooks/use-nodes";
-import { columnsForDepth } from "@/models/node";
 import { useAppTheme } from "@/theme";
+import { space } from "@/theme/tokens";
 
 const noAncestors: string[] = [];
 
@@ -39,12 +39,13 @@ export default function NodeBoard() {
 	const notice = useGoneNotice();
 	const focused = useIsFocused();
 
-	const homeId = activeHome?.id ?? null;
-	// `null` is not "not ready" to either hook — `useNodes` reads it as the *root*
-	// board — so a missing param must reach neither. It is a required segment of
-	// this route, so this only ever holds for a frame.
+	// `null` is not "not ready" to either hook — `useNodes` reads it as the
+	// *root* board — so a missing param must subscribe to nothing at all rather
+	// than to the wrong board. Scoping the home to null is what says "wait". It
+	// is a required segment of this route, so this only ever holds for a frame.
 	const board = nodeId ?? null;
-	const { node, loading: nodeLoading, gone } = useNode(homeId, board);
+	const homeId = board === null ? null : (activeHome?.id ?? null);
+	const { node, gone } = useNode(homeId, board);
 	const { nodes, loading } = useNodes(homeId, board);
 	const { crumbs } = useAncestors(homeId, node?.ancestorIds ?? noAncestors);
 
@@ -69,10 +70,6 @@ export default function NodeBoard() {
 	useEffect(() => {
 		if (gone && focused) router.dismissTo(goneHref(parentId.current));
 	}, [gone, focused]);
-
-	// A node that has not arrived yet has no frozen set to read. Its children are
-	// at least depth 2, which is the simple set at every depth this screen sees.
-	const columns = node?.columns ?? columnsForDepth(1);
 
 	if (board === null) return null;
 
@@ -102,15 +99,26 @@ export default function NodeBoard() {
 				onNavigate={(id) => router.dismissTo(boardHref(id))}
 			/>
 
-			{homeId ? (
+			{/* No board until its own node has arrived. `Board` hands `parent`
+			    straight to `createNode`, and a null parent is not "this board" but
+			    the **root** — so a card added while the node was still resolving
+			    would silently become a top-level project. Online that is a short
+			    race on a cold start; offline, on a board never opened while online,
+			    the node never arrives at all and the window would never close. */}
+			{homeId && node ? (
 				<Board
 					homeId={homeId}
 					parent={node}
-					columns={columns}
+					columns={node.columns}
 					nodes={nodes}
-					loading={loading || nodeLoading}
+					loading={loading}
 				/>
-			) : null}
+			) : (
+				<ActivityIndicator
+					accessibilityLabel={t("common.loading")}
+					style={{ marginTop: space.xl }}
+				/>
+			)}
 
 			<Snackbar visible={notice.showing} onDismiss={notice.dismiss}>
 				{t("board.gone")}
