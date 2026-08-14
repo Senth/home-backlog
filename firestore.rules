@@ -337,7 +337,17 @@ service cloud.firestore {
             && next.createdBy == current.createdBy;
         }
 
-        allow get, list: if isMember(homeId) && visibleToMe(resource.data);
+        // A node that is not there is an *answer*, not an error. `resource` is
+        // null for a document that does not exist, and reading a field off it
+        // is an evaluation error, which denies the read — so a board whose card
+        // somebody else deleted came back as a raw permission error instead of
+        // "that card is gone", and the screen listening to it had a failure to
+        // log rather than a fact to act on. `list` keeps the strict form: a
+        // query never matches a document that does not exist, so nothing about
+        // query safety changes.
+        allow get: if isMember(homeId)
+          && (resource == null || visibleToMe(resource.data));
+        allow list: if isMember(homeId) && visibleToMe(resource.data);
         allow create: if isMember(homeId)
           && visibleToMe(request.resource.data)
           && validNode(request.resource.data)

@@ -749,6 +749,29 @@ describe("homes/{homeId}/nodes", () => {
 			await seedNodes();
 			await assertFails(deleteDoc(doc(dbAs(env, MEMBER), privatePath)));
 		});
+
+		/**
+		 * A card somebody else deleted while you were standing on its board. The
+		 * screen has to be *told* it is gone so it can say so and bounce you up;
+		 * reading a field off a null `resource` is an evaluation error, which
+		 * denies the read and leaves a listener with a raw permission failure to
+		 * log instead of a fact to act on.
+		 */
+		it("answers a member reading a node that is not there", async () => {
+			await seedNodes();
+			const snapshot = await assertSucceeds(
+				getDoc(doc(dbAs(env, MEMBER), nodesPath, "never-existed")),
+			);
+
+			expect(snapshot.exists()).toBe(false);
+		});
+
+		it("still tells a non-member nothing, missing or not", async () => {
+			await seedNodes();
+			await assertFails(
+				getDoc(doc(dbAs(env, OUTSIDER), nodesPath, "never-existed")),
+			);
+		});
 	});
 
 	describe("the field set", () => {
