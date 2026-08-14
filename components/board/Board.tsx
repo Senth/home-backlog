@@ -1,12 +1,7 @@
 import { useRouter } from "expo-router";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-	type NativeScrollEvent,
-	type NativeSyntheticEvent,
-	ScrollView,
-	View,
-} from "react-native";
+import { ScrollView, View } from "react-native";
 import { ActivityIndicator, FAB, Snackbar, Text } from "react-native-paper";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import { CardMenu, type Notice } from "@/components/board/CardMenu";
@@ -37,13 +32,23 @@ interface BoardProps {
  * One board component, used at every depth. `PROJECT.md`: resist per-level
  * special cases, they multiply.
  *
- * **Below `compactBreakpoint`** it is a horizontal pager, one column per screen,
- * with the column strip above it. **At the breakpoint and above** the columns
- * sit side by side and the board scrolls horizontally; the headers say what the
- * strip says, so the strip is not rendered.
+ * **Below `compactBreakpoint`** it is one column at a time, chosen by the strip
+ * of chips above it. **At the breakpoint and above** the columns sit side by
+ * side and the board scrolls horizontally; the headers say what the strip says,
+ * so the strip is not rendered.
+ *
+ * The pane on screen is **state, set only by a tap on a chip** — it is never
+ * read back from a scroll position. It was a swipeable pager, and the pager is
+ * what broke it: the browser moves a scroll-snapping container on its own, to
+ * re-snap after content changes and to bring a focused element into view, so
+ * the board drifted to whichever column a card happened to land in. Twelve
+ * cards added in a row from a FAB that said "Add to To do" went to In progress
+ * and Next up, alternately — the Marcus-forty-cards Saturday morning this
+ * feature exists for. Swiping between columns is worth having back, but not at
+ * the price of cards landing in a column nobody chose.
  *
  * A board **always opens on its first column** rather than restoring the last
- * pane anyone swiped to. Where you were on a board is not something anyone
+ * pane anyone was on. Where you were on a board is not something anyone
  * remembers, and a board that opens somewhere unexpected reads as the wrong
  * board.
  */
@@ -57,7 +62,6 @@ export function Board({ homeId, parent, columns, nodes, loading }: BoardProps) {
 	const [current, setCurrent] = useState(0);
 	const [adding, setAdding] = useState<Status | null>(null);
 	const [notice, setNotice] = useState<Notice | null>(null);
-	const pager = useRef<ScrollView | null>(null);
 
 	// A board always opens on its first column. Cleared during render, because
 	// one screen can become another board — a breadcrumb re-points the screen it
@@ -74,24 +78,13 @@ export function Board({ homeId, parent, columns, nodes, loading }: BoardProps) {
 	// in it. A card that exists is visible somewhere.
 	const shown = useMemo(() => visibleColumns(columns, nodes), [columns, nodes]);
 	const compact = boardWidth > 0 && boardWidth < compactBreakpoint;
-	// An extra column disappearing under the pager would otherwise leave it
-	// showing a pane that is no longer there.
+	// An extra column disappearing would otherwise leave the pane showing a
+	// column that is no longer there.
 	const column = Math.min(current, shown.length - 1);
 	const onScreen: Status | undefined = shown[column];
 
 	const cardsIn = (status: Status) =>
 		nodes.filter((node) => node.status === status);
-
-	const goTo = (index: number) => {
-		setCurrent(index);
-		pager.current?.scrollTo({ x: index * boardWidth, animated: true });
-	};
-
-	const onPagerScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-		if (boardWidth === 0) return;
-		const index = Math.round(event.nativeEvent.contentOffset.x / boardWidth);
-		if (index !== current) setCurrent(index);
-	};
 
 	/**
 	 * Queued, never awaited: the card is on the board the instant Firestore
@@ -160,35 +153,19 @@ export function Board({ homeId, parent, columns, nodes, loading }: BoardProps) {
 						columns={shown}
 						nodes={nodes}
 						current={column}
-						onSelect={goTo}
+						onSelect={setCurrent}
 					/>
-					<ScrollView
-						ref={pager}
-						horizontal
-						pagingEnabled
-						showsHorizontalScrollIndicator={false}
-						onScroll={onPagerScroll}
-						scrollEventThrottle={pagerScrollThrottleMs}
-						style={{ flex: 1 }}
-						// `flexGrow` is what gives the content container the scroll
-						// view's own height, which is what a full-height column then
-						// stretches to. Without it every column collapses to the height
-						// of its cards and the empty ones vanish.
-						contentContainerStyle={{ flexGrow: 1 }}
-					>
-						{shown.map((status) => (
-							<BoardColumn
-								key={status}
-								status={status}
-								nodes={cardsIn(status)}
-								width={boardWidth}
-								wide={false}
-								onAdd={() => setAdding(status)}
-								onOpen={open}
-								renderMenu={menu}
-							/>
-						))}
-					</ScrollView>
+					{onScreen === undefined ? null : (
+						<BoardColumn
+							status={onScreen}
+							nodes={cardsIn(onScreen)}
+							width="100%"
+							wide={false}
+							onAdd={() => setAdding(onScreen)}
+							onOpen={open}
+							renderMenu={menu}
+						/>
+					)}
 				</>
 			) : (
 				<ScrollView
@@ -264,6 +241,3 @@ export function Board({ homeId, parent, columns, nodes, loading }: BoardProps) {
 }
 
 const newCardDialogTestID = "new-card-dialog";
-
-/** 16 ms — one frame. The pager's current pane is read from the scroll offset. */
-const pagerScrollThrottleMs = 16;

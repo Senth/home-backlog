@@ -50,6 +50,10 @@ export function BoardColumn({
 		<View
 			style={{
 				width,
+				// The one pane below the breakpoint fills what is left of the screen.
+				// Side by side it must not: `flex` on a row child would stretch its
+				// *width*, and the columns stretch to full height already.
+				flex: wide ? undefined : 1,
 				// Side by side, a column needs an edge or the board reads as one
 				// undifferentiated field of cards. A full-width pane does not: the
 				// strip above it already says which column you are on.
