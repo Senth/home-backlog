@@ -113,6 +113,7 @@
 	},
 	"board": {
 		"root": "Projects",
+		"up": "Up one level",
 		"empty": "Nothing here yet. Add the first card.",
 		"columnEmpty": "Nothing here",
 		"addTo": "Add to {{column}}",

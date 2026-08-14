@@ -1,3 +1,4 @@
+import { useIsFocused } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -36,10 +37,15 @@ export default function NodeBoard() {
 	const { nodeId } = useLocalSearchParams<{ nodeId: string }>();
 	const { activeHome } = useHome();
 	const notice = useGoneNotice();
+	const focused = useIsFocused();
 
 	const homeId = activeHome?.id ?? null;
-	const { node, loading: nodeLoading, gone } = useNode(homeId, nodeId ?? null);
-	const { nodes, loading } = useNodes(homeId, nodeId ?? null);
+	// `null` is not "not ready" to either hook — `useNodes` reads it as the *root*
+	// board — so a missing param must reach neither. It is a required segment of
+	// this route, so this only ever holds for a frame.
+	const board = nodeId ?? null;
+	const { node, loading: nodeLoading, gone } = useNode(homeId, board);
+	const { nodes, loading } = useNodes(homeId, board);
 	const { crumbs } = useAncestors(homeId, node?.ancestorIds ?? noAncestors);
 
 	// Where "up" is once the card itself has stopped existing. Remembered while
@@ -54,14 +60,21 @@ export default function NodeBoard() {
 	 * standing on it — and a board whose node is gone is a screen that can only
 	 * ever be empty. Not found and permission-denied arrive here as the same
 	 * answer, and one level up is the right answer to both.
+	 *
+	 * Only the screen you are looking at may navigate. Deleting a project takes
+	 * its whole subtree, so every stacked board below it sees `gone` in the same
+	 * tick — and without this they would all call `dismissTo` at once, racing for
+	 * where you end up.
 	 */
 	useEffect(() => {
-		if (gone) router.dismissTo(goneHref(parentId.current));
-	}, [gone]);
+		if (gone && focused) router.dismissTo(goneHref(parentId.current));
+	}, [gone, focused]);
 
 	// A node that has not arrived yet has no frozen set to read. Its children are
 	// at least depth 2, which is the simple set at every depth this screen sees.
 	const columns = node?.columns ?? columnsForDepth(1);
+
+	if (board === null) return null;
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -70,8 +83,10 @@ export default function NodeBoard() {
 				    reachable with no in-app history — a reload, a bookmark, a shared
 				    link — and there `back()` is a no-op that logs "GO_BACK was not
 				    handled by any navigator" and leaves the arrow dead. */}
+				{/* The label names where the arrow *goes*, which is the parent card
+				    at every depth but one — not "Projects". */}
 				<Appbar.BackAction
-					accessibilityLabel={t("board.root")}
+					accessibilityLabel={t("board.up")}
 					onPress={() => router.dismissTo(boardHref(node?.parentId ?? null))}
 				/>
 				{/* No `subtitle`: Paper renders it only outside Material 3, so the

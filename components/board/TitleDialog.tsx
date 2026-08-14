@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useState } from "react";
+import { type RefObject, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { View } from "react-native";
 import { Button, HelperText, TextInput } from "react-native-paper";
@@ -50,14 +50,20 @@ export function TitleDialog({
 	const [title, setTitle] = useState(initialTitle);
 	const [error, setError] = useState<TitleError | null>(null);
 
-	// Reset on open rather than on close: the dialog animates out, and wiping the
-	// field first shows an empty box on the way.
-	useEffect(() => {
+	// Reset when the dialog *opens*, during render, the way `useNodes` clears a
+	// board. Not in an effect keyed on `initialTitle`: the board listens for
+	// changes, so another member renaming this card while the dialog is open
+	// would wipe whatever is being typed — the ordinary two-person case. Not on
+	// close either, because the dialog animates out and would show an empty box
+	// on the way.
+	const [opened, setOpened] = useState(visible);
+	if (opened !== visible) {
+		setOpened(visible);
 		if (visible) {
 			setTitle(initialTitle);
 			setError(null);
 		}
-	}, [visible, initialTitle]);
+	}
 
 	const submit = () => {
 		const problem = titleError(title);

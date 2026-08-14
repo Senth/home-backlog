@@ -5,9 +5,25 @@ import { Stack } from "expo-router";
  * every depth — and browser back, the PWA back gesture, reload and a shared link
  * all work, because every board is a real route.
  *
+ * `dangerouslySingular` is what makes going *up* work. Every nested board is the
+ * same route **name**, `[nodeId]`, and `POP_TO` — which is what `router.dismissTo`
+ * issues — matches on the name: without an identity it resolves to the screen you
+ * are already on and merely swaps its params. Tapping a breadcrumb would then
+ * leave the whole stack in place with its top re-pointed, so browser back would
+ * go *deeper* rather than up, and every stranded screen would keep its three
+ * listeners alive — the listener breadth `CLAUDE.md` names as this app's cost
+ * risk. The node id is the identity, so one board is one screen.
+ *
  * No header: each board screen renders its own `Appbar`, which carries the
  * breadcrumbs and the account menu.
  */
 export default function ProjectsLayout() {
-	return <Stack screenOptions={{ headerShown: false }} />;
+	return (
+		<Stack screenOptions={{ headerShown: false }}>
+			<Stack.Screen
+				name="[nodeId]"
+				dangerouslySingular={(_name, params) => String(params.nodeId)}
+			/>
+		</Stack>
+	);
 }

@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { IconButton, Menu } from "react-native-paper";
+import { TitleDialog } from "@/components/board/TitleDialog";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -15,7 +16,6 @@ import {
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { type Node, rankAtEnd, rankBetween, type Status } from "@/models/node";
 import { space, touchTarget } from "@/theme/tokens";
-import { TitleDialog } from "./TitleDialog";
 
 /** A message the board says after an action, with the way back if there is one. */
 export interface Notice {
@@ -329,28 +329,38 @@ export function CardMenu({
 				) : null}
 			</Menu>
 
-			<TitleDialog
-				visible={renaming}
-				onDismiss={() => setRenaming(false)}
-				heading={t("board.renameTitle")}
-				confirmLabel={t("board.rename")}
-				initialTitle={node.title}
-				onSubmit={rename}
-				testID={`rename-card-${node.id}`}
-				returnFocusTo={anchor}
-			/>
+			{/* Mounted only while open. Each dialog carries a `Portal`, which
+			    registers with the portal host even when the modal inside it renders
+			    nothing — and a Done column grows without bound until #64, so an
+			    always-mounted pair would cost two portal entries and two focus-trap
+			    subscriptions per card, re-rendered on every portal update. Paper's
+			    own `Menu` does the same thing. */}
+			{renaming ? (
+				<TitleDialog
+					visible
+					onDismiss={() => setRenaming(false)}
+					heading={t("board.renameTitle")}
+					confirmLabel={t("board.rename")}
+					initialTitle={node.title}
+					onSubmit={rename}
+					testID={`rename-card-${node.id}`}
+					returnFocusTo={anchor}
+				/>
+			) : null}
 
-			<ConfirmDialog
-				visible={deleting}
-				onDismiss={() => setDeleting(false)}
-				onConfirm={remove}
-				title={t("board.deleteTitle")}
-				body={t("board.deleteBody")}
-				confirmLabel={t("board.delete")}
-				destructive
-				testID={`delete-card-${node.id}`}
-				returnFocusTo={anchor}
-			/>
+			{deleting ? (
+				<ConfirmDialog
+					visible
+					onDismiss={() => setDeleting(false)}
+					onConfirm={remove}
+					title={t("board.deleteTitle")}
+					body={t("board.deleteBody")}
+					confirmLabel={t("board.delete")}
+					destructive
+					testID={`delete-card-${node.id}`}
+					returnFocusTo={anchor}
+				/>
+			) : null}
 		</>
 	);
 }

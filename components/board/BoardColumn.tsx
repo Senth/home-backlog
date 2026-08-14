@@ -2,10 +2,10 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, View } from "react-native";
 import { Button, Text } from "react-native-paper";
+import { BoardCard } from "@/components/board/BoardCard";
 import type { Node, Status } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { radius, space, touchTarget } from "@/theme/tokens";
-import { BoardCard } from "./BoardCard";
 
 interface BoardColumnProps {
 	status: Status;

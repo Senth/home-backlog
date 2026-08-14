@@ -8,6 +8,10 @@ import {
 	View,
 } from "react-native";
 import { ActivityIndicator, FAB, Snackbar, Text } from "react-native-paper";
+import { BoardColumn } from "@/components/board/BoardColumn";
+import { CardMenu, type Notice } from "@/components/board/CardMenu";
+import { ColumnStrip } from "@/components/board/ColumnStrip";
+import { TitleDialog } from "@/components/board/TitleDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { createNode } from "@/data/nodes";
 import {
@@ -18,10 +22,6 @@ import {
 } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { compactBreakpoint, size, space } from "@/theme/tokens";
-import { BoardColumn } from "./BoardColumn";
-import { CardMenu, type Notice } from "./CardMenu";
-import { ColumnStrip } from "./ColumnStrip";
-import { TitleDialog } from "./TitleDialog";
 
 interface BoardProps {
 	homeId: string;
@@ -58,6 +58,17 @@ export function Board({ homeId, parent, columns, nodes, loading }: BoardProps) {
 	const [adding, setAdding] = useState<Status | null>(null);
 	const [notice, setNotice] = useState<Notice | null>(null);
 	const pager = useRef<ScrollView | null>(null);
+
+	// A board always opens on its first column. Cleared during render, because
+	// one screen can become another board — a breadcrumb re-points the screen it
+	// is on — and carrying the last pane anyone swiped to into a different board
+	// makes it read as the wrong board.
+	const board = `${homeId} ${parent?.id ?? ""}`;
+	const [rendered, setRendered] = useState(board);
+	if (rendered !== board) {
+		setRendered(board);
+		setCurrent(0);
+	}
 
 	// The frozen set, plus a column for any status that is on this board but not
 	// in it. A card that exists is visible somewhere.

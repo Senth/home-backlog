@@ -52,6 +52,16 @@ export function useNode(
 		return onSnapshot(
 			nodeRef(homeId, nodeId),
 			(snapshot) => {
+				// "Not in the cache" is not "not there". Offline, a document that was
+				// never opened while online resolves immediately as missing — a shared
+				// link, a bookmark or a reload — and calling that gone would announce
+				// a deletion that did not happen. Hold instead, until a server answer
+				// arrives with the connection.
+				if (!snapshot.exists() && snapshot.metadata.fromCache) {
+					setLoading(false);
+					return;
+				}
+
 				setNode(snapshot.exists() ? toNode(snapshot) : null);
 				setGone(!snapshot.exists());
 				setLoading(false);

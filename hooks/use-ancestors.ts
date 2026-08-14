@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { getNode } from "@/data/nodes";
 import type { Node } from "@/models/node";
 
@@ -34,6 +35,9 @@ export function useAncestors(
 	homeId: string | null,
 	ancestorIds: readonly string[],
 ): { crumbs: Crumb[]; loading: boolean } {
+	const { user } = useAuth();
+	const uid = user?.uid ?? null;
+
 	const [crumbs, setCrumbs] = useState<Crumb[]>([]);
 	const [loading, setLoading] = useState(false);
 
@@ -54,7 +58,7 @@ export function useAncestors(
 	}
 
 	useEffect(() => {
-		if (homeId === null || ids.length === 0) {
+		if (homeId === null || uid === null || ids.length === 0) {
 			setCrumbs([]);
 			setLoading(false);
 			return;
@@ -66,7 +70,7 @@ export function useAncestors(
 		// Never rejects: `getNode` answers null for every failure, so one
 		// unreadable ancestor cannot take the rest of the trail with it.
 		Promise.all(
-			ids.map(async (id) => ({ id, node: await memoized(homeId, id) })),
+			ids.map(async (id) => ({ id, node: await memoized(uid, homeId, id) })),
 		).then((resolved) => {
 			if (!live) return;
 			setCrumbs(resolved);
@@ -76,13 +80,13 @@ export function useAncestors(
 		return () => {
 			live = false;
 		};
-	}, [homeId, ids]);
+	}, [homeId, uid, ids]);
 
 	return { crumbs, loading };
 }
 
 /**
- * A session memo, keyed by home and id.
+ * A session memo, keyed by **who**, then home and id.
  *
  * Drilling down five levels and back up re-reads the same five crumbs on every
  * screen otherwise. Only a node that was actually read is remembered: a failure
@@ -90,14 +94,31 @@ export function useAncestors(
  * leave a crumb reading "Hidden" for the rest of the session after the
  * connection came back.
  *
+ * The uid is in the key, and the whole map is dropped when it changes. Signing
+ * out does not reload the page, so on a shared device the next member would
+ * otherwise be handed a title the *previous* one was allowed to read — and it
+ * would render as a tappable crumb rather than the neutral "Hidden" crumb this
+ * whole design exists for. Leaving a home and coming back is the same failure on
+ * a shorter path.
+ *
  * The cost is a rename by another member not reaching a crumb already resolved;
  * the board's own title comes from a listener, so it is only the trail *above*
  * the current board that can go stale, and only until the next reload.
  */
 const cache = new Map<string, Node>();
+let cachedFor: string | null = null;
 
-async function memoized(homeId: string, nodeId: string): Promise<Node | null> {
-	const key = `${homeId}/${nodeId}`;
+async function memoized(
+	uid: string,
+	homeId: string,
+	nodeId: string,
+): Promise<Node | null> {
+	if (cachedFor !== uid) {
+		cache.clear();
+		cachedFor = uid;
+	}
+
+	const key = `${uid}/${homeId}/${nodeId}`;
 	const remembered = cache.get(key);
 	if (remembered) return remembered;
 
