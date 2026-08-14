@@ -14,6 +14,7 @@ import {
 	rankSequence,
 	rootColumns,
 	simpleColumns,
+	titleError,
 	toNode,
 	visibleColumns,
 } from "@/models/node";
@@ -270,6 +271,22 @@ describe("visibleColumns", () => {
 		const nodes = [node({ id: "a", status: "execution" })];
 
 		expect(visibleColumns(simpleColumns, nodes)).toEqual([...simpleColumns]);
+	});
+});
+
+describe("titleError", () => {
+	it("refuses a title that is empty or only spaces", () => {
+		expect(titleError("")).toBe("board.titleRequired");
+		expect(titleError("   ")).toBe("board.titleRequired");
+	});
+
+	it("refuses one the rules would refuse", () => {
+		expect(titleError("x".repeat(201))).toBe("board.titleTooLong");
+		expect(titleError("x".repeat(200))).toBeNull();
+	});
+
+	it("measures the trimmed title, which is what gets written", () => {
+		expect(titleError(`  ${"x".repeat(200)}  `)).toBeNull();
 	});
 });
 

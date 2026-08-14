@@ -8,7 +8,8 @@
 		"dismiss": "Stäng",
 		"loading": "Laddar",
 		"retry": "Försök igen",
-		"signOut": "Logga ut"
+		"signOut": "Logga ut",
+		"undo": "Ångra"
 	},
 	"account": {
 		"label": "Konto",
@@ -29,9 +30,6 @@
 			"tagline": "Allt som behöver göras hemma, på ett ställe.",
 			"google": "Fortsätt med Google",
 			"offlineHint": "Knappen fungerar igen när du är uppkopplad."
-		},
-		"projects": {
-			"empty": "Inga projekt än."
 		},
 		"locations": {
 			"empty": "Inga platser än."
@@ -113,7 +111,46 @@
 		"offline": "Du är offline. Du måste vara uppkopplad för att logga in.",
 		"saveFailed": "Det gick inte att spara. Försök igen."
 	},
+	"board": {
+		"root": "Projekt",
+		"empty": "Inget här ännu. Lägg till första kortet.",
+		"columnEmpty": "Inget här",
+		"addTo": "Lägg till i {{column}}",
+		"newCard": "Nytt kort",
+		"titleLabel": "Titel",
+		"add": "Lägg till",
+		"titleRequired": "Kortet behöver en titel",
+		"titleTooLong": "Titeln är för lång",
+		"open": "Öppna som tavla",
+		"actions": "Kortåtgärder",
+		"blocked": "Väntar",
+		"moveTo": "Flytta till",
+		"moved": "Flyttad till {{column}}",
+		"changePosition": "Ändra placering…",
+		"positionTop": "Överst",
+		"positionAfter": "Efter {{title}}",
+		"moveUnder": "Flytta in under…",
+		"moveUnderUp": "En nivå upp",
+		"moveUnderTop": "Toppnivån",
+		"movedUnder": "Flyttad in under {{title}}",
+		"rename": "Byt namn",
+		"renameTitle": "Byt namn på kortet",
+		"delete": "Ta bort",
+		"deleteTitle": "Ta bort kortet?",
+		"deleteBody": "Kortet och allt som ligger under det tas bort. Det går inte att ångra.",
+		"offlineHint": "Kräver anslutning",
+		"gone": "Kortet finns inte längre.",
+		"crumbHidden": "Dolt",
+		"trail": "Var du är"
+	},
 	"status": {
+		"backlog": "Att göra",
+		"next_up": "Härnäst",
+		"research": "Undersök",
+		"planning": "Planera",
+		"execution": "Pågående",
+		"review": "Granska",
+		"done": "Klart",
 		"offline": "Offline — ändringar sparas och synkas när du är uppkopplad igen.",
 		"offlineSignedOut": "Offline — du måste vara uppkopplad för att logga in."
 	},

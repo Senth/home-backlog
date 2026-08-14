@@ -246,6 +246,21 @@ export interface Node {
 
 /** Longest title a node may have, matched by `validNode()` in `firestore.rules`. */
 export const maxTitleLength = 200;
+
+/** Why a typed title cannot be saved, as the key that says so. */
+export type TitleError = "board.titleRequired" | "board.titleTooLong";
+
+/**
+ * The one validation a card creation has, checked here rather than in the
+ * dialog so the rules are not the first thing that says no.
+ */
+export function titleError(title: string): TitleError | null {
+	const trimmed = title.trim();
+	if (trimmed.length === 0) return "board.titleRequired";
+	if (trimmed.length > maxTitleLength) return "board.titleTooLong";
+	return null;
+}
+
 /** Matched by `validNode()`. Notes absorb cost and budget until #57. */
 export const maxNotesLength = 10000;
 export const maxChecklistItems = 200;

@@ -8,7 +8,8 @@
 		"dismiss": "Dismiss",
 		"loading": "Loading",
 		"retry": "Try again",
-		"signOut": "Sign out"
+		"signOut": "Sign out",
+		"undo": "Undo"
 	},
 	"account": {
 		"label": "Account",
@@ -29,9 +30,6 @@
 			"tagline": "Every job around the house, in one place.",
 			"google": "Continue with Google",
 			"offlineHint": "Signing in needs a connection."
-		},
-		"projects": {
-			"empty": "No projects yet."
 		},
 		"locations": {
 			"empty": "No locations yet."
@@ -113,7 +111,46 @@
 		"offline": "You are offline. Signing in needs a connection.",
 		"saveFailed": "Could not save that. Please try again."
 	},
+	"board": {
+		"root": "Projects",
+		"empty": "Nothing here yet. Add the first card.",
+		"columnEmpty": "Nothing here",
+		"addTo": "Add to {{column}}",
+		"newCard": "New card",
+		"titleLabel": "Title",
+		"add": "Add",
+		"titleRequired": "A card needs a title",
+		"titleTooLong": "That title is too long",
+		"open": "Open as board",
+		"actions": "Card actions",
+		"blocked": "Waiting",
+		"moveTo": "Move to",
+		"moved": "Moved to {{column}}",
+		"changePosition": "Change position…",
+		"positionTop": "At the top",
+		"positionAfter": "After {{title}}",
+		"moveUnder": "Move under…",
+		"moveUnderUp": "Up one level",
+		"moveUnderTop": "Top level",
+		"movedUnder": "Moved under {{title}}",
+		"rename": "Rename",
+		"renameTitle": "Rename card",
+		"delete": "Delete",
+		"deleteTitle": "Delete this card?",
+		"deleteBody": "The card and everything under it is deleted. This cannot be undone.",
+		"offlineHint": "Needs a connection",
+		"gone": "That card is gone.",
+		"crumbHidden": "Hidden",
+		"trail": "Where you are"
+	},
 	"status": {
+		"backlog": "To do",
+		"next_up": "Next up",
+		"research": "Find out",
+		"planning": "Plan",
+		"execution": "In progress",
+		"review": "Check",
+		"done": "Done",
 		"offline": "Offline — changes are saved and will sync when you reconnect.",
 		"offlineSignedOut": "Offline — you need a connection to sign in."
 	},

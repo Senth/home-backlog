@@ -62,6 +62,23 @@ export const size = {
 	avatarSm: 32,
 	avatarMd: 48,
 	brandMark: 96,
+	/**
+	 * One board column, side by side above `compactBreakpoint`. Wide enough for a
+	 * two-line title at a comfortable measure, narrow enough that three columns
+	 * and part of a fourth are on a laptop screen — a board that shows two
+	 * columns is a board you scroll to use.
+	 */
+	boardColumn: 300,
+} as const;
+
+/**
+ * Icon sizes. Paper's `Icon` and `@expo/vector-icons` both take a plain number
+ * for `size`, which is exactly the literal this file exists to keep out of
+ * components. `md` is Material's standard 24dp; `sm` sits with label text.
+ */
+export const icon = {
+	sm: 16,
+	md: 24,
 } as const;
 
 /**
