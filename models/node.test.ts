@@ -1,8 +1,10 @@
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import {
 	childAncestorIds,
+	columnsForDepth,
 	compareNodes,
 	completionChange,
+	fullColumns,
 	mergeNodeResults,
 	movedAncestorIds,
 	type Node,
@@ -10,7 +12,10 @@ import {
 	rankAtEnd,
 	rankBetween,
 	rankSequence,
+	rootColumns,
+	simpleColumns,
 	toNode,
+	visibleColumns,
 } from "@/models/node";
 
 function node(overrides: Partial<Node> = {}): Node {
@@ -25,6 +30,7 @@ function node(overrides: Partial<Node> = {}): Node {
 		locationAncestorIds: [],
 		participantIds: [],
 		visibility: "shared",
+		columns: [...fullColumns],
 		dueDate: null,
 		priority: null,
 		blockedBy: [],
@@ -191,6 +197,82 @@ describe("movedAncestorIds", () => {
 	});
 });
 
+describe("columnsForDepth", () => {
+	/**
+	 * `columns` describes the board a node's *children* form, so a depth-0 node's
+	 * children are depth 1 — which `PROJECT.md` gives the full stage set.
+	 */
+	it("gives the full stage set to a root node's children", () => {
+		expect(columnsForDepth(0)).toEqual(fullColumns);
+	});
+
+	it("gives the simple set to everything deeper", () => {
+		expect(columnsForDepth(1)).toEqual(simpleColumns);
+		expect(columnsForDepth(4)).toEqual(simpleColumns);
+	});
+
+	it("gives the root board the full stage set too", () => {
+		expect(rootColumns).toEqual(fullColumns);
+	});
+
+	it("keeps the simple set to statuses the full set also has", () => {
+		// The deep-board set reads To do / In progress / Done with no per-board
+		// relabel only because these three are ordinary statuses.
+		expect(fullColumns).toEqual(expect.arrayContaining([...simpleColumns]));
+	});
+});
+
+describe("visibleColumns", () => {
+	it("is the frozen set when nothing sits outside it", () => {
+		const nodes = [node({ id: "a", status: "backlog" })];
+
+		expect(visibleColumns(simpleColumns, nodes)).toEqual([...simpleColumns]);
+	});
+
+	/**
+	 * `Move under…`, the REST API and a seeded fixture can each put a `research`
+	 * card on a simple-set board. A card that exists is visible somewhere.
+	 */
+	it("appends a column for a status present in the data but not in the set", () => {
+		const nodes = [
+			node({ id: "a", status: "backlog" }),
+			node({ id: "b", status: "research" }),
+		];
+
+		expect(visibleColumns(simpleColumns, nodes)).toEqual([
+			"backlog",
+			"execution",
+			"done",
+			"research",
+		]);
+	});
+
+	it("appends the extras in enum order, however the cards are ordered", () => {
+		const nodes = [
+			node({ id: "a", status: "review" }),
+			node({ id: "b", status: "next_up" }),
+		];
+
+		expect(visibleColumns(simpleColumns, nodes)).toEqual([
+			"backlog",
+			"execution",
+			"done",
+			"next_up",
+			"review",
+		]);
+	});
+
+	it("drops the extra column again once the card leaves it", () => {
+		expect(visibleColumns(simpleColumns, [])).toEqual([...simpleColumns]);
+	});
+
+	it("does not duplicate a column the set already has", () => {
+		const nodes = [node({ id: "a", status: "execution" })];
+
+		expect(visibleColumns(simpleColumns, nodes)).toEqual([...simpleColumns]);
+	});
+});
+
 describe("completionChange", () => {
 	it.each([
 		["backlog", "done", "set"],
@@ -218,6 +300,7 @@ describe("newNodeData", () => {
 			locationAncestorIds: [],
 			participantIds: [],
 			visibility: "shared",
+			columns: [...fullColumns],
 			dueDate: null,
 			priority: null,
 			blockedBy: [],
@@ -227,6 +310,30 @@ describe("newNodeData", () => {
 			photos: [],
 			archived: false,
 		});
+	});
+
+	/**
+	 * The new node's *own* depth, not its parent's: `columns` describes the board
+	 * its children will form, and a task created inside a project is the thing
+	 * whose children get the simple set.
+	 */
+	it("freezes the column set from the new node's own depth", () => {
+		const project = node({ id: "project", ancestorIds: [] });
+		const task = node({
+			id: "task",
+			parentId: "project",
+			ancestorIds: ["project"],
+		});
+
+		expect(newNodeData({ title: "Project", rank: "a0" }).columns).toEqual([
+			...fullColumns,
+		]);
+		expect(
+			newNodeData({ title: "Task", rank: "a0", parent: project }).columns,
+		).toEqual([...simpleColumns]);
+		expect(
+			newNodeData({ title: "Subtask", rank: "a0", parent: task }).columns,
+		).toEqual([...simpleColumns]);
 	});
 
 	it("inherits the parent's structure and location", () => {
@@ -360,6 +467,7 @@ describe("toNode", () => {
 				locationAncestorIds: ["outside", "roof"],
 				participantIds: ["uid-a"],
 				visibility: "private",
+				columns: [...simpleColumns],
 				dueDate: "2026-09-30",
 				priority: "high",
 				blockedBy: ["scaffolding"],
@@ -390,6 +498,7 @@ describe("toNode", () => {
 				locationAncestorIds: ["outside", "roof"],
 				participantIds: ["uid-a"],
 				visibility: "private",
+				columns: [...simpleColumns],
 				dueDate: "2026-09-30",
 				priority: "high",
 				blockedBy: ["scaffolding"],
@@ -408,6 +517,28 @@ describe("toNode", () => {
 				createdBy: "",
 			}),
 		);
+	});
+
+	/**
+	 * `columns` arrived after the document did, so every node written by #74 is
+	 * without one — and a board with no columns renders nothing at all.
+	 */
+	it("falls back to the depth default when columns is absent", () => {
+		expect(toNode(snapshot("node-9", {})).columns).toEqual([...fullColumns]);
+		expect(
+			toNode(snapshot("node-9", { ancestorIds: ["project"] })).columns,
+		).toEqual([...simpleColumns]);
+	});
+
+	it("drops a column value nothing could ever be moved to", () => {
+		expect(
+			toNode(snapshot("node-9", { columns: ["backlog", "blocked", "done"] }))
+				.columns,
+		).toEqual(["backlog", "done"]);
+		// All of them unknown is the same as none at all.
+		expect(
+			toNode(snapshot("node-9", { columns: ["blocked"] })).columns,
+		).toEqual([...fullColumns]);
 	});
 
 	it("does not read a private node as shared by accident", () => {

@@ -67,8 +67,13 @@ multi-tenancy, sharing, or store release.
 ### Statuses & columns
 
 - **Global status enum**, not freeform columns:
-  `backlog`, `next_up`, `research`, `planning`, `execution`, `review`, `done`, `blocked`.
+  `backlog`, `next_up`, `research`, `planning`, `execution`, `review`, `done`.
   Stored as a string id so custom statuses can be added later without migration.
+- **`blocked` is not one of them.** A card is in exactly one status, so parking it in
+  Blocked destroys the stage it was in and nothing says where it goes when the blocker
+  clears: being blocked is a *condition* a card at any stage can be in, carried by
+  `blockedBy[]` ([#66](https://github.com/Senth/home-backlog/issues/66)), not a stage of
+  work. The card stays in its real column and shows a mark.
 - A **board configures which statuses it shows**, in what order, with optional relabels.
   It cannot invent new ones in MVP.
 - Rationale: cross-board queries — the dashboard, the suggestion engine, "what's in

@@ -9,8 +9,8 @@ import {
  *
  * Green is the brand colour, deliberately unlike the sibling project's purple
  * so the two apps are distinguishable in a tab strip or app switcher. It also
- * leaves red and amber free to mean *overdue* and *blocked* on a board, which
- * matters once eight statuses need colours.
+ * leaves red and amber free to mean *overdue* and *waiting* on a board, which
+ * matters once seven statuses need colours.
  *
  * `warning` and `success` are additions, not part of MD3. They are read through
  * `useAppTheme()` below, which carries their types; plain `useTheme()` from

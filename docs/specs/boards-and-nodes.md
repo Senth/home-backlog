@@ -35,7 +35,7 @@ Every field is written on create, with the default below.
 | Field | Type | Default | Notes |
 | ----- | ---- | ------- | ----- |
 | `title` | `string` | — | 1–200 characters |
-| `status` | `Status` | `'backlog'` | `backlog` `next_up` `research` `planning` `execution` `review` `done` `blocked` |
+| `status` | `Status` | `'backlog'` | `backlog` `next_up` `research` `planning` `execution` `review` `done` |
 | `rank` | `string` | `rankAtEnd(last)` | fractional index, ordered within `(parentId, status)` |
 | `parentId` | `string \| null` | `null` | `null` is a root node |
 | `ancestorIds` | `string[]` | `[]` | root → parent; the last element equals `parentId` |
@@ -250,7 +250,7 @@ every one.
 ```
 validNode(data)
   title      is string, size 1..200
-  status     in the eight-value enum
+  status     in the seven-value enum
   rank       is string, size > 0
   parentId   == null or is string
   locationId == null or is string
