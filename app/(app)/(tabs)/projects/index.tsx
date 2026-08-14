@@ -1,11 +1,12 @@
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { Appbar } from "react-native-paper";
+import { Appbar, Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
 import { InstallCard } from "@/components/ui/InstallCard";
 import { useHome } from "@/contexts/HomeContext";
+import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useNodes } from "@/hooks/use-nodes";
 import { rootColumns } from "@/models/node";
 import { useAppTheme } from "@/theme";
@@ -28,6 +29,7 @@ export default function Projects() {
 	const theme = useAppTheme();
 	const router = useRouter();
 	const { activeHome } = useHome();
+	const notice = useGoneNotice();
 
 	const homeId = activeHome?.id ?? null;
 	const { nodes, loading } = useNodes(homeId, null);
@@ -54,6 +56,12 @@ export default function Projects() {
 					loading={loading}
 				/>
 			) : null}
+
+			{/* Said here rather than on the board that vanished: a card can be
+			    deleted, with its whole subtree, while somebody is standing on it. */}
+			<Snackbar visible={notice.showing} onDismiss={notice.dismiss}>
+				{t("board.gone")}
+			</Snackbar>
 		</View>
 	);
 }
