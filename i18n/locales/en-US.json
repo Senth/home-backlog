@@ -151,6 +151,7 @@
 		"priority": "Priority",
 		"effort": "Time needed",
 		"notes": "Notes",
+		"saved": "Saved {{time}}",
 		"notesPlaceholder": "Anything worth remembering",
 		"clear": "Clear"
 	},

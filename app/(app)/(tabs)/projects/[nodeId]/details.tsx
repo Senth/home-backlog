@@ -45,9 +45,6 @@ export default function NodeDetails() {
 	const { node, gone } = useNode(homeId, id);
 
 	const [failed, setFailed] = useState(false);
-	// Uncontrolled until the first keystroke, so an edit by somebody else arrives
-	// on the listener — but never overwrites the field somebody is typing in.
-	const [notes, setNotes] = useState<string | null>(null);
 
 	// Where "up" is once the card has stopped existing, remembered while it still
 	// does: a deleted card cannot say who its parent was.
@@ -135,10 +132,14 @@ export default function NodeDetails() {
 						onChange={(effort) => save({ effort })}
 					/>
 
+					{/* Keyed on the node, so the same screen re-pointed at another card
+					    starts with that card's notes rather than carrying an unsaved
+					    draft across — the autosave state is per card, not per screen. */}
 					<NotesField
+						key={node.id}
 						label={t("detail.notes")}
-						value={notes ?? node.notes}
-						onChangeText={setNotes}
+						stored={node.notes}
+						onSave={(notes) => save({ notes })}
 					/>
 				</ScrollView>
 			)}

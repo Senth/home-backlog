@@ -50,3 +50,19 @@ export function formatElapsed(from: Date, now: Date, locale: string): string {
 		unit,
 	);
 }
+
+/**
+ * A wall-clock time, for "Saved 10:42".
+ *
+ * The hour and minute only, in whichever shape the locale uses — `sv-SE` writes
+ * 24-hour and `en-US` does not, and a line that reports a save should not be the
+ * one place in the app that argues with the reader's clock. Guarded like the
+ * rest; the fallback keeps the number rather than the format.
+ */
+export function formatClockTime(at: Date, locale: string): string {
+	if (typeof Intl.DateTimeFormat !== "function") {
+		return at.toTimeString().slice(0, 5);
+	}
+
+	return new Intl.DateTimeFormat(locale, { timeStyle: "short" }).format(at);
+}

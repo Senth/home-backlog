@@ -151,6 +151,7 @@
 		"priority": "Prioritet",
 		"effort": "Tidsåtgång",
 		"notes": "Anteckningar",
+		"saved": "Sparat {{time}}",
 		"notesPlaceholder": "Något värt att minnas",
 		"clear": "Rensa"
 	},
