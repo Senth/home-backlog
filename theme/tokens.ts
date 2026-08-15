@@ -108,6 +108,17 @@ export const border = {
 export const touchTarget = 48;
 
 /**
+ * `touchTarget` for a control that carries an outline — Paper's `Chip`, which
+ * keeps a 1dp border in **both** its flat and outlined modes.
+ *
+ * A bordered box measures its border inside its own height, so a `minHeight` of
+ * `touchTarget` on the chip leaves the pressable inside it at 46dp: the border
+ * eats into the target instead of sitting outside it. Two hairlines back, and
+ * the flat and outlined chips stay the same height as each other.
+ */
+export const outlinedTouchTarget = touchTarget + border.hairline * 2;
+
+/**
  * Line height for a `SegmentedButtons` label, and the only way to make that
  * control meet `touchTarget`.
  *

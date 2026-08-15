@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { Chip, Text } from "react-native-paper";
 import { useAppTheme } from "@/theme";
-import { space, touchTarget } from "@/theme/tokens";
+import { outlinedTouchTarget, space } from "@/theme/tokens";
 
 interface ChoiceFieldProps<T extends string> {
 	label: string;
@@ -70,10 +70,10 @@ export function ChoiceField<T extends string>({
 							onPress={() => onChange(selected ? null : candidate)}
 							accessibilityState={{ selected }}
 							// Paper's chip is 32dp tall, which nothing tappable may be. The
-							// style lands on the outer surface, and the ripple inside it
-							// stretches to fill — unlike `SegmentedButtons`, which hides its
-							// pressable behind a hard-coded padding.
-							style={{ minHeight: touchTarget }}
+							// style lands on the outer surface and the pressable inside
+							// stretches to fill it — minus the chip's own border, which is
+							// why this is `outlinedTouchTarget` and not `touchTarget`.
+							style={{ minHeight: outlinedTouchTarget }}
 						>
 							{labelFor(candidate)}
 						</Chip>
