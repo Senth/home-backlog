@@ -189,6 +189,38 @@ export function hasSteps(node: Node): boolean {
 	return node.childCount > 0;
 }
 
+/**
+ * How a *parent's* two counters move. Zero means the field is not written at
+ * all, so a write that changes nothing costs nothing.
+ */
+export interface CounterChange {
+	childCount: number;
+	doneCount: number;
+}
+
+/** A child appearing under a parent — created there, or moved there. */
+export function childArrives(status: Status): CounterChange {
+	return { childCount: 1, doneCount: status === "done" ? 1 : 0 };
+}
+
+/**
+ * A child going away — deleted, or moved to another parent.
+ *
+ * A subtree delete touches only *one* parent: every descendant's parent is
+ * inside the subtree and goes with it, so only the top node's parent is
+ * decremented.
+ */
+export function childLeaves(status: Status): CounterChange {
+	return { childCount: -1, doneCount: status === "done" ? -1 : 0 };
+}
+
+/** A child crossing into or out of Done where it stands. */
+export function doneChange(change: CompletionChange): CounterChange {
+	if (change === "set") return { childCount: 0, doneCount: 1 };
+	if (change === "clear") return { childCount: 0, doneCount: -1 };
+	return { childCount: 0, doneCount: 0 };
+}
+
 export type Priority = "low" | "normal" | "high" | "urgent";
 
 export const priorities: readonly Priority[] = [

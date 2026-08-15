@@ -1,9 +1,12 @@
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import {
 	childAncestorIds,
+	childArrives,
+	childLeaves,
 	columnsForDepth,
 	compareNodes,
 	completionChange,
+	doneChange,
 	fullColumns,
 	hasSteps,
 	mergeNodeResults,
@@ -291,6 +294,52 @@ describe("hasSteps", () => {
 	 */
 	it("does not become true on a counter that has drifted below zero", () => {
 		expect(hasSteps(node({ childCount: -3 }))).toBe(false);
+	});
+});
+
+/**
+ * The arithmetic the four structural writes in `data/nodes.ts` apply to a
+ * *parent* with `increment()`. Zero means the field is not written at all.
+ */
+describe("counter changes", () => {
+	it("counts a child arriving, and a done one twice", () => {
+		expect(childArrives("backlog")).toEqual({ childCount: 1, doneCount: 0 });
+		// Created straight into Done: unusual by hand, ordinary over REST (#7).
+		expect(childArrives("done")).toEqual({ childCount: 1, doneCount: 1 });
+	});
+
+	it("counts a child leaving the same way, downwards", () => {
+		expect(childLeaves("execution")).toEqual({ childCount: -1, doneCount: 0 });
+		expect(childLeaves("done")).toEqual({ childCount: -1, doneCount: -1 });
+	});
+
+	it("follows a child across Done without touching childCount", () => {
+		expect(doneChange("set")).toEqual({ childCount: 0, doneCount: 1 });
+		expect(doneChange("clear")).toEqual({ childCount: 0, doneCount: -1 });
+	});
+
+	/**
+	 * A card moved between two columns that are both not Done, or one already
+	 * done being reordered inside Done, leaves the parent alone entirely — which
+	 * is what lets `moveNode` stay a single update rather than a batch.
+	 */
+	it("moves nothing when a card does not cross Done", () => {
+		expect(doneChange("keep")).toEqual({ childCount: 0, doneCount: 0 });
+	});
+
+	/**
+	 * A reparent is a leave and an arrive, so the two must cancel exactly — a
+	 * card moved to another board and back leaves both counters where they were.
+	 */
+	it.each([
+		"backlog",
+		"done",
+	] as const)("cancels itself over a %s card's round trip", (status) => {
+		const there = childArrives(status);
+		const back = childLeaves(status);
+
+		expect(there.childCount + back.childCount).toBe(0);
+		expect(there.doneCount + back.doneCount).toBe(0);
 	});
 });
 

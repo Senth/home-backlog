@@ -6,20 +6,24 @@ import {
 	getDoc,
 	getDocs,
 	getDocsFromServer,
+	increment,
 	orderBy,
 	type Query,
 	type QueryDocumentSnapshot,
 	query,
 	serverTimestamp,
-	setDoc,
 	updateDoc,
 	where,
 	writeBatch,
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import {
+	type CounterChange,
 	childAncestorIds,
+	childArrives,
+	childLeaves,
 	completionChange,
+	doneChange,
 	mergeNodeResults,
 	movedAncestorIds,
 	type NewNodeInput,
@@ -244,10 +248,46 @@ export function privateSubtreeQuery(
  * a whole subtree to rewrite. Not `status` or `rank` — moving a card between
  * columns is `moveNode`, which also owns `completedAt`. Not `visibility`: a
  * subtree visibility flip must write top-down, one document at a time (#61).
+ * And not `childCount` or `doneCount`, which belong to the four structural
+ * writes below the same way `status` and `rank` belong to `moveNode`.
  */
 export type NodeChanges = Partial<
-	Omit<NodeData, "parentId" | "ancestorIds" | "visibility" | "status" | "rank">
+	Omit<
+		NodeData,
+		| "parentId"
+		| "ancestorIds"
+		| "visibility"
+		| "status"
+		| "rank"
+		| "childCount"
+		| "doneCount"
+	>
 >;
+
+/**
+ * A counter change as fields to write — or nothing at all, when it moves
+ * neither counter.
+ *
+ * `increment()` is a **server-side transform**: it queues offline like any other
+ * write and it commutes, so two people adding a step to the same project from
+ * two sheds both land. It also moves neither `parentId`, `visibility` nor
+ * `participantIds`, so `privacyUnchanged()` lets the rules skip the parent
+ * `get()` — which is what keeps these updates free against a batch's
+ * twenty-document-access budget.
+ *
+ * `updatedAt` is deliberately not touched. A step appearing under a project is
+ * not somebody editing the project, and #55 reads that field as "last touched".
+ */
+function counterFields(change: CounterChange): Record<string, unknown> {
+	const fields: Record<string, unknown> = {};
+	if (change.childCount !== 0) fields.childCount = increment(change.childCount);
+	if (change.doneCount !== 0) fields.doneCount = increment(change.doneCount);
+	return fields;
+}
+
+function movesACounter(fields: Record<string, unknown>): boolean {
+	return Object.keys(fields).length > 0;
+}
 
 /**
  * A new node, with its id available immediately.
@@ -257,6 +297,16 @@ export type NodeChanges = Partial<
  * resolves when the server has it, which is the only thing worth reporting a
  * failure from — awaiting it before closing a sheet builds a form that hangs in
  * a shed.
+ *
+ * It is a **batch**: the card and its parent's `childCount` land together, so a
+ * card can never exist without having been counted. The child's create still
+ * runs `inherits()`, which does a `get()` on the parent — and a rule's `get()`
+ * reads *committed* state, which cannot see the rest of this batch. That is
+ * sound here precisely because the parent's own update changes neither its
+ * visibility nor its participants, so the value the `get()` reads is correct.
+ *
+ * A root-level card has no parent document, so `parentId === null` means no
+ * counter write at all.
  */
 export function createNode(
 	homeId: string,
@@ -266,7 +316,8 @@ export function createNode(
 	const data = newNodeData(input);
 	const ref = doc(nodesRef(homeId));
 
-	const written = setDoc(ref, {
+	const batch = writeBatch(db);
+	batch.set(ref, {
 		...data,
 		// Writing yourself out of your own private node strands it where nobody
 		// can read or delete it, so the rules refuse it — and the caller of a
@@ -282,6 +333,14 @@ export function createNode(
 		createdBy: uid,
 		updatedAt: serverTimestamp(),
 	});
+	if (data.parentId !== null) {
+		batch.update(
+			nodeRef(homeId, data.parentId),
+			counterFields(childArrives(data.status)),
+		);
+	}
+
+	const written = batch.commit();
 
 	// Handled here, and still returned. A caller that only wants the id leaves
 	// the promise alone — and an ignored rejection is an unhandled one, which
@@ -316,6 +375,10 @@ export function updateNode(
  * `completedAt` follows the status, in both directions — and a node that was
  * already done keeps the date it has, because "completed" must not quietly
  * become "last touched".
+ *
+ * The parent's `doneCount` follows the same change. A move that crosses Done in
+ * neither direction, and a card with no parent document, are a plain update —
+ * there is nothing to keep in step.
  */
 export function moveNode(
 	homeId: string,
@@ -324,14 +387,23 @@ export function moveNode(
 	rank: string,
 ): Promise<void> {
 	const change = completionChange(node.status, status);
-
-	return updateDoc(nodeRef(homeId, node.id), {
+	const own = {
 		status,
 		rank,
 		...(change === "set" ? { completedAt: serverTimestamp() } : {}),
 		...(change === "clear" ? { completedAt: null } : {}),
 		updatedAt: serverTimestamp(),
-	});
+	};
+
+	const counters = counterFields(doneChange(change));
+	if (node.parentId === null || !movesACounter(counters)) {
+		return updateDoc(nodeRef(homeId, node.id), own);
+	}
+
+	const batch = writeBatch(db);
+	batch.update(nodeRef(homeId, node.id), own);
+	batch.update(nodeRef(homeId, node.parentId), counters);
+	return batch.commit();
 }
 
 /**
@@ -406,6 +478,20 @@ export async function reparentNode(
 		rank,
 		updatedAt: serverTimestamp(),
 	});
+	// The node leaves one board and arrives on another. Either end may be the
+	// root, which has no document to count on.
+	if (node.parentId !== null) {
+		batch.update(
+			nodeRef(homeId, node.parentId),
+			counterFields(childLeaves(node.status)),
+		);
+	}
+	if (parent !== null) {
+		batch.update(
+			nodeRef(homeId, parent.id),
+			counterFields(childArrives(node.status)),
+		);
+	}
 	for (const snapshot of descendants) {
 		batch.update(snapshot.ref, {
 			ancestorIds: movedAncestorIds(toNode(snapshot), node.id, ancestorIds),
@@ -422,6 +508,11 @@ export async function reparentNode(
  * Descendants have to go, and they have to go atomically: a node whose parent
  * is gone is unreachable from every board and every breadcrumb, and nothing in
  * the app could ever find it again.
+ *
+ * Only **one** parent's counters move, however large the subtree: every
+ * descendant's parent is inside the subtree and is deleted with it, so the only
+ * document left holding a count of something that has gone is the deleted node's
+ * own parent.
  */
 export async function deleteNode(
 	homeId: string,
@@ -433,6 +524,12 @@ export async function deleteNode(
 	const batch = writeBatch(db);
 	for (const snapshot of descendants) batch.delete(snapshot.ref);
 	batch.delete(nodeRef(homeId, node.id));
+	if (node.parentId !== null) {
+		batch.update(
+			nodeRef(homeId, node.parentId),
+			counterFields(childLeaves(node.status)),
+		);
+	}
 
 	await batch.commit();
 }
