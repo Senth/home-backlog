@@ -14,16 +14,21 @@ import { Stack } from "expo-router";
  * listeners alive — the listener breadth `CLAUDE.md` names as this app's cost
  * risk. The node id is the identity, so one board is one screen.
  *
- * No header: each board screen renders its own `Appbar`, which carries the
+ * The details screen is in the same Stack for the same reasons, and needs the
+ * same identity: every node's details is the route name `[nodeId]/details`, so
+ * without one they would collapse into each other exactly as the boards did.
+ *
+ * No header: each screen renders its own `Appbar`, which carries the
  * breadcrumbs and the account menu.
  */
 export default function ProjectsLayout() {
+	const identity = (_name: string, params: Record<string, unknown>) =>
+		String(params.nodeId);
+
 	return (
 		<Stack screenOptions={{ headerShown: false }}>
-			<Stack.Screen
-				name="[nodeId]"
-				dangerouslySingular={(_name, params) => String(params.nodeId)}
-			/>
+			<Stack.Screen name="[nodeId]/index" dangerouslySingular={identity} />
+			<Stack.Screen name="[nodeId]/details" dangerouslySingular={identity} />
 		</Stack>
 	);
 }

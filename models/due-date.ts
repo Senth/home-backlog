@@ -47,6 +47,49 @@ export function dayDifference(dueDate: string, now: Date): number | null {
 }
 
 /**
+ * A picked day as the string that is stored.
+ *
+ * The date's **local** components, never `toISOString()`: that converts to UTC
+ * first, so a day picked anywhere east of Greenwich in the evening is stored as
+ * the day before. A calendar day has no timezone, and this is the seam where one
+ * would be introduced.
+ */
+export function toCalendarDay(date: Date): string {
+	const month = `${date.getMonth() + 1}`.padStart(2, "0");
+	const day = `${date.getDate()}`.padStart(2, "0");
+
+	return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * The stored day as a local `Date`, which is what a date picker takes — midnight
+ * in the reader's own zone, for the same reason.
+ */
+export function fromCalendarDay(dueDate: string): Date | null {
+	const parts = calendarDay.exec(dueDate);
+	if (parts === null) return null;
+
+	return new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]));
+}
+
+/**
+ * The stored day written out, for a control that has to show which date is set.
+ *
+ * `Intl.DateTimeFormat` is what puts the parts in the order the reader expects —
+ * "30 September 2026" against "September 30, 2026" — and the guard is the same
+ * one the other two formatters carry. The fallback is the stored string, which
+ * is already a date a human can read.
+ */
+export function formatCalendarDay(dueDate: string, locale: string): string {
+	const date = fromCalendarDay(dueDate);
+	if (date === null || typeof Intl.DateTimeFormat !== "function") {
+		return dueDate;
+	}
+
+	return new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(date);
+}
+
+/**
  * Which of the three things a due date is, or `null` when there is none.
  *
  * Only `'late'` and `'soon'` put a chip on a card face. A date three months out

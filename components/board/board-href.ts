@@ -10,6 +10,17 @@ export function boardHref(nodeId: string | null): Href {
 		: { pathname: "/projects/[nodeId]", params: { nodeId } };
 }
 
+/**
+ * A node's details — its notes, due date, priority and effort, and its steps.
+ *
+ * A real route beside the board rather than a modal over it, so reload, the back
+ * gesture and a shared link all land on the same screen. The root board has no
+ * node and so has no details.
+ */
+export function detailsHref(nodeId: string): Href {
+	return { pathname: "/projects/[nodeId]/details", params: { nodeId } };
+}
+
 /** The value `gone` carries. Any other value is not this message. */
 export const goneFlag = "1";
 

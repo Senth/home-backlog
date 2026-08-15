@@ -2,7 +2,9 @@ import {
 	dayDifference,
 	dueState,
 	formatDueElapsed,
+	fromCalendarDay,
 	soonInDays,
+	toCalendarDay,
 } from "@/models/due-date";
 
 /**
@@ -89,6 +91,48 @@ describe("dayDifference", () => {
 		expect(dayDifference("15/08/2026", now)).toBeNull();
 		expect(dayDifference("2026-08-15T00:00:00Z", now)).toBeNull();
 		expect(dayDifference("", now)).toBeNull();
+	});
+});
+
+describe("toCalendarDay", () => {
+	it("pads a single-digit month and day", () => {
+		expect(toCalendarDay(at(2026, 9, 5))).toBe("2026-09-05");
+		expect(toCalendarDay(at(2026, 12, 31))).toBe("2026-12-31");
+	});
+
+	/**
+	 * The reason this is not `toISOString().slice(0, 10)`. That converts to UTC
+	 * first, so a day picked in Stockholm at any time before 02:00 — or at all,
+	 * in summer, before 02:00 — comes back as the day before.
+	 */
+	it("stores the day the reader picked, not the UTC one", () => {
+		// Midnight local on the 1st is 22:00 UTC on the 31st, in summer.
+		expect(toCalendarDay(at(2026, 8, 1, 0, 30))).toBe("2026-08-01");
+		expect(toCalendarDay(at(2026, 8, 1, 23, 30))).toBe("2026-08-01");
+	});
+
+	it("round-trips a stored day", () => {
+		const stored = "2026-03-29";
+		const parsed = fromCalendarDay(stored);
+
+		expect(parsed).not.toBeNull();
+		expect(parsed && toCalendarDay(parsed)).toBe(stored);
+	});
+});
+
+describe("fromCalendarDay", () => {
+	it("is local midnight, which is what a date picker takes", () => {
+		const parsed = fromCalendarDay("2026-09-30");
+
+		expect(parsed?.getFullYear()).toBe(2026);
+		expect(parsed?.getMonth()).toBe(8);
+		expect(parsed?.getDate()).toBe(30);
+		expect(parsed?.getHours()).toBe(0);
+	});
+
+	it("has no answer for something that is not a calendar day", () => {
+		expect(fromCalendarDay("2026-09")).toBeNull();
+		expect(fromCalendarDay("")).toBeNull();
 	});
 });
 

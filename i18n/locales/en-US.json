@@ -144,6 +144,29 @@
 		"crumbHidden": "Hidden",
 		"trail": "Where you are"
 	},
+	"detail": {
+		"title": "Details",
+		"dueDate": "Due by",
+		"addDate": "Add a date",
+		"priority": "Priority",
+		"effort": "Time needed",
+		"notes": "Notes",
+		"notesPlaceholder": "Anything worth remembering",
+		"clear": "Clear"
+	},
+	"priority": {
+		"low": "Low",
+		"normal": "Normal",
+		"high": "High",
+		"urgent": "Urgent"
+	},
+	"effort": {
+		"quick": "Under 30 min",
+		"hours": "Under 2 hrs",
+		"evening": "An evening",
+		"weekend": "A weekend",
+		"multi_week": "Several weeks"
+	},
 	"status": {
 		"backlog": "To do",
 		"next_up": "Next up",

@@ -144,6 +144,29 @@
 		"crumbHidden": "Dolt",
 		"trail": "Var du är"
 	},
+	"detail": {
+		"title": "Detaljer",
+		"dueDate": "Klart senast",
+		"addDate": "Lägg till datum",
+		"priority": "Prioritet",
+		"effort": "Tidsåtgång",
+		"notes": "Anteckningar",
+		"notesPlaceholder": "Något värt att minnas",
+		"clear": "Rensa"
+	},
+	"priority": {
+		"low": "Låg",
+		"normal": "Normal",
+		"high": "Hög",
+		"urgent": "Brådskande"
+	},
+	"effort": {
+		"quick": "Under 30 min",
+		"hours": "Under 2 tim",
+		"evening": "En kväll",
+		"weekend": "En helg",
+		"multi_week": "Flera veckor"
+	},
 	"status": {
 		"backlog": "Att göra",
 		"next_up": "Härnäst",
