@@ -142,10 +142,14 @@ export function formatDueElapsed(
 
 	try {
 		if (days < 0) {
+			// `narrow`, not `short`. Short is locale-asymmetric here — "14 days" in
+			// `en-US` against "14 d" in `sv-SE` — so the same fact came out wordier
+			// and wider in one language than the other, on a chip that has to fit a
+			// card face beside a title. Narrow is "14d" in both.
 			return new Intl.NumberFormat(locale, {
 				style: "unit",
 				unit: "day",
-				unitDisplay: "short",
+				unitDisplay: "narrow",
 			}).format(-days);
 		}
 

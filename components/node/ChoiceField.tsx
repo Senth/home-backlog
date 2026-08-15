@@ -1,7 +1,7 @@
 import { View } from "react-native";
-import { SegmentedButtons, Text } from "react-native-paper";
+import { Chip, Text } from "react-native-paper";
 import { useAppTheme } from "@/theme";
-import { segmentedLabelLineHeight, space } from "@/theme/tokens";
+import { space, touchTarget } from "@/theme/tokens";
 
 interface ChoiceFieldProps<T extends string> {
 	label: string;
@@ -16,15 +16,29 @@ interface ChoiceFieldProps<T extends string> {
  * One of a short list of values, or none — priority and effort, which are the
  * same control twice.
  *
- * **Tapping the selected value clears it.** Neither field has a "none" segment,
- * because a row that reads *None · Low · Normal · High · Urgent* spends its first
- * and widest slot on the value every card already has, and on a phone that is
- * what pushes the real answers off the edge. There is no other way back to
- * unset, and a value you cannot remove is a value you learn not to set.
+ * **A wrapping row of chips, deliberately not `SegmentedButtons`.** Segments
+ * divide the width evenly and ellipsize whatever does not fit, and these labels
+ * are words rather than icons: at 390px the five effort segments came out as
+ * *Und… · Und… · An … · A w… · Sev…*, where the first two are "Under 30 min" and
+ * "Under 2 hrs" rendered as the same string. `sv-SE` clipped "Brådskande" to
+ * "Bråds…" on the four-value priority row as well. A control that hides the
+ * words defeats the reason these values are words: `PROJECT.md` chose "an
+ * evening" over "< 2 h" because a math symbol is not what a 71-year-old at 200%
+ * text can read, and an ellipsis is worse than either.
  *
- * Outlined segments with words, never colour: on a curated board a priority is
- * one member's judgement of another member's Saturday, and four red chips on the
- * outdoor cards is `PERSONAS.md`'s stated quit line rendered as UI.
+ * Chips wrap instead of shrinking, so every label stays whole at every width and
+ * text size, and the row simply gets taller.
+ *
+ * **Tapping the selected value clears it.** Neither field has a "none" chip,
+ * because a chip that means "not set" is indistinguishable from the absence of a
+ * selection — and there has to be a way back to unset, or a value people set
+ * once is a value they learn not to set at all.
+ *
+ * Filled against outlined rather than Paper's `selected` tint alone: the tint is
+ * a slightly different shade of the same green, which is the trap the column
+ * strip already documents. Words and weight, never colour on its own — on a
+ * curated board a priority is one member's judgement of another member's
+ * Saturday.
  */
 export function ChoiceField<T extends string>({
 	label,
@@ -43,21 +57,29 @@ export function ChoiceField<T extends string>({
 			>
 				{label}
 			</Text>
-			<SegmentedButtons
-				// Paper's `value` is a bare string, so "nothing selected" is a value
-				// that cannot match any segment rather than a mode of its own.
-				value={value ?? ""}
-				onValueChange={(next) => onChange(next === value ? null : (next as T))}
-				buttons={values.map((candidate) => ({
-					value: candidate,
-					label: labelFor(candidate),
-					// The only way to make a segment meet the 48dp target: Paper
-					// hard-codes `paddingVertical: 9` on the content and exposes no prop
-					// that reaches the pressable, so growing the label is what grows the
-					// ripple. 9 + 30 + 9 = 48.
-					labelStyle: { lineHeight: segmentedLabelLineHeight },
-				}))}
-			/>
+			<View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+				{values.map((candidate) => {
+					const selected = candidate === value;
+
+					return (
+						<Chip
+							key={candidate}
+							mode={selected ? "flat" : "outlined"}
+							selected={selected}
+							showSelectedCheck={false}
+							onPress={() => onChange(selected ? null : candidate)}
+							accessibilityState={{ selected }}
+							// Paper's chip is 32dp tall, which nothing tappable may be. The
+							// style lands on the outer surface, and the ripple inside it
+							// stretches to fill — unlike `SegmentedButtons`, which hides its
+							// pressable behind a hard-coded padding.
+							style={{ minHeight: touchTarget }}
+						>
+							{labelFor(candidate)}
+						</Chip>
+					);
+				})}
+			</View>
 		</View>
 	);
 }

@@ -173,8 +173,10 @@ describe("formatDueElapsed", () => {
 	 * is on, and a relative time there would read "3 days ago late".
 	 */
 	it("says how long a card has been late, without saying 'ago'", () => {
-		expect(formatDueElapsed("2026-08-12", now, "en-US")).toBe("3 days");
-		expect(formatDueElapsed("2026-08-12", now, "sv-SE")).toBe("3 d");
+		// The same width in both languages: `short` would give "3 days" here and
+		// "3 d" there, for the same fact on the same chip.
+		expect(formatDueElapsed("2026-08-12", now, "en-US")).toBe("3d");
+		expect(formatDueElapsed("2026-08-12", now, "sv-SE")).toBe("3d");
 	});
 
 	it("speaks the app's language about a date still ahead", () => {
