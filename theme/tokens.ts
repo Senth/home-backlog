@@ -71,6 +71,11 @@ export const size = {
 	 * columns is a board you scroll to use.
 	 */
 	boardColumn: 300,
+	/**
+	 * The mark on an app-bar action that has something behind it. Small enough to
+	 * read as a mark rather than a badge, large enough to survive a dark theme.
+	 */
+	dot: 8,
 } as const;
 
 /**
@@ -84,6 +89,14 @@ export const icon = {
 } as const;
 
 /**
+ * Border widths. `hairline` is Material's outline on an outlined surface —
+ * a card, a chip — and is the only one an outline should ever be.
+ */
+export const border = {
+	hairline: 1,
+} as const;
+
+/**
  * Minimum touch target. Material and the WCAG target-size rule both land at
  * 48dp, and nothing tappable may undercut it.
  *
@@ -93,6 +106,17 @@ export const icon = {
  * and set `minWidth` / `minHeight` on custom pressables.
  */
 export const touchTarget = 48;
+
+/**
+ * `touchTarget` for a control that carries an outline — Paper's `Chip`, which
+ * keeps a 1dp border in **both** its flat and outlined modes.
+ *
+ * A bordered box measures its border inside its own height, so a `minHeight` of
+ * `touchTarget` on the chip leaves the pressable inside it at 46dp: the border
+ * eats into the target instead of sitting outside it. Two hairlines back, and
+ * the flat and outlined chips stay the same height as each other.
+ */
+export const outlinedTouchTarget = touchTarget + border.hairline * 2;
 
 /**
  * Line height for a `SegmentedButtons` label, and the only way to make that

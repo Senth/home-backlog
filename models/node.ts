@@ -142,6 +142,102 @@ export function visibleColumns(
 	return [...columns, ...extra];
 }
 
+/*
+ * ---------------------------------------------------------------------------
+ * Counters
+ * ---------------------------------------------------------------------------
+ *
+ * `childCount` and `doneCount` are denormalized and maintained by the client,
+ * with `increment()` — a server-side transform, so it queues offline like any
+ * other write and it commutes: two people adding a step to the same project from
+ * two sheds both land.
+ *
+ * They are a **display convenience, never an invariant.** Counts cannot diverge
+ * per viewer — every child of a node shares that node's visibility, so anyone who
+ * can read the parent can read all of its children — but drift is still possible
+ * from a client that crashes between two halves of a batch, or from a future REST
+ * writer that forgets. It is asymmetric, and only one direction matters:
+ *
+ * - **too high** — a chevron on a childless card; you drill in and find an empty
+ *   board.
+ * - **too low** — a card with children shows no chevron, which could *hide work*.
+ *
+ * The second is closed by construction rather than by care: the detail screen's
+ * Steps section runs the real board queries and lists the true children whatever
+ * the counter says. A card that has lost its chevron still opens its details, and
+ * its steps are there.
+ *
+ * For the same reason the rules do not bound either counter. `doneCount >= 0`
+ * looks correct and is a trap: one device offline marks a step done while another
+ * deletes that step, and the transformed value can dip below zero — which would
+ * reject the whole batch and fail a *delete*, an operation whose atomicity this
+ * area is built around. `toNode` clamps on read instead.
+ */
+
+/**
+ * Whether a node is a board.
+ *
+ * Board-ness is derived, not stored: there is no flag, no *convert to a board*
+ * action and no undo, because there is nothing to convert. A card becomes a board
+ * the moment it gets its first step and stops being one when the last step goes.
+ * No steps means no chevron, and a tap opens the details instead.
+ *
+ * Every screen goes through this rather than reading the field, so the derivation
+ * has one home.
+ */
+export function hasSteps(node: Node): boolean {
+	return node.childCount > 0;
+}
+
+/**
+ * Whether opening a card's details would show anything at all.
+ *
+ * What the mark on the board's own details action is for: without it, opening
+ * them is a lottery rather than a decision, and the answer is usually "nothing".
+ * Steps are deliberately not counted — they have a chevron of their own, and the
+ * mark is about the four fields that have no other way of being seen.
+ */
+export function hasDetails(node: Node): boolean {
+	return (
+		node.dueDate !== null ||
+		node.priority !== null ||
+		node.effort !== null ||
+		node.notes.length > 0
+	);
+}
+
+/**
+ * How a *parent's* two counters move. Zero means the field is not written at
+ * all, so a write that changes nothing costs nothing.
+ */
+export interface CounterChange {
+	childCount: number;
+	doneCount: number;
+}
+
+/** A child appearing under a parent — created there, or moved there. */
+export function childArrives(status: Status): CounterChange {
+	return { childCount: 1, doneCount: status === "done" ? 1 : 0 };
+}
+
+/**
+ * A child going away — deleted, or moved to another parent.
+ *
+ * A subtree delete touches only *one* parent: every descendant's parent is
+ * inside the subtree and goes with it, so only the top node's parent is
+ * decremented.
+ */
+export function childLeaves(status: Status): CounterChange {
+	return { childCount: -1, doneCount: status === "done" ? -1 : 0 };
+}
+
+/** A child crossing into or out of Done where it stands. */
+export function doneChange(change: CompletionChange): CounterChange {
+	if (change === "set") return { childCount: 0, doneCount: 1 };
+	if (change === "clear") return { childCount: 0, doneCount: -1 };
+	return { childCount: 0, doneCount: 0 };
+}
+
 export type Priority = "low" | "normal" | "high" | "urgent";
 
 export const priorities: readonly Priority[] = [
@@ -226,6 +322,10 @@ export interface Node {
 	 * creation and then frozen — never recomputed when the node moves.
 	 */
 	columns: Status[];
+	/** Direct children. What makes this node a board — see `hasSteps()`. */
+	childCount: number;
+	/** Direct children whose `status` is `'done'`. */
+	doneCount: number;
 	/** `'YYYY-MM-DD'` — a calendar day, not an instant. */
 	dueDate: string | null;
 	priority: Priority | null;
@@ -486,6 +586,11 @@ export function newNodeData(input: NewNodeInput): NodeData {
 		participantIds,
 		visibility: parent?.visibility ?? input.visibility ?? "shared",
 		columns: [...columnsForDepth(ancestorIds.length)],
+		// A new node has nothing under it yet. The caller cannot set these: they
+		// belong to the structural writes in `data/nodes.ts`, which move them with
+		// `increment()`.
+		childCount: 0,
+		doneCount: 0,
 		dueDate: input.dueDate ?? null,
 		priority: input.priority ?? null,
 		blockedBy: [],
@@ -530,6 +635,18 @@ function oneOfOrNull<T extends string>(
 	allowed: readonly T[],
 ): T | null {
 	return allowed.includes(value as T) ? (value as T) : null;
+}
+
+/**
+ * A stored counter, clamped.
+ *
+ * The rules check `is int` and nothing more — bounding them there would fail a
+ * *delete* on an offline race — so the clamp lives on the read side, where the
+ * worst a wrong value can do is draw a chevron.
+ */
+function counter(value: unknown): number {
+	if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+	return Math.max(0, Math.trunc(value));
 }
 
 function checklistItems(value: unknown): ChecklistItem[] {
@@ -592,6 +709,8 @@ export function toNode(snapshot: QueryDocumentSnapshot<DocumentData>): Node {
 		participantIds: strings(data.participantIds),
 		visibility: data.visibility === "private" ? "private" : "shared",
 		columns: columnSet(data.columns, ancestorIds.length),
+		childCount: counter(data.childCount),
+		doneCount: counter(data.doneCount),
 		dueDate: stringOrNull(data.dueDate),
 		priority: oneOfOrNull(data.priority, priorities),
 		blockedBy: strings(data.blockedBy),

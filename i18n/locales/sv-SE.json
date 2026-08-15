@@ -140,9 +140,42 @@
 		"deleteTitle": "Ta bort kortet?",
 		"deleteBody": "Kortet och allt som ligger under det tas bort. Det går inte att ångra.",
 		"offlineHint": "Kräver anslutning",
+		"details": "Detaljer…",
+		"steps": "{{done}}/{{total}}",
+		"dueLate": "{{elapsed}} sen",
+		"dueSoon": "{{elapsed}}",
 		"gone": "Kortet finns inte längre.",
 		"crumbHidden": "Dolt",
 		"trail": "Var du är"
+	},
+	"detail": {
+		"title": "Detaljer",
+		"dueDate": "Klart senast",
+		"addDate": "Lägg till datum",
+		"priority": "Prioritet",
+		"effort": "Tidsåtgång",
+		"notes": "Anteckningar",
+		"saved": "Sparat {{time}}",
+		"notesPlaceholder": "Något värt att minnas",
+		"steps": "Steg",
+		"stepsNone": "Inga steg ännu",
+		"stepsDone": "{{done}} av {{total}} klara",
+		"addStep": "Lägg till steg",
+		"openBoard": "Öppna tavla",
+		"clear": "Rensa"
+	},
+	"priority": {
+		"low": "Låg",
+		"normal": "Normal",
+		"high": "Hög",
+		"urgent": "Brådskande"
+	},
+	"effort": {
+		"quick": "Under 30 min",
+		"hours": "Under 2 tim",
+		"evening": "En kväll",
+		"weekend": "En helg",
+		"multi_week": "Flera veckor"
 	},
 	"status": {
 		"backlog": "Att göra",

@@ -218,6 +218,18 @@ service cloud.firestore {
             && data.columns.size() >= 1
             && data.columns.size() <= allStatuses().size()
             && data.columns.hasOnly(allStatuses())
+            // Denormalized counts of this node's direct children, and of the
+            // ones that are done. `is int` and nothing more, deliberately:
+            // they are a display convenience, not an invariant.
+            //
+            // `doneCount >= 0` looks correct and is a trap. One device offline
+            // marks a step done while another deletes that step, and the
+            // transformed value can dip below zero — which would reject the
+            // whole batch and fail a *delete*, an operation whose atomicity
+            // this area is built around. `toNode` clamps on read instead, where
+            // the worst a wrong value can do is draw a chevron.
+            && data.childCount is int
+            && data.doneCount is int
             && data.rank is string
             && data.rank.size() > 0
             && (data.parentId == null || data.parentId is string)

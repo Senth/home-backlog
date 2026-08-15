@@ -4,12 +4,14 @@ import { useTranslation } from "react-i18next";
 import { ScrollView, View } from "react-native";
 import { ActivityIndicator, FAB, Snackbar, Text } from "react-native-paper";
 import { BoardColumn } from "@/components/board/BoardColumn";
+import { boardHref, detailsHref } from "@/components/board/board-href";
 import { CardMenu, type Notice } from "@/components/board/CardMenu";
 import { ColumnStrip } from "@/components/board/ColumnStrip";
 import { TitleDialog } from "@/components/board/TitleDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { createNode } from "@/data/nodes";
 import {
+	hasSteps,
 	type Node,
 	rankAtEnd,
 	type Status,
@@ -103,11 +105,15 @@ export function Board({ homeId, parent, columns, nodes, loading }: BoardProps) {
 		});
 	};
 
+	/**
+	 * A tap opens the card **as a board** once it has a step in it, and as its
+	 * details until then. A node is a board because it has children, so a card
+	 * with none has nothing to open — an empty board reads as a bug rather than
+	 * as an empty board, and the chevron on the card already says which of the
+	 * two a tap will do.
+	 */
 	const open = (node: Node) => {
-		router.push({
-			pathname: "/projects/[nodeId]",
-			params: { nodeId: node.id },
-		});
+		router.push(hasSteps(node) ? boardHref(node.id) : detailsHref(node.id));
 	};
 
 	const menu = (node: Node) => (
@@ -118,6 +124,8 @@ export function Board({ homeId, parent, columns, nodes, loading }: BoardProps) {
 			columns={columns}
 			nodes={nodes}
 			onNotice={setNotice}
+			// The only way in for a card that *is* a board, where a tap drills in.
+			onDetails={() => router.push(detailsHref(node.id))}
 		/>
 	);
 

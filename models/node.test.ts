@@ -1,10 +1,15 @@
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import {
 	childAncestorIds,
+	childArrives,
+	childLeaves,
 	columnsForDepth,
 	compareNodes,
 	completionChange,
+	doneChange,
 	fullColumns,
+	hasDetails,
+	hasSteps,
 	mergeNodeResults,
 	movedAncestorIds,
 	type Node,
@@ -32,6 +37,8 @@ function node(overrides: Partial<Node> = {}): Node {
 		participantIds: [],
 		visibility: "shared",
 		columns: [...fullColumns],
+		childCount: 0,
+		doneCount: 0,
 		dueDate: null,
 		priority: null,
 		blockedBy: [],
@@ -274,6 +281,93 @@ describe("visibleColumns", () => {
 	});
 });
 
+describe("hasSteps", () => {
+	it("makes a node with a child a board, and one without not", () => {
+		expect(hasSteps(node({ childCount: 0 }))).toBe(false);
+		expect(hasSteps(node({ childCount: 1 }))).toBe(true);
+		expect(hasSteps(node({ childCount: 12 }))).toBe(true);
+	});
+
+	/**
+	 * A counter that drifted *low* is the direction that could hide work, so the
+	 * detail screen's Steps section runs the real board queries rather than
+	 * trusting this. Here it only decides a chevron.
+	 */
+	it("does not become true on a counter that has drifted below zero", () => {
+		expect(hasSteps(node({ childCount: -3 }))).toBe(false);
+	});
+});
+
+describe("hasDetails", () => {
+	it("is false for a card nobody has filled anything in on", () => {
+		expect(hasDetails(node())).toBe(false);
+		expect(hasDetails(node({ notes: "" }))).toBe(false);
+	});
+
+	it.each([
+		["a due date", { dueDate: "2026-09-30" }],
+		["a priority", { priority: "high" as const }],
+		["an effort", { effort: "evening" as const }],
+		["a note", { notes: "Ladder is in the shed" }],
+	])("is true for a card with %s", (_label, overrides) => {
+		expect(hasDetails(node(overrides))).toBe(true);
+	});
+
+	/**
+	 * Steps are deliberately not counted. They have a chevron of their own, and
+	 * the mark exists for the four fields that have no other way of being seen.
+	 */
+	it("does not count steps", () => {
+		expect(hasDetails(node({ childCount: 3, doneCount: 1 }))).toBe(false);
+	});
+});
+
+/**
+ * The arithmetic the four structural writes in `data/nodes.ts` apply to a
+ * *parent* with `increment()`. Zero means the field is not written at all.
+ */
+describe("counter changes", () => {
+	it("counts a child arriving, and a done one twice", () => {
+		expect(childArrives("backlog")).toEqual({ childCount: 1, doneCount: 0 });
+		// Created straight into Done: unusual by hand, ordinary over REST (#7).
+		expect(childArrives("done")).toEqual({ childCount: 1, doneCount: 1 });
+	});
+
+	it("counts a child leaving the same way, downwards", () => {
+		expect(childLeaves("execution")).toEqual({ childCount: -1, doneCount: 0 });
+		expect(childLeaves("done")).toEqual({ childCount: -1, doneCount: -1 });
+	});
+
+	it("follows a child across Done without touching childCount", () => {
+		expect(doneChange("set")).toEqual({ childCount: 0, doneCount: 1 });
+		expect(doneChange("clear")).toEqual({ childCount: 0, doneCount: -1 });
+	});
+
+	/**
+	 * A card moved between two columns that are both not Done, or one already
+	 * done being reordered inside Done, leaves the parent alone entirely — which
+	 * is what lets `moveNode` stay a single update rather than a batch.
+	 */
+	it("moves nothing when a card does not cross Done", () => {
+		expect(doneChange("keep")).toEqual({ childCount: 0, doneCount: 0 });
+	});
+
+	/**
+	 * A reparent is a leave and an arrive, so the two must cancel exactly — a
+	 * card moved to another board and back leaves both counters where they were.
+	 */
+	it.each([
+		"backlog",
+		"done",
+	] as const)("cancels itself over a %s card's round trip", (status) => {
+		const there = childArrives(status);
+		const back = childLeaves(status);
+
+		expect(there.childCount + back.childCount).toBe(0);
+		expect(there.doneCount + back.doneCount).toBe(0);
+	});
+});
+
 describe("titleError", () => {
 	it("refuses a title that is empty or only spaces", () => {
 		expect(titleError("")).toBe("board.titleRequired");
@@ -318,6 +412,8 @@ describe("newNodeData", () => {
 			participantIds: [],
 			visibility: "shared",
 			columns: [...fullColumns],
+			childCount: 0,
+			doneCount: 0,
 			dueDate: null,
 			priority: null,
 			blockedBy: [],
@@ -485,6 +581,8 @@ describe("toNode", () => {
 				participantIds: ["uid-a"],
 				visibility: "private",
 				columns: [...simpleColumns],
+				childCount: 5,
+				doneCount: 2,
 				dueDate: "2026-09-30",
 				priority: "high",
 				blockedBy: ["scaffolding"],
@@ -516,6 +614,8 @@ describe("toNode", () => {
 				participantIds: ["uid-a"],
 				visibility: "private",
 				columns: [...simpleColumns],
+				childCount: 5,
+				doneCount: 2,
 				dueDate: "2026-09-30",
 				priority: "high",
 				blockedBy: ["scaffolding"],
@@ -534,6 +634,30 @@ describe("toNode", () => {
 				createdBy: "",
 			}),
 		);
+	});
+
+	/**
+	 * The rules check `is int` and nothing more — bounding `doneCount` there
+	 * would fail a *delete* on an offline race — so a counter arrives unbounded
+	 * and is clamped here, where the worst it can do is draw a chevron.
+	 */
+	it("clamps a counter that has drifted below zero", () => {
+		const result = toNode(
+			snapshot("node-9", { childCount: -2, doneCount: -1 }),
+		);
+
+		expect(result.childCount).toBe(0);
+		expect(result.doneCount).toBe(0);
+	});
+
+	it("reads a counter that is missing or not a number as none", () => {
+		const result = toNode(
+			snapshot("node-9", { childCount: "3", doneCount: null }),
+		);
+
+		expect(result.childCount).toBe(0);
+		expect(result.doneCount).toBe(0);
+		expect(toNode(snapshot("node-9", {})).childCount).toBe(0);
 	});
 
 	/**

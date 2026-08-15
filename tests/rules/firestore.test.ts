@@ -12,6 +12,7 @@ import {
 	FieldPath,
 	getDoc,
 	getDocs,
+	increment,
 	orderBy,
 	query,
 	setDoc,
@@ -786,6 +787,8 @@ describe("homes/{homeId}/nodes", () => {
 			"status",
 			"rank",
 			"columns",
+			"childCount",
+			"doneCount",
 			"archived",
 			"completedAt",
 			"createdAt",
@@ -976,6 +979,48 @@ describe("homes/{homeId}/nodes", () => {
 			});
 		});
 
+		/**
+		 * `childCount` and `doneCount` are what make a card a board, and they are
+		 * checked for their *type* and nothing else. See `models/node.ts` for why
+		 * a bound on either one would be a bug rather than a tightening.
+		 */
+		describe("the counters", () => {
+			it("accepts a node that starts with none of either", async () => {
+				await assertSucceeds(
+					create(dbAs(env, MEMBER), "fresh", { childCount: 0, doneCount: 0 }),
+				);
+			});
+
+			it.each([
+				["childCount", 1.5],
+				["childCount", "2"],
+				["doneCount", null],
+				["doneCount", true],
+			])("refuses a %s that is not an integer", async (field, value) => {
+				await assertFails(
+					create(dbAs(env, MEMBER), "bad-counter", { [field]: value }),
+				);
+			});
+
+			/**
+			 * Deliberately allowed, and not to be "fixed" into `doneCount >= 0`
+			 * later. One device offline marks a step done while another deletes
+			 * that step; `increment()` commutes, so the value can dip below zero on
+			 * its way to the right answer. A bound would reject the whole batch —
+			 * and the batch it would reject is a *delete*, whose atomicity is what
+			 * keeps a subtree from being orphaned. `toNode` clamps on read.
+			 */
+			it("allows a count that has gone negative in an offline race", async () => {
+				await seedNodes();
+
+				await assertSucceeds(
+					updateDoc(doc(dbAs(env, MEMBER), sharedPath), {
+						doneCount: increment(-1),
+					}),
+				);
+			});
+		});
+
 		it("refuses changing createdAt or createdBy after the fact", async () => {
 			await seedNodes();
 			const db = dbAs(env, MEMBER);
@@ -1116,6 +1161,54 @@ describe("homes/{homeId}/nodes", () => {
 		});
 	});
 
+	/**
+	 * The shape `createNode` uses: the child and its parent's `childCount` in
+	 * one commit, so the pair is atomic.
+	 *
+	 * The child's create still runs `inherits()`, which does a get() on the
+	 * parent — and a get() reads *committed* state, which cannot see the
+	 * parent's own update in this batch. That is sound here precisely because
+	 * a counter bump changes neither the parent's visibility nor its
+	 * participants, so the value the get() reads is the right one.
+	 */
+	describe("a create in one batch", () => {
+		it("adds a card and counts it on its parent at once", async () => {
+			await seedNodes();
+
+			const db = dbAs(env, MEMBER);
+			const batch = writeBatch(db);
+			batch.set(
+				doc(db, nodesPath, "step"),
+				nodeDoc({ parentId: "shared-node", ancestorIds: ["shared-node"] }),
+			);
+			batch.update(doc(db, sharedPath), { childCount: increment(1) });
+
+			await assertSucceeds(batch.commit());
+		});
+
+		it("counts a card created straight into Done", async () => {
+			await seedNodes();
+
+			const db = dbAs(env, MEMBER);
+			const batch = writeBatch(db);
+			batch.set(
+				doc(db, nodesPath, "step"),
+				nodeDoc({
+					parentId: "shared-node",
+					ancestorIds: ["shared-node"],
+					status: "done",
+					completedAt: new Date("2026-01-02T00:00:00Z"),
+				}),
+			);
+			batch.update(doc(db, sharedPath), {
+				childCount: increment(1),
+				doneCount: increment(1),
+			});
+
+			await assertSucceeds(batch.commit());
+		});
+	});
+
 	describe("a reparent in one batch", () => {
 		/**
 		 * The proof that splitting the two invariants was necessary. A rule's
@@ -1207,6 +1300,15 @@ describe("homes/{homeId}/nodes", () => {
 			batch.update(doc(db, nodesPath, "moved"), {
 				parentId: "new-home",
 				ancestorIds: ["new-home"],
+			});
+			// The two counter updates a reparent carries. Neither moves parentId,
+			// visibility or participantIds, so neither spends a get() — which is
+			// the whole reason they fit inside the budget at all.
+			batch.update(doc(db, nodesPath, "old-home"), {
+				childCount: increment(-1),
+			});
+			batch.update(doc(db, nodesPath, "new-home"), {
+				childCount: increment(1),
 			});
 			for (let index = 0; index < tasks; index += 1) {
 				batch.update(doc(db, nodesPath, `task-${index}`), {

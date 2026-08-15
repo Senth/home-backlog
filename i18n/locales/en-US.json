@@ -140,9 +140,42 @@
 		"deleteTitle": "Delete this card?",
 		"deleteBody": "The card and everything under it is deleted. This cannot be undone.",
 		"offlineHint": "Needs a connection",
+		"details": "Details…",
+		"steps": "{{done}}/{{total}}",
+		"dueLate": "{{elapsed}} late",
+		"dueSoon": "{{elapsed}}",
 		"gone": "That card is gone.",
 		"crumbHidden": "Hidden",
 		"trail": "Where you are"
+	},
+	"detail": {
+		"title": "Details",
+		"dueDate": "Due by",
+		"addDate": "Add a date",
+		"priority": "Priority",
+		"effort": "Time needed",
+		"notes": "Notes",
+		"saved": "Saved {{time}}",
+		"notesPlaceholder": "Anything worth remembering",
+		"steps": "Steps",
+		"stepsNone": "No steps yet",
+		"stepsDone": "{{done}} of {{total}} done",
+		"addStep": "Add step",
+		"openBoard": "Open board",
+		"clear": "Clear"
+	},
+	"priority": {
+		"low": "Low",
+		"normal": "Normal",
+		"high": "High",
+		"urgent": "Urgent"
+	},
+	"effort": {
+		"quick": "Under 30 min",
+		"hours": "Under 2 hrs",
+		"evening": "An evening",
+		"weekend": "A weekend",
+		"multi_week": "Several weeks"
 	},
 	"status": {
 		"backlog": "To do",

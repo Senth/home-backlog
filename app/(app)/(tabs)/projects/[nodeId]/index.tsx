@@ -7,14 +7,19 @@ import { ActivityIndicator, Appbar, Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
 import { Breadcrumbs } from "@/components/board/Breadcrumbs";
-import { boardHref, goneHref } from "@/components/board/board-href";
+import {
+	boardHref,
+	detailsHref,
+	goneHref,
+} from "@/components/board/board-href";
 import { useHome } from "@/contexts/HomeContext";
 import { useAncestors } from "@/hooks/use-ancestors";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useNode } from "@/hooks/use-node";
 import { useNodes } from "@/hooks/use-nodes";
+import { hasDetails } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { space } from "@/theme/tokens";
+import { radius, size, space } from "@/theme/tokens";
 
 const noAncestors: string[] = [];
 
@@ -90,6 +95,36 @@ export default function NodeBoard() {
 				    home's name lives on the root board's app bar and one crumb away
 				    — the first crumb goes there. */}
 				<Appbar.Content title={node?.title ?? ""} />
+				{/* This board's *own* details — the four fields belong to the card you
+				    are standing on, and there is no card on screen to tap. The root
+				    board has no node, so it has no action. The mark says there is
+				    something in there, which makes opening it a decision rather than a
+				    lottery. */}
+				{node === null ? null : (
+					<View>
+						<Appbar.Action
+							icon="information-outline"
+							accessibilityLabel={t("detail.title")}
+							onPress={() => router.push(detailsHref(node.id))}
+						/>
+						{hasDetails(node) ? (
+							<View
+								style={{
+									// The style prop, not `pointerEvents`: React Native Web
+									// deprecated the prop and warns on every render.
+									pointerEvents: "none",
+									position: "absolute",
+									top: space.sm,
+									right: space.sm,
+									width: size.dot,
+									height: size.dot,
+									borderRadius: radius.full,
+									backgroundColor: theme.colors.primary,
+								}}
+							/>
+						) : null}
+					</View>
+				)}
 				<AccountMenu />
 			</Appbar.Header>
 

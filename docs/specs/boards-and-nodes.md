@@ -20,6 +20,10 @@ Two hierarchies cross here and neither is a parent of the other: the project tre
 (`parentId` / `ancestorIds`) answers *what*, and the location tree (`locationId` /
 `locationAncestorIds`) answers *where*. A node moving in one never moves in the other.
 
+**A node is a board because it has children**, derived from a stored `childCount` — see
+[Board-ness is derived](#board-ness-is-derived-never-flagged). Everything a node carries
+that is not its title lives on its [detail screen](#node-detail).
+
 ## Data
 
 ### `homes/{homeId}/nodes/{nodeId}`
@@ -31,6 +35,8 @@ Every field is written on create, with the default below.
 | `title` | `string` | — | 1–200 characters |
 | `status` | `Status` | `'backlog'` | `backlog` `next_up` `research` `planning` `execution` `review` `done` |
 | `columns` | `Status[]` | by depth, see below | the column set of the board this node's **children** form |
+| `childCount` | `number` | `0` | direct children; clamped to ≥ 0 on read |
+| `doneCount` | `number` | `0` | direct children with `status == 'done'` |
 | `rank` | `string` | `rankAtEnd(last)` | fractional index, ordered within `(parentId, status)` |
 | `parentId` | `string \| null` | `null` | `null` is a root node |
 | `ancestorIds` | `string[]` | `[]` | root → parent; the last element equals `parentId` |
@@ -136,6 +142,92 @@ fixture can each put a `research` card on a simple-set board, and the board woul
 though the card were not there. A card that exists is visible somewhere — the same
 principle as the orphaned node the visibility invariant exists to prevent.
 
+### Board-ness is derived, never flagged
+
+The card and the board were the same thing once: every card carried a chevron, and a tap
+opened it as a board, empty or not. That made two claims that are not true of a
+household's work — that "buy tile adhesive" is a board, and that finding out whether it
+has anything in it is not worth knowing.
+
+**Board-ness is derived from `childCount`**, through `hasSteps(node)` in `models/node.ts`
+so that no screen reads the field directly. No children means no chevron, and a tap opens
+the [details](#node-detail). One step means a chevron, and a tap drills in. There is no
+flag, no *convert to a board* action and no *undo the conversion*, because there is
+nothing to convert: a card becomes a board the moment it gets its first step, and stops
+being one when the last step goes.
+
+That shape was chosen over the two alternatives for what it removes rather than what it
+adds:
+
+- *Rejected:* **an `isBoard` flag the user toggles.** It needs vocabulary Ingrid must
+  learn — and the app already says *Öppna som tavla*, so "tavla" becomes load-bearing
+  rather than incidental. It needs an undo action that appears and disappears from the
+  menu with the child count, which is the "tapped something and cannot find my way back"
+  failure at menu level. It leaves `Move under…` undefined: auto-converting the
+  destination makes the flag decoration, and refusing a leaf destination halves the reach
+  of the one feature that exists so nobody re-types forty cards. And it is a property the
+  REST API ([#7](https://github.com/Senth/home-backlog/issues/7)) must set correctly or
+  every generated project lands as a leaf holding children.
+- *Rejected:* **leaving the tap alone and hanging details off a second icon.** Zero new
+  fields and the smallest possible change — but three tap targets on a 48px row, and a
+  household's one card still opens a blank pane that reads as a bug rather than as an
+  empty board.
+
+With derivation, all four of those disappear at once. `Move under…` onto a childless card
+simply works, because it has a child afterwards. There is nothing for the REST API to send.
+
+### The counters are a display convenience, never an invariant
+
+`childCount` and `doneCount` are denormalized and maintained by the client. Three things
+make that affordable here rather than reckless:
+
+1. **`increment()` is a server-side transform.** It queues offline like any other write
+   and it commutes, so two people adding a step to the same project from two sheds both
+   land.
+2. **Counts cannot diverge per viewer.** Every child of a node shares that node's
+   visibility, so anyone who can read the parent can read all of its children — the same
+   property that made a hidden child unacceptable, paying off in the other direction.
+3. **`privacyUnchanged()` already exists.** A counter bump moves neither `parentId`,
+   `visibility` nor `participantIds`, so the rules skip the parent `get()` and the write
+   costs nothing against a batch's twenty-document-access budget.
+
+Drift is still possible — a client crashing between two halves of a batch, or a future
+REST writer that forgets. It is **asymmetric**, and only one direction matters:
+
+| Drift | Effect |
+| --- | --- |
+| too high | a chevron on a childless card; you drill in and find an empty board |
+| too low | a card with children shows no chevron |
+
+The second could hide work, so it is closed by construction rather than by care: **the
+detail screen's Steps section runs the real board queries** — `parentId ==` this node, the
+same two, the same index — and lists the true children whatever the counter says. A card
+that has lost its chevron still opens its details, and its steps are there, with *Open
+board*. A card that exists is reachable somewhere, which is the same principle the
+visibility invariant is built on.
+
+For the same reason **the rules do not bound the counters**. `doneCount >= 0` looks
+correct and is a trap: one device offline marks a step done while another deletes that
+step, and the transformed value can dip below zero — which would reject the whole batch
+and fail a *delete*, an operation whose atomicity this area is built around. The rules
+check `is int` and nothing more; `toNode` clamps on read.
+
+### Steps are counted, not drawn as progress
+
+The card face shows `2/5` where there are steps. A count of direct steps is a **fact**. A
+progress bar is a **claim about the project**, and on nested work it is a false one: a
+bathroom with five children that each have six subtasks reads *1 of 5* when 20 of 30 real
+jobs are done. Marcus reads that as broken once and stops reading bars.
+
+An honest bar needs whole-subtree counts — `descendantCount` incremented across every id
+in `ancestorIds` on create, delete and reparent — which puts a fan-out write on exactly
+the three paths that already carry the delicate invariants. That is its own issue.
+
+The count never drives the parent's status. `PROJECT.md` settled that: derived status
+makes it impossible to say a project is parked while its tasks look active. The counts may
+inform the [#65](https://github.com/Senth/home-backlog/issues/65) nudge later; they never
+set a column.
+
 ## Privacy is uniform across a subtree
 
 **A node's `visibility` equals its parent's. Only a root node — `parentId == null` — sets
@@ -222,6 +314,12 @@ keeps the listener count at two regardless of how many statuses a board shows.
 Costed the way `PROJECT.md` costs things: roughly one extra document read per board load,
 billing being per document rather than per query. It buys the free `array-contains` slot on
 Q1 for `locationAncestorIds` later.
+
+**A node's steps**, on its [detail screen](#node-detail), are that same pair again —
+`useNodes(homeId, nodeId)`, with `parentId` set to the node being viewed. No new shape and
+no new index: opening a leaf's details costs the same two listeners a board does, plus the
+node's own single-document listener. Three, constrained, torn down together, exactly like
+a board.
 
 **The board's own node** — one single-document listener, `useNode(homeId, nodeId)`. Three
 constrained listeners per board rather than two. It buys two things a one-shot read cannot:
@@ -320,8 +418,9 @@ Composite indexes:
 | `nodes` | `visibility` ASC, `ancestorIds` ARRAY_CONTAINS | shared subtree |
 | `nodes` | `visibility` ASC, `participantIds` ARRAY_CONTAINS | private subtree |
 
-Single-field indexing is **disabled** for `title`, `columns`, `notes`, `checklist`,
-`photos`, `effort`, `priority`, `rank`, `archived`, `createdBy` and `updatedAt`. `columns`
+Single-field indexing is **disabled** for `title`, `columns`, `childCount`, `doneCount`,
+`notes`, `checklist`, `photos`, `effort`, `priority`, `rank`, `archived`, `createdBy` and
+`updatedAt`. `columns`
 is a new array field that Firestore would otherwise index at roughly two entries per
 element, and nothing queries it. `rank` and `archived` appear only inside composite
 indexes, which an exemption does not affect. Left automatically indexed, because a later
@@ -346,6 +445,7 @@ validNode(data)
   title      is string, size 1..200
   status     in the seven-value enum
   columns    is a list, size 1..7, every entry in the same seven
+  childCount is int             doneCount is int
   rank       is string, size > 0
   parentId   == null or is string
   locationId == null or is string
@@ -383,6 +483,11 @@ privacyUnchanged(next, current)   // when true, update skips inherits() entirely
 
 The status vocabulary is written once, as `allStatuses()`, because `status` and every entry
 of `columns` are drawn from it and the two must never drift.
+
+The two counters are checked for their **type and nothing else** — no bounds, and no
+relation between them. See [the counters](#the-counters-are-a-display-convenience-never-an-invariant):
+`doneCount >= 0` would fail a *delete* on an ordinary offline race, and the clamp belongs
+on the read side where the worst a wrong value can do is draw a chevron.
 
 `request.resource.data` is the full post-update document, so `validNode()` costs the same
 on an update as on a create and no partial-patch case can slip past. Reading a field that
@@ -508,6 +613,29 @@ lexicographic order is chronological, so `orderBy` and range queries work unchan
 `Timestamp` would need a pinned timezone on every read and write or drift a day, and the
 season *windows* in `PROJECT.md` (Sep 1 – Nov 30) would become instants.
 
+It follows that **whether a date is overdue is a comparison of calendar days, never of
+instants**. An instant comparison makes a card late for six hours in the evening and not
+late in the morning, in one of the two timezones the app ships strings for.
+`models/due-date.ts` carries it: `dayDifference(dueDate, now)` and `dueState(dueDate, now)`
+returning `'late' | 'soon' | 'later' | null`, with "soon" being 0–7 days inclusive. Both
+sides of the subtraction are reduced to a year, month and day and compared through
+`Date.UTC`, which is what makes the answer survive a DST change — a local day is 23 or 25
+hours long twice a year, and dividing an instant difference by 24 hours lands a day out on
+exactly those nights. Unit tested at both sides of every boundary, because this is the kind
+of arithmetic that is wrong at exactly one of them.
+
+`toCalendarDay` and `fromCalendarDay` are the seam to the date picker, which deals in
+`Date`. Never `toISOString()`: it converts to UTC first, so a day picked east of Greenwich
+in the evening is stored as the day before.
+
+The three formatters are **tried, not feature-detected**. `Intl.RelativeTimeFormat` is
+missing outright from some Hermes builds, which a `typeof` check would catch — but
+`Intl.NumberFormat` can be present and still throw `RangeError` on `style: 'unit'`, and
+that one lands inside a card's render, so an overdue card would take the whole board down.
+Each falls back to the stored date, which is worse but never blank. The overdue string uses
+`unitDisplay: 'narrow'` so both locales read *14d*; `short` is locale-asymmetric — "14 days"
+against "14 d" — for the same fact on the same chip.
+
 ## Writes, and what each one may touch
 
 `data/nodes.ts` carries five writes, split by what they have to keep consistent:
@@ -518,9 +646,11 @@ season *windows* in `PROJECT.md` (Sep 1 – Nov 30) would become instants.
   hangs in a shed, so the failure is logged inside `createNode` too: an ignored rejection
   is an unhandled one, and that surfaces as a console error nobody owns. It also puts the
   author into `participantIds` on a private *root* card, which has no parent to inherit
-  them from and which the rules refuse without them.
-- **`updateNode`** takes everything *except* structure, status, rank and visibility, each
-  of which belongs to one of the others.
+  them from and which the rules refuse without them. It is a **batch** — the child `set`
+  and the parent's `childCount` update together, so a card can never exist without having
+  been counted.
+- **`updateNode`** takes everything *except* structure, status, rank, visibility and the
+  two counters, each of which belongs to one of the others.
 - **`moveNode`** changes `status` and `rank` together, because a card arriving in another
   column takes a rank computed from that column's neighbours. It owns `completedAt`, which
   follows the status in both directions — and a node that was already done keeps the date
@@ -533,6 +663,35 @@ season *windows* in `PROJECT.md` (Sep 1 – Nov 30) would become instants.
   write.
 - **`deleteNode`** deletes the subtree and the node in one batch. A node whose parent is
   gone is unreachable from every board and every breadcrumb.
+
+### The counters are maintained by four of those five
+
+`NodeChanges` excludes `childCount` and `doneCount`, so an ordinary edit can never touch
+them — they belong to the structural writes, the same way `status` and `rank` belong to
+`moveNode`. The arithmetic itself is `childArrives`, `childLeaves` and `doneChange` in
+`models/node.ts`, so it is testable without Firestore.
+
+| Write | Counter effect |
+| ----- | -------------- |
+| `createNode` | parent `childCount +1`; also `doneCount +1` when created straight into Done |
+| `moveNode` | parent `doneCount +1` on `completionChange === 'set'`, `−1` on `'clear'` |
+| `reparentNode` | old parent `−1`, new parent `+1`; likewise `doneCount` when the node is done |
+| `deleteNode` | parent `childCount −1`, and `doneCount −1` when the node was done |
+
+Three details that are easy to get wrong:
+
+- **A subtree delete only touches one parent.** Every descendant's parent is inside the
+  subtree and is deleted with it, so only the top node's parent is decremented.
+- **A root-level node has no parent document**, so `parentId === null` means no counter
+  write at all — on create, reparent and delete alike.
+- **`createNode`'s batch still passes `inherits()`**, which does a `get()` on the parent.
+  A rule's `get()` reads committed state and cannot see the rest of the batch — which is
+  sound here precisely because the parent's own update changes neither its visibility nor
+  its participants, so the value it reads is correct.
+
+A counter bump writes no `updatedAt` on the parent. A step appearing under a project is
+not somebody editing the project, and [#55](https://github.com/Senth/home-backlog/issues/55)
+reads that field as "last touched".
 
 ### Offline
 
@@ -584,16 +743,47 @@ gesture reports *to* that state rather than the state being read *from* a scroll
 
 ### The card
 
-Title, a chevron, and a mark when `blockedBy[]` is non-empty. Due date, priority, effort and
-notes wait for [#49](https://github.com/Senth/home-backlog/issues/49); a card face carrying
-five metadata chips is the overwhelm this app exists to reduce.
+A title, a mark when `blockedBy[]` is non-empty, and — only when the value is set — an
+outlined priority chip, an outlined effort chip and a due chip. On the right, `2/5` and the
+chevron when `hasSteps(node)`, and neither when not. A card with nothing set is a title and
+nothing else.
 
-The chevron is on every card whether or not it has children: finding out costs a query per
-card, and listener breadth is this app's stated cost risk.
+**Tap opens the card as a board once it has a step in it, and as its
+[details](#node-detail) until then.** The chevron is what says which, so the gesture is
+never ambiguous: a card without steps has nothing to drill into, and an empty board reads
+as a bug rather than as an empty board. Everything else is on an overflow menu on the card,
+whose button stops the press reaching the card underneath.
 
-**Tap opens the card as a board.** That is what tap means at every depth and what it will
-still mean when #49 arrives, so the gesture is not learned twice. Everything else is on an
-overflow menu on the card, whose button stops the press reaching the card underneath.
+The chips are **outlined labels, not Paper's `Chip`** — see [the traps](#five-paper-and-react-native-web-traps-this-area-hit).
+
+**The due date appears only when it is overdue or within a week.** A date three months out
+is not asking for anything, and a board where every card carries a date teaches people to
+stop reading dates.
+
+**Overdue is carried by words, not by colour**: *14d late* / *14d sen*, in the warning
+colour the blocked mark already uses, at the same visual weight. Nothing in the app acts on
+a due date yet — no reminder, no notification, no overview
+([#54](https://github.com/Senth/home-backlog/issues/54)), no suggestion engine
+([#55](https://github.com/Senth/home-backlog/issues/55)) — so a red card would be pure
+guilt for a deadline nothing will ever remind anyone about. Nadia's greenhouse is a
+multi-year drift with a date somebody else typed in April; it says *late* once, plainly,
+and does not escalate. Words also survive 200% text and colour blindness, which a red chip
+does not.
+
+For the same reason the priority chip is a **label**, not a colour-coded alarm. On a
+curated board the priority is one member's judgement of another member's Saturday, and four
+red chips on the outdoor cards is `PERSONAS.md`'s stated quit line rendered as UI.
+
+*Rejected:* all three chips whenever set, unconditionally. On a curated board that is a
+three-line card, and at Ingrid's text size the chip row is a fourth line under a title that
+already wrapped to three — on the person with the most scrolling to do.
+
+*Rejected:* a due date on the face whenever set. See above; a date that is always visible
+is a date nobody reads.
+
+*Rejected, and reversed:* the chevron on every card whether or not it has children, because
+finding out cost a query per card. `childCount` is what made it free — one number on a
+document the board already reads.
 
 ### Creating a card
 
@@ -611,6 +801,7 @@ added during that window would silently become a top-level project.
 
 | Action | What it does |
 | ------ | ------------ |
+| Details… | the node's [detail screen](#node-detail) — the only way in for a card that *is* a board, where the tap drills in |
 | Move to → *column* | one tap, appends at the end of that column |
 | Change position… | lists the current column's cards: *At the top*, *After ‹card›* |
 | Move under… | the other cards on this board, plus *Up one level* / *Top level* |
@@ -654,18 +845,21 @@ each earlier one tappable. An unreadable ancestor renders as a neutral crumb rat
 gap. The app bar names the card; the home's name is on the root board's app bar, which is
 where the first crumb goes.
 
-Navigation is a Stack inside the Projects tab — `/projects` and `/projects/[nodeId]` — so
-the tab bar stays put at every depth, and browser back, the PWA back gesture, reload and a
-shared link all work.
+Navigation is a Stack inside the Projects tab — `/projects`, `/projects/[nodeId]` and
+`/projects/[nodeId]/details` — so the tab bar stays put at every depth, and browser back,
+the PWA back gesture, reload and a shared link all work. `board-href.ts` is the one place
+those paths are written.
 
 Going *up* uses `dismissTo`, not `push`: the crumbs are the stack you came down. Two things
 make that work:
 
-- The screen carries **`dangerouslySingular`** keyed on the node id. Every nested board is
-  the same route *name*, and `POP_TO` matches on the name — so without an identity it
-  resolves to the screen you are already on and merely swaps its params. Tapping a crumb
-  then left the whole stack in place with its top re-pointed, so browser back went *deeper*
-  rather than up, and every stranded screen kept its three listeners alive.
+- The screen carries **`dangerouslySingular`** keyed on the node id, and so does the
+  details screen. Every nested board is the same route *name*, and `POP_TO` matches on the
+  name — so without an identity it resolves to the screen you are already on and merely
+  swaps its params. Tapping a crumb then left the whole stack in place with its top
+  re-pointed, so browser back went *deeper* rather than up, and every stranded screen kept
+  its three listeners alive. The two route names differ, so they cannot collide on the
+  shared id.
 - The app-bar back arrow goes to the parent board explicitly rather than calling
   `router.back()`, which on a screen reached by reload or a shared link is a no-op that
   logs "GO_BACK was not handled by any navigator" and leaves the arrow dead.
@@ -698,14 +892,54 @@ The deep-board simple set therefore reads *To do · In progress · Done* / *Att 
 Pågående · Klart* with no per-board relabel — which is why those three statuses were chosen
 for it.
 
+The detail screen is written to one more vocabulary rule: **a household never meets the
+word "board" until it has made one.** So the section is *Steps* / *Steg* and the button is
+*Add step* / *Lägg till steg*; *Open board* / *Öppna tavla* appears only once a step
+exists, matching `board.open`'s existing *Öppna som tavla*.
+
+*Rejected:* *Subtasks* / *Deluppgifter* — the word `PROJECT.md` itself uses, and
+project-management register: exactly the Jira vocabulary Priya opened this app to get away
+from, and a word Ingrid has never used.
+
+| Key | `en-US` | `sv-SE` |
+| --- | ------- | ------- |
+| `detail.title` | Details | Detaljer |
+| `detail.dueDate` | Due by | Klart senast |
+| `detail.addDate` | Add a date | Lägg till datum |
+| `detail.priority` | Priority | Prioritet |
+| `detail.effort` | Time needed | Tidsåtgång |
+| `detail.notes` | Notes | Anteckningar |
+| `detail.notesPlaceholder` | Anything worth remembering | Något värt att minnas |
+| `detail.saved` | Saved {{time}} | Sparat {{time}} |
+| `detail.steps` | Steps | Steg |
+| `detail.stepsNone` | No steps yet | Inga steg ännu |
+| `detail.stepsDone` | {{done}} of {{total}} done | {{done}} av {{total}} klara |
+| `detail.addStep` | Add step | Lägg till steg |
+| `detail.openBoard` | Open board | Öppna tavla |
+| `detail.clear` | Clear | Rensa |
+| `priority.low` … `urgent` | Low · Normal · High · Urgent | Låg · Normal · Hög · Brådskande |
+| `effort.quick` … `multi_week` | Under 30 min · Under 2 hrs · An evening · A weekend · Several weeks | Under 30 min · Under 2 tim · En kväll · En helg · Flera veckor |
+| `board.steps` | {{done}}/{{total}} | {{done}}/{{total}} |
+| `board.dueLate` | {{elapsed}} late | {{elapsed}} sen |
+| `board.dueSoon` | {{elapsed}} | {{elapsed}} |
+| `board.details` | Details… | Detaljer… |
+
+The effort labels are words, not arithmetic: `<30 min` and `<2 h` are math symbols to a
+71-year-old at 200% text, and the ids stay `quick` / `hours` precisely so re-tuning what
+they mean is a string change rather than a migration. *En kväll*, *en helg* and *flera
+veckor* are what a Swedish household actually says.
+
 ### Reducing overwhelm
 
 The column strip with counts, a board that opens on its first column, a one-field add, and
-a card face that carries a title rather than five metadata chips. Done grows without bound
-until [#64](https://github.com/Senth/home-backlog/issues/64) archives it and
+a card face that carries a title plus at most what is genuinely set — never five metadata
+chips, never a due date that is not asking for anything yet, never a progress bar that
+lies. The four detail fields live one tap away rather than on the face, and the chevron and
+`2/5` say whether that tap opens a board or the details. Done grows without bound until
+[#64](https://github.com/Senth/home-backlog/issues/64) archives it and
 [#76](https://github.com/Senth/home-backlog/issues/76) sorts it newest-first.
 
-### Four Paper and React Native Web traps this area hit
+### Five Paper and React Native Web traps this area hit
 
 Kept because each one is the kind of thing the next person reintroduces:
 
@@ -719,12 +953,148 @@ Kept because each one is the kind of thing the next person reintroduces:
   bound. They mount only while open — which is what Paper's own `Menu` does.
 - **Paper's `Chip` `selected` tint alone is not a mark.** On a strip of eight it is a
   slightly different shade of the same green; filled against outlined is legible.
+- **A Paper `Chip` with no `onPress` is a *disabled* pressable.** It renders through
+  `TouchableRipple`, which computes `disabled = disabledProp || !hasPassedTouchHandler`, so
+  React Native Web writes `aria-disabled="true"` on it — a screen reader announced the
+  priority on every card as "High, dimmed", and automation refused to click through it. The
+  same trap `Row` documents for `List.Item`. The card's metadata chips are therefore
+  `MetaChip`, an outlined pill with no ripple; the strip and the detail screen's choice
+  chips keep Paper's `Chip`, where the ripple has a handler. And a chip's border is measured
+  *inside* its own height, so `minHeight: touchTarget` leaves the pressable at 46 —
+  `outlinedTouchTarget` adds the two hairlines back.
+
+## Node detail
+
+Every node has a **detail screen** carrying its notes, due date, priority and effort, and a
+node without children opens it on a tap — because a node is a board only once it has a step
+in it.
+
+The four fields had been on the document, validated by the rules and indexed (or
+deliberately exempted) since the node shipped, and on no screen at all. This is the screen
+that was being waited for.
+
+### Reaching it
+
+Three ways in, one screen:
+
+- **tapping a card with no steps** — `hasSteps(node)` is false, so the card has no chevron
+  and the tap goes to the details rather than to an empty board
+- **`Details…` on any card's overflow menu** — the only way in for a card that *is* a board
+- **an app-bar action on the board you are standing on**, showing its own node's details.
+  It carries a dot when there is anything in them — `hasDetails(node)`: a due date, a
+  priority, an effort or a non-empty note — so opening it is a decision rather than a
+  lottery. Steps are not counted there; they have a chevron of their own. The root board
+  has no node and so no action.
+
+### The screen
+
+`Appbar` with the node title and a back arrow that prefers real history and falls back to
+the parent board. Neither half is optional: `router.back()` alone is a no-op on a screen
+reached by reload or a shared link, which logs `GO_BACK was not handled by any navigator`
+and leaves the arrow dead — the same trap the board hit — while the parent board alone pops
+the board you were standing on when you reached the details from *its* app-bar action,
+landing you a level above where you started.
+
+Fields, in this order, each a Paper component on a surface, spaced from `space`. The screen
+is the same at every width, laid out with `contentWidth` the way the other non-board
+screens are.
+
+| Field | Control |
+| ----- | ------- |
+| Due date | a `Button` showing the date or *Add a date*, opening `DatePickerModal`; a `Clear` action when set |
+| Priority | a wrapping row of chips, four values, tapping the selected one clears it |
+| Effort | the same control, five values |
+| Notes | multiline `TextInput`, `maxLength` 10 000, with the `Saved hh:mm` line beneath |
+
+Then **Steps**: a count line, the children as plain rows in board order, an *Add step*
+button, and *Open board* once there is at least one. With no steps it reads *No steps yet*
+and offers only the button. `Add step` opens the same `TitleDialog` the board uses, creates
+the child with `rankAtEnd` of the parent's first column, and **stays on the details** —
+Ingrid types three steps in a row without the screen moving under her. The list is
+deliberately read-only beyond adding: reordering, moving between columns, renaming and
+deleting all stay on the board, so there is one place that does the complicated things.
+
+**Priority and effort are a wrapping row of chips, not `SegmentedButtons`.** Segments
+divide the width evenly and ellipsize what does not fit, and these labels are words: at
+390px the five effort segments came out as *Und… · Und… · An … · A w… · Sev…*, where the
+first two are "Under 30 min" and "Under 2 hrs" rendered as the same string, and `sv-SE`
+clipped "Brådskande" to "Bråds…". That defeats the reason the values are words at all —
+`PROJECT.md` chose "an evening" over "< 2 h" because a math symbol is not what a 71-year-old
+at 200% text can read, and an ellipsis is worse than either. Chips wrap instead of
+shrinking, so every label stays whole and the row gets taller.
+
+Neither field has a *None* value. Tapping the selected chip clears it, because a chip
+meaning "not set" is indistinguishable from no selection, and a value that cannot be
+removed is one people learn not to set.
+
+**Effort stays editable on a project.** `PROJECT.md` says effort is on tasks only, and a
+node with children is unambiguously a project — but "tasks only" is enforced where effort
+is *used*: quick wins and the split nudge
+([#56](https://github.com/Senth/home-backlog/issues/56)) both take `childCount === 0`.
+Hiding the control was rejected because the value would disappear at the exact moment it
+mattered most: the nudge fires on *effort ≥ a weekend and no children*, so accepting it and
+adding a first step would delete the field that fired it from view.
+
+*Rejected:* a details panel pinned to the left of the status columns on desktop. Real, and
+left to [#31](https://github.com/Senth/home-backlog/issues/31), which owns desktop layout —
+building it here would mean two layouts for one content definition before the content has
+been used once.
+
+### Saving has four triggers because one of them always fails
+
+Every control writes on the spot. Pickers need no acknowledgement — the control showing the
+new value *is* the acknowledgement.
+
+Notes are the exception, and blur alone loses them. Ingrid types what the chimney sweep
+said, taps the app-bar back arrow, and the screen unmounts; whether blur fires first is a
+platform detail, not a guarantee. There is no Save button she failed to press, no warning,
+no snackbar — she concludes the app does not keep things and does not report it. So notes
+write on **a pause in typing, on blur, on unmount, and on the app going to background**
+(`visibilitychange` on web, `AppState` on native — a backgrounded PWA can be killed without
+any of the other three firing, and `beforeunload` is not delivered on that path at all).
+
+`useAutosave` holds the outstanding text in refs rather than state, because an unmount
+cleanup closes over the render that registered it — which is exactly the text that would be
+lost.
+
+And a **`Saved 10:42` / `Sparat 10:42`** line sits under the field, because even a write
+that succeeds says nothing, and silence reads as "did not take" to anyone who has pressed
+Save on every device they have owned. The line reports the *local* write, which is durable
+immediately; `OfflineBar` already says the rest, and nothing user-facing blocks on the
+server acknowledgement.
+
+### Offline on the detail screen
+
+Every write on this screen queues: the four fields go through `updateNode`, and `Add step`
+through `createNode`. Nothing here is disabled offline — `Move under…` and `Delete` remain
+the only two operations that require a connection, for the subtree reason already recorded.
+
+### One dependency
+
+`react-native-paper-dates`, for `DatePickerModal`. It is the Paper ecosystem's own date
+picker, takes the app's Material 3 theme without a second palette, works under React Native
+Web and on native, and registers translations per locale — under the app's own `en-US` and
+`sv-SE` tags, so one value flows through both it and `i18n`.
+
+*Rejected:* a `<input type="date">` behind a `.web.tsx` split. Free and locale-aware for
+nothing — and it cannot be themed, and it needs a whole second implementation the first
+time a native build happens, which `PROJECT.md` schedules rather than rules out.
 
 ## Out of scope
 
-- **Node detail** — [#49](https://github.com/Senth/home-backlog/issues/49). Notes, due
-  date, priority and effort are on the document and on no screen. Rename exists only
-  because a card with no way to fix a typo is a permanent mistake.
+- **A progress bar of any kind** — direct-children bars lie about nested work, and an
+  honest whole-subtree bar needs `descendantCount` fanned out across `ancestorIds` on
+  create, delete and reparent. Its own issue.
+- **Due-date quick picks** — [#83](https://github.com/Senth/home-backlog/issues/83).
+  *This weekend · This month · Before winter*, for people who do not think in calendar days.
+- **A configurable tap** — [#84](https://github.com/Senth/home-backlog/issues/84). Whether
+  a tap opens the board or the details, once there is usage saying which way people reach.
+- **Reminders and notifications on a due date.** Nothing acts on dates yet, which is why
+  overdue is words rather than red — #54 and #55 are where a date starts to do something.
+- **Effort derived from a project's children** — deliberately not filed. Try the editable
+  field first and see what it is like to live with.
+- **Reordering, moving, renaming or deleting a step from the detail screen.** The board
+  does that.
 - **Per-board column configuration and relabels** —
   [#63](https://github.com/Senth/home-backlog/issues/63). The field it edits ships here, so
   #63 is a screen and not a schema change.
@@ -732,13 +1102,20 @@ Kept because each one is the kind of thing the next person reintroduces:
   one document at a time**. Until then a board says nothing about whose card is whose, and
   a private card can only be created by the REST API.
 - **Bulk subtree create over REST** — #7, same ordering constraint. `rankSequence` exists
-  for it.
+  for it. #7 has nothing to set for board-ness, which is derived, but it does have to
+  maintain the two counters, and its `SKILL.md` says so when it is written.
 - **Locations** — [#50](https://github.com/Senth/home-backlog/issues/50),
   [#51](https://github.com/Senth/home-backlog/issues/51). The two location fields are
   written and inherited, but nothing maintains them when a *location* moves.
 - **Archive** #64, **Done newest-first** #76, checklists #52, photos #53, blocked-by #66,
   drag and drop #5 — fields only, or not yet. An archive *cascade* over a subtree carries
-  the same top-down constraint as the visibility flip.
+  the same top-down constraint as the visibility flip. Checklists and photos are both on
+  the document and on no screen, and both belong on the detail screen when they arrive.
+- **Participants on the detail screen** — [#61](https://github.com/Senth/home-backlog/issues/61).
+  That is where "is this mine, or is he asking me?" gets loud, and the answer needs the
+  participants UI and the subtree visibility flip.
+- **Cost and budget fields** — [#70](https://github.com/Senth/home-backlog/issues/70).
+  `PROJECT.md`: notes absorb it until the real need is understood.
 - **One-tap done on the card row** — [#75](https://github.com/Senth/home-backlog/issues/75).
   **Filters** — [#62](https://github.com/Senth/home-backlog/issues/62). **Custom statuses**
   — [#69](https://github.com/Senth/home-backlog/issues/69). **Swipe between columns** —
