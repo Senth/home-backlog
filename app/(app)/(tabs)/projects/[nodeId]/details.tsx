@@ -76,14 +76,23 @@ export default function NodeDetails() {
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
 			<Appbar.Header>
-				{/* The parent board, explicitly. This screen is reachable with no
-				    in-app history — a reload, a bookmark, a shared link — and there
-				    `router.back()` is a no-op that logs "GO_BACK was not handled by
-				    any navigator" and leaves the arrow dead. The same trap the board
-				    hit. */}
+				{/* Wherever you came from, and never a dead arrow.
+				    `router.back()` alone is the trap the board hit: on a screen
+				    reached by a reload, a bookmark or a shared link there is no
+				    history, and it becomes a no-op that logs "GO_BACK was not handled
+				    by any navigator". `canGoBack()` is exactly that test.
+				    The parent board alone is a different failure: these details are
+				    reachable from the board's *own* app-bar action, where the stack is
+				    [parent, board X, details X] — so dismissing to the parent pops
+				    board X as well, and tapping the mark then back lands you a level
+				    above where you started, with the board you were on gone. */}
 				<Appbar.BackAction
 					accessibilityLabel={t("board.up")}
-					onPress={() => router.dismissTo(boardHref(node?.parentId ?? null))}
+					onPress={() =>
+						router.canGoBack()
+							? router.back()
+							: router.dismissTo(boardHref(node?.parentId ?? null))
+					}
 				/>
 				<Appbar.Content title={node?.title ?? ""} />
 				<AccountMenu />

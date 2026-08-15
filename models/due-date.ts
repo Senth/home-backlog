@@ -82,11 +82,13 @@ export function fromCalendarDay(dueDate: string): Date | null {
  */
 export function formatCalendarDay(dueDate: string, locale: string): string {
 	const date = fromCalendarDay(dueDate);
-	if (date === null || typeof Intl.DateTimeFormat !== "function") {
+	if (date === null) return dueDate;
+
+	try {
+		return new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(date);
+	} catch {
 		return dueDate;
 	}
-
-	return new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(date);
 }
 
 /**
@@ -123,9 +125,12 @@ export function dueState(dueDate: string | null, now: Date): DueState | null {
  * pure guilt for a deadline nothing will ever remind anyone about, and words
  * survive 200% text and colour blindness, which colour alone does not.
  *
- * `Intl.RelativeTimeFormat` and `Intl.NumberFormat`'s unit style are both absent
- * from some Hermes builds, so a runtime check decides rather than a platform
- * check — the fallback is the stored date, which is worse but never blank.
+ * Both formatters are **tried**, not feature-detected. `Intl.RelativeTimeFormat`
+ * is missing entirely from some Hermes builds, which a `typeof` check would
+ * catch — but `Intl.NumberFormat` can be present and still throw `RangeError`
+ * on `style: 'unit'`, and that one lands inside a card's render, so an overdue
+ * card would take the whole board down. This runs on the one state the string
+ * exists for, so it fails to the stored date rather than to a blank screen.
  */
 export function formatDueElapsed(
 	dueDate: string,
@@ -135,18 +140,20 @@ export function formatDueElapsed(
 	const days = dayDifference(dueDate, now);
 	if (days === null) return dueDate;
 
-	if (days < 0) {
-		if (typeof Intl.NumberFormat !== "function") return dueDate;
-		return new Intl.NumberFormat(locale, {
-			style: "unit",
-			unit: "day",
-			unitDisplay: "short",
-		}).format(-days);
-	}
+	try {
+		if (days < 0) {
+			return new Intl.NumberFormat(locale, {
+				style: "unit",
+				unit: "day",
+				unitDisplay: "short",
+			}).format(-days);
+		}
 
-	if (typeof Intl.RelativeTimeFormat !== "function") return dueDate;
-	return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(
-		days,
-		"day",
-	);
+		return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(
+			days,
+			"day",
+		);
+	} catch {
+		return dueDate;
+	}
 }

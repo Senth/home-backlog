@@ -60,9 +60,12 @@ export function formatElapsed(from: Date, now: Date, locale: string): string {
  * rest; the fallback keeps the number rather than the format.
  */
 export function formatClockTime(at: Date, locale: string): string {
-	if (typeof Intl.DateTimeFormat !== "function") {
+	try {
+		return new Intl.DateTimeFormat(locale, { timeStyle: "short" }).format(at);
+	} catch {
+		// `timeStyle` is newer than `Intl.DateTimeFormat` itself, so an engine can
+		// have the constructor and still throw on the option. The fallback keeps
+		// the number and gives up the shape.
 		return at.toTimeString().slice(0, 5);
 	}
-
-	return new Intl.DateTimeFormat(locale, { timeStyle: "short" }).format(at);
 }

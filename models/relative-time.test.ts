@@ -1,4 +1,8 @@
-import { elapsedSince, formatElapsed } from "@/models/relative-time";
+import {
+	elapsedSince,
+	formatClockTime,
+	formatElapsed,
+} from "@/models/relative-time";
 
 const now = new Date("2026-08-13T12:00:00Z");
 const ago = (ms: number) => new Date(now.getTime() - ms);
@@ -42,5 +46,29 @@ describe("formatElapsed", () => {
 
 	it("uses the word rather than the number where there is one", () => {
 		expect(formatElapsed(ago(day), now, "en-US")).toBe("yesterday");
+	});
+});
+
+describe("formatClockTime", () => {
+	/**
+	 * What "Saved 10:42" reads as. `sv-SE` is a 24-hour locale and `en-US` is
+	 * not, and a line reporting a save is not the place to argue with the
+	 * reader's own clock — so the shape comes from the locale rather than from a
+	 * format string of ours.
+	 */
+	it("speaks the app's language", () => {
+		// A local instant, so the formatted result does not depend on the zone the
+		// test happens to run in.
+		const at = new Date(2026, 7, 15, 10, 42);
+
+		expect(formatClockTime(at, "sv-SE")).toBe("10:42");
+		expect(formatClockTime(at, "en-US")).toBe("10:42 AM");
+	});
+
+	it("keeps a leading zero out of the hour where the locale does", () => {
+		const at = new Date(2026, 7, 15, 9, 5);
+
+		expect(formatClockTime(at, "sv-SE")).toBe("09:05");
+		expect(formatClockTime(at, "en-US")).toBe("9:05 AM");
 	});
 });
