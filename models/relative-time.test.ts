@@ -62,13 +62,17 @@ describe("formatClockTime", () => {
 		const at = new Date(2026, 7, 15, 10, 42);
 
 		expect(formatClockTime(at, "sv-SE")).toBe("10:42");
-		expect(formatClockTime(at, "en-US")).toBe("10:42 AM");
+		// `\s` rather than a literal space before the marker: ICU 72 changed the
+		// separator to U+202F NARROW NO-BREAK SPACE, so which character lands here
+		// depends on the Node the runner happens to have. The hour, the minute and
+		// the marker are what this is pinning.
+		expect(formatClockTime(at, "en-US")).toMatch(/^10:42\sAM$/u);
 	});
 
 	it("keeps a leading zero out of the hour where the locale does", () => {
 		const at = new Date(2026, 7, 15, 9, 5);
 
 		expect(formatClockTime(at, "sv-SE")).toBe("09:05");
-		expect(formatClockTime(at, "en-US")).toBe("9:05 AM");
+		expect(formatClockTime(at, "en-US")).toMatch(/^9:05\sAM$/u);
 	});
 });
