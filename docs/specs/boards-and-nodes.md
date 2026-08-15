@@ -7,14 +7,8 @@ can be opened as a board.
 
 This spec covers that document — its full field set, the invariants `firestore.rules`
 enforces on it, the queries that load a board and a subtree, the indexes those queries
-need, and the writes that create, edit, move and delete one.
-
-The screens that render it come later: the projects board and card creation
-([#47](https://github.com/Senth/home-backlog/issues/47)), drill-down and breadcrumbs
-([#48](https://github.com/Senth/home-backlog/issues/48)), node detail
-([#49](https://github.com/Senth/home-backlog/issues/49)). The document lands first,
-whole, because everything in [`PROJECT.md`](../PROJECT.md) past auth rests on it and
-nothing should need a migration afterwards.
+need, the writes that create, edit, move and delete one — and the screens that render it:
+the projects board, drill-down with breadcrumbs, and everything a card can do.
 
 ## The shape of it
 
@@ -36,6 +30,7 @@ Every field is written on create, with the default below.
 | ----- | ---- | ------- | ----- |
 | `title` | `string` | — | 1–200 characters |
 | `status` | `Status` | `'backlog'` | `backlog` `next_up` `research` `planning` `execution` `review` `done` |
+| `columns` | `Status[]` | by depth, see below | the column set of the board this node's **children** form |
 | `rank` | `string` | `rankAtEnd(last)` | fractional index, ordered within `(parentId, status)` |
 | `parentId` | `string \| null` | `null` | `null` is a root node |
 | `ancestorIds` | `string[]` | `[]` | root → parent; the last element equals `parentId` |
@@ -78,19 +73,68 @@ why `completedAt` in particular could not wait: a completion date is not reconst
 after the fact, and deriving it from `updatedAt` is wrong the moment anyone edits a
 finished node.
 
+`columns` is the one field that could safely arrive later, and did: it is only ever read
+with the document it sits on and is never queried, so it needed no backfill and no index.
+Every other field was there from the start.
+
 *Rejected:* writing only the mandatory fields and defaulting the rest client-side. It
 saves ~200 bytes per document and buys the absent-field trap on every optional field.
 
 *Rejected:* writing all fields with no index tuning. Index entries, not document bytes,
 are the cost — see [the index](#storage-cost-lives-in-the-index-not-the-document).
 
-### Board column configuration is not here
+### `blocked` is not a status
 
-`columns` is only ever read with the document it sits on and never queried, so adding it
-later needs no backfill and no index — the migration argument above does not apply to it.
-Where the *root* board's column set lives is an open question for #47, which will have a
-screen in front of it; [#63](https://github.com/Senth/home-backlog/issues/63) owns
-relabelling.
+The vocabulary is seven values. Being **blocked is a condition, not a stage.**
+
+A card is in exactly one status, so parking one in Blocked destroys the stage it was in,
+and nothing says where it goes when the blocker clears. `blockedBy[]` already exists on the
+document and is already the actionability test the suggestion engine
+([#55](https://github.com/Senth/home-backlog/issues/55)) uses, so the condition has a home
+that is not `status`: the card stays in its real column and shows a mark. Nothing in the UI
+writes `blockedBy` yet — that is
+[#66](https://github.com/Senth/home-backlog/issues/66) — so it arrives from the REST API
+or a fixture until then.
+
+*Rejected:* keeping `blocked` in the enum and merely not displaying it. A value nothing
+writes and nothing shows is a trap for the REST API
+([#7](https://github.com/Senth/home-backlog/issues/7)) and for whoever reads the enum next.
+
+`toNode` coerces an unrecognised status to `backlog`, so a document carrying the old value
+renders in To do rather than crashing a board.
+
+### The column set is chosen by depth, then frozen
+
+`columns` is the column set of the board formed by a node's **children**, decided once when
+the node is created from the node's own depth (`ancestorIds.length`):
+
+- depth 0 → the **full stage set**, all seven. Its children are depth 1, and `PROJECT.md`
+  gives the full set to the root board and to a board inside a project.
+- depth ≥ 1 → the **simple set**, `backlog` / `execution` / `done`. A research column whose
+  cards each contain their own research column is nonsense.
+
+The **root board is not a document.** It cannot be moved, deleted or reparented, so there
+is nothing for a freeze to protect: its set is the `rootColumns` constant in
+`models/node.ts`. [#63](https://github.com/Senth/home-backlog/issues/63) is where a stored
+root set earns its keep, and can put one on the home document.
+
+*Frozen* means the app never recomputes `columns` when a node moves. It does **not** mean
+immutable: the rules validate the shape and let the value change, because #63 is exactly
+the feature that changes it, and locking it would make #63 a rules change before it could
+be a screen.
+
+*Rejected:* deriving the columns from depth at render time. It costs no field, and moving a
+subtree from depth 1 to depth 2 then silently swaps the full stage set for the simple one —
+stranding every card that was in Find out or Check in a column that no longer exists.
+
+**A column that is not in the set still renders.** A board shows its frozen columns in
+order, and any status *present in the data but absent from `columns`* gets an extra column
+appended after them, in enum order (`visibleColumns`). It appears only while such a card
+exists and disappears when the card is moved out; the move menu offers only the frozen
+destinations, so it is a one-way exit. Without it, `Move under…`, the REST API and a seeded
+fixture can each put a `research` card on a simple-set board, and the board would render as
+though the card were not there. A card that exists is visible somewhere — the same
+principle as the orphaned node the visibility invariant exists to prevent.
 
 ## Privacy is uniform across a subtree
 
@@ -124,7 +168,9 @@ project is the honest shape of what a private card was reaching for.
 
 `newNodeData()` upholds both halves by construction — a child takes its parent's
 visibility whatever the caller asked for, and a child of a private parent starts with that
-parent's participants — so the rules are the backstop rather than the first line.
+parent's participants — so the rules are the backstop rather than the first line. The card
+menu upholds it too: `Move under…` offers only destinations with the **same** visibility,
+because offering the others would be offering a permission error.
 
 *Rejected:* a skeleton document per node — structure in a readable `nodes/{id}`, content in
 a restricted child. It doubles every write and leaks that a hidden card exists, where it
@@ -145,7 +191,9 @@ document in the collection, and each query below constrains one of `visibleToMe`
 disjuncts.
 
 **A board** — the children of one node, or of the root. Two listeners, merged, held by
-`useNodes`.
+`useNodes`. Every board at every depth is this same pair, with `parentId` set to the node
+being drilled into instead of `null`; drill-down added **no new query shape and no new
+index**.
 
 ```ts
 // Q1
@@ -169,13 +217,57 @@ Q1 constrains `visibility == 'shared'`, the rule's first disjunct; Q2 constrains
 The two results are **merged, deduped by id, then sorted `(rank, id)`** and grouped into
 columns by `status` client-side. Deduping is required, not defensive: a *shared* node I
 participate in matches **both** queries. One query per board rather than one per column
-keeps the listener count at two regardless of how many statuses a board shows, and both
-listeners are torn down whenever the board changes, so drilling down never accumulates a
-pair per level.
+keeps the listener count at two regardless of how many statuses a board shows.
 
 Costed the way `PROJECT.md` costs things: roughly one extra document read per board load,
 billing being per document rather than per query. It buys the free `array-contains` slot on
 Q1 for `locationAncestorIds` later.
+
+**The board's own node** — one single-document listener, `useNode(homeId, nodeId)`. Three
+constrained listeners per board rather than two. It buys two things a one-shot read cannot:
+a rename by another member updates the title on the screen you are looking at, and a card
+deleted under you — `deleteNode` takes the whole subtree — bounces you to the parent board
+with a message instead of leaving you on a board that no longer exists. A node that cannot
+be read, or does not exist, is the same bounce.
+
+Two things that listener has to get right, both of which were shipped wrong first:
+
+- It subscribes with **`includeMetadataChanges: true`**. A document missing in the cache
+  *and* missing on the server never changes, so the server's confirmation is a
+  metadata-only event, which Firestore suppresses by default.
+- A missing document is only *believed* once the server has said so — a cache miss is held,
+  not answered. Offline, a board never opened while online resolves immediately as missing,
+  and announcing a deletion that did not happen is worse than waiting.
+
+**Breadcrumbs** — one `getDoc` per id in `ancestorIds`, issued in parallel, each handled on
+its own, memoized for the session in `hooks/use-ancestors.ts`. An ancestor that cannot be
+read costs one rejected promise and renders as a neutral crumb.
+
+That case is real rather than theoretical: participant inheritance runs **downward** — a
+private child holds all of its parent's participants, not the reverse — so being added to a
+private subtask does not grant a read on the private project above it.
+
+The memo is keyed by **uid**, home and node id, and dropped whole when the uid changes.
+Signing out does not reload the page, so on a shared device the next member would otherwise
+be handed a title the previous one was allowed to read — drawn as a real, tappable crumb
+rather than the neutral one the design exists for. Only nodes that were actually read are
+remembered: a failure can be a cold cache or a dropped connection, and remembering *that*
+would leave a crumb reading "Hidden" for the rest of the session after the connection came
+back.
+
+*Rejected:* `where(documentId(), 'in', ancestorIds)`. One read instead of *n*, and it is
+**query-unsafe**: a single unreadable ancestor rejects the whole query and every crumb
+disappears at once. Rule-safe but query-unsafe is the exact failure `CLAUDE.md` forbids.
+
+*Rejected:* carrying the trail in router params. Free while navigating in-app, empty on
+reload or on a shared link — and a board reached by URL is the case breadcrumbs exist for.
+
+**The destination board, when re-parenting.** `reparentNode` takes a rank computed against
+the target board's neighbours, and that board is not on screen. `Move under…` therefore
+reads it once with the same two queries (`getDocs`, not a listener) and computes
+`rankAtEnd` of the column matching the moved card's status. Deliberately *not* from the
+server, unlike the subtree reads: a stale neighbour costs a card that lands in the wrong
+place in a column, which the next reorder fixes, where a stale subtree orphans documents.
 
 **A shared node's subtree** — one-shot, for reparent and delete.
 
@@ -208,7 +300,7 @@ construction; assigned ones are not.
 
 ### Storage cost lives in the index, not the document
 
-A document is 32 bytes plus its path plus its fields; twenty-one fields with empty defaults
+A document is 32 bytes plus its path plus its fields; twenty-two fields with empty defaults
 come to roughly 200 bytes. An **index entry** is 32 bytes plus the full document path —
 about 110 bytes here — plus the value, and every automatically indexed scalar has two of
 them. One null scalar is therefore ~290 bytes of index, more than ten times what it costs
@@ -228,11 +320,13 @@ Composite indexes:
 | `nodes` | `visibility` ASC, `ancestorIds` ARRAY_CONTAINS | shared subtree |
 | `nodes` | `visibility` ASC, `participantIds` ARRAY_CONTAINS | private subtree |
 
-Single-field indexing is **disabled** for `title`, `notes`, `checklist`, `photos`,
-`effort`, `priority`, `rank`, `archived`, `createdBy` and `updatedAt`. `rank` and `archived`
-appear only inside composite indexes, which an exemption does not affect. Left
-automatically indexed, because a later feature filters on them alone: `status`, `parentId`,
-`visibility`, `locationId`, `dueDate`, `completedAt`, `createdAt`, and the array fields.
+Single-field indexing is **disabled** for `title`, `columns`, `notes`, `checklist`,
+`photos`, `effort`, `priority`, `rank`, `archived`, `createdBy` and `updatedAt`. `columns`
+is a new array field that Firestore would otherwise index at roughly two entries per
+element, and nothing queries it. `rank` and `archived` appear only inside composite
+indexes, which an exemption does not affect. Left automatically indexed, because a later
+feature filters on them alone: `status`, `parentId`, `visibility`, `locationId`, `dueDate`,
+`completedAt`, `createdAt`, and the other array fields.
 
 The emulator indexes everything on the fly and can never surface a missing index — the same
 trap the `emailHash` field override documents in
@@ -251,6 +345,7 @@ every one.
 validNode(data)
   title      is string, size 1..200
   status     in the seven-value enum
+  columns    is a list, size 1..7, every entry in the same seven
   rank       is string, size > 0
   parentId   == null or is string
   locationId == null or is string
@@ -286,12 +381,34 @@ privacyUnchanged(next, current)   // when true, update skips inherits() entirely
   && next.participantIds == current.participantIds
 ```
 
+The status vocabulary is written once, as `allStatuses()`, because `status` and every entry
+of `columns` are drawn from it and the two must never drift.
+
 `request.resource.data` is the full post-update document, so `validNode()` costs the same
 on an update as on a create and no partial-patch case can slip past. Reading a field that
 is absent is an evaluation error, which denies the write — which is why "every field is
 written on create" is enforced rather than hoped for. `createdAt` and `updatedAt` are
 required for the same reason `immutable()` exists: a document created without them could
 never be updated again.
+
+### A node that is not there is an answer, not an error
+
+`get` and `list` are granted separately:
+
+```
+allow get:  if isMember(homeId) && (resource == null || visibleToMe(resource.data));
+allow list: if isMember(homeId) && visibleToMe(resource.data);
+```
+
+`resource` is null for a document that does not exist, and reading a field off null is an
+evaluation error, which denies the read. Under the single grant the two shared, a board
+whose card somebody else had deleted came back as a raw permission error rather than "that
+card is gone" — so the screen listening to it had a failure to log instead of a fact to act
+on, and deleting a card while another member is standing on its board is ordinary rather
+than exotic.
+
+`list` keeps the strict form. A query never matches a document that does not exist, so
+nothing about query safety changes.
 
 ### Rules cannot see the rest of a batch, so the invariants are split
 
@@ -434,27 +551,204 @@ to prevent. Reading from the server turns that into a loud failure.
 cache" is not "no children" — a cold cache after a reload, or a node reached by URL, brings
 the orphan straight back.
 
+## The board
+
+One board component at every depth. `PROJECT.md`: resist per-level special cases, they
+multiply. `/projects` renders the root board from `rootColumns`; `/projects/[nodeId]`
+renders the same component from that node's frozen `columns`.
+
+### Layout
+
+- **Below `compactBreakpoint` (720)** — one column at a time, with a scrollable strip of
+  chips above it: each names its column and carries its card count, the current one is
+  marked, and a tap switches to it. Six of eight panes are empty in a small household, and
+  without the strip a board is navigated blind — an empty pane is indistinguishable from a
+  broken app. The strip is also the way back after a move, and the way to Done without
+  seven swipes.
+- **At 720 and above** — columns side by side, the board scrolling horizontally, each
+  column on its own surface. The column headers say what the strip says, so the strip is
+  not rendered.
+- A board **always opens on its first column**, rather than restoring the last pane anyone
+  was on.
+
+**The pane on screen is state, set only by a tap on a chip.** It is never read back from a
+scroll position, and that is not a stylistic preference. It was a swipeable pager, and the
+pager is what broke it: a scroll-snapping container is not something the app is the only
+one moving — the browser re-snaps it when content changes and scrolls it to bring a focused
+element into view. The board drifted to whichever column a card happened to land in, so
+twelve cards added in a row from a FAB reading *Add to To do* went to In progress and Next
+up, alternately. That is the household-fills-a-board-on-a-Saturday-morning case this
+feature exists for. Swiping between columns is tracked as
+[#78](https://github.com/Senth/home-backlog/issues/78) and needs a foundation where the
+gesture reports *to* that state rather than the state being read *from* a scroll offset.
+
+### The card
+
+Title, a chevron, and a mark when `blockedBy[]` is non-empty. Due date, priority, effort and
+notes wait for [#49](https://github.com/Senth/home-backlog/issues/49); a card face carrying
+five metadata chips is the overwhelm this app exists to reduce.
+
+The chevron is on every card whether or not it has children: finding out costs a query per
+card, and listener breadth is this app's stated cost risk.
+
+**Tap opens the card as a board.** That is what tap means at every depth and what it will
+still mean when #49 arrives, so the gesture is not learned twice. Everything else is on an
+overflow menu on the card, whose button stops the press reaching the card underneath.
+
+### Creating a card
+
+Title only. The add control belongs to a **column**, not to the screen: at 720 and above
+each column has its own add row, and below it one FAB naming its destination in words —
+*Add to To do*. Status comes from that column, so a card typed one-handed in a greenhouse
+lands where the button said it would. `createNode` queues offline; the sheet closes
+immediately and never waits on the acknowledgement.
+
+A board whose own node has not arrived yet renders no board at all. `parent` is what
+`createNode` receives, and a null parent is not "this board" but the **root**, so a card
+added during that window would silently become a top-level project.
+
+### The card menu
+
+| Action | What it does |
+| ------ | ------------ |
+| Move to → *column* | one tap, appends at the end of that column |
+| Change position… | lists the current column's cards: *At the top*, *After ‹card›* |
+| Move under… | the other cards on this board, plus *Up one level* / *Top level* |
+| Rename | a dialog with the title field |
+| Delete | confirm, then the card and everything under it |
+
+The menu changes *page* rather than opening a submenu: Paper's `Menu` scrolls its own
+content, so a column of thirty cards is a list you scroll rather than a second overlay to
+dismiss.
+
+**Move** stays on the pane you are on and raises a snackbar naming the destination, with
+**Undo**, which restores the status *and* the rank the card had — both are in hand.
+Following the card would drag someone moving six cards in a row seven panes sideways;
+saying nothing makes a move read as a delete, because the destination is off-screen. Only
+the board's frozen columns are offered as destinations.
+
+**Change position** is what makes ordering real. Up / down / top / bottom cannot place a
+card at position three of thirty without twenty-seven taps, so the position list picks the
+slot directly and `rankBetween` ranks it against its two new neighbours. The slot the card
+already occupies is disabled rather than offered as a write that changes nothing.
+
+**Move under…** is why drill-down alone was not enough. A household fills a board the day
+it gets one, and nesting *new* work does nothing for work already typed; without it, the
+first thing the app asks of its only user is to re-type forty cards. It lists only siblings
+with the same `visibility`, never the card itself, and *Up one level* and *Top level* are
+the same destination one level below the root, so they are never both offered. It has no
+Undo — reversing a re-parent needs a second server read — which is
+[#79](https://github.com/Senth/home-backlog/issues/79).
+
+**Delete** warns that everything under the card goes too, in as many words, and is styled
+as the destructive action the way `ConfirmDialog` already does elsewhere.
+
+**Offline**, the split is the one the writes already draw: move, change position and rename
+queue; `Move under…` and `Delete` are disabled with a hint rather than failing after the
+tap.
+
+### Breadcrumbs and navigation
+
+*Projects › Bathroom › Tiling*, above the board, the last crumb being the current board and
+each earlier one tappable. An unreadable ancestor renders as a neutral crumb rather than a
+gap. The app bar names the card; the home's name is on the root board's app bar, which is
+where the first crumb goes.
+
+Navigation is a Stack inside the Projects tab — `/projects` and `/projects/[nodeId]` — so
+the tab bar stays put at every depth, and browser back, the PWA back gesture, reload and a
+shared link all work.
+
+Going *up* uses `dismissTo`, not `push`: the crumbs are the stack you came down. Two things
+make that work:
+
+- The screen carries **`dangerouslySingular`** keyed on the node id. Every nested board is
+  the same route *name*, and `POP_TO` matches on the name — so without an identity it
+  resolves to the screen you are already on and merely swaps its params. Tapping a crumb
+  then left the whole stack in place with its top re-pointed, so browser back went *deeper*
+  rather than up, and every stranded screen kept its three listeners alive.
+- The app-bar back arrow goes to the parent board explicitly rather than calling
+  `router.back()`, which on a screen reached by reload or a shared link is a no-op that
+  logs "GO_BACK was not handled by any navigator" and leaves the arrow dead.
+
+A card that is deleted under you bounces to the parent board — remembered while the card
+still existed, since a deleted card cannot say who its parent was — and the message travels
+as a route param, because the screen that has to *say* it is not the screen that discovered
+it. The flag is cleared as it is read, so reloading that URL later does not announce the
+deletion again. Only the *focused* screen may bounce: deleting a project takes its whole
+subtree, so every stacked board below it sees the deletion in the same tick.
+
+### Strings
+
+Every one goes through `t()`, in `en-US.json` and `sv-SE.json`. The status labels are
+plain-language on purpose: `PERSONAS.md` has Ingrid quitting over transliterated stage
+names, and Priya reading "Execution / Review" as the work Jira she opened this app to get
+away from. Swedish uses verbs where a verb is what a household says.
+
+| Key | `en-US` | `sv-SE` |
+| --- | ------- | ------- |
+| `status.backlog` | To do | Att göra |
+| `status.next_up` | Next up | Härnäst |
+| `status.research` | Find out | Undersök |
+| `status.planning` | Plan | Planera |
+| `status.execution` | In progress | Pågående |
+| `status.review` | Check | Granska |
+| `status.done` | Done | Klart |
+
+The deep-board simple set therefore reads *To do · In progress · Done* / *Att göra ·
+Pågående · Klart* with no per-board relabel — which is why those three statuses were chosen
+for it.
+
+### Reducing overwhelm
+
+The column strip with counts, a board that opens on its first column, a one-field add, and
+a card face that carries a title rather than five metadata chips. Done grows without bound
+until [#64](https://github.com/Senth/home-backlog/issues/64) archives it and
+[#76](https://github.com/Senth/home-backlog/issues/76) sorts it newest-first.
+
+### Four Paper and React Native Web traps this area hit
+
+Kept because each one is the kind of thing the next person reintroduces:
+
+- **A horizontal `ScrollView` in a column parent grows to fill it.** One line of breadcrumbs
+  took half the screen. Both strips carry `flexGrow: 0`.
+- **`Appbar.Content`'s `subtitle` renders only outside Material 3.** It is not a way to show
+  the home's name on a nested board; it is a prop that does nothing.
+- **A `Portal` registers with the portal host even when the modal inside it renders
+  nothing.** Every card mounting a rename dialog and a confirm dialog cost two portal
+  entries and two focus-trap subscriptions per card, on a Done column that grows without
+  bound. They mount only while open — which is what Paper's own `Menu` does.
+- **Paper's `Chip` `selected` tint alone is not a mark.** On a strip of eight it is a
+  slightly different shade of the same green; filled against outlined is legible.
+
 ## Out of scope
 
-- **Every screen.** Projects board and card creation #47; drill-down and breadcrumbs #48;
-  node detail #49. No user-facing string exists yet either: `status.*`, `priority.*` and
-  `effort.*` labels belong to the issue that first renders them, because choosing `sv-SE`
-  wording for a column header nobody has laid out yet means guessing, and leaves dead keys
-  in both locale files meanwhile.
+- **Node detail** — [#49](https://github.com/Senth/home-backlog/issues/49). Notes, due
+  date, priority and effort are on the document and on no screen. Rename exists only
+  because a card with no way to fix a typo is a permanent mistake.
+- **Per-board column configuration and relabels** —
+  [#63](https://github.com/Senth/home-backlog/issues/63). The field it edits ships here, so
+  #63 is a screen and not a schema change.
 - **The subtree visibility flip** and the participants UI — #61. It must write **top-down,
-  one document at a time**.
+  one document at a time**. Until then a board says nothing about whose card is whose, and
+  a private card can only be created by the REST API.
 - **Bulk subtree create over REST** — #7, same ordering constraint. `rankSequence` exists
   for it.
 - **Locations** — [#50](https://github.com/Senth/home-backlog/issues/50),
   [#51](https://github.com/Senth/home-backlog/issues/51). The two location fields are
   written and inherited, but nothing maintains them when a *location* moves.
-- **Archive** #64, checklists #52, photos #53, blocked-by #66, drag and drop #5 — fields
-  only. An archive *cascade* over a subtree carries the same top-down constraint as the
-  visibility flip.
+- **Archive** #64, **Done newest-first** #76, checklists #52, photos #53, blocked-by #66,
+  drag and drop #5 — fields only, or not yet. An archive *cascade* over a subtree carries
+  the same top-down constraint as the visibility flip.
+- **One-tap done on the card row** — [#75](https://github.com/Senth/home-backlog/issues/75).
+  **Filters** — [#62](https://github.com/Senth/home-backlog/issues/62). **Custom statuses**
+  — [#69](https://github.com/Senth/home-backlog/issues/69). **Swipe between columns** —
+  [#78](https://github.com/Senth/home-backlog/issues/78). **Desktop beyond side-by-side
+  columns** — [#31](https://github.com/Senth/home-backlog/issues/31).
+- **A full destination picker** for `Move under…` — browsing the whole tree is a second
+  navigation surface with its own query-safety story.
 - **A Cloud Function for node operations.** Not needed: the invariants keep reparent and
   delete client-side and offline-capable.
   [#39](https://github.com/Senth/home-backlog/issues/39) stays scoped to home deletion and
   member removal.
 - **Unassigned filters.** Firestore cannot query for an empty array, so "unassigned" is
-  client-side or needs a denormalized flag —
-  [#62](https://github.com/Senth/home-backlog/issues/62).
+  client-side or needs a denormalized flag — #62.
