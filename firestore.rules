@@ -193,12 +193,31 @@ service cloud.firestore {
         // `request.resource.data` is the full post-update document, so this
         // costs the same on an update as on a create and no partial patch can
         // slip past it.
+        // The status vocabulary, in one place: `status` is one of these and every
+        // entry of `columns` is one of these, and the two must never drift.
+        //
+        // There is deliberately no `blocked`. A card is in exactly one status, so
+        // parking one in Blocked destroys the stage it was in and nothing says
+        // where it goes when the blocker clears. Being blocked is a *condition*,
+        // carried by `blockedBy[]` (#66), not a stage.
+        function allStatuses() {
+          return ['backlog', 'next_up', 'research', 'planning', 'execution',
+                  'review', 'done'];
+        }
+
         function validNode(data) {
           return data.title is string
             && data.title.size() >= 1
             && data.title.size() <= 200
-            && data.status in ['backlog', 'next_up', 'research', 'planning',
-                               'execution', 'review', 'done', 'blocked']
+            && data.status in allStatuses()
+            // The column set of the board this node's children form. Required on
+            // create like every other field, and *not* immutable: #63 is the
+            // feature that edits it, and locking it here would make #63 a rules
+            // change before it could be a screen.
+            && data.columns is list
+            && data.columns.size() >= 1
+            && data.columns.size() <= allStatuses().size()
+            && data.columns.hasOnly(allStatuses())
             && data.rank is string
             && data.rank.size() > 0
             && (data.parentId == null || data.parentId is string)
@@ -318,7 +337,17 @@ service cloud.firestore {
             && next.createdBy == current.createdBy;
         }
 
-        allow get, list: if isMember(homeId) && visibleToMe(resource.data);
+        // A node that is not there is an *answer*, not an error. `resource` is
+        // null for a document that does not exist, and reading a field off it
+        // is an evaluation error, which denies the read — so a board whose card
+        // somebody else deleted came back as a raw permission error instead of
+        // "that card is gone", and the screen listening to it had a failure to
+        // log rather than a fact to act on. `list` keeps the strict form: a
+        // query never matches a document that does not exist, so nothing about
+        // query safety changes.
+        allow get: if isMember(homeId)
+          && (resource == null || visibleToMe(resource.data));
+        allow list: if isMember(homeId) && visibleToMe(resource.data);
         allow create: if isMember(homeId)
           && visibleToMe(request.resource.data)
           && validNode(request.resource.data)

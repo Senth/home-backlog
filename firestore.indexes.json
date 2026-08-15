@@ -48,6 +48,7 @@
 			]
 		},
 		{ "collectionGroup": "nodes", "fieldPath": "title", "indexes": [] },
+		{ "collectionGroup": "nodes", "fieldPath": "columns", "indexes": [] },
 		{ "collectionGroup": "nodes", "fieldPath": "notes", "indexes": [] },
 		{ "collectionGroup": "nodes", "fieldPath": "checklist", "indexes": [] },
 		{ "collectionGroup": "nodes", "fieldPath": "photos", "indexes": [] },

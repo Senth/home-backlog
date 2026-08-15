@@ -40,6 +40,12 @@ import {
  * The global status vocabulary. A board chooses which of these to show; it
  * cannot invent new ones. Stored as a string id so a custom status is a new
  * value rather than a migration, and so cross-board queries stay comparable.
+ *
+ * There is no `blocked` here on purpose. A card is in exactly one status, so
+ * parking one in Blocked destroys the stage it was in and nothing says where it
+ * goes when the blocker clears. Being blocked is not a *stage* of work — it is a
+ * *condition* a card at any stage can be in, and `blockedBy[]` already carries
+ * it. The card stays in its real column and shows a mark (#66).
  */
 export type Status =
 	| "backlog"
@@ -48,9 +54,9 @@ export type Status =
 	| "planning"
 	| "execution"
 	| "review"
-	| "done"
-	| "blocked";
+	| "done";
 
+/** Enum order. A column not in a board's frozen set is appended in this order. */
 export const statuses: readonly Status[] = [
 	"backlog",
 	"next_up",
@@ -59,8 +65,82 @@ export const statuses: readonly Status[] = [
 	"execution",
 	"review",
 	"done",
-	"blocked",
 ];
+
+/*
+ * ---------------------------------------------------------------------------
+ * Columns
+ * ---------------------------------------------------------------------------
+ *
+ * `columns` on a node is the column set of the board formed by that node's
+ * **children**, chosen by depth at creation and then frozen.
+ *
+ * Frozen, because deriving the set from depth at render time strands cards:
+ * moving a subtree from depth 1 to depth 2 would silently swap the full stage
+ * set for the simple one, and every card that was in Find out or Check would
+ * land in a column that no longer exists.
+ *
+ * Frozen does **not** mean immutable — the rules validate the shape and let the
+ * value change, because per-board column configuration (#63) is exactly the
+ * feature that changes it.
+ */
+
+/** The full stage set: the root board, and the board inside a project. */
+export const fullColumns: readonly Status[] = statuses;
+
+/**
+ * Deep boards. A research column whose cards each contain their own research
+ * column is nonsense — and these three read as *To do · In progress · Done*
+ * with no per-board relabel, which is why they are the three.
+ */
+export const simpleColumns: readonly Status[] = [
+	"backlog",
+	"execution",
+	"done",
+];
+
+/**
+ * The root board is not a document. It cannot be moved, deleted or reparented,
+ * so there is nothing for a freeze to protect and its set is a constant. #63 is
+ * where a stored root set earns its keep, on the home document.
+ */
+export const rootColumns: readonly Status[] = fullColumns;
+
+/**
+ * The frozen set for a node at `depth`, describing the board its children form.
+ *
+ * A node's own depth is `ancestorIds.length`. Depth 0 means its children are
+ * depth 1, which `PROJECT.md` gives the full stage set; anything deeper gets the
+ * simple set.
+ */
+export function columnsForDepth(depth: number): readonly Status[] {
+	return depth === 0 ? fullColumns : simpleColumns;
+}
+
+/**
+ * What a board actually renders: its frozen columns, plus one extra column per
+ * status that is *present in the data but absent from the set*, in enum order.
+ *
+ * Without it, `Move under…`, the REST API (#7) and a seeded fixture can each put
+ * a `research` card on a simple-set board, and the board would draw as though
+ * the card were not there. A card that exists is visible somewhere — the same
+ * principle as the orphaned node the visibility invariant exists to prevent.
+ *
+ * The extra column appears only while such a card exists and disappears when it
+ * is moved out; the move sheet offers only the frozen destinations, so it is a
+ * one-way exit.
+ */
+export function visibleColumns(
+	columns: readonly Status[],
+	nodes: readonly Node[],
+): Status[] {
+	const extra = statuses.filter(
+		(status) =>
+			!columns.includes(status) &&
+			nodes.some((candidate) => candidate.status === status),
+	);
+	return [...columns, ...extra];
+}
 
 export type Priority = "low" | "normal" | "high" | "urgent";
 
@@ -141,6 +221,11 @@ export interface Node {
 	participantIds: string[];
 	/** Always equal to the parent's. Only a root node sets it. */
 	visibility: Visibility;
+	/**
+	 * The columns of the board this node's **children** form. Chosen by depth at
+	 * creation and then frozen — never recomputed when the node moves.
+	 */
+	columns: Status[];
 	/** `'YYYY-MM-DD'` — a calendar day, not an instant. */
 	dueDate: string | null;
 	priority: Priority | null;
@@ -161,6 +246,21 @@ export interface Node {
 
 /** Longest title a node may have, matched by `validNode()` in `firestore.rules`. */
 export const maxTitleLength = 200;
+
+/** Why a typed title cannot be saved, as the key that says so. */
+export type TitleError = "board.titleRequired" | "board.titleTooLong";
+
+/**
+ * The one validation a card creation has, checked here rather than in the
+ * dialog so the rules are not the first thing that says no.
+ */
+export function titleError(title: string): TitleError | null {
+	const trimmed = title.trim();
+	if (trimmed.length === 0) return "board.titleRequired";
+	if (trimmed.length > maxTitleLength) return "board.titleTooLong";
+	return null;
+}
+
 /** Matched by `validNode()`. Notes absorb cost and budget until #57. */
 export const maxNotesLength = 10000;
 export const maxChecklistItems = 200;
@@ -361,6 +461,10 @@ export function newNodeData(input: NewNodeInput): NodeData {
 		if (!participantIds.includes(uid)) participantIds.push(uid);
 	}
 
+	// The new node's *own* depth, not its parent's: `columns` describes the board
+	// its children will form.
+	const ancestorIds = childAncestorIds(parent);
+
 	const location =
 		input.locationId === undefined
 			? {
@@ -377,10 +481,11 @@ export function newNodeData(input: NewNodeInput): NodeData {
 		status: input.status ?? "backlog",
 		rank: input.rank,
 		parentId: parent?.id ?? null,
-		ancestorIds: childAncestorIds(parent),
+		ancestorIds,
 		...location,
 		participantIds,
 		visibility: parent?.visibility ?? input.visibility ?? "shared",
+		columns: [...columnsForDepth(ancestorIds.length)],
 		dueDate: input.dueDate ?? null,
 		priority: input.priority ?? null,
 		blockedBy: [],
@@ -436,6 +541,21 @@ function checklistItems(value: unknown): ChecklistItem[] {
 	}));
 }
 
+/**
+ * The stored column set, falling back to the depth default.
+ *
+ * `columns` arrived after the document did, so a node written by #74 does not
+ * carry one — and a board with no columns renders nothing at all, which is the
+ * one coercion here that would hide real cards. Unknown values are dropped
+ * rather than rendered as a column nothing can ever be moved to.
+ */
+function columnSet(value: unknown, depth: number): Status[] {
+	const stored = Array.isArray(value)
+		? value.filter((item): item is Status => statuses.includes(item as Status))
+		: [];
+	return stored.length > 0 ? stored : [...columnsForDepth(depth)];
+}
+
 function photoList(value: unknown): Photo[] {
 	if (!Array.isArray(value)) return [];
 	return value.map((item) => ({
@@ -458,6 +578,7 @@ function photoList(value: unknown): Photo[] {
  */
 export function toNode(snapshot: QueryDocumentSnapshot<DocumentData>): Node {
 	const data = snapshot.data();
+	const ancestorIds = strings(data.ancestorIds);
 
 	return {
 		id: snapshot.id,
@@ -465,11 +586,12 @@ export function toNode(snapshot: QueryDocumentSnapshot<DocumentData>): Node {
 		status: oneOf(data.status, statuses, "backlog"),
 		rank: stringOr(data.rank, ""),
 		parentId: stringOrNull(data.parentId),
-		ancestorIds: strings(data.ancestorIds),
+		ancestorIds,
 		locationId: stringOrNull(data.locationId),
 		locationAncestorIds: strings(data.locationAncestorIds),
 		participantIds: strings(data.participantIds),
 		visibility: data.visibility === "private" ? "private" : "shared",
+		columns: columnSet(data.columns, ancestorIds.length),
 		dueDate: stringOrNull(data.dueDate),
 		priority: oneOfOrNull(data.priority, priorities),
 		blockedBy: strings(data.blockedBy),

@@ -749,6 +749,29 @@ describe("homes/{homeId}/nodes", () => {
 			await seedNodes();
 			await assertFails(deleteDoc(doc(dbAs(env, MEMBER), privatePath)));
 		});
+
+		/**
+		 * A card somebody else deleted while you were standing on its board. The
+		 * screen has to be *told* it is gone so it can say so and bounce you up;
+		 * reading a field off a null `resource` is an evaluation error, which
+		 * denies the read and leaves a listener with a raw permission failure to
+		 * log instead of a fact to act on.
+		 */
+		it("answers a member reading a node that is not there", async () => {
+			await seedNodes();
+			const snapshot = await assertSucceeds(
+				getDoc(doc(dbAs(env, MEMBER), nodesPath, "never-existed")),
+			);
+
+			expect(snapshot.exists()).toBe(false);
+		});
+
+		it("still tells a non-member nothing, missing or not", async () => {
+			await seedNodes();
+			await assertFails(
+				getDoc(doc(dbAs(env, OUTSIDER), nodesPath, "never-existed")),
+			);
+		});
 	});
 
 	describe("the field set", () => {
@@ -762,6 +785,7 @@ describe("homes/{homeId}/nodes", () => {
 			"title",
 			"status",
 			"rank",
+			"columns",
 			"archived",
 			"completedAt",
 			"createdAt",
@@ -891,6 +915,65 @@ describe("homes/{homeId}/nodes", () => {
 					completedAt: "yesterday",
 				}),
 			);
+		});
+
+		/**
+		 * `blocked` was in this enum and is not any more. A card is in exactly one
+		 * status, so parking it in Blocked destroys the stage it was in — being
+		 * blocked is a condition `blockedBy[]` carries, not a stage of work.
+		 */
+		it("refuses the status that used to exist", async () => {
+			await assertFails(
+				create(dbAs(env, MEMBER), "parked", { status: "blocked" }),
+			);
+		});
+
+		describe("the column set", () => {
+			it("refuses a board with no columns at all", async () => {
+				await assertFails(
+					create(dbAs(env, MEMBER), "columnless", {
+						columns: [],
+					}),
+				);
+			});
+
+			it("refuses a column nothing could ever be moved to", async () => {
+				await assertFails(
+					create(dbAs(env, MEMBER), "invented", {
+						columns: ["backlog", "blocked"],
+					}),
+				);
+			});
+
+			it("refuses columns that are not a list", async () => {
+				await assertFails(
+					create(dbAs(env, MEMBER), "not-a-list", { columns: "backlog" }),
+				);
+			});
+
+			it("accepts a board down to a single column", async () => {
+				await assertSucceeds(
+					create(dbAs(env, MEMBER), "one-column", { columns: ["backlog"] }),
+				);
+			});
+
+			/**
+			 * Frozen does not mean immutable. Per-board column configuration (#63)
+			 * is exactly the feature that changes this value, and locking it here
+			 * would make #63 a rules change before it could be a screen.
+			 */
+			it("lets the set be replaced with another valid one", async () => {
+				await seedNodes();
+
+				await assertSucceeds(
+					updateDoc(doc(dbAs(env, MEMBER), sharedPath), {
+						columns: ["backlog", "execution", "done"],
+					}),
+				);
+				await assertFails(
+					updateDoc(doc(dbAs(env, MEMBER), sharedPath), { columns: [] }),
+				);
+			});
 		});
 
 		it("refuses changing createdAt or createdBy after the fact", async () => {

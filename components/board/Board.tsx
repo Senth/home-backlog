@@ -1,0 +1,243 @@
+import { useRouter } from "expo-router";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { ScrollView, View } from "react-native";
+import { ActivityIndicator, FAB, Snackbar, Text } from "react-native-paper";
+import { BoardColumn } from "@/components/board/BoardColumn";
+import { CardMenu, type Notice } from "@/components/board/CardMenu";
+import { ColumnStrip } from "@/components/board/ColumnStrip";
+import { TitleDialog } from "@/components/board/TitleDialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { createNode } from "@/data/nodes";
+import {
+	type Node,
+	rankAtEnd,
+	type Status,
+	visibleColumns,
+} from "@/models/node";
+import { useAppTheme } from "@/theme";
+import { compactBreakpoint, size, space } from "@/theme/tokens";
+
+interface BoardProps {
+	homeId: string;
+	/** The card this board belongs to, or null for the root board. */
+	parent: Node | null;
+	/** The frozen column set: the parent's `columns`, or `rootColumns`. */
+	columns: readonly Status[];
+	nodes: Node[];
+	loading: boolean;
+}
+
+/**
+ * One board component, used at every depth. `PROJECT.md`: resist per-level
+ * special cases, they multiply.
+ *
+ * **Below `compactBreakpoint`** it is one column at a time, chosen by the strip
+ * of chips above it. **At the breakpoint and above** the columns sit side by
+ * side and the board scrolls horizontally; the headers say what the strip says,
+ * so the strip is not rendered.
+ *
+ * The pane on screen is **state, set only by a tap on a chip** — it is never
+ * read back from a scroll position. It was a swipeable pager, and the pager is
+ * what broke it: the browser moves a scroll-snapping container on its own, to
+ * re-snap after content changes and to bring a focused element into view, so
+ * the board drifted to whichever column a card happened to land in. Twelve
+ * cards added in a row from a FAB that said "Add to To do" went to In progress
+ * and Next up, alternately — the Marcus-forty-cards Saturday morning this
+ * feature exists for. Swiping between columns is worth having back, but not at
+ * the price of cards landing in a column nobody chose.
+ *
+ * A board **always opens on its first column** rather than restoring the last
+ * pane anyone was on. Where you were on a board is not something anyone
+ * remembers, and a board that opens somewhere unexpected reads as the wrong
+ * board.
+ */
+export function Board({ homeId, parent, columns, nodes, loading }: BoardProps) {
+	const { t } = useTranslation();
+	const theme = useAppTheme();
+	const router = useRouter();
+	const { user } = useAuth();
+
+	const [boardWidth, setBoardWidth] = useState(0);
+	const [current, setCurrent] = useState(0);
+	const [adding, setAdding] = useState<Status | null>(null);
+	const [notice, setNotice] = useState<Notice | null>(null);
+
+	// A board always opens on its first column. Cleared during render, because
+	// one screen can become another board — a breadcrumb re-points the screen it
+	// is on — and carrying the last pane anyone swiped to into a different board
+	// makes it read as the wrong board.
+	const board = `${homeId} ${parent?.id ?? ""}`;
+	const [rendered, setRendered] = useState(board);
+	if (rendered !== board) {
+		setRendered(board);
+		setCurrent(0);
+	}
+
+	// The frozen set, plus a column for any status that is on this board but not
+	// in it. A card that exists is visible somewhere.
+	const shown = useMemo(() => visibleColumns(columns, nodes), [columns, nodes]);
+	const compact = boardWidth > 0 && boardWidth < compactBreakpoint;
+	// An extra column disappearing would otherwise leave the pane showing a
+	// column that is no longer there.
+	const column = Math.min(current, shown.length - 1);
+	const onScreen: Status | undefined = shown[column];
+
+	const cardsIn = (status: Status) =>
+		nodes.filter((node) => node.status === status);
+
+	/**
+	 * Queued, never awaited: the card is on the board the instant Firestore
+	 * applies it locally, and the write lands when the connection does.
+	 * `createNode` logs its own failure.
+	 */
+	const add = (title: string) => {
+		if (user === null || adding === null) return;
+
+		const last = cardsIn(adding).at(-1)?.rank ?? null;
+		createNode(homeId, user.uid, {
+			title,
+			rank: rankAtEnd(last),
+			parent,
+			status: adding,
+		});
+	};
+
+	const open = (node: Node) => {
+		router.push({
+			pathname: "/projects/[nodeId]",
+			params: { nodeId: node.id },
+		});
+	};
+
+	const menu = (node: Node) => (
+		<CardMenu
+			homeId={homeId}
+			node={node}
+			parent={parent}
+			columns={columns}
+			nodes={nodes}
+			onNotice={setNotice}
+		/>
+	);
+
+	return (
+		<View
+			style={{ flex: 1 }}
+			onLayout={(event) => setBoardWidth(event.nativeEvent.layout.width)}
+		>
+			{loading ? (
+				<ActivityIndicator
+					accessibilityLabel={t("common.loading")}
+					style={{ marginTop: space.xl }}
+				/>
+			) : null}
+
+			{!loading && nodes.length === 0 ? (
+				<Text
+					variant="bodyLarge"
+					style={{
+						color: theme.colors.onSurfaceVariant,
+						textAlign: "center",
+						paddingHorizontal: space.md,
+						paddingBottom: space.md,
+					}}
+				>
+					{t("board.empty")}
+				</Text>
+			) : null}
+
+			{boardWidth === 0 ? null : compact ? (
+				<>
+					<ColumnStrip
+						columns={shown}
+						nodes={nodes}
+						current={column}
+						onSelect={setCurrent}
+					/>
+					{onScreen === undefined ? null : (
+						<BoardColumn
+							status={onScreen}
+							nodes={cardsIn(onScreen)}
+							width="100%"
+							wide={false}
+							onAdd={() => setAdding(onScreen)}
+							onOpen={open}
+							renderMenu={menu}
+						/>
+					)}
+				</>
+			) : (
+				<ScrollView
+					horizontal
+					style={{ flex: 1 }}
+					contentContainerStyle={{
+						flexGrow: 1,
+						gap: space.md,
+						paddingHorizontal: space.md,
+					}}
+				>
+					{shown.map((status) => (
+						<BoardColumn
+							key={status}
+							status={status}
+							nodes={cardsIn(status)}
+							width={size.boardColumn}
+							wide
+							onAdd={() => setAdding(status)}
+							onOpen={open}
+							renderMenu={menu}
+						/>
+					))}
+				</ScrollView>
+			)}
+
+			{/* One FAB below the breakpoint, naming its destination in words. The
+			    column it adds to is the one on screen, so "Add to To do" is a
+			    promise the board can keep. */}
+			{compact && onScreen !== undefined ? (
+				<FAB
+					icon="plus"
+					label={t("board.addTo", { column: t(`status.${onScreen}`) })}
+					onPress={() => setAdding(onScreen)}
+					style={{
+						position: "absolute",
+						right: space.md,
+						bottom: space.md,
+					}}
+				/>
+			) : null}
+
+			<TitleDialog
+				visible={adding !== null}
+				onDismiss={() => setAdding(null)}
+				heading={t("board.newCard")}
+				confirmLabel={t("board.add")}
+				onSubmit={add}
+				testID={newCardDialogTestID}
+			/>
+
+			{/* The destination of a move is off-screen by definition — saying
+			    nothing makes it read as a delete. */}
+			<Snackbar
+				visible={notice !== null}
+				onDismiss={() => setNotice(null)}
+				action={
+					notice?.undo
+						? {
+								label: t("common.undo"),
+								onPress: () => {
+									notice.undo?.();
+									setNotice(null);
+								},
+							}
+						: undefined
+				}
+			>
+				{notice?.text ?? ""}
+			</Snackbar>
+		</View>
+	);
+}
+
+const newCardDialogTestID = "new-card-dialog";

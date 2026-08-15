@@ -1,7 +1,10 @@
 import {
 	collection,
 	type DocumentData,
+	type DocumentReference,
 	doc,
+	getDoc,
+	getDocs,
 	getDocsFromServer,
 	orderBy,
 	type Query,
@@ -17,6 +20,7 @@ import { db } from "@/config/firebase";
 import {
 	childAncestorIds,
 	completionChange,
+	mergeNodeResults,
 	movedAncestorIds,
 	type NewNodeInput,
 	type Node,
@@ -56,7 +60,20 @@ function nodesRef(homeId: string) {
 	return collection(db, homesCollection, homeId, nodesCollection);
 }
 
-function nodeRef(homeId: string, nodeId: string) {
+/**
+ * One node, by id. Exported for the board's own single-document listener —
+ * three listeners per board rather than two, all constrained, all torn down
+ * together.
+ *
+ * It buys two things a one-shot read cannot: a rename by another member updates
+ * the title on the screen you are looking at, and a card deleted under you —
+ * `deleteNode` takes the whole subtree — bounces you to the parent board
+ * instead of leaving you on a board that no longer exists.
+ */
+export function nodeRef(
+	homeId: string,
+	nodeId: string,
+): DocumentReference<DocumentData> {
 	return doc(db, homesCollection, homeId, nodesCollection, nodeId);
 }
 
@@ -113,6 +130,59 @@ export function participatingBoardQuery(
 		where("parentId", "==", parentId),
 		where("participantIds", "array-contains", uid),
 		orderBy("rank"),
+	);
+}
+
+/**
+ * One node by id, or null if it is not there or cannot be read.
+ *
+ * The two answers are deliberately the same one. Participant inheritance runs
+ * *downward* — a private child holds all of its parent's participants, not the
+ * reverse — so being added to a private subtask does not grant a read on the
+ * private project above it, and a breadcrumb for it is a crumb the reader is
+ * not allowed to see. Neither case is an error worth surfacing.
+ *
+ * One `getDoc` per ancestor rather than `where(documentId(), 'in', ancestorIds)`:
+ * that would be one read instead of *n* and is **query-unsafe** — a single
+ * unreadable ancestor rejects the whole query, and every crumb disappears at
+ * once.
+ */
+export async function getNode(
+	homeId: string,
+	nodeId: string,
+): Promise<Node | null> {
+	try {
+		const snapshot = await getDoc(nodeRef(homeId, nodeId));
+		return snapshot.exists() ? toNode(snapshot) : null;
+	} catch (reason) {
+		console.error("Could not read a node:", reason);
+		return null;
+	}
+}
+
+/**
+ * A board read once rather than listened to — what `Move under…` needs to rank
+ * a card against its new neighbours, on a board that is not on screen.
+ *
+ * The same two queries a board load runs, and safe for the same reason. Not
+ * from the server: `reparentNode` reads the *subtree* from the server, where a
+ * stale answer would orphan documents, but a rank is only ever compared against
+ * ranks — a stale neighbour costs a card that lands in the wrong place in the
+ * column, which the next reorder fixes.
+ */
+export async function boardOnce(
+	homeId: string,
+	parentId: string | null,
+	uid: string,
+): Promise<Node[]> {
+	const [shared, participating] = await Promise.all([
+		getDocs(sharedBoardQuery(homeId, parentId)),
+		getDocs(participatingBoardQuery(homeId, parentId, uid)),
+	]);
+
+	return mergeNodeResults(
+		shared.docs.map(toNode),
+		participating.docs.map(toNode),
 	);
 }
 
