@@ -89,6 +89,14 @@ export const icon = {
 } as const;
 
 /**
+ * Border widths. `hairline` is Material's outline on an outlined surface —
+ * a card, a chip — and is the only one an outline should ever be.
+ */
+export const border = {
+	hairline: 1,
+} as const;
+
+/**
  * Minimum touch target. Material and the WCAG target-size rule both land at
  * 48dp, and nothing tappable may undercut it.
  *

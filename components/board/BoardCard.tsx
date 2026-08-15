@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { Card, Chip, Icon, Text } from "react-native-paper";
+import { Card, Icon, Text } from "react-native-paper";
+import { MetaChip } from "@/components/board/MetaChip";
 import { dueState, formatDueElapsed } from "@/models/due-date";
 import { hasSteps, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
@@ -93,21 +94,15 @@ export function BoardCard({ node, onOpen, menu }: BoardCardProps) {
 							}}
 						>
 							{node.priority === null ? null : (
-								<Chip compact mode="outlined">
-									{t(`priority.${node.priority}`)}
-								</Chip>
+								<MetaChip>{t(`priority.${node.priority}`)}</MetaChip>
 							)}
 							{node.effort === null ? null : (
-								<Chip compact mode="outlined">
-									{t(`effort.${node.effort}`)}
-								</Chip>
+								<MetaChip>{t(`effort.${node.effort}`)}</MetaChip>
 							)}
 							{showDue && node.dueDate !== null ? (
-								<Chip
-									compact
-									mode="outlined"
-									icon="calendar"
-									textStyle={late ? { color: theme.colors.warning } : undefined}
+								<MetaChip
+									source="calendar"
+									color={late ? theme.colors.warning : undefined}
 								>
 									{t(late ? "board.dueLate" : "board.dueSoon", {
 										elapsed: formatDueElapsed(
@@ -116,7 +111,7 @@ export function BoardCard({ node, onOpen, menu }: BoardCardProps) {
 											i18n.language,
 										),
 									})}
-								</Chip>
+								</MetaChip>
 							) : null}
 						</View>
 					) : null}

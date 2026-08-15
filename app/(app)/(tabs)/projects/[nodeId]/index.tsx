@@ -109,8 +109,10 @@ export default function NodeBoard() {
 						/>
 						{hasDetails(node) ? (
 							<View
-								pointerEvents="none"
 								style={{
+									// The style prop, not `pointerEvents`: React Native Web
+									// deprecated the prop and warns on every render.
+									pointerEvents: "none",
 									position: "absolute",
 									top: space.sm,
 									right: space.sm,
