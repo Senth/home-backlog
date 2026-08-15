@@ -5,6 +5,7 @@ import {
 	compareNodes,
 	completionChange,
 	fullColumns,
+	hasSteps,
 	mergeNodeResults,
 	movedAncestorIds,
 	type Node,
@@ -32,6 +33,8 @@ function node(overrides: Partial<Node> = {}): Node {
 		participantIds: [],
 		visibility: "shared",
 		columns: [...fullColumns],
+		childCount: 0,
+		doneCount: 0,
 		dueDate: null,
 		priority: null,
 		blockedBy: [],
@@ -274,6 +277,23 @@ describe("visibleColumns", () => {
 	});
 });
 
+describe("hasSteps", () => {
+	it("makes a node with a child a board, and one without not", () => {
+		expect(hasSteps(node({ childCount: 0 }))).toBe(false);
+		expect(hasSteps(node({ childCount: 1 }))).toBe(true);
+		expect(hasSteps(node({ childCount: 12 }))).toBe(true);
+	});
+
+	/**
+	 * A counter that drifted *low* is the direction that could hide work, so the
+	 * detail screen's Steps section runs the real board queries rather than
+	 * trusting this. Here it only decides a chevron.
+	 */
+	it("does not become true on a counter that has drifted below zero", () => {
+		expect(hasSteps(node({ childCount: -3 }))).toBe(false);
+	});
+});
+
 describe("titleError", () => {
 	it("refuses a title that is empty or only spaces", () => {
 		expect(titleError("")).toBe("board.titleRequired");
@@ -318,6 +338,8 @@ describe("newNodeData", () => {
 			participantIds: [],
 			visibility: "shared",
 			columns: [...fullColumns],
+			childCount: 0,
+			doneCount: 0,
 			dueDate: null,
 			priority: null,
 			blockedBy: [],
@@ -485,6 +507,8 @@ describe("toNode", () => {
 				participantIds: ["uid-a"],
 				visibility: "private",
 				columns: [...simpleColumns],
+				childCount: 5,
+				doneCount: 2,
 				dueDate: "2026-09-30",
 				priority: "high",
 				blockedBy: ["scaffolding"],
@@ -516,6 +540,8 @@ describe("toNode", () => {
 				participantIds: ["uid-a"],
 				visibility: "private",
 				columns: [...simpleColumns],
+				childCount: 5,
+				doneCount: 2,
 				dueDate: "2026-09-30",
 				priority: "high",
 				blockedBy: ["scaffolding"],
@@ -534,6 +560,30 @@ describe("toNode", () => {
 				createdBy: "",
 			}),
 		);
+	});
+
+	/**
+	 * The rules check `is int` and nothing more — bounding `doneCount` there
+	 * would fail a *delete* on an offline race — so a counter arrives unbounded
+	 * and is clamped here, where the worst it can do is draw a chevron.
+	 */
+	it("clamps a counter that has drifted below zero", () => {
+		const result = toNode(
+			snapshot("node-9", { childCount: -2, doneCount: -1 }),
+		);
+
+		expect(result.childCount).toBe(0);
+		expect(result.doneCount).toBe(0);
+	});
+
+	it("reads a counter that is missing or not a number as none", () => {
+		const result = toNode(
+			snapshot("node-9", { childCount: "3", doneCount: null }),
+		);
+
+		expect(result.childCount).toBe(0);
+		expect(result.doneCount).toBe(0);
+		expect(toNode(snapshot("node-9", {})).childCount).toBe(0);
 	});
 
 	/**

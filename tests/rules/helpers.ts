@@ -148,6 +148,8 @@ export function nodeDoc(
 			"review",
 			"done",
 		],
+		childCount: 0,
+		doneCount: 0,
 		dueDate: null,
 		priority: null,
 		blockedBy: [],
