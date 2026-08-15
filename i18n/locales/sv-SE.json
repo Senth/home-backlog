@@ -140,6 +140,10 @@
 		"deleteTitle": "Ta bort kortet?",
 		"deleteBody": "Kortet och allt som ligger under det tas bort. Det går inte att ångra.",
 		"offlineHint": "Kräver anslutning",
+		"details": "Detaljer…",
+		"steps": "{{done}}/{{total}}",
+		"dueLate": "{{elapsed}} sen",
+		"dueSoon": "{{elapsed}}",
 		"gone": "Kortet finns inte längre.",
 		"crumbHidden": "Dolt",
 		"trail": "Var du är"
@@ -153,6 +157,11 @@
 		"notes": "Anteckningar",
 		"saved": "Sparat {{time}}",
 		"notesPlaceholder": "Något värt att minnas",
+		"steps": "Steg",
+		"stepsNone": "Inga steg ännu",
+		"stepsDone": "{{done}} av {{total}} klara",
+		"addStep": "Lägg till steg",
+		"openBoard": "Öppna tavla",
 		"clear": "Rensa"
 	},
 	"priority": {

@@ -140,6 +140,10 @@
 		"deleteTitle": "Delete this card?",
 		"deleteBody": "The card and everything under it is deleted. This cannot be undone.",
 		"offlineHint": "Needs a connection",
+		"details": "Details…",
+		"steps": "{{done}}/{{total}}",
+		"dueLate": "{{elapsed}} late",
+		"dueSoon": "{{elapsed}}",
 		"gone": "That card is gone.",
 		"crumbHidden": "Hidden",
 		"trail": "Where you are"
@@ -153,6 +157,11 @@
 		"notes": "Notes",
 		"saved": "Saved {{time}}",
 		"notesPlaceholder": "Anything worth remembering",
+		"steps": "Steps",
+		"stepsNone": "No steps yet",
+		"stepsDone": "{{done}} of {{total}} done",
+		"addStep": "Add step",
+		"openBoard": "Open board",
 		"clear": "Clear"
 	},
 	"priority": {

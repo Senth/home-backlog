@@ -8,6 +8,7 @@ import {
 	completionChange,
 	doneChange,
 	fullColumns,
+	hasDetails,
 	hasSteps,
 	mergeNodeResults,
 	movedAncestorIds,
@@ -294,6 +295,30 @@ describe("hasSteps", () => {
 	 */
 	it("does not become true on a counter that has drifted below zero", () => {
 		expect(hasSteps(node({ childCount: -3 }))).toBe(false);
+	});
+});
+
+describe("hasDetails", () => {
+	it("is false for a card nobody has filled anything in on", () => {
+		expect(hasDetails(node())).toBe(false);
+		expect(hasDetails(node({ notes: "" }))).toBe(false);
+	});
+
+	it.each([
+		["a due date", { dueDate: "2026-09-30" }],
+		["a priority", { priority: "high" as const }],
+		["an effort", { effort: "evening" as const }],
+		["a note", { notes: "Ladder is in the shed" }],
+	])("is true for a card with %s", (_label, overrides) => {
+		expect(hasDetails(node(overrides))).toBe(true);
+	});
+
+	/**
+	 * Steps are deliberately not counted. They have a chevron of their own, and
+	 * the mark exists for the four fields that have no other way of being seen.
+	 */
+	it("does not count steps", () => {
+		expect(hasDetails(node({ childCount: 3, doneCount: 1 }))).toBe(false);
 	});
 });
 

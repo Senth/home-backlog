@@ -71,6 +71,11 @@ export const size = {
 	 * columns is a board you scroll to use.
 	 */
 	boardColumn: 300,
+	/**
+	 * The mark on an app-bar action that has something behind it. Small enough to
+	 * read as a mark rather than a badge, large enough to survive a dark theme.
+	 */
+	dot: 8,
 } as const;
 
 /**

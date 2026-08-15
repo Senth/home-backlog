@@ -37,6 +37,11 @@ interface CardMenuProps {
 	/** Every card on this board, in `(rank, id)` order. */
 	nodes: Node[];
 	onNotice: (notice: Notice) => void;
+	/**
+	 * Opening the card's details. Here as well as on the tap, because a card that
+	 * *is* a board takes the tap to drill into — so this is the only way in.
+	 */
+	onDetails: () => void;
 }
 
 type Page = "root" | "move" | "position" | "under";
@@ -64,6 +69,7 @@ export function CardMenu({
 	columns,
 	nodes,
 	onNotice,
+	onDetails,
 }: CardMenuProps) {
 	const { t } = useTranslation();
 	const { user } = useAuth();
@@ -222,6 +228,14 @@ export function CardMenu({
 			>
 				{page === "root" ? (
 					<>
+						<Menu.Item
+							leadingIcon="information-outline"
+							title={t("board.details")}
+							onPress={() => {
+								close();
+								onDetails();
+							}}
+						/>
 						<Menu.Item
 							leadingIcon="arrow-right-bold-outline"
 							title={t("board.moveTo")}

@@ -9,6 +9,7 @@ import { boardHref, goneHref } from "@/components/board/board-href";
 import { ChoiceField } from "@/components/node/ChoiceField";
 import { DueDateField } from "@/components/node/DueDateField";
 import { NotesField } from "@/components/node/NotesField";
+import { StepsSection } from "@/components/node/StepsSection";
 import { useHome } from "@/contexts/HomeContext";
 import { type NodeChanges, updateNode } from "@/data/nodes";
 import { useNode } from "@/hooks/use-node";
@@ -141,6 +142,14 @@ export default function NodeDetails() {
 						stored={node.notes}
 						onSave={(notes) => save({ notes })}
 					/>
+
+					{homeId === null ? null : (
+						<StepsSection
+							homeId={homeId}
+							node={node}
+							onOpenBoard={() => router.push(boardHref(node.id))}
+						/>
+					)}
 				</ScrollView>
 			)}
 

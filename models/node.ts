@@ -190,6 +190,23 @@ export function hasSteps(node: Node): boolean {
 }
 
 /**
+ * Whether opening a card's details would show anything at all.
+ *
+ * What the mark on the board's own details action is for: without it, opening
+ * them is a lottery rather than a decision, and the answer is usually "nothing".
+ * Steps are deliberately not counted — they have a chevron of their own, and the
+ * mark is about the four fields that have no other way of being seen.
+ */
+export function hasDetails(node: Node): boolean {
+	return (
+		node.dueDate !== null ||
+		node.priority !== null ||
+		node.effort !== null ||
+		node.notes.length > 0
+	);
+}
+
+/**
  * How a *parent's* two counters move. Zero means the field is not written at
  * all, so a write that changes nothing costs nothing.
  */
