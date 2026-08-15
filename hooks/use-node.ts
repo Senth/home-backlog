@@ -51,6 +51,14 @@ export function useNode(
 
 		return onSnapshot(
 			nodeRef(homeId, nodeId),
+			// `includeMetadataChanges` is what makes the hold below releasable. A
+			// document that is missing in the cache *and* missing on the server
+			// never changes, so the server's confirmation is a metadata-only event
+			// — and Firestore suppresses those by default. Without this, a card
+			// deleted in this session and then opened by URL sat on a spinner for
+			// ever: the cache said "not there", the hold waited for a server answer
+			// that was never going to be delivered.
+			{ includeMetadataChanges: true },
 			(snapshot) => {
 				// "Not in the cache" is not "not there". Offline, a document that was
 				// never opened while online resolves immediately as missing — a shared
