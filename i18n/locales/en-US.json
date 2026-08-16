@@ -115,6 +115,7 @@
 		"root": "Projects",
 		"up": "Up one level",
 		"empty": "Nothing here yet. Add the first card.",
+		"allHidden": "Everything here is somebody's own project. Turn on \"Show everyone's projects\" to see them.",
 		"columnEmpty": "Nothing here",
 		"addTo": "Add to {{column}}",
 		"newCard": "New card",
@@ -149,6 +150,7 @@
 		"trail": "Where you are",
 		"hidden": "Hidden",
 		"assignedTo": "{{names}} is doing this",
+		"boardActions": "Board actions",
 		"showEveryone": "Show everyone's projects"
 	},
 	"visibility": {

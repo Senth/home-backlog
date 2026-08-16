@@ -61,6 +61,9 @@ export const contentWidth = {
  * and login screens.
  */
 export const size = {
+	/** On a card face, beside a title — a mark that somebody is on it, not a
+	 *  portrait. Any larger and a row of three outweighs the title itself. */
+	avatarXs: 24,
 	avatarSm: 32,
 	avatarMd: 48,
 	brandMark: 96,

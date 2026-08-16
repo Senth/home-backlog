@@ -28,6 +28,13 @@ interface BoardProps {
 	columns: readonly Status[];
 	nodes: Node[];
 	loading: boolean;
+	/**
+	 * How many cards the default-hide filter is holding back. Only the empty
+	 * state needs it: a board whose every card is somebody else's personal
+	 * project is not a board with nothing on it, and saying "add the first card"
+	 * there is a lie with a toggle sitting two taps away that would disprove it.
+	 */
+	hiddenCount?: number;
 }
 
 /**
@@ -54,7 +61,14 @@ interface BoardProps {
  * remembers, and a board that opens somewhere unexpected reads as the wrong
  * board.
  */
-export function Board({ homeId, parent, columns, nodes, loading }: BoardProps) {
+export function Board({
+	homeId,
+	parent,
+	columns,
+	nodes,
+	loading,
+	hiddenCount = 0,
+}: BoardProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const router = useRouter();
@@ -151,7 +165,7 @@ export function Board({ homeId, parent, columns, nodes, loading }: BoardProps) {
 						paddingBottom: space.md,
 					}}
 				>
-					{t("board.empty")}
+					{t(hiddenCount > 0 ? "board.allHidden" : "board.empty")}
 				</Text>
 			) : null}
 

@@ -6,6 +6,7 @@ import { View } from "react-native";
 import { ActivityIndicator, Appbar, Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
+import { BoardMenu } from "@/components/board/BoardMenu";
 import { Breadcrumbs } from "@/components/board/Breadcrumbs";
 import {
 	boardHref,
@@ -17,6 +18,7 @@ import { useAncestors } from "@/hooks/use-ancestors";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useNode } from "@/hooks/use-node";
 import { useNodes } from "@/hooks/use-nodes";
+import { useParticipantFilter } from "@/hooks/use-participant-filter";
 import { hasDetails } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { radius, size, space } from "@/theme/tokens";
@@ -53,6 +55,14 @@ export default function NodeBoard() {
 	const { node, gone } = useNode(homeId, board);
 	const { nodes, loading } = useNodes(homeId, board);
 	const { crumbs } = useAncestors(homeId, node?.ancestorIds ?? noAncestors);
+	const filtered = useParticipantFilter(nodes);
+
+	// The predicate is uniform at every depth and *bites* only where participants
+	// exist, which is roots — a shared descendant carries none, and a private one
+	// carries the root's, which include me or I could not have read it. So the
+	// menu is usually absent down here, and present when it is not.
+	const members = Object.keys(activeHome?.members ?? {}).length;
+	const canFilter = filtered.hiddenCount > 0 || members > 1;
 
 	// Where "up" is once the card itself has stopped existing. Remembered while
 	// it still does, because a deleted card cannot say who its parent was.
@@ -125,6 +135,12 @@ export default function NodeBoard() {
 						) : null}
 					</View>
 				)}
+				{canFilter ? (
+					<BoardMenu
+						showEveryone={filtered.showEveryone}
+						onShowEveryone={filtered.setShowEveryone}
+					/>
+				) : null}
 				<AccountMenu />
 			</Appbar.Header>
 
@@ -145,8 +161,9 @@ export default function NodeBoard() {
 					homeId={homeId}
 					parent={node}
 					columns={node.columns}
-					nodes={nodes}
+					nodes={filtered.nodes}
 					loading={loading}
+					hiddenCount={filtered.hiddenCount}
 				/>
 			) : (
 				<ActivityIndicator

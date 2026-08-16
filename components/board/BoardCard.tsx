@@ -3,10 +3,13 @@ import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Card, Icon, Text } from "react-native-paper";
 import { MetaChip } from "@/components/board/MetaChip";
+import { PersonAvatar } from "@/components/ui/PersonAvatar";
+import { useHome } from "@/contexts/HomeContext";
+import { formatList } from "@/i18n/format-list";
 import { dueState, formatDueElapsed } from "@/models/due-date";
 import { hasSteps, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { icon, space, touchTarget } from "@/theme/tokens";
+import { icon, size, space, touchTarget } from "@/theme/tokens";
 
 interface BoardCardProps {
 	node: Node;
@@ -52,15 +55,38 @@ interface BoardCardProps {
  *
  * A card with nothing set is exactly the card that shipped before, minus the
  * chevron.
+ *
+ * Two more marks, both only when set, the same rule the due chip follows:
+ *
+ * - **who is doing it**, as small avatars. "Is this mine, or is he asking me?"
+ *   is otherwise answered only on the detail screen, and the phone-only member
+ *   never opens the detail screen.
+ * - **a *Hidden* chip** on a private card, beside priority and effort. It stays
+ *   a `MetaChip` — deliberately not a control — which is what keeps a screen
+ *   reader from announcing every private card as "dimmed".
+ *
+ * Neither costs a read: `memberProfiles` is already on `activeHome`.
  */
 export function BoardCard({ node, onOpen, menu }: BoardCardProps) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
+	const { activeHome } = useHome();
 
 	const steps = hasSteps(node);
 	const due = dueState(node.dueDate, new Date());
 	const late = due === "late";
 	const showDue = node.dueDate !== null && (late || due === "soon");
+	const isPrivate = node.visibility === "private";
+
+	// A member who has left the home has no profile left, and is still assigned:
+	// the row says *Someone* rather than dropping them, the same way the members
+	// list does.
+	const assignees = node.assigneeIds.map((uid) => ({
+		uid,
+		name:
+			activeHome?.memberProfiles?.[uid]?.displayName || t("members.unknown"),
+		photoURL: activeHome?.memberProfiles?.[uid]?.photoURL ?? null,
+	}));
 
 	return (
 		<Card
@@ -84,7 +110,40 @@ export function BoardCard({ node, onOpen, menu }: BoardCardProps) {
 				<View style={{ flex: 1, gap: space.xs }}>
 					<Text variant="bodyLarge">{node.title}</Text>
 
-					{node.priority !== null || node.effort !== null || showDue ? (
+					{/* One label for the row rather than one per face: a screen reader
+					    reading "M W, N A" learns nothing, and the initials are a visual
+					    shorthand rather than a name. */}
+					{assignees.length === 0 ? null : (
+						<View
+							accessible
+							accessibilityLabel={t("board.assignedTo", {
+								names: formatList(
+									assignees.map((assignee) => assignee.name),
+									i18n.language,
+								),
+							})}
+							style={{
+								flexDirection: "row",
+								flexWrap: "wrap",
+								alignItems: "center",
+								gap: space.xs,
+							}}
+						>
+							{assignees.map((assignee) => (
+								<PersonAvatar
+									key={assignee.uid}
+									name={assignee.name}
+									photoURL={assignee.photoURL}
+									px={size.avatarXs}
+								/>
+							))}
+						</View>
+					)}
+
+					{node.priority !== null ||
+					node.effort !== null ||
+					showDue ||
+					isPrivate ? (
 						<View
 							style={{
 								flexDirection: "row",
@@ -93,6 +152,11 @@ export function BoardCard({ node, onOpen, menu }: BoardCardProps) {
 								gap: space.xs,
 							}}
 						>
+							{isPrivate ? (
+								<MetaChip source="eye-off-outline">
+									{t("board.hidden")}
+								</MetaChip>
+							) : null}
 							{node.priority === null ? null : (
 								<MetaChip>{t(`priority.${node.priority}`)}</MetaChip>
 							)}

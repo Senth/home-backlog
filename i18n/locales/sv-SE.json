@@ -115,6 +115,7 @@
 		"root": "Projekt",
 		"up": "En nivå upp",
 		"empty": "Inget här ännu. Lägg till första kortet.",
+		"allHidden": "Allt här är någons eget projekt. Slå på ”Visa allas projekt” för att se dem.",
 		"columnEmpty": "Inget här",
 		"addTo": "Lägg till i {{column}}",
 		"newCard": "Nytt kort",
@@ -149,6 +150,7 @@
 		"trail": "Var du är",
 		"hidden": "Dold",
 		"assignedTo": "{{names}} gör det här",
+		"boardActions": "Tavlans åtgärder",
 		"showEveryone": "Visa allas projekt"
 	},
 	"visibility": {

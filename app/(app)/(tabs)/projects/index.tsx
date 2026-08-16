@@ -4,10 +4,12 @@ import { View } from "react-native";
 import { Appbar, Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
+import { BoardMenu } from "@/components/board/BoardMenu";
 import { InstallCard } from "@/components/ui/InstallCard";
 import { useHome } from "@/contexts/HomeContext";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useNodes } from "@/hooks/use-nodes";
+import { useParticipantFilter } from "@/hooks/use-participant-filter";
 import { rootColumns } from "@/models/node";
 import { useAppTheme } from "@/theme";
 
@@ -33,6 +35,13 @@ export default function Projects() {
 
 	const homeId = activeHome?.id ?? null;
 	const { nodes, loading } = useNodes(homeId, null);
+	const board = useParticipantFilter(nodes);
+
+	// The menu carries one item, so it appears where that item has something to
+	// do: a household of one has nobody else's projects to hide, and a board with
+	// nothing hidden on it should not grow a control that changes nothing.
+	const members = Object.keys(activeHome?.members ?? {}).length;
+	const canFilter = board.hiddenCount > 0 || members > 1;
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -42,6 +51,12 @@ export default function Projects() {
 					onPress={() => router.push("/homes")}
 				/>
 				<Appbar.Content title={activeHome?.name ?? ""} />
+				{canFilter ? (
+					<BoardMenu
+						showEveryone={board.showEveryone}
+						onShowEveryone={board.setShowEveryone}
+					/>
+				) : null}
 				<AccountMenu />
 			</Appbar.Header>
 
@@ -52,8 +67,9 @@ export default function Projects() {
 					homeId={homeId}
 					parent={null}
 					columns={rootColumns}
-					nodes={nodes}
+					nodes={board.nodes}
 					loading={loading}
+					hiddenCount={board.hiddenCount}
 				/>
 			) : null}
 
