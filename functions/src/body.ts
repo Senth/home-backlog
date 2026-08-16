@@ -94,7 +94,8 @@ function refuse(code: string, message: string, field: string): never {
 	throw new ApiError(400, code, message, [{ field, code, message }]);
 }
 
-function asObject(body: unknown): Record<string, unknown> {
+/** A request body, or the one 400 that says it has to be an object. */
+export function asObject(body: unknown): Record<string, unknown> {
 	if (body === null || typeof body !== "object" || Array.isArray(body)) {
 		throw new ApiError(
 			400,
@@ -150,14 +151,22 @@ function asEnum<T extends string>(
  * `visibility` decides a root's participants — are type-checked here. Everything
  * else is checked by `validateNode` against the assembled document, so that one
  * function states every bound and the two cannot disagree.
+ *
+ * `alsoAllow` is for a caller that owns fields of its own on the same object: a
+ * bulk payload's nodes carry `ref` and `parentRef`, which mean nothing to a node
+ * document and everything to the request they arrive in. They are permitted here
+ * and read by the bulk planner, rather than making the allow-list a lie.
  */
 export function parseNodeBody(
 	body: unknown,
 	mode: "create" | "update",
+	alsoAllow: readonly string[] = [],
 ): NodeBody {
 	const raw = asObject(body);
-	const allowed: readonly string[] =
-		mode === "create" ? createFields : updateFields;
+	const allowed: readonly string[] = [
+		...(mode === "create" ? createFields : updateFields),
+		...alsoAllow,
+	];
 
 	for (const field of Object.keys(raw)) {
 		if (allowed.includes(field)) continue;

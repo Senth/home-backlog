@@ -160,6 +160,18 @@ decidable before writing. What it buys instead is the orphan.
 After validation the only remaining failure is the commit itself, which fails whole and
 writes nothing.
 
+There are two passes, not one, and the difference shows: reading the payload (is this a
+node-shaped object, does it have a `ref`, does it name a field this endpoint writes) happens
+before planning it (does its `parentRef` resolve, is its title within bounds, is its status
+in the board's columns). Each pass reports **all** of its own failures at once, so a payload
+that is malformed *and* invalid takes two round trips. Merging them would mean planning a
+tree out of nodes that could not be read, which is where an orphan would come from.
+
+The cap is `500 − 2` nodes rather than 500: one write in the batch is the attach parent's
+counters and one is the replay record, and both ride along deliberately — a replay record
+written separately could fail on its own, and an agent that retried would then write the
+whole subtree a second time.
+
 ### The server assigns node ids; the payload uses local refs
 
 Nodes in a bulk payload reference each other by a caller-chosen `ref` string, valid only
