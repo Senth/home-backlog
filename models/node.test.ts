@@ -796,6 +796,64 @@ describe("flipPlan", () => {
 		expect(flipPlan(already, [], "private", "uid-a")).toEqual([]);
 	});
 
+	/**
+	 * Changing who is in on an *already private* project: the visibility is not
+	 * moving, so the participants are the only thing that is — and the whole
+	 * subtree has to follow, because the rules require every descendant to carry
+	 * all of its parent's participants.
+	 *
+	 * The regression this pins: measuring the skip against a `root` doctored to
+	 * carry the new list made the root look already-correct, so the plan came
+	 * back empty and the checkbox silently did nothing.
+	 */
+	it("plans a participants change on a project that is already private", () => {
+		const privateRoot = node({
+			id: "garage",
+			visibility: "private",
+			participantIds: ["uid-a"],
+		});
+		const privateTask = node({
+			id: "tiles",
+			parentId: "garage",
+			ancestorIds: ["garage"],
+			visibility: "private",
+			participantIds: ["uid-a"],
+		});
+
+		expect(
+			flipPlan(privateRoot, [privateTask], "private", "uid-a", [
+				"uid-a",
+				"uid-b",
+			]),
+		).toEqual([
+			{
+				id: "garage",
+				visibility: "private",
+				participantIds: ["uid-a", "uid-b"],
+			},
+			{
+				id: "tiles",
+				visibility: "private",
+				participantIds: ["uid-a", "uid-b"],
+			},
+		]);
+	});
+
+	it("keeps the actor in even when the desired list leaves them out", () => {
+		// The rules refuse a private document whose author could not read it back,
+		// so this is a bare permission error avoided rather than a lockout defended
+		// against.
+		const plan = flipPlan(
+			node({ id: "garage", visibility: "private", participantIds: ["uid-a"] }),
+			[],
+			"private",
+			"uid-a",
+			["uid-b"],
+		);
+
+		expect(plan[0]?.participantIds).toEqual(["uid-a", "uid-b"]);
+	});
+
 	it("ignores the root arriving in the descendant list as well", () => {
 		// `subtreeOf()` filters on `ancestorIds`, so it never returns the node
 		// itself — but the plan is what stops a duplicate write if it ever did.

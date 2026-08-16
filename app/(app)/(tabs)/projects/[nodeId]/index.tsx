@@ -59,8 +59,9 @@ export default function NodeBoard() {
 
 	// The predicate is uniform at every depth and *bites* only where participants
 	// exist, which is roots — a shared descendant carries none, and a private one
-	// carries the root's, which include me or I could not have read it. So the
-	// menu is usually absent down here, and present when it is not.
+	// carries the root's, which include me or I could not have read it. So on a
+	// drill-down board the menu is offered rather than needed, and in a household
+	// of one it is neither.
 	const members = Object.keys(activeHome?.members ?? {}).length;
 	const canFilter = filtered.hiddenCount > 0 || members > 1;
 

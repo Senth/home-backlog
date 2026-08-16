@@ -645,17 +645,26 @@ export interface VisibilityWrite {
  * yourself out is refused, and the answer is to write yourself in rather than to
  * defend against a lockout that cannot happen. Going shared, the root *keeps* its
  * list, which becomes "whose project" again, and descendants drop to `[]`.
+ *
+ * `desired` is what the root's participants should *become*, and it defaults to
+ * what they already are. It is a separate argument rather than a doctored `root`
+ * because `root` is also what every skip is measured against: handing in a copy
+ * carrying the new list would make the root look already-correct and drop it from
+ * its own plan — which is exactly what changing who is in on an *already private*
+ * project does, where the visibility is not moving and the participants are the
+ * only thing that is.
  */
 export function flipPlan(
 	root: Node,
 	descendants: readonly Node[],
 	target: Visibility,
 	uid: string,
+	desired: readonly string[] = root.participantIds,
 ): VisibilityWrite[] {
 	const participants =
 		target === "private"
-			? [uid, ...root.participantIds.filter((id) => id !== uid)]
-			: [...root.participantIds];
+			? [uid, ...desired.filter((id) => id !== uid)]
+			: [...desired];
 
 	const ordered = [root, ...descendants.filter((node) => node.id !== root.id)]
 		.slice()

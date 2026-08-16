@@ -117,6 +117,7 @@ export function BoardCard({ node, onOpen, menu }: BoardCardProps) {
 						<View
 							accessible
 							accessibilityLabel={t("board.assignedTo", {
+								count: assignees.length,
 								names: formatList(
 									assignees.map((assignee) => assignee.name),
 									i18n.language,

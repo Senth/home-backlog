@@ -8,6 +8,7 @@ import { AccountMenu } from "@/components/auth/AccountMenu";
 import { boardHref, goneHref } from "@/components/board/board-href";
 import { ChoiceField } from "@/components/node/ChoiceField";
 import { DueDateField } from "@/components/node/DueDateField";
+import { FlipDialog, useFlip } from "@/components/node/FlipDialog";
 import { NotesField } from "@/components/node/NotesField";
 import { PeopleSection } from "@/components/node/PeopleSection";
 import { StepsSection } from "@/components/node/StepsSection";
@@ -15,14 +16,11 @@ import { VisibilityField } from "@/components/node/VisibilityField";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { type NodeChanges, updateNode } from "@/data/nodes";
-import { useAncestors } from "@/hooks/use-ancestors";
 import { useNode } from "@/hooks/use-node";
 import { membersOf } from "@/models/home";
-import { efforts, priorities } from "@/models/node";
+import { efforts, priorities, rootIdOf } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { contentWidth, space } from "@/theme/tokens";
-
-const noAncestors: string[] = [];
 
 /**
  * Everything about one card that is not its title: its due date, priority,
@@ -57,24 +55,25 @@ export default function NodeDetails() {
 	 * The root of this card's subtree, which is what carries the participants
 	 * both people-controls are built from.
 	 *
-	 * The same hook the breadcrumbs use, memoized per session and per uid — so a
-	 * detail screen opened from a board that has already been drawn adds **no
-	 * read**. A node that is itself a root skips it entirely.
+	 * A **listener**, not the breadcrumb memo. `useAncestors` was built to resolve
+	 * crumb *titles* and never invalidates within a session, which is exactly what
+	 * a title wants and exactly wrong here: participants edited on the project
+	 * would leave a step's assignee list narrowed to the old set, and the
+	 * "Only people in X are shown" and stale-assignee sentences saying something
+	 * untrue until a reload. One more single-document listener, constrained and
+	 * torn down with the screen.
+	 *
+	 * A node that is itself a root subscribes to nothing — `useNode` already
+	 * holds that document, and pointing a second listener at it would pay twice
+	 * for one answer.
 	 */
-	const { crumbs } = useAncestors(
-		homeId,
-		node === null || node.parentId === null
-			? noAncestors
-			: node.ancestorIds.slice(0, 1),
-	);
-	const root =
-		node === null
-			? null
-			: node.parentId === null
-				? node
-				: (crumbs[0]?.node ?? null);
+	const rootId =
+		node === null || node.parentId === null ? null : rootIdOf(node);
+	const { node: ancestorRoot } = useNode(homeId, rootId);
+	const root = node === null ? null : rootId === null ? node : ancestorRoot;
 
 	const members = activeHome === null ? [] : membersOf(activeHome);
+	const flip = useFlip(homeId ?? "");
 
 	const [failed, setFailed] = useState(false);
 
@@ -203,17 +202,23 @@ export default function NodeDetails() {
 								members={members}
 								onSave={save}
 								onError={() => setFailed(true)}
+								flip={flip}
 							/>
 
 							{node.parentId === null &&
 							(members.length > 1 || node.visibility === "private") ? (
 								<VisibilityField
-									homeId={homeId}
 									node={node}
 									members={members}
 									uid={user.uid}
+									flip={flip}
 								/>
 							) : null}
+
+							{/* One dialog for both controls: a private project's
+							    participants are the same top-down subtree write the flip
+							    is, and only one of them can be running. */}
+							<FlipDialog state={flip} uid={user.uid} />
 						</>
 					)}
 

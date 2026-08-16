@@ -505,8 +505,19 @@ export async function flipVisibility(
 	node: Node,
 	target: Visibility,
 	uid: string,
-	onProgress?: (progress: FlipProgress) => void,
+	options: {
+		/**
+		 * What the root's participants should become. Defaults to what they are —
+		 * an ordinary visibility flip does not change who is in on a project. The
+		 * other caller is the participants control on an *already private* root,
+		 * where the list is the ACL and every descendant has to carry it.
+		 */
+		participantIds?: readonly string[];
+		onProgress?: (progress: FlipProgress) => void;
+	} = {},
 ): Promise<void> {
+	const { participantIds, onProgress } = options;
+
 	// Visibility is a question about a *project*. A descendant written away from
 	// its parent's value is refused by `inheritsFrom`, so this would be a bare
 	// permission error rather than a partial flip.
@@ -515,7 +526,7 @@ export async function flipVisibility(
 	}
 
 	const descendants = (await subtreeOf(homeId, node, uid)).map(toNode);
-	const plan = flipPlan(node, descendants, target, uid);
+	const plan = flipPlan(node, descendants, target, uid, participantIds);
 
 	let done = 0;
 	onProgress?.({ done, total: plan.length });
@@ -580,6 +591,16 @@ export async function reparentNode(
 		parentId: parent?.id ?? null,
 		ancestorIds,
 		rank,
+		// Participants are a question about a *project*, and the control that
+		// edits them is root-only. A shared root that becomes a step keeps them
+		// otherwise, and the board's default-hide filter is uniform at every
+		// depth — so the step would stay hidden from everyone not on it, with no
+		// control anywhere able to clear it short of moving it back to the top.
+		// A private node must keep its list: the rules require every descendant
+		// to carry all of its parent's participants.
+		...(parent !== null && node.visibility === "shared"
+			? { participantIds: [] }
+			: {}),
 		updatedAt: serverTimestamp(),
 	});
 	// The node leaves one board and arrives on another. Either end may be the

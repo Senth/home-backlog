@@ -3,14 +3,10 @@ import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Button, Text } from "react-native-paper";
 import { detailsHref } from "@/components/board/board-href";
+import type { FlipState } from "@/components/node/FlipDialog";
 import { PeopleField } from "@/components/node/PeopleField";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-	boardOnce,
-	flipVisibility,
-	type NodeChanges,
-	reparentNode,
-} from "@/data/nodes";
+import { boardOnce, type NodeChanges, reparentNode } from "@/data/nodes";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import type { Member } from "@/models/home";
 import {
@@ -29,12 +25,14 @@ interface PeopleSectionProps {
 	node: Node;
 	/**
 	 * The root of this node's subtree — the node itself when it is one, and
-	 * `null` while the one `useAncestors` read is still in flight.
+	 * `null` while its listener is still resolving.
 	 */
 	root: Node | null;
 	members: readonly Member[];
 	onSave: (changes: NodeChanges) => void;
 	onError: () => void;
+	/** Shared with the visibility control: one subtree write runs at a time. */
+	flip: FlipState;
 }
 
 /**
@@ -62,6 +60,7 @@ export function PeopleSection({
 	members,
 	onSave,
 	onError,
+	flip,
 }: PeopleSectionProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
@@ -93,10 +92,14 @@ export function PeopleSection({
 	 * require every descendant to carry all of its parent's participants — so a
 	 * plain update here would hand somebody a project whose steps they still could
 	 * not read, and an empty board is the worst possible answer to "you have been
-	 * let in". It goes through the same top-down machinery as the visibility flip
-	 * instead, which is idempotent, so a failure is fixed by ticking the box
-	 * again. Private projects are small by construction; the root write lands
-	 * first and the listener ticks the box immediately.
+	 * let in". It runs through the same top-down machinery as the visibility flip
+	 * instead: *n* server-checked writes, a dialog that holds the screen, and a
+	 * *Try again* that re-reads and finishes.
+	 *
+	 * The retry has to come from that dialog rather than from ticking the box
+	 * again, and this is why: the root is written first, so after a half-finished
+	 * run `node.participantIds` already names the new person — and ticking their
+	 * box a second time would take them back off.
 	 */
 	const saveParticipants = (participantIds: string[]) => {
 		if (uid === null) return;
@@ -112,15 +115,18 @@ export function PeopleSection({
 			? participantIds
 			: [uid, ...participantIds];
 
-		flipVisibility(
-			homeId,
-			{ ...node, participantIds: next },
-			"private",
+		// The node itself, unmodified — the plan measures every skip against what
+		// is *stored*, so handing it a copy carrying the new list would make the
+		// root look already-correct and write nothing at all.
+		flip.run(
+			{
+				node,
+				target: "private",
+				participantIds: next,
+				title: t("detail.participantsPrivate"),
+			},
 			uid,
-		).catch((reason) => {
-			console.error("Could not change who is in on this project:", reason);
-			onError();
-		});
+		);
 	};
 
 	/**
@@ -160,6 +166,16 @@ export function PeopleSection({
 					value={node.participantIds}
 					onChange={saveParticipants}
 					unknownLabel={t("members.unknown")}
+					// On a private project you are the one person who cannot come off
+					// it: `allow update` requires `visibleToMe(request.resource.data)`,
+					// so the write is refused, and a checkbox that silently refuses is
+					// the failure this whole control was rebuilt to avoid.
+					lockedUid={isPrivate ? (uid ?? undefined) : undefined}
+					lockedHint={t("detail.participantsYouStay")}
+					// Only the private path needs a connection — it is n
+					// server-checked writes. The shared one queues like any edit.
+					disabled={isPrivate && !online}
+					disabledHint={t("board.offlineHint")}
 				/>
 			) : null}
 

@@ -12,6 +12,19 @@ interface PeopleFieldProps {
 	onChange: (uids: string[]) => void;
 	/** What to call somebody with no profile yet — `members.unknown`. */
 	unknownLabel: string;
+	/**
+	 * One person who cannot be unticked here, with the reason written under the
+	 * list. That is you, on a private project: `allow update` requires
+	 * `visibleToMe(request.resource.data)`, so the rules refuse the write — and a
+	 * checkbox that silently refuses is the failure this component's own doc
+	 * comment is about.
+	 */
+	lockedUid?: string;
+	lockedHint?: string;
+	/** The whole field, when the write it makes needs a connection. */
+	disabled?: boolean;
+	/** Why it is disabled. Never a greyed control with nothing to say. */
+	disabledHint?: string;
 }
 
 /**
@@ -44,6 +57,10 @@ export function PeopleField({
 	value,
 	onChange,
 	unknownLabel,
+	lockedUid,
+	lockedHint,
+	disabled = false,
+	disabledHint,
 }: PeopleFieldProps) {
 	const theme = useAppTheme();
 
@@ -67,11 +84,13 @@ export function PeopleField({
 				{members.map((member) => {
 					const checked = value.includes(member.uid);
 					const name = member.displayName || unknownLabel;
+					const locked = member.uid === lockedUid;
 
 					return (
 						<TouchableRipple
 							key={member.uid}
 							onPress={() => toggle(member.uid)}
+							disabled={disabled || locked}
 							accessibilityRole="checkbox"
 							// `aria-checked`, not `accessibilityState`. React Native Web
 							// 0.21 dropped the object form — it is not in its forwarded
@@ -96,12 +115,23 @@ export function PeopleField({
 									}
 									size={icon.md}
 									color={
-										checked
-											? theme.colors.primary
-											: theme.colors.onSurfaceVariant
+										disabled || locked
+											? theme.colors.onSurfaceDisabled
+											: checked
+												? theme.colors.primary
+												: theme.colors.onSurfaceVariant
 									}
 								/>
-								<Text variant="bodyLarge" style={{ flexShrink: 1 }}>
+								<Text
+									variant="bodyLarge"
+									style={{
+										flexShrink: 1,
+										color:
+											disabled || locked
+												? theme.colors.onSurfaceDisabled
+												: theme.colors.onSurface,
+									}}
+								>
 									{name}
 								</Text>
 							</View>
@@ -109,6 +139,29 @@ export function PeopleField({
 					);
 				})}
 			</View>
+
+			{/* A greyed row always says why, the way the members list does with its
+			    last-admin note. A control that refuses without a reason teaches
+			    nothing. */}
+			{disabled && disabledHint !== undefined ? (
+				<Hint>{disabledHint}</Hint>
+			) : null}
+			{!disabled &&
+			lockedUid !== undefined &&
+			lockedHint !== undefined &&
+			members.some((member) => member.uid === lockedUid) ? (
+				<Hint>{lockedHint}</Hint>
+			) : null}
 		</View>
+	);
+}
+
+function Hint({ children }: { children: string }) {
+	const theme = useAppTheme();
+
+	return (
+		<Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+			{children}
+		</Text>
 	);
 }
