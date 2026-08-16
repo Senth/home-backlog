@@ -4,8 +4,9 @@ import express, {
 	type Response,
 	Router,
 } from "express";
-import { ApiError, sendError } from "./errors";
-import { apiVersion } from "./version";
+import { requireKey } from "./auth.js";
+import { ApiError, sendError } from "./errors.js";
+import { apiVersion } from "./version.js";
 
 /**
  * The REST surface, as one Express app behind one Cloud Function.
@@ -29,9 +30,17 @@ const maxBodyBytes = "1mb";
 
 export const v1 = Router();
 
+/**
+ * The one unauthenticated route, and it is above `requireKey` for that reason.
+ * A caller with a token that does not work needs somewhere to check that the
+ * deployment is up and which contract version it is serving.
+ */
 v1.get("/health", (_request: Request, response: Response) => {
 	response.json({ status: "ok", version: apiVersion });
 });
+
+// Everything below this line needs a valid API key.
+v1.use(requireKey);
 
 export const app = express();
 

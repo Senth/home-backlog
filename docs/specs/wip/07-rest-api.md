@@ -109,6 +109,36 @@ The other half — the invariant no longer enforced by rules on the path most li
 it — stands, and the flip stays a client-side operation. See
 [§7](#7-what-this-does-not-change).
 
+### The function is its own ESM package, and shares no code with the app
+
+`functions/` is a plain sibling npm package, not a yarn workspace — the root is an Expo app
+whose Metro config, `@/` alias and jest preset all assume they own the tree. Two
+consequences are worth stating, because both were arrived at the expensive way:
+
+**It is ESM.** `fractional-indexing` — the library that generates `rank` — ships as ESM
+only, and a CommonJS function cannot `require` it at all. Re-implementing it was rejected:
+`generateKeyBetween` *validates* the key it is given, so a hand-rolled rank of the wrong
+shape does not sort badly, it makes the **client's** next reorder throw. The price of ESM
+is the `.js` extension on every relative import, and one trap: an ES module's imports are
+evaluated before its own body, so `setGlobalOptions` in `index.ts` runs *after* every
+re-exported function is already defined and they deploy to `us-central1`. Every function
+therefore names `region` explicitly. It fails as a working deployment in the wrong place
+rather than as an error, which is why it is written down.
+
+**Nothing is compiled across the boundary.** Sharing `models/api-key.ts` was tried: under a
+hybrid module kind TypeScript picks a file's format from the nearest `package.json`, and the
+repo root's has no `"type"`, so a shared file emits as CommonJS into an ESM package and Node
+cannot named-import it. The seam turned out to be real anyway — the app never parses,
+formats or hashes a token. It is handed the finished string once by `createApiKey`, shows
+it, and forgets it; the `tail` it renders afterwards is stored. So the token format lives
+wholly in `functions/src/api-key.ts`, next to the only code that verifies it, and
+`models/api-key.ts` keeps the one rule a *screen* enforces: a key is named before its secret
+is revealed. `maxKeyNameLength` is stated on both sides, which is a duplicated bound rather
+than a duplicated implementation.
+
+The mirrored *node* vocabulary in `functions/src/node.ts` is a different matter and is a
+deliberate copy — see below.
+
 ### Validate everything, then commit atomically
 
 A bulk request is validated in full before anything is written. Validation is pure

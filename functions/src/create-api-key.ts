@@ -1,8 +1,14 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { formatToken, keyNameError, tailOf } from "../../models/api-key";
-import { newSecret, secretHash } from "./api-key";
-import { apiKeysCollection, db, usersCollection } from "./firestore";
+import {
+	formatToken,
+	maxKeyNameLength,
+	newSecret,
+	secretHash,
+	tailOf,
+} from "./api-key.js";
+import { apiKeysCollection, db, usersCollection } from "./firestore.js";
+import { region } from "./options.js";
 
 /**
  * Minting a key, as a callable rather than a REST verb.
@@ -19,7 +25,7 @@ import { apiKeysCollection, db, usersCollection } from "./firestore";
  * The plaintext token is returned **once**, here, and is never recoverable
  * afterwards: only its SHA-256 and its last four characters are stored.
  */
-export const createApiKey = onCall(async (request) => {
+export const createApiKey = onCall({ region }, async (request) => {
 	const uid = request.auth?.uid;
 	if (!uid) {
 		throw new HttpsError(
@@ -30,11 +36,15 @@ export const createApiKey = onCall(async (request) => {
 
 	const raw = (request.data as { name?: unknown } | null)?.name;
 	const name = typeof raw === "string" ? raw.trim() : "";
-	// The same check the create dialog runs, and the reason it is here too: the
+	// The same bound the create dialog checks, and the reason it is here too: the
 	// dialog is a courtesy, this is the rule. A key is named before its secret is
 	// revealed, because a key named later is a key never named.
-	const problem = keyNameError(name);
-	if (problem) throw new HttpsError("invalid-argument", problem);
+	if (name.length === 0 || name.length > maxKeyNameLength) {
+		throw new HttpsError(
+			"invalid-argument",
+			`An API key needs a name of 1 to ${maxKeyNameLength} characters.`,
+		);
+	}
 
 	const ref = db
 		.collection(usersCollection)

@@ -1,5 +1,6 @@
 import { onDocumentDeleted } from "firebase-functions/v2/firestore";
-import { apiClientsCollection, db, maxBatchWrites } from "./firestore";
+import { apiClientsCollection, db, maxBatchWrites } from "./firestore.js";
+import { region } from "./options.js";
 
 /**
  * Revoking a key takes its trace out of every home it wrote into.
@@ -21,7 +22,7 @@ import { apiClientsCollection, db, maxBatchWrites } from "./firestore";
  * rather than retried into a loop.
  */
 export const onApiKeyDeleted = onDocumentDeleted(
-	"users/{uid}/apiKeys/{keyId}",
+	{ region, document: "users/{uid}/apiKeys/{keyId}" },
 	async (event) => {
 		const { uid, keyId } = event.params;
 
