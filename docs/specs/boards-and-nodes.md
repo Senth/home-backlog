@@ -598,6 +598,12 @@ than exotic.
 `list` keeps the strict form. A query never matches a document that does not exist, so
 nothing about query safety changes.
 
+And a refusal on `get` is not logged as a failure either, in `useNode` or in `getNode`.
+Both are documented to treat it as the same answer as "not there" — it is what a private
+card somebody else owns looks like, and what an unreadable ancestor looks like to a
+breadcrumb — so console-logging it made an ordinary, expected outcome draw a raw
+`FirebaseError` over the honest message in development. Any other failure keeps its entry.
+
 ### Rules cannot see the rest of a batch, so the invariants are split
 
 A `get()` inside a security rule reads **committed** state. It does not see other writes in
@@ -906,9 +912,16 @@ nobody else's projects to hide, and `hiddenCount` covers the case where a card w
 participants arrives from the REST API into one anyway, where hiding with no way back would
 be a trap.
 
-A board whose *every* card is hidden says so, rather than claiming to be empty. "Nothing
-here yet. Add the first card." with a toggle two taps away that disproves it is the kind of
-lie people stop trusting a screen for.
+**A board that is hiding something says so**, rather than drawing as though the cards were
+not there — whole-board when every card is held back, and per column, which is what a
+compact pane shows one of. Both name the toggle. "Nothing here yet. Add the first card."
+with a control two taps away that disproves it is the kind of lie people stop trusting a
+screen for, and it is the same principle the narrowed assignee list and the stale assignee
+already follow: never a dead end.
+
+The board is handed the hidden cards rather than a count, so each column can speak for
+itself — and `visibleColumns` counts them too, so a held-back card sitting in a status
+outside the frozen set still has a column to be counted in.
 
 *Rejected:* enforcing the hiding in the rules. It is a display preference, not a permission
 — "should still be able to see them" is the requirement, and a rule cannot express "hidden
@@ -1115,6 +1128,53 @@ from, and a word Ingrid has never used.
 | `board.dueSoon` | {{elapsed}} | {{elapsed}} |
 | `board.details` | Details… | Detaljer… |
 
+The people strings are **question-shaped and plain**, the precedent that produced *Att
+göra*, *Klart senast* and *Tidsåtgång*.
+
+*Rejected:* *Deltagare* and *Tilldelad*. The first collides with the existing *Medlemmar*
+for a different set of people in the same home; the second is HR-register Swedish for what
+is meant to read as a question between two people who live together — "Assigned to Nadia"
+is `PERSONAS.md`'s stated quit line rendered as UI.
+
+| Key | `en-US` | `sv-SE` |
+| --- | ------- | ------- |
+| `detail.participants` | Who's in on this? | Vilka är med? |
+| `detail.participantsPrivate` | Who can see this? | Vilka ser det här? |
+| `detail.participantsYouStay` | You cannot take yourself off a private project — you would lose it. | Du kan inte ta bort dig själv från ett privat projekt — då förlorar du det. |
+| `detail.assignees` | Who's doing it? | Vem gör det? |
+| `detail.visibility` | Who can see this project? | Vilka kan se projektet? |
+| `detail.visibilityShared` | Everyone in the home | Alla i hemmet |
+| `detail.visibilityPrivate` | Only the people I choose | Bara de jag väljer |
+| `detail.assigneesNarrowed` | Only people in {{project}} are shown. | Bara de som är med i {{project}} visas. |
+| `detail.assigneesChange` | Change who's in on {{project}} | Ändra vilka som är med i {{project}} |
+| `detail.assigneeStale` | {{name}} is doing this but is no longer in {{project}}. | {{name}} gör det här men är inte med i {{project}} längre. |
+| `detail.assigneeStaleClear` | Remove {{name}} | Ta bort {{name}} |
+| `detail.privateOnlyProjects` | Only a whole project can be kept to yourself, not a step inside one. | Bara ett helt projekt kan hållas för sig, inte ett steg inuti ett. |
+| `detail.privateMoveUp` | Move {{title}} to the top level | Flytta {{title}} högst upp |
+| `board.hidden` | Hidden | Dold |
+| `board.assignedTo` | {{names}} is / are doing this | {{names}} gör det här |
+| `board.showEveryone` | Show everyone's projects | Visa allas projekt |
+| `board.boardActions` | Board actions | Tavlans åtgärder |
+| `board.allHidden` | Everything here is somebody's own project. Turn on "Show everyone's projects" to see them. | Allt här är någons eget projekt. Slå på ”Visa allas projekt” för att se dem. |
+| `board.hiddenHere` | {{count}} more here are somebody's own projects. Turn on "{{action}}" to see them. | {{count}} till här är någons egna projekt. Slå på ”{{action}}” för att se dem. |
+| `visibility.confirmPrivateTitle` | Keep this to yourself? | Hålla det här för dig själv? |
+| `visibility.confirmPrivateBody` | Only {{keeping}} will be able to see {{title}}. | Bara {{keeping}} kommer att se {{title}}. |
+| `visibility.confirmPrivateLosing` | {{names}} will no longer see any of it. | {{names}} kommer inte att se något av det. |
+| `visibility.confirmSharedTitle` | Show this to everyone? | Visa det här för alla? |
+| `visibility.confirmSharedStillHidden` | Anyone will be able to open it, but it stays off the boards of people who are not in on it. | Alla kommer att kunna öppna det, men det syns inte på tavlan för dem som inte är med. |
+| `visibility.progress` | Moving {{done}} of {{total}} | Flyttar {{done}} av {{total}} |
+| `visibility.failed` | {{done}} of {{total}} moved. Try again to finish. | {{done}} av {{total}} flyttade. Försök igen för att bli klar. |
+
+The confirm bodies have an `…All` variant apiece — *and everything in it* / *och allt som
+ligger i det* — used when the project has steps, and `assignedTo`, `hiddenHere` and the
+`…Body` keys carry i18next plurals. `names` and `keeping` are joined with
+`Intl.ListFormat` in `i18n/format-list.ts`, **tried rather than feature-detected** — the
+same discipline `models/due-date.ts` documents, since the whole sentence sits inside a
+dialog that has to open.
+
+`common.closeMenu` / `common.closeDialog` exist because Paper names its own scrim in
+English; see [the traps](#paper-and-react-native-web-traps-this-area-hit).
+
 The effort labels are words, not arithmetic: `<30 min` and `<2 h` are math symbols to a
 71-year-old at 200% text, and the ids stay `quick` / `hours` precisely so re-tuning what
 they mean is a string change rather than a migration. *En kväll*, *en helg* and *flera
@@ -1130,7 +1190,7 @@ lies. The four detail fields live one tap away rather than on the face, and the 
 [#64](https://github.com/Senth/home-backlog/issues/64) archives it and
 [#76](https://github.com/Senth/home-backlog/issues/76) sorts it newest-first.
 
-### Five Paper and React Native Web traps this area hit
+### Paper and React Native Web traps this area hit
 
 Kept because each one is the kind of thing the next person reintroduces:
 
@@ -1153,6 +1213,21 @@ Kept because each one is the kind of thing the next person reintroduces:
   chips keep Paper's `Chip`, where the ripple has a handler. And a chip's border is measured
   *inside* its own height, so `minHeight: touchTarget` leaves the pressable at 46 —
   `outlinedTouchTarget` adds the two hairlines back.
+- **`Checkbox.Item` is the same trap wearing a different label.** It is a `TouchableRipple`
+  wrapping a *second* `Checkbox` that is handed no `onPress`, so the inner one carries
+  `role="checkbox" aria-disabled="true"` — and Paper's `importantForAccessibility` guard
+  does not become `aria-hidden` on React Native Web, so every person in a list was
+  announced twice, the second time as dimmed. `PeopleField` builds the row itself: a plain
+  `Icon` for the mark, the semantics on the row.
+- **`accessibilityState` reaches the DOM as nothing.** React Native Web 0.21 does not
+  forward the object form at all, so a selected priority chip carried no `aria-pressed` and
+  a ticked person no `aria-checked`. The ARIA props (`aria-pressed`, `aria-checked`) are
+  what work, and React Native accepts them too, so this is not a web-only spelling.
+- **Paper names its own scrim, in English, and `Dialog` gives you no way to change it.**
+  `Menu` takes `overlayAccessibilityLabel`; `Dialog` hard-codes its `Modal`'s to "Close
+  modal". A Swedish screen-reader user got that mid-sentence on every dialog in the app.
+  `useModalFocus` already reaches into the portal DOM by `testID`, so it relabels the
+  backdrop there — cheaper and safer than rebuilding `AppDialog` on `Modal` to fix a word.
 
 ## Node detail
 
