@@ -11,7 +11,8 @@
 		"loading": "Loading",
 		"retry": "Try again",
 		"signOut": "Sign out",
-		"undo": "Undo"
+		"undo": "Undo",
+		"done": "Done"
 	},
 	"account": {
 		"label": "Account",
@@ -19,7 +20,34 @@
 		"signOut": {
 			"title": "Sign out?",
 			"body": "You will need to sign in with Google again."
-		}
+		},
+		"automations": "Automations"
+	},
+	"automations": {
+		"title": "Automations",
+		"intro": "An API key lets a program you run add and change work in your homes.",
+		"empty": "Nothing is connected yet.",
+		"create": "New API key",
+		"createAction": "Create",
+		"nameLabel": "What is it for?",
+		"nameHint": "For example: research agent",
+		"nameRequired": "Give it a name first.",
+		"nameTooLong": "Names can be at most 60 characters.",
+		"lastUsed": "Last used {{when}}",
+		"neverUsed": "Never used",
+		"secret": {
+			"title": "Copy the key now",
+			"body": "This is the only time it is shown. If you lose it, revoke it and make a new one."
+		},
+		"copy": "Copy",
+		"copied": "Copied",
+		"revoke": {
+			"action": "Revoke",
+			"title": "Revoke {{name}}?",
+			"body": "The program using this key stops working immediately.",
+			"for": "Revoke {{name}}"
+		},
+		"offlineHint": "You need a connection to create or revoke a key."
 	},
 	"tab": {
 		"projects": "Projects",
@@ -106,7 +134,11 @@
 		"deleteBody": "Every project, location and maintenance task in it is deleted. This cannot be undone.",
 		"deleteConfirm": "Delete",
 		"deleteOnlyAlone": "Remove everyone else first.",
-		"manageNamed": "Manage {{home}}"
+		"manageNamed": "Manage {{home}}",
+		"automations": {
+			"title": "Automations with access",
+			"empty": "No automation has written here."
+		}
 	},
 	"error": {
 		"googleSignIn": "Could not sign in with Google. Please try again.",
@@ -200,7 +232,8 @@
 		"stepsDone": "{{done}} of {{total}} done",
 		"addStep": "Add step",
 		"openBoard": "Open board",
-		"clear": "Clear"
+		"clear": "Clear",
+		"createdViaApi": "Added by an automation"
 	},
 	"priority": {
 		"low": "Low",

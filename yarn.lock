@@ -3715,6 +3715,11 @@ expo-auth-session@~55.0.17:
     expo-web-browser "~55.0.17"
     invariant "^2.2.4"
 
+expo-clipboard@~55.0.15:
+  version "55.0.15"
+  resolved "https://registry.yarnpkg.com/expo-clipboard/-/expo-clipboard-55.0.15.tgz#8ddbc0dfb055672e080be7c9126923ec820ae753"
+  integrity sha512-1TQ5wx3l8WJauFCuvL5NDEnB9VMboi9IUc5XM2/3/wf4sAKwif9TlFkB5GRah1a4U1yqUWJVT9hJa3rUFrHc8g==
+
 expo-constants@~55.0.16, expo-constants@~55.0.17:
   version "55.0.17"
   resolved "https://registry.yarnpkg.com/expo-constants/-/expo-constants-55.0.17.tgz#cf77d27f3b74a46da2cd40ed1785fcc335ded374"

@@ -11,7 +11,8 @@
 		"loading": "Laddar",
 		"retry": "Försök igen",
 		"signOut": "Logga ut",
-		"undo": "Ångra"
+		"undo": "Ångra",
+		"done": "Klar"
 	},
 	"account": {
 		"label": "Konto",
@@ -19,7 +20,34 @@
 		"signOut": {
 			"title": "Logga ut?",
 			"body": "Du behöver logga in med Google igen."
-		}
+		},
+		"automations": "Automationer"
+	},
+	"automations": {
+		"title": "Automationer",
+		"intro": "En API-nyckel låter ett program du kör lägga till och ändra arbete i dina hem.",
+		"empty": "Inget är anslutet än.",
+		"create": "Ny API-nyckel",
+		"createAction": "Skapa",
+		"nameLabel": "Vad ska den användas till?",
+		"nameHint": "Till exempel: researchagent",
+		"nameRequired": "Ge den ett namn först.",
+		"nameTooLong": "Namn får vara högst 60 tecken.",
+		"lastUsed": "Senast använd {{when}}",
+		"neverUsed": "Aldrig använd",
+		"secret": {
+			"title": "Kopiera nyckeln nu",
+			"body": "Det här är enda gången den visas. Om du tappar bort den, återkalla den och skapa en ny."
+		},
+		"copy": "Kopiera",
+		"copied": "Kopierad",
+		"revoke": {
+			"action": "Återkalla",
+			"title": "Återkalla {{name}}?",
+			"body": "Programmet som använder nyckeln slutar fungera direkt.",
+			"for": "Återkalla {{name}}"
+		},
+		"offlineHint": "Du behöver anslutning för att skapa eller återkalla en nyckel."
 	},
 	"tab": {
 		"projects": "Projekt",
@@ -106,7 +134,11 @@
 		"deleteBody": "Alla projekt, platser och underhåll i det raderas. Det går inte att ångra.",
 		"deleteConfirm": "Radera",
 		"deleteOnlyAlone": "Ta bort alla andra först.",
-		"manageNamed": "Hantera {{home}}"
+		"manageNamed": "Hantera {{home}}",
+		"automations": {
+			"title": "Automationer med åtkomst",
+			"empty": "Ingen automation har skrivit här."
+		}
 	},
 	"error": {
 		"googleSignIn": "Kunde inte logga in med Google. Försök igen.",
@@ -200,7 +232,8 @@
 		"stepsDone": "{{done}} av {{total}} klara",
 		"addStep": "Lägg till steg",
 		"openBoard": "Öppna tavla",
-		"clear": "Rensa"
+		"clear": "Rensa",
+		"createdViaApi": "Tillagd av en automation"
 	},
 	"priority": {
 		"low": "Låg",

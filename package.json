@@ -39,6 +39,7 @@
 		"@react-navigation/native": "^7.1.33",
 		"expo": "~55.0.28",
 		"expo-auth-session": "~55.0.17",
+		"expo-clipboard": "~55.0.15",
 		"expo-constants": "~55.0.17",
 		"expo-linking": "~55.0.16",
 		"expo-localization": "~55.0.17",
