@@ -10,5 +10,11 @@
 			"@/*": ["./*"]
 		}
 	},
-	"include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+	"include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+	// The Cloud Functions package is its own TypeScript project with its own
+	// `lib`, `types` and module resolution — Node and CommonJS, where this one is
+	// an Expo app. `yarn typecheck` runs both; typechecking `functions/` under
+	// *these* options would resolve `firebase-admin` against the app's tree and
+	// hand the app's DOM globals to a Node program.
+	"exclude": ["functions"]
 }

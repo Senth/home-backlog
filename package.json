@@ -11,8 +11,9 @@
 		"build:web": "expo export --platform web",
 		"lint": "biome check",
 		"format": "biome format --write",
-		"typecheck": "tsc --noEmit",
-		"test": "jest",
+		"typecheck": "tsc --noEmit && yarn --cwd functions typecheck",
+		"test": "jest && yarn --cwd functions test",
+		"postinstall": "yarn --cwd functions install",
 		"test:rules": "firebase emulators:exec --only firestore,storage --project demo-home-backlog-rules \"jest --config jest.rules.config.js\"",
 		"emulators": "firebase emulators:start --project home-backlog",
 		"emulators:seed": "firebase emulators:start --project home-backlog --import .emulator-seed",
@@ -24,7 +25,8 @@
 		"preset": "jest-expo",
 		"testPathIgnorePatterns": [
 			"<rootDir>/node_modules/",
-			"<rootDir>/tests/rules/"
+			"<rootDir>/tests/rules/",
+			"<rootDir>/functions/"
 		],
 		"transformIgnorePatterns": [
 			"node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|@react-native-firebase|firebase|react-native-paper|fractional-indexing))"

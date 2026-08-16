@@ -5,6 +5,13 @@
 		"cleanUrls": true,
 		"rewrites": [
 			{
+				"source": "/api/**",
+				"function": {
+					"functionId": "api",
+					"region": "europe-west1"
+				}
+			},
+			{
 				"source": "**",
 				"destination": "/index.html"
 			}
@@ -28,6 +35,22 @@
 		"rules": "firestore.rules",
 		"indexes": "firestore.indexes.json"
 	},
+	"functions": [
+		{
+			"source": "functions",
+			"codebase": "default",
+			"ignore": [
+				"node_modules",
+				".git",
+				"src",
+				"jest.config.js",
+				"tsconfig.json",
+				"firebase-debug.log",
+				"firebase-debug.*.log"
+			],
+			"predeploy": ["yarn --cwd \"$PROJECT_DIR/functions\" build"]
+		}
+	],
 	"storage": [
 		{
 			"target": "default",
@@ -48,6 +71,9 @@
 		},
 		"storage": {
 			"port": 8063
+		},
+		"functions": {
+			"port": 8064
 		},
 		"singleProjectMode": true
 	}

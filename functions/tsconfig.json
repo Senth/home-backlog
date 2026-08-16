@@ -1,0 +1,31 @@
+{
+	// A plain sibling package, deliberately not a yarn workspace: the root is an
+	// Expo app whose Metro config, `@/` alias and jest preset all assume they own
+	// the tree, and a workspace hoist puts `firebase-admin` where the app can
+	// import it by accident.
+	//
+	// `include` reaches one file up into the app's `models/`. `models/api-key.ts`
+	// is the token *format*, and the format has to be one thing — a function that
+	// parsed `hb_<uid>.<keyId>.<secret>` differently from the screen that shows it
+	// is an outage with no error message.
+	//
+	// `rootDir` is the repo root and is stated rather than inferred: inferred, it
+	// is the deepest common ancestor of whatever happens to be included, so the
+	// emitted layout — and therefore `main` — would move the day the last import
+	// out of `models/` was removed.
+	"compilerOptions": {
+		"target": "ES2022",
+		"lib": ["ES2022"],
+		"module": "commonjs",
+		"moduleResolution": "node",
+		"rootDir": "..",
+		"outDir": "lib",
+		"strict": true,
+		"noUnusedLocals": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"types": ["jest", "node"]
+	},
+	"include": ["src/**/*.ts", "../models/api-key.ts"]
+}
