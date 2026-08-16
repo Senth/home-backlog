@@ -297,6 +297,23 @@ export const effortOrder: Record<Effort, number> = {
 
 export type Visibility = "shared" | "private";
 
+/**
+ * Who wrote a node — a person in the app, or somebody's agent over the REST API
+ * (#7).
+ *
+ * Written at creation and immutable. Marcus curates everything and needs to know
+ * which of forty cards a machine wrote; Ingrid needs to understand eleven cabin
+ * cards that appeared at 03:00 without ever meeting the word "API". One plain
+ * line on the node detail screen does both, and the card face carries nothing —
+ * a chip there would mark every card on the boards that are already fullest.
+ *
+ * There is deliberately **no backfill**. The absent-field trap bites a field a
+ * query has to match *negatively*, and this one is never queried: it is read
+ * with the document it sits on and displayed. `toNode` reads an absent value as
+ * `'app'`, which is true of every node written before the API existed.
+ */
+export type CreatedVia = "app" | "api";
+
 export interface ChecklistItem {
 	id: string;
 	text: string;
@@ -364,6 +381,8 @@ export interface Node {
 	photos: Photo[];
 	/** Constrains every board query, so it is written from the first document. */
 	archived: boolean;
+	/** Written at creation and never again. See `CreatedVia`. */
+	createdVia: CreatedVia;
 	/** Set if and only if `status === 'done'`. */
 	completedAt: Timestamp | null;
 	createdAt: Timestamp | null;
@@ -807,6 +826,10 @@ export function newNodeData(input: NewNodeInput): NodeData {
 		effort: input.effort ?? null,
 		photos: [],
 		archived: false,
+		// The client is the only caller, and the rules refuse any other value from
+		// one. A node the API wrote is assembled in `functions/`, which is outside
+		// the rules and writes `'api'` itself.
+		createdVia: "app",
 	};
 }
 
@@ -932,6 +955,9 @@ export function toNode(snapshot: QueryDocumentSnapshot<DocumentData>): Node {
 		effort: oneOfOrNull(data.effort, efforts),
 		photos: photoList(data.photos),
 		archived: data.archived === true,
+		// Absent on every node written before the REST API, and absent is exactly
+		// what `'app'` means. No backfill: nothing queries this field.
+		createdVia: data.createdVia === "api" ? "api" : "app",
 		completedAt: data.completedAt ?? null,
 		createdAt: data.createdAt ?? null,
 		createdBy: stringOr(data.createdBy, ""),

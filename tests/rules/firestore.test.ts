@@ -1723,6 +1723,102 @@ describe("homes/{homeId}/nodes", () => {
 			expect(result.docs.map((snapshot) => snapshot.id)).toEqual(["surprise"]);
 		});
 	});
+	describe("createdVia", () => {
+		beforeEach(seedHome);
+
+		it("accepts a node the app wrote", async () => {
+			await assertSucceeds(create(dbAs(env, MEMBER), "from-app"));
+		});
+
+		/**
+		 * The mark a household relies on to tell an agent's forty cards from its
+		 * own. A member who could write it could forge it — so the only writer of
+		 * 'api' is the Cloud Function, which the Admin SDK puts outside these
+		 * rules entirely.
+		 */
+		it("refuses a client claiming a node came from the API", async () => {
+			await assertFails(
+				create(dbAs(env, MEMBER), "forged", { createdVia: "api" }),
+			);
+		});
+
+		it("refuses a value that is neither", async () => {
+			await assertFails(
+				create(dbAs(env, MEMBER), "invented", { createdVia: "cli" }),
+			);
+		});
+
+		/**
+		 * Present-only, for the same reason as assigneeIds: request.resource.data
+		 * is the full post-update document, so requiring it would deny every
+		 * update to every node written before this field existed — including the
+		 * childCount bump that adding a step to an old project performs.
+		 */
+		it("accepts a node that has none at all", async () => {
+			await assertSucceeds(
+				create(dbAs(env, MEMBER), "from-before", { createdVia: undefined }),
+			);
+		});
+
+		describe("once written", () => {
+			const apiPath = `${nodesPath}/from-api`;
+			const oldPath = `${nodesPath}/from-before`;
+
+			beforeEach(async () => {
+				await seed(env, async (db) => {
+					// Only the function can write this, so the seed does what the
+					// function does.
+					await setDoc(doc(db, apiPath), nodeDoc({ createdVia: "api" }));
+					await setDoc(doc(db, oldPath), nodeDoc({ createdVia: undefined }));
+				});
+			});
+
+			/**
+			 * The case the obvious rule shape gets wrong. Putting the 'app'-only
+			 * test in validNode() would deny this — and curating what an agent
+			 * wrote is the entire point of marking it.
+			 */
+			it("lets a member edit a node the API wrote", async () => {
+				await assertSucceeds(
+					updateDoc(doc(dbAs(env, MEMBER), apiPath), { title: "Renamed" }),
+				);
+			});
+
+			it("refuses changing it, in both directions", async () => {
+				await assertFails(
+					updateDoc(doc(dbAs(env, MEMBER), apiPath), { createdVia: "app" }),
+				);
+				await assertFails(
+					updateDoc(doc(dbAs(env, MEMBER), sharedPath), {
+						createdVia: "api",
+					}),
+				);
+			});
+
+			it("refuses adding it to a node that lacks it", async () => {
+				await assertFails(
+					updateDoc(doc(dbAs(env, MEMBER), oldPath), { createdVia: "app" }),
+				);
+				await assertFails(
+					updateDoc(doc(dbAs(env, MEMBER), oldPath), { createdVia: "api" }),
+				);
+			});
+
+			it("refuses removing it", async () => {
+				await assertFails(
+					updateDoc(doc(dbAs(env, MEMBER), apiPath), {
+						createdVia: deleteField(),
+					}),
+				);
+			});
+
+			it("still lets an old node be updated without it", async () => {
+				await assertSucceeds(
+					updateDoc(doc(dbAs(env, MEMBER), oldPath), { title: "Renamed" }),
+				);
+			});
+		});
+	});
 });
 
 describe("homes/{homeId}/locations and /recurring", () => {

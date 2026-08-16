@@ -8,6 +8,7 @@ import { requireKey } from "./auth.js";
 import { ApiError, sendError } from "./errors.js";
 import { registerRoutes } from "./routes.js";
 import { apiVersion } from "./version.js";
+import { registerWriteRoutes } from "./writes.js";
 
 /**
  * The REST surface, as one Express app behind one Cloud Function.
@@ -43,6 +44,7 @@ v1.get("/health", (_request: Request, response: Response) => {
 // Everything below this line needs a valid API key.
 v1.use(requireKey);
 registerRoutes(v1);
+registerWriteRoutes(v1);
 
 export const app = express();
 

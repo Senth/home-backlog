@@ -54,6 +54,7 @@ function node(overrides: Partial<Node> = {}): Node {
 		effort: null,
 		photos: [],
 		archived: false,
+		createdVia: "app",
 		completedAt: null,
 		createdAt: null,
 		createdBy: "uid-a",
@@ -430,6 +431,7 @@ describe("newNodeData", () => {
 			effort: null,
 			photos: [],
 			archived: false,
+			createdVia: "app",
 		});
 	});
 

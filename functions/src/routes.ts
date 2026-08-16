@@ -3,7 +3,7 @@ import type {
 	DocumentData,
 	QueryDocumentSnapshot,
 } from "firebase-admin/firestore";
-import { apiHome, apiNode, visibleTo } from "./api-nodes.js";
+import { apiHome, apiNode, etagFor, visibleTo } from "./api-nodes.js";
 import { type ApiCaller, caller, homeAccess } from "./auth.js";
 import { ApiError } from "./errors.js";
 import { db, homesCollection, nodesCollection } from "./firestore.js";
@@ -120,6 +120,10 @@ async function getNode(request: Request, response: Response): Promise<void> {
 
 	const snapshot = await readNode(homeId, param(request, "nodeId"), me.uid);
 
+	// The value a later `PATCH` or `DELETE` sends back as `If-Match`. Without it
+	// on the read, the API's only concurrency control would be reachable only
+	// after a write, which is the wrong way round.
+	response.setHeader("ETag", etagFor(snapshot.get("updatedAt")));
 	response.json(apiNode(snapshot.id, snapshot.data()));
 }
 

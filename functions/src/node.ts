@@ -50,6 +50,14 @@ export const statuses: readonly Status[] = [
 
 export type Visibility = "shared" | "private";
 
+/**
+ * Who wrote a node. Written at creation and immutable — the API writes `'api'`,
+ * every client write is `'app'`, and the rules refuse a client that claims
+ * otherwise. A node written before the field existed has none, and absent means
+ * `'app'`.
+ */
+export type CreatedVia = "app" | "api";
+
 export const visibilities: readonly Visibility[] = ["shared", "private"];
 
 export type Priority = "low" | "normal" | "high" | "urgent";
@@ -127,6 +135,32 @@ export function rankBetween(
 /** The rank of a card appended to a column, given that column's last rank. */
 export function rankAtEnd(last: string | null): string {
 	return rankBetween(last, null);
+}
+
+/**
+ * A rank at the end of a column, given that column's ranks **in order**.
+ *
+ * Not simply `rankAtEnd(last)`, because `generateKeyBetween` *validates* the key
+ * it is given and throws on one it did not produce — `"z0"` is not a valid order
+ * key, and neither is anything a fixture, a hand-edited document or a future bug
+ * might leave behind. Unhandled, that turns every create in that column into a
+ * 500 with nothing an agent could act on, and the column becomes permanently
+ * unwritable over the API.
+ *
+ * So the last *usable* rank wins, and a column with nothing usable in it starts
+ * over. The worst case is a card that lands in the wrong place in its column,
+ * which the next reorder fixes — the same trade the app already makes when it
+ * ranks against a possibly stale board.
+ */
+export function rankAfter(ranks: readonly string[]): string {
+	for (let index = ranks.length - 1; index >= 0; index--) {
+		try {
+			return rankAtEnd(ranks[index]);
+		} catch {
+			// Not a key this library produced. Try the one before it.
+		}
+	}
+	return rankAtEnd(null);
 }
 
 /**

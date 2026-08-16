@@ -85,6 +85,7 @@ describe("a node on the wire", () => {
 		checklist: [{ id: "c1", text: "Buy brackets", done: false }],
 		photos: [],
 		archived: false,
+		createdVia: "api",
 		completedAt: null,
 		createdAt: stamp("2026-01-01T00:00:00.000Z"),
 		createdBy: someoneElse,
@@ -119,8 +120,15 @@ describe("a node on the wire", () => {
 		expect(node.title).toBe("");
 		expect(node.status).toBe("backlog");
 		expect(node.visibility).toBe("shared");
+		// Absent means the app wrote it, which is true of every node from before
+		// this feature. Nothing queries the field, so nothing was backfilled.
+		expect(node.createdVia).toBe("app");
 		expect(node.ancestorIds).toEqual([]);
 		expect(node.createdAt).toBeNull();
+	});
+
+	it("reads an unknown createdVia as the app", () => {
+		expect(apiNode("odd", { createdVia: "cli" }).createdVia).toBe("app");
 	});
 
 	it("clamps a counter that has drifted below zero", () => {

@@ -1,4 +1,5 @@
 import {
+	type CreatedVia,
 	type Effort,
 	efforts,
 	type Priority,
@@ -41,6 +42,20 @@ function isoTime(value: unknown): string | null {
 	const stamp = value as { toDate?: () => Date } | null;
 	if (stamp == null || typeof stamp.toDate !== "function") return null;
 	return stamp.toDate().toISOString();
+}
+
+/**
+ * A node's `ETag`: its `updatedAt`, quoted.
+ *
+ * The API's only concurrency control. An agent that read a card, thought about
+ * it, and comes back to write can send it as `If-Match` and be told that
+ * somebody edited it in between, rather than silently overwriting them. A node
+ * with no readable `updatedAt` gets `""`, which matches nothing — the safe
+ * direction, because it refuses the precondition rather than passing it.
+ */
+export function etagFor(updatedAt: unknown): string {
+	const iso = isoTime(updatedAt);
+	return iso === null ? '""' : `"${iso}"`;
 }
 
 function stringOr(value: unknown, fallback: string): string {
@@ -112,6 +127,7 @@ export interface ApiNode {
 	checklist: unknown[];
 	photos: unknown[];
 	archived: boolean;
+	createdVia: CreatedVia;
 	completedAt: string | null;
 	createdAt: string | null;
 	createdBy: string;
@@ -155,6 +171,9 @@ export function apiNode(id: string, data: Record<string, unknown>): ApiNode {
 		checklist: Array.isArray(data.checklist) ? data.checklist : [],
 		photos: Array.isArray(data.photos) ? data.photos : [],
 		archived: data.archived === true,
+		// Absent means `'app'`, which is true of every node written before the API
+		// existed. Nothing queries this field, so nothing needed backfilling.
+		createdVia: data.createdVia === "api" ? "api" : "app",
 		completedAt: isoTime(data.completedAt),
 		createdAt: isoTime(data.createdAt),
 		createdBy: stringOr(data.createdBy, ""),

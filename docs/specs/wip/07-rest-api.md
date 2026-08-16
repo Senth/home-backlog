@@ -291,6 +291,52 @@ Revoking a key deletes those rows through an `onDocumentDeleted` trigger. A row 
 that no longer exists is worse than no row: it tells Ingrid something has access when
 nothing does.
 
+### A request body is an allow-list, and an unknown field is a refusal
+
+Most of a node document is the server's: `ancestorIds` is derived from `parentId`, `columns`
+is frozen by depth at creation, `rank` is computed from the target column's neighbours, the
+counters move with `increment()`, and `completedAt` follows `status`. A caller that could set
+any of them could write a document that is internally consistent field by field and wrong as
+a whole. So the two write verbs each carry a list of the fields they accept, and anything
+else is a `400 unknown_field` naming the field and the ones that would have worked.
+
+*Rejected:* dropping unknown fields silently. Same argument as the location fields — the
+agent then believes it wrote something it did not write.
+
+Four fields get their own code rather than `unknown_field`, because each is a different
+answer: `locationId` and `locationAncestorIds` are `locations_unavailable`, `visibility` on
+an update is `visibility_immutable`, and `participantIds` is `participants_immutable` — with
+a different message on a create, where the answer is not "never" but "a private root gets its
+creator, and anyone else is added in the app".
+
+### Optimistic concurrency is `ETag` and `If-Match`
+
+Every single-node response carries `ETag: "<updatedAt as ISO 8601>"`, and `PATCH` and
+`DELETE` honour `If-Match` against it — `412 version_mismatch` when it does not agree, and
+no precondition at all when the header is absent. It is the whole of the concurrency
+control: an agent that read a card, thought about it and comes back to write finds out that
+somebody edited it in between instead of silently overwriting them.
+
+Read verbs send the header too. Without that the only way to obtain one would be to write
+first, which is the wrong way round.
+
+### A subtree operation is one batch or it is refused
+
+A reparent and a cascading delete each commit as a single batch, because a node whose parent
+is gone is unreachable from every board and every breadcrumb. Firestore holds 500 writes per
+commit, so a subtree that will not fit is `409 subtree_too_large` naming the count, rather
+than a half-written tree. The app has no such limit only because it is not atomic there
+either — `flipVisibility` is deliberately resumable instead.
+
+### A stored rank the library refuses is stepped over, not fatal
+
+`generateKeyBetween` validates the key it is handed and throws on one it did not produce.
+Appending to a column therefore walks back to the last *usable* rank, and starts over if a
+column has none. Unhandled, a single malformed rank — from a fixture, a hand-edited document
+or a future bug — makes every create in that column a 500 and the column permanently
+unwritable over the API, with nothing an agent could act on. The worst case of stepping over
+it is a card in the wrong place in its column, which the next reorder fixes.
+
 ### `SKILL.md` is served by the deployment
 
 `GET /api/v1/skill.md` returns the shipped contract as `text/markdown`, and every response
@@ -422,22 +468,28 @@ match /homes/{homeId}/apiClients/{keyId} {
 }
 ```
 
-`validNode` gains one clause, and its shape matters:
+The `createdVia` clause is **on `allow create`, not inside `validNode`**:
 
 ```
-&& (!('createdVia' in data) || data.createdVia == 'app')
+function createdInApp(data) {
+  return !('createdVia' in data) || data.createdVia == 'app';
+}
 ```
 
-**Present-only, and `'app'`-only.** Present-only for the same reason as `assigneeIds`:
-`request.resource.data` is the full post-update document, so requiring the field outright
-would deny *every* update to every node written before this feature — including the
-`childCount` bump that adding a step to an old project performs — and there is no admin
-tooling in this repo to unstick them. `'app'`-only because the function bypasses rules, so
-`'api'` never needs to pass through here, and a member who could write it would be able to
-forge the mark that Ingrid relies on.
+Putting it in `validNode` is the obvious shape and is wrong. `request.resource.data` is the
+full post-update document, so an `'app'`-only test there would deny every *update* to a node
+the API wrote — and curating what an agent wrote is the entire point of marking it. On a
+create there is no such document, so the same expression means what it looks like it means.
 
-`immutable()` gains `next.get('createdVia', null) == current.get('createdVia', null)`, so
-an old node can never gain the field and a new one can never change it.
+**Present-only**, for the same reason as `assigneeIds`: requiring the field outright would
+deny every update to every node written before this feature, including the `childCount` bump
+that adding a step to an old project performs, and there is no admin tooling in this repo to
+unstick them. **`'app'`-only**, because the function bypasses rules so `'api'` never needs to
+pass through here, and a member who could write it could forge the mark Ingrid relies on.
+
+`immutable()` gains `next.get('createdVia', null) == current.get('createdVia', null)`, which
+carries the rest: an old node can never gain the field, a marked one can never lose it, and
+neither can flip.
 
 ### `tests/rules/firestore.test.ts`
 

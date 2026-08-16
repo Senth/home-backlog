@@ -286,6 +286,28 @@ service cloud.firestore {
             && data.updatedAt is timestamp;
         }
 
+        // Who wrote this node — a person in the app, or somebody's agent over
+        // the REST API (#7).
+        //
+        // Checked on **create only**, and this is not the obvious shape. The
+        // obvious one puts it in validNode() alongside every other field — but
+        // request.resource.data is the full post-update document, so an
+        // 'app'-only test there would deny every *update* to a node the API
+        // wrote, which is exactly the curation the mark exists to enable.
+        // Immutability is immutable()'s job, below.
+        //
+        // Present-only for the same reason as assigneeIds: requiring it would
+        // deny every update to every node written before this feature,
+        // including the childCount bump that adding a step to an old project
+        // performs, and there is no admin tooling in this repo to unstick them.
+        //
+        // 'app'-only because the function bypasses these rules, so 'api' never
+        // needs to pass through here — and a member who could write it would be
+        // able to forge the mark that a household relies on.
+        function createdInApp(data) {
+          return !('createdVia' in data) || data.createdVia == 'app';
+        }
+
         // Validated structurally, with no get(): a rule's get() reads
         // *committed* state and cannot see the rest of a writeBatch, so a check
         // against the parent's new value would refuse every reparent — which
@@ -367,7 +389,12 @@ service cloud.firestore {
 
         function immutable(next, current) {
           return next.createdAt == current.createdAt
-            && next.createdBy == current.createdBy;
+            && next.createdBy == current.createdBy
+            // Both directions, and the `null` default is what covers the third
+            // case: an old node can never *gain* the field, so a member cannot
+            // retroactively mark a card as somebody's, and a marked one can
+            // never lose it.
+            && next.get('createdVia', null) == current.get('createdVia', null);
         }
 
         // A node that is not there is an *answer*, not an error. `resource` is
@@ -384,6 +411,7 @@ service cloud.firestore {
         allow create: if isMember(homeId)
           && visibleToMe(request.resource.data)
           && validNode(request.resource.data)
+          && createdInApp(request.resource.data)
           && structure(request.resource.data)
           && inherits(request.resource.data);
         allow update: if isMember(homeId)
