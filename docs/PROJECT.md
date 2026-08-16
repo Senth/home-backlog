@@ -109,10 +109,18 @@ multi-tenancy, sharing, or store release.
 - Data is scoped to a **home**: `homes/{homeId}/nodes|locations|recurring`. Access is
   granted by a `members` map on the home doc, checked from security rules. Multi-home
   (cabin, parents' house) falls out for free.
-- **`participantIds[]`** — who is working on a node. Any number of members. Empty means
-  unassigned. Gives "my tasks" and "unassigned" filters for free.
-- **`visibility: 'shared' | 'private'`** — separate concern from participants. Default
-  shared. Private means only participants can read it; the subtree inherits it.
+- Three questions about people get confused with each other, and they are **three separate
+  fields**:
+  - **`participantIds[]`** — *whose project is this?* Set on a root, any number of members.
+    On a private node it is the access list the read rule consults; on a shared one it is
+    read by no rule and only feeds the board's default-hide filter, which keeps everyone
+    else's personal projects off your board without ever denying them to you.
+  - **`assigneeIds[]`** — *who is doing this card?* Per node, inherited by nothing, read by
+    no rule. This is what gives "my tasks" and "unassigned". Folding it into
+    `participantIds` would have made assigning somebody a permission change, and would have
+    made "my tasks" return every card in every project you are involved in.
+  - **`visibility: 'shared' | 'private'`** — *is this anyone else's business?* Root-only,
+    default shared. Private means only participants can read it; the subtree inherits it.
 - **Query shape matters here.** Firestore rejects an entire query if any matching document
   would be rule-denied, so private nodes must be excluded *by the query*, not only by
   rules. Each board load fires two provably-safe queries and merges them client-side:

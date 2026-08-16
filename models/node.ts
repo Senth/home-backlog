@@ -34,6 +34,21 @@ import {
  * project. It sits at the root, or under another private card. That restriction
  * is worth having anyway — a hidden child makes its parent lie, and every count
  * derived from children diverges per viewer.
+ *
+ * Three questions about people get confused with each other, and they are three
+ * separate fields here on purpose:
+ *
+ * | Question                     | Field            | Scope     | Read by a rule?   |
+ * | ---------------------------- | ---------------- | --------- | ----------------- |
+ * | Whose project is this?       | `participantIds` | root only | only when private |
+ * | Who is doing this card?      | `assigneeIds`    | this node | never             |
+ * | Is this anyone else's business? | `visibility`  | root only | yes               |
+ *
+ * One field for both people-questions was rejected: `participantIds` is the ACL
+ * a private read rule consults, so folding assignment into it would make
+ * assigning somebody a *permission* change — and would make "my tasks" return
+ * every card in every project you are involved in, which in a two-person
+ * household is close to everything.
  */
 
 /**
@@ -313,8 +328,20 @@ export interface Node {
 	locationId: string | null;
 	/** The denormalized location path, so a roll-up is one index lookup. */
 	locationAncestorIds: string[];
-	/** Who is working on this. Empty means unassigned. */
+	/**
+	 * **Whose project this is** — set on a root, and on a private node the ACL
+	 * the read rule consults. Never "who is doing this card": that is
+	 * `assigneeIds`, and the two are deliberately different lists.
+	 *
+	 * Empty means "everybody's", which is what a board's default-hide filter
+	 * goes by — see `hiddenByParticipants()`.
+	 */
 	participantIds: string[];
+	/**
+	 * **Who is doing this node.** Per node, inherited by nothing, read by no
+	 * rule — which is what keeps an assignment from being a permission change.
+	 */
+	assigneeIds: string[];
 	/** Always equal to the parent's. Only a root node sets it. */
 	visibility: Visibility;
 	/**
@@ -501,6 +528,182 @@ export function completionChange(
 
 /*
  * ---------------------------------------------------------------------------
+ * People
+ * ---------------------------------------------------------------------------
+ *
+ * `participantIds` and `visibility` are both **root-only** — they answer a
+ * question about a *project*, not about a step inside one, and a household that
+ * learns the rule once has learned it for both. The practical gain is that
+ * neither ever needs a greyed-out inherited row on a descendant: no dimmed
+ * control, no `aria-disabled` trap, nothing to explain about where a value came
+ * from. A descendant carries one sentence and the action that unblocks it.
+ *
+ * *Rejected:* participants editable at every depth, inherited and greyed below.
+ * It needs the ancestor named and linked on every card to not be a dead end —
+ * and if the inherited value were *stored*, editing participants on a thirty-card
+ * project becomes a second top-down subtree cascade, with the same half-failure
+ * problems as the visibility flip, inside the same feature.
+ *
+ * *Rejected:* participants per node with no inheritance at all. The default-hide
+ * predicate then bites unpredictably on drill-down boards, hiding individual
+ * steps from people who can see the project they are in.
+ */
+
+/** The id of the root of this node's subtree — itself, when it is one. */
+export function rootIdOf(node: Node): string {
+	return node.ancestorIds[0] ?? node.id;
+}
+
+/**
+ * Whose project this is, from the root — `[]` while the root is still being
+ * read, which is the frame every descendant's detail screen opens on.
+ */
+export function effectiveParticipants(root: Node | null): string[] {
+	return root === null ? [] : [...root.participantIds];
+}
+
+/**
+ * Who may be given a step in this project: its participants, or everyone in the
+ * home when it has none — the common case, and one with no friction at all.
+ *
+ * Not a stylistic restriction. A board hides a card whose participants exclude
+ * you, so assigning somebody a step inside a project they are not a participant
+ * of hands them work that is hidden from their board and reachable from nowhere.
+ * Adding them to the project is what makes the task findable.
+ */
+export function assignableMembers<T extends { uid: string }>(
+	root: Node | null,
+	members: readonly T[],
+): T[] {
+	const participants = effectiveParticipants(root);
+	if (participants.length === 0) return [...members];
+	return members.filter((member) => participants.includes(member.uid));
+}
+
+/**
+ * Assignees who are no longer in the assignable set — somebody dropped from the
+ * project after being given a step, or a member who has left the home entirely.
+ *
+ * A real state, and deliberately **shown rather than hidden**: it is
+ * information, and drawing it as an orphaned checked box outside its own list is
+ * what would make it read as a bug.
+ *
+ * Takes the assignable set rather than `(node, root, members)` so that the two
+ * halves of the derivation compose — the caller already has the set, because it
+ * is what the checkboxes are drawn from.
+ */
+export function staleAssignees(
+	node: Node,
+	assignable: readonly { uid: string }[],
+): string[] {
+	return node.assigneeIds.filter(
+		(uid) => !assignable.some((member) => member.uid === uid),
+	);
+}
+
+/**
+ * Whether a board hides this card by default.
+ *
+ * Hidden, never denied, and always one toggle away — a display preference, not a
+ * permission. "I want to add my personal projects to the list, but it does not
+ * make sense that my spouse sees them by default, and they should still be able
+ * to see them" is the requirement, and a rule cannot express "hidden but
+ * readable".
+ *
+ * Uniform at every depth, and it *bites* only where participants exist, which is
+ * roots: a shared descendant carries `[]` and is never hidden, and a private
+ * descendant carries the root's participants, which include me or I could not
+ * have read it at all.
+ */
+export function hiddenByParticipants(node: Node, uid: string): boolean {
+	return node.participantIds.length > 0 && !node.participantIds.includes(uid);
+}
+
+/** One document of a visibility flip, as the fields that write changes. */
+export interface VisibilityWrite {
+	id: string;
+	visibility: Visibility;
+	participantIds: string[];
+}
+
+/**
+ * The documents a visibility flip has to write, **in depth order**, with the
+ * ones already at the target dropped.
+ *
+ * Uniform visibility means every descendant physically carries the same
+ * `visibility` value — board Q1 filters on it directly, so it cannot be derived
+ * — and the *n* writes cannot be one batch: a rule's `get()` reads committed
+ * state, so a child written to the new visibility while its parent still holds
+ * the old one fails `inheritsFrom`. Top-down, one document at a time, in both
+ * directions.
+ *
+ * Dropping the already-correct documents is what makes an interrupted flip
+ * **resumable rather than repeated**: re-running it finishes the job.
+ *
+ * Going private, every document takes the root's participants plus the actor —
+ * `allow update` requires `visibleToMe(request.resource.data)`, so writing
+ * yourself out is refused, and the answer is to write yourself in rather than to
+ * defend against a lockout that cannot happen. Going shared, the root *keeps* its
+ * list, which becomes "whose project" again, and descendants drop to `[]`.
+ *
+ * `desired` is what the root's participants should *become*, and it defaults to
+ * what they already are. It is a separate argument rather than a doctored `root`
+ * because `root` is also what every skip is measured against: handing in a copy
+ * carrying the new list would make the root look already-correct and drop it from
+ * its own plan — which is exactly what changing who is in on an *already private*
+ * project does, where the visibility is not moving and the participants are the
+ * only thing that is.
+ */
+export function flipPlan(
+	root: Node,
+	descendants: readonly Node[],
+	target: Visibility,
+	uid: string,
+	desired: readonly string[] = root.participantIds,
+): VisibilityWrite[] {
+	const participants =
+		target === "private"
+			? [uid, ...desired.filter((id) => id !== uid)]
+			: [...desired];
+
+	const ordered = [root, ...descendants.filter((node) => node.id !== root.id)]
+		.slice()
+		.sort(
+			(a, b) =>
+				a.ancestorIds.length - b.ancestorIds.length ||
+				(a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+		);
+
+	const plan: VisibilityWrite[] = [];
+	for (const node of ordered) {
+		const wanted =
+			node.id === root.id
+				? participants
+				: target === "private"
+					? participants
+					: [];
+
+		if (node.visibility === target && sameIds(node.participantIds, wanted)) {
+			continue;
+		}
+		plan.push({ id: node.id, visibility: target, participantIds: wanted });
+	}
+	return plan;
+}
+
+/** Set equality, which is what the rules and the read rule both go by. */
+function sameIds(
+	current: readonly string[],
+	wanted: readonly string[],
+): boolean {
+	return (
+		current.length === wanted.length &&
+		wanted.every((id) => current.includes(id))
+	);
+}
+
+/*
+ * ---------------------------------------------------------------------------
  * Creating
  * ---------------------------------------------------------------------------
  */
@@ -531,6 +734,8 @@ export interface NewNodeInput {
 	visibility?: Visibility;
 	/** Added to whatever the parent's privacy already requires. */
 	participantIds?: readonly string[];
+	/** Who is doing it. Inherited from nothing — a step is not the project. */
+	assigneeIds?: readonly string[];
 	locationId?: string | null;
 	locationAncestorIds?: readonly string[];
 	dueDate?: string | null;
@@ -584,6 +789,9 @@ export function newNodeData(input: NewNodeInput): NodeData {
 		ancestorIds,
 		...location,
 		participantIds,
+		// Deliberately not inherited: a project two people share does not make
+		// every step inside it a job they are both doing.
+		assigneeIds: [...(input.assigneeIds ?? [])],
 		visibility: parent?.visibility ?? input.visibility ?? "shared",
 		columns: [...columnsForDepth(ancestorIds.length)],
 		// A new node has nothing under it yet. The caller cannot set these: they
@@ -707,6 +915,11 @@ export function toNode(snapshot: QueryDocumentSnapshot<DocumentData>): Node {
 		locationId: stringOrNull(data.locationId),
 		locationAncestorIds: strings(data.locationAncestorIds),
 		participantIds: strings(data.participantIds),
+		// A document written before this field existed reads as `[]`, and needs no
+		// backfill — the absent-field trap bites a field a query matches
+		// *negatively*, and `array-contains` matches neither an absent field nor
+		// an empty array. A card written before #61 has no assignees either way.
+		assigneeIds: strings(data.assigneeIds),
 		visibility: data.visibility === "private" ? "private" : "shared",
 		columns: columnSet(data.columns, ancestorIds.length),
 		childCount: counter(data.childCount),

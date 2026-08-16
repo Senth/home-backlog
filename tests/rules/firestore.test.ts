@@ -1243,6 +1243,12 @@ describe("homes/{homeId}/nodes", () => {
 			batch.update(doc(db, nodesPath, "moved"), {
 				parentId: "new-home",
 				ancestorIds: ["new-home"],
+				// A shared root that becomes a step drops its participants: they are
+				// "whose project is this", the control that edits them is root-only,
+				// and the board's default-hide filter bites at every depth. The write
+				// already spends a parent get() for the parentId change, so this
+				// costs nothing more.
+				participantIds: [],
 			});
 			batch.update(doc(db, nodesPath, "child"), {
 				ancestorIds: ["new-home", "moved"],
@@ -1360,6 +1366,260 @@ describe("homes/{homeId}/nodes", () => {
 			await assertSucceeds(
 				updateDoc(doc(db, nodesPath, "cake"), { title: "Order the cake" }),
 			);
+		});
+	});
+
+	/**
+	 * #61. The rules below were already shipped and already correct — a private
+	 * node has always been "the people on it" rather than one person, and the
+	 * top-down ordering constraint has always been enforced. This feature is the
+	 * first caller that exercises any of them, so this is where they get proved.
+	 */
+	describe("participants, assignees and the flip", () => {
+		/** A third member, so "not a participant" is not the same as "not a member". */
+		function threeMembers(): Record<string, string> {
+			return {
+				[OWNER.uid]: "owner",
+				[MEMBER.uid]: "member",
+				[INVITEE.uid]: "member",
+			};
+		}
+
+		it("shows a private project to each of its participants and to nobody else", async () => {
+			// Private is not "mine alone": two members planning something for a
+			// third in the same household have no other way to express it, and the
+			// participants list has always been allowed to hold several people.
+			await seedHome(threeMembers());
+			await seed(env, async (db) => {
+				await setDoc(
+					doc(db, nodesPath, "surprise"),
+					nodeDoc({
+						visibility: "private",
+						participantIds: [OWNER.uid, MEMBER.uid],
+					}),
+				);
+			});
+
+			await assertSucceeds(
+				getDoc(doc(dbAs(env, OWNER), nodesPath, "surprise")),
+			);
+			await assertSucceeds(
+				getDoc(doc(dbAs(env, MEMBER), nodesPath, "surprise")),
+			);
+			await assertFails(getDoc(doc(dbAs(env, INVITEE), nodesPath, "surprise")));
+		});
+
+		it("refuses a private node the writer is not on, creating and updating alike", async () => {
+			// There is no lockout path to defend against, only a bare permission
+			// error to avoid — by writing the actor in.
+			await seedHome(threeMembers());
+			await seed(env, async (db) => {
+				await setDoc(
+					doc(db, nodesPath, "theirs"),
+					nodeDoc({
+						visibility: "private",
+						participantIds: [OWNER.uid, INVITEE.uid],
+					}),
+				);
+			});
+
+			const db = dbAs(env, MEMBER);
+			await assertFails(
+				create(db, "not-mine", {
+					visibility: "private",
+					participantIds: [OWNER.uid],
+				}),
+			);
+			await assertFails(
+				updateDoc(doc(db, nodesPath, "theirs"), { title: "Peeking" }),
+			);
+		});
+
+		it("refuses writing yourself out of a private node you share", async () => {
+			await seedHome();
+			await seed(env, async (db) => {
+				await setDoc(
+					doc(db, nodesPath, "surprise"),
+					nodeDoc({
+						visibility: "private",
+						participantIds: [OWNER.uid, MEMBER.uid],
+					}),
+				);
+			});
+
+			await assertFails(
+				updateDoc(doc(dbAs(env, MEMBER), nodesPath, "surprise"), {
+					participantIds: [OWNER.uid],
+				}),
+			);
+		});
+
+		it("lets a shared project name participants that leave the writer out", async () => {
+			// On a shared node participantIds is read by no rule — the read grant's
+			// first disjunct alone lets every member in — so setting participants
+			// there changes no permission and cannot lock its own author out. All it
+			// does is feed the board's default-hide filter, which is a display
+			// preference.
+			await seedHome();
+
+			await assertSucceeds(
+				create(dbAs(env, MEMBER), "his-shed", {
+					participantIds: [OWNER.uid],
+				}),
+			);
+		});
+
+		describe("a visibility flip, top-down", () => {
+			beforeEach(async () => {
+				await seedHome();
+				await seed(env, async (db) => {
+					await setDoc(doc(db, nodesPath, "garage"), nodeDoc());
+					await setDoc(
+						doc(db, nodesPath, "tiles"),
+						nodeDoc({ parentId: "garage", ancestorIds: ["garage"] }),
+					);
+				});
+			});
+
+			it("refuses a child written to the new visibility before its parent", async () => {
+				// Why the flip cannot be one batch: a rule's get() reads *committed*
+				// state, so a child that runs ahead of its parent fails inheritance.
+				await assertFails(
+					updateDoc(doc(dbAs(env, MEMBER), nodesPath, "tiles"), {
+						visibility: "private",
+						participantIds: [MEMBER.uid],
+					}),
+				);
+			});
+
+			it("allows the same child once its parent has committed", async () => {
+				const db = dbAs(env, MEMBER);
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "garage"), {
+						visibility: "private",
+						participantIds: [MEMBER.uid],
+					}),
+				);
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "tiles"), {
+						visibility: "private",
+						participantIds: [MEMBER.uid],
+					}),
+				);
+			});
+
+			it("is top-down in the other direction too", async () => {
+				await seed(env, async (db) => {
+					await setDoc(
+						doc(db, nodesPath, "garage"),
+						nodeDoc({
+							visibility: "private",
+							participantIds: [MEMBER.uid],
+						}),
+					);
+					await setDoc(
+						doc(db, nodesPath, "tiles"),
+						nodeDoc({
+							parentId: "garage",
+							ancestorIds: ["garage"],
+							visibility: "private",
+							participantIds: [MEMBER.uid],
+						}),
+					);
+				});
+
+				const db = dbAs(env, MEMBER);
+				await assertFails(
+					updateDoc(doc(db, nodesPath, "tiles"), {
+						visibility: "shared",
+						participantIds: [],
+					}),
+				);
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "garage"), { visibility: "shared" }),
+				);
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "tiles"), {
+						visibility: "shared",
+						participantIds: [],
+					}),
+				);
+			});
+		});
+
+		describe("assigneeIds", () => {
+			it("lets a document written before the field existed be updated", async () => {
+				// The reason the field is validated present-only. request.resource.data
+				// is the full post-update document, so requiring it would deny every
+				// update to an older node — including the childCount bump that adding
+				// a step to it performs — with no admin tooling here to unstick them.
+				await seedHome();
+				await seed(env, async (db) => {
+					const data = nodeDoc();
+					delete data.assigneeIds;
+					await setDoc(doc(db, nodesPath, "elderly"), data);
+				});
+
+				const db = dbAs(env, MEMBER);
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "elderly"), {
+						childCount: increment(1),
+					}),
+				);
+				// And it gains the field the first time anything writes it.
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "elderly"), {
+						assigneeIds: [MEMBER.uid],
+					}),
+				);
+			});
+
+			it("refuses an assigneeIds that is not a list", async () => {
+				await seedHome();
+				await assertFails(
+					create(dbAs(env, MEMBER), "bad-assignees", {
+						assigneeIds: MEMBER.uid,
+					}),
+				);
+			});
+
+			/**
+			 * Assignment is not privacy, so `privacyUnchanged()` holds and the parent
+			 * get() is skipped. Proved by size rather than by inspection: a batched
+			 * write may make at most twenty document access calls in total, so
+			 * thirty distinct parents landing at once is only possible if none of
+			 * them is read.
+			 */
+			it("assigns deep nodes without spending a parent get()", async () => {
+				await seedHome();
+				const steps = 30;
+				await seed(env, async (db) => {
+					await setDoc(doc(db, nodesPath, "garage"), nodeDoc());
+					for (let index = 0; index < steps; index += 1) {
+						await setDoc(
+							doc(db, nodesPath, `task-${index}`),
+							nodeDoc({ parentId: "garage", ancestorIds: ["garage"] }),
+						);
+						await setDoc(
+							doc(db, nodesPath, `step-${index}`),
+							nodeDoc({
+								parentId: `task-${index}`,
+								ancestorIds: ["garage", `task-${index}`],
+							}),
+						);
+					}
+				});
+
+				const db = dbAs(env, MEMBER);
+				const batch = writeBatch(db);
+				for (let index = 0; index < steps; index += 1) {
+					batch.update(doc(db, nodesPath, `step-${index}`), {
+						assigneeIds: [MEMBER.uid],
+					});
+				}
+
+				await assertSucceeds(batch.commit());
+			});
 		});
 	});
 

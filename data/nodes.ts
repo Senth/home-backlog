@@ -24,6 +24,7 @@ import {
 	childLeaves,
 	completionChange,
 	doneChange,
+	flipPlan,
 	mergeNodeResults,
 	movedAncestorIds,
 	type NewNodeInput,
@@ -32,6 +33,7 @@ import {
 	newNodeData,
 	type Status,
 	toNode,
+	type Visibility,
 } from "@/models/node";
 
 /**
@@ -159,7 +161,13 @@ export async function getNode(
 		const snapshot = await getDoc(nodeRef(homeId, nodeId));
 		return snapshot.exists() ? toNode(snapshot) : null;
 	} catch (reason) {
-		console.error("Could not read a node:", reason);
+		// A refusal is the answer, not an error: an unreadable ancestor is the
+		// case this function's own contract is built around, and logging it would
+		// make an ordinary breadcrumb draw a raw `FirebaseError` over the screen
+		// in development. Anything else is worth knowing about.
+		if ((reason as { code?: string } | null)?.code !== "permission-denied") {
+			console.error("Could not read a node:", reason);
+		}
 		return null;
 	}
 }
@@ -247,9 +255,15 @@ export function privateSubtreeQuery(
  * Not `parentId` or `ancestorIds` — moving a node is `reparentNode`, which has
  * a whole subtree to rewrite. Not `status` or `rank` — moving a card between
  * columns is `moveNode`, which also owns `completedAt`. Not `visibility`: a
- * subtree visibility flip must write top-down, one document at a time (#61).
- * And not `childCount` or `doneCount`, which belong to the four structural
- * writes below the same way `status` and `rank` belong to `moveNode`.
+ * subtree visibility flip must write top-down, one document at a time, which is
+ * `flipVisibility`. And not `childCount` or `doneCount`, which belong to the
+ * four structural writes below the same way `status` and `rank` belong to
+ * `moveNode`.
+ *
+ * Both people-fields *are* ordinary edits. `assigneeIds` is read by no rule at
+ * all, and `participantIds` on a shared node changes no permission — the read
+ * grant's first disjunct already lets every member in. On a private node it is
+ * the ACL, and the rules refuse a write that leaves its own author out.
  */
 export type NodeChanges = Partial<
 	Omit<
@@ -407,32 +421,139 @@ export function moveNode(
 }
 
 /**
- * Everything below a node, read from the server.
+ * Everything below a node, read from the server: **both** subtree queries,
+ * unioned and deduped by id.
  *
- * Which query depends on the node's own visibility, and the invariant is what
- * makes either one complete: a shared node's descendants are all shared, and I
- * am a participant of every descendant of a private node I can read.
+ * Not one query chosen by the node's own visibility, which is what this was.
+ * Uniform visibility says a subtree is all one thing — but a *visibility flip*
+ * is n sequential writes that cannot be one batch, so a flip abandoned partway
+ * leaves a mixed subtree, and that is the state this has to survive. Choosing by
+ * the node's own value, a project left private with fourteen still-shared
+ * descendants is a project whose later deletion runs `privateSubtreeQuery` and
+ * never sees them: they survive the delete with a dead `parentId`, unreachable
+ * from every board and every breadcrumb. Precisely the orphan the whole
+ * invariant exists to prevent, and it bites in both directions.
+ *
+ * Each half is provably safe on its own — one constrains `visibility ==
+ * 'shared'`, the other `participantIds array-contains uid` — so the union is.
+ * It costs one extra one-shot server read on reparent, delete and flip, and it
+ * buys a mixed subtree that still deletes whole and still reparents whole. An
+ * abandoned flip then degrades — some cards keep the old visibility — but can
+ * never orphan.
  *
  * From the server, never the cache: offline the cache holds only the boards
  * that happen to have been opened, and "no children in cache" is not "no
- * children". Both callers batch what this returns, and a batch caps at 500
- * documents — a whole home is scale-checked at ~4k, so a single subtree
- * reaching that is a different problem than these two functions.
+ * children". The batching callers cap at 500 documents — a whole home is
+ * scale-checked at ~4k, so a single subtree reaching that is a different
+ * problem than these functions.
  */
 async function subtreeOf(
 	homeId: string,
 	node: Node,
 	uid: string,
 ): Promise<QueryDocumentSnapshot<DocumentData>[]> {
-	if (node.visibility === "shared") {
-		const found = await getDocsFromServer(sharedSubtreeQuery(homeId, node.id));
-		return found.docs;
+	const [shared, participating] = await Promise.all([
+		getDocsFromServer(sharedSubtreeQuery(homeId, node.id)),
+		getDocsFromServer(privateSubtreeQuery(homeId, uid)),
+	]);
+
+	// Q1 already constrains `ancestorIds array-contains nodeId`; Q2 cannot,
+	// because a query may hold only one `array-contains` clause, so its half is
+	// narrowed to this subtree here. Neither can return the node itself: a node
+	// is never in its own `ancestorIds`.
+	const byId = new Map<string, QueryDocumentSnapshot<DocumentData>>();
+	for (const snapshot of shared.docs) byId.set(snapshot.id, snapshot);
+	for (const snapshot of participating.docs) {
+		if (toNode(snapshot).ancestorIds.includes(node.id)) {
+			byId.set(snapshot.id, snapshot);
+		}
 	}
 
-	const found = await getDocsFromServer(privateSubtreeQuery(homeId, uid));
-	return found.docs.filter((snapshot) =>
-		toNode(snapshot).ancestorIds.includes(node.id),
-	);
+	return [...byId.values()];
+}
+
+/** How far a flip has got, for the dialog that is holding the screen. */
+export interface FlipProgress {
+	done: number;
+	total: number;
+}
+
+/**
+ * Making a project private, or showing it to everyone again.
+ *
+ * Uniform visibility means every descendant physically carries the same
+ * `visibility` value — board Q1 filters on it directly, so it cannot be derived
+ * — and the *n* writes **cannot be one batch**: a rule's `get()` reads committed
+ * state, so a child written to the new visibility while its parent still holds
+ * the old one fails `inheritsFrom`. Top-down, one document at a time, in both
+ * directions.
+ *
+ * Which makes a flip that fails partway the failure that matters, and it is
+ * answered twice over. `subtreeOf()` unions both queries, so a mixed subtree can
+ * never orphan; and this is **idempotent and resumable** — it re-reads from the
+ * server, writes in depth order, and `flipPlan` drops every document already at
+ * the target, so retrying finishes the job rather than repeating it.
+ *
+ * Online only, and the caller disables the control offline rather than letting
+ * this fail after the fact. Each write changes `visibility`, so
+ * `privacyUnchanged()` is false and one parent `get()` is spent per document —
+ * affordable because these are single-document writes, not a batch, so the
+ * twenty-document-access budget does not apply.
+ *
+ * *Rejected:* a Cloud Function with the admin SDK. It bypasses rules, so all n
+ * writes go in one atomic batch and no half-state exists — but it costs the
+ * project's first Cloud Function, a deploy pipeline, and the uniform-visibility
+ * invariant no longer enforced by the rules on the one path most likely to
+ * break it.
+ */
+export async function flipVisibility(
+	homeId: string,
+	node: Node,
+	target: Visibility,
+	uid: string,
+	options: {
+		/**
+		 * What the root's participants should become. Defaults to what they are —
+		 * an ordinary visibility flip does not change who is in on a project. The
+		 * other caller is the participants control on an *already private* root,
+		 * where the list is the ACL and every descendant has to carry it.
+		 */
+		participantIds?: readonly string[];
+		onProgress?: (progress: FlipProgress) => void;
+	} = {},
+): Promise<void> {
+	const { participantIds, onProgress } = options;
+
+	// Visibility is a question about a *project*. A descendant written away from
+	// its parent's value is refused by `inheritsFrom`, so this would be a bare
+	// permission error rather than a partial flip.
+	if (node.parentId !== null) {
+		throw new Error("Only a whole project can change visibility.");
+	}
+
+	const descendants = (await subtreeOf(homeId, node, uid)).map(toNode);
+	const plan = flipPlan(node, descendants, target, uid, participantIds);
+
+	let done = 0;
+	onProgress?.({ done, total: plan.length });
+
+	for (const write of plan) {
+		try {
+			await updateDoc(nodeRef(homeId, write.id), {
+				visibility: write.visibility,
+				participantIds: write.participantIds,
+				updatedAt: serverTimestamp(),
+			});
+		} catch (reason) {
+			// What is already committed is still true, and the retry re-reads: the
+			// count is what the dialog offers *Try again* against.
+			onProgress?.({ done, total: plan.length });
+			throw reason;
+		}
+
+		done += 1;
+		onProgress?.({ done, total: plan.length });
+	}
 }
 
 /**
@@ -476,6 +597,16 @@ export async function reparentNode(
 		parentId: parent?.id ?? null,
 		ancestorIds,
 		rank,
+		// Participants are a question about a *project*, and the control that
+		// edits them is root-only. A shared root that becomes a step keeps them
+		// otherwise, and the board's default-hide filter is uniform at every
+		// depth — so the step would stay hidden from everyone not on it, with no
+		// control anywhere able to clear it short of moving it back to the top.
+		// A private node must keep its list: the rules require every descendant
+		// to carry all of its parent's participants.
+		...(parent !== null && node.visibility === "shared"
+			? { participantIds: [] }
+			: {}),
 		updatedAt: serverTimestamp(),
 	});
 	// The node leaves one board and arrives on another. Either end may be the

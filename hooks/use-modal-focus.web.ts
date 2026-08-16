@@ -61,6 +61,24 @@ interface ModalFocusOptions {
 	 * `<body>`, which is the failure this option exists to prevent.
 	 */
 	returnFocusTo?: RefObject<View | null>;
+	/**
+	 * What the scrim behind the dialog is called, translated.
+	 *
+	 * Paper's `Dialog` hard-codes its `Modal`'s `overlayAccessibilityLabel` to
+	 * the English "Close modal" and offers no prop to reach it — `Menu` takes
+	 * one, `Dialog` does not. So a Swedish screen-reader user got "Close modal"
+	 * mid-sentence on every dialog in the app. Paper marks the scrim
+	 * `importantForAccessibility: "no"`, which React Native Web does not
+	 * translate into `aria-hidden`, so it is announced regardless.
+	 *
+	 * Relabelled here rather than by forking `AppDialog` onto Paper's `Modal`:
+	 * this hook already reaches into the portal DOM by `testID`, and rebuilding
+	 * the dialog surface would restyle every dialog in the app to fix a word.
+	 *
+	 * Its own `testID`, because the one this hook is given is the *surface* and
+	 * Paper hangs the two off the same root: `${id}-surface`, `${id}-backdrop`.
+	 */
+	scrim?: { testID: string; label: string };
 }
 
 /**
@@ -80,7 +98,7 @@ export function useModalFocus(
 	visible: boolean,
 	testID: string,
 	onDismiss: () => void,
-	{ returnFocusTo }: ModalFocusOptions = {},
+	{ returnFocusTo, scrim }: ModalFocusOptions = {},
 ) {
 	// Kept in a ref so a new callback identity each render does not tear the
 	// listener down and re-run the focus move. Written in an effect, not during
@@ -90,6 +108,11 @@ export function useModalFocus(
 	useEffect(() => {
 		dismiss.current = onDismiss;
 	});
+
+	// Split into primitives so a fresh object literal each render does not tear
+	// the listener down and re-run the focus move.
+	const scrimTestID = scrim?.testID;
+	const scrimLabel = scrim?.label;
 
 	useEffect(() => {
 		if (!visible || typeof document === "undefined") return;
@@ -103,6 +126,11 @@ export function useModalFocus(
 			if (node && !node.contains(document.activeElement)) {
 				node.setAttribute("tabindex", "-1");
 				(visibleFocusable(node)[0] ?? node).focus();
+			}
+			// Rides the same guard rather than taking an effect of its own: the
+			// scrim is animated in, so it is not in the DOM on the first frame.
+			if (scrimTestID !== undefined && scrimLabel !== undefined) {
+				byTestID(scrimTestID)?.setAttribute("aria-label", scrimLabel);
 			}
 			if (++frames < guardFrames) frame = requestAnimationFrame(pullFocusIn);
 		};
@@ -158,7 +186,7 @@ export function useModalFocus(
 				: null;
 			(back ?? (opener?.isConnected ? opener : null))?.focus?.();
 		};
-	}, [visible, testID, returnFocusTo]);
+	}, [visible, testID, returnFocusTo, scrimTestID, scrimLabel]);
 }
 
 /**

@@ -128,6 +128,7 @@ function MemberRow({
 							<Menu
 								visible={menuOpen}
 								onDismiss={() => setMenuOpen(false)}
+								overlayAccessibilityLabel={t("common.closeMenu")}
 								anchorPosition="bottom"
 								anchor={
 									<IconButton

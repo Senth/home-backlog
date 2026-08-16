@@ -68,7 +68,13 @@ export function ChoiceField<T extends string>({
 							selected={selected}
 							showSelectedCheck={false}
 							onPress={() => onChange(selected ? null : candidate)}
-							accessibilityState={{ selected }}
+							// `aria-pressed`, not `accessibilityState`: React Native Web
+							// 0.21 does not forward the object form, so the selected chip
+							// reached the DOM as a plain button and a screen reader could
+							// not tell which priority was set. Paper renders a `<button>`,
+							// where a toggle's state is `aria-pressed` rather than
+							// `aria-selected`.
+							aria-pressed={selected}
 							// Paper's chip is 32dp tall, which nothing tappable may be. The
 							// style lands on the outer surface and the pressable inside
 							// stretches to fill it — minus the chip's own border, which is

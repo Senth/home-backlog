@@ -237,6 +237,24 @@ service cloud.firestore {
             && (data.locationId == null || data.locationId is string)
             && data.locationAncestorIds is list
             && data.participantIds is list
+            // Who is doing *this* node (#61). Read by no rule anywhere, which is
+            // what keeps an assignment from being a permission change — an API
+            // key (#7) that may write this cannot revoke anybody's access, where
+            // one that may write participantIds can.
+            //
+            // Present-only, and deliberately the one field that is. Every other
+            // field is required outright, because a field that is absent can
+            // never be queried — but that trap bites a query matching a field
+            // *negatively*, and the only query this field will ever have (#62)
+            // is an array-contains, which matches neither an absent field nor an
+            // empty array. Requiring it here would instead make
+            // request.resource.data — the full post-update document — lack it
+            // for every node written before #61, denying **every** update to
+            // them, including the childCount bump that adding a step to an old
+            // project performs. There is no admin tooling in this repo to
+            // unstick them, so it deadlocks. New documents always carry it; old
+            // ones gain it the first time anything writes it.
+            && (!('assigneeIds' in data) || data.assigneeIds is list)
             && data.blockedBy is list
             && data.visibility in ['shared', 'private']
             // A calendar day, not an instant: "by Sep 30" is the same day in
@@ -338,6 +356,9 @@ service cloud.firestore {
         // through while temporarily mismatched. The flip then reaches it and
         // corrects it; the unrecoverable failure this all exists to prevent is
         // a *silent orphan*, and that needs parentId or visibility to change.
+        // `assigneeIds` is deliberately *not* one of these three. It is not
+        // privacy — no rule reads it — so an assignment stays an ordinary edit
+        // that skips the parent get().
         function privacyUnchanged(next, current) {
           return next.parentId == current.parentId
             && next.visibility == current.visibility

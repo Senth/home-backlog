@@ -1,5 +1,6 @@
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import {
+	assignableMembers,
 	childAncestorIds,
 	childArrives,
 	childLeaves,
@@ -7,9 +8,12 @@ import {
 	compareNodes,
 	completionChange,
 	doneChange,
+	effectiveParticipants,
+	flipPlan,
 	fullColumns,
 	hasDetails,
 	hasSteps,
+	hiddenByParticipants,
 	mergeNodeResults,
 	movedAncestorIds,
 	type Node,
@@ -18,7 +22,9 @@ import {
 	rankBetween,
 	rankSequence,
 	rootColumns,
+	rootIdOf,
 	simpleColumns,
+	staleAssignees,
 	titleError,
 	toNode,
 	visibleColumns,
@@ -35,6 +41,7 @@ function node(overrides: Partial<Node> = {}): Node {
 		locationId: null,
 		locationAncestorIds: [],
 		participantIds: [],
+		assigneeIds: [],
 		visibility: "shared",
 		columns: [...fullColumns],
 		childCount: 0,
@@ -410,6 +417,7 @@ describe("newNodeData", () => {
 			locationId: null,
 			locationAncestorIds: [],
 			participantIds: [],
+			assigneeIds: [],
 			visibility: "shared",
 			columns: [...fullColumns],
 			childCount: 0,
@@ -538,6 +546,321 @@ describe("newNodeData", () => {
 
 		expect(data.participantIds).toEqual([]);
 	});
+
+	/**
+	 * The other people-field, and the whole point of it being a second one:
+	 * whose project it is runs downwards, who is doing a card does not.
+	 */
+	it("never inherits assignees, however the parent is set up", () => {
+		const parent = node({
+			id: "surprise",
+			visibility: "private",
+			participantIds: ["uid-a", "uid-b"],
+			assigneeIds: ["uid-a"],
+		});
+
+		expect(
+			newNodeData({ title: "Cake", rank: "a0", parent }).assigneeIds,
+		).toEqual([]);
+		expect(
+			newNodeData({
+				title: "Cake",
+				rank: "a0",
+				parent,
+				assigneeIds: ["uid-b"],
+			}).assigneeIds,
+		).toEqual(["uid-b"]);
+	});
+});
+
+describe("rootIdOf", () => {
+	it("is a root node's own id", () => {
+		expect(rootIdOf(node({ id: "garage", ancestorIds: [] }))).toBe("garage");
+	});
+
+	it("is the first ancestor at any depth", () => {
+		expect(
+			rootIdOf(node({ id: "grout", ancestorIds: ["garage", "tiles"] })),
+		).toBe("garage");
+	});
+});
+
+describe("effectiveParticipants", () => {
+	it("is empty while the root is still being read", () => {
+		expect(effectiveParticipants(null)).toEqual([]);
+	});
+
+	it("is the root's own list", () => {
+		expect(
+			effectiveParticipants(node({ participantIds: ["uid-a", "uid-b"] })),
+		).toEqual(["uid-a", "uid-b"]);
+	});
+});
+
+describe("assignableMembers", () => {
+	const members = [{ uid: "uid-a" }, { uid: "uid-b" }, { uid: "uid-c" }];
+
+	it("is everyone in the home when the project has no participants", () => {
+		// The common case, and one with no friction at all.
+		expect(assignableMembers(node({ participantIds: [] }), members)).toEqual(
+			members,
+		);
+		expect(assignableMembers(null, members)).toEqual(members);
+	});
+
+	it("narrows to the project's participants once it has any", () => {
+		expect(
+			assignableMembers(node({ participantIds: ["uid-c", "uid-a"] }), members),
+		).toEqual([{ uid: "uid-a" }, { uid: "uid-c" }]);
+	});
+
+	it("keeps the home's own ordering rather than the participants'", () => {
+		// The checkbox list is drawn from `membersOf`, which sorts owners first
+		// and then by name. Participants arrive in write order, which is nothing.
+		expect(
+			assignableMembers(
+				node({ participantIds: ["uid-c", "uid-b"] }),
+				members,
+			).map((member) => member.uid),
+		).toEqual(["uid-b", "uid-c"]);
+	});
+});
+
+describe("staleAssignees", () => {
+	it("is empty when everyone assigned is still assignable", () => {
+		const assignable = [{ uid: "uid-a" }, { uid: "uid-b" }];
+
+		expect(
+			staleAssignees(node({ assigneeIds: ["uid-b"] }), assignable),
+		).toEqual([]);
+	});
+
+	it("names somebody dropped from the project after being given a step", () => {
+		expect(
+			staleAssignees(node({ assigneeIds: ["uid-a", "uid-b"] }), [
+				{ uid: "uid-a" },
+			]),
+		).toEqual(["uid-b"]);
+	});
+
+	it("names somebody who has left the home entirely", () => {
+		// The assignable set is the home's members when the project names none, so
+		// a departed member falls out of it the same way.
+		expect(
+			staleAssignees(node({ assigneeIds: ["uid-gone"] }), [
+				{ uid: "uid-a" },
+				{ uid: "uid-b" },
+			]),
+		).toEqual(["uid-gone"]);
+	});
+});
+
+describe("hiddenByParticipants", () => {
+	it("shows a card nobody has claimed", () => {
+		expect(hiddenByParticipants(node({ participantIds: [] }), "uid-a")).toBe(
+			false,
+		);
+	});
+
+	it("shows a card I am a participant of", () => {
+		expect(
+			hiddenByParticipants(
+				node({ participantIds: ["uid-a", "uid-b"] }),
+				"uid-a",
+			),
+		).toBe(false);
+	});
+
+	it("hides somebody else's project", () => {
+		expect(
+			hiddenByParticipants(node({ participantIds: ["uid-b"] }), "uid-a"),
+		).toBe(true);
+	});
+});
+
+describe("flipPlan", () => {
+	const root = node({ id: "garage", ancestorIds: [] });
+	const task = node({
+		id: "tiles",
+		parentId: "garage",
+		ancestorIds: ["garage"],
+	});
+	const step = node({
+		id: "grout",
+		parentId: "tiles",
+		ancestorIds: ["garage", "tiles"],
+	});
+
+	it("writes top-down, because a rule's get() reads committed state", () => {
+		const plan = flipPlan(root, [step, task], "private", "uid-a");
+
+		expect(plan.map((write) => write.id)).toEqual(["garage", "tiles", "grout"]);
+	});
+
+	it("writes the actor into every document when going private", () => {
+		const plan = flipPlan(
+			node({ id: "garage", participantIds: ["uid-b"] }),
+			[task],
+			"private",
+			"uid-a",
+		);
+
+		expect(plan).toEqual([
+			{
+				id: "garage",
+				visibility: "private",
+				participantIds: ["uid-a", "uid-b"],
+			},
+			{
+				id: "tiles",
+				visibility: "private",
+				participantIds: ["uid-a", "uid-b"],
+			},
+		]);
+	});
+
+	it("does not duplicate an actor who is already a participant", () => {
+		const plan = flipPlan(
+			node({ id: "garage", participantIds: ["uid-a", "uid-b"] }),
+			[],
+			"private",
+			"uid-a",
+		);
+
+		expect(plan[0]?.participantIds).toEqual(["uid-a", "uid-b"]);
+	});
+
+	it("keeps the root's list and clears its descendants' when going shared", () => {
+		// The root's participants become "whose project" again; a shared
+		// descendant carries none, which is what keeps the filter from biting
+		// below a root.
+		const privateRoot = node({
+			id: "garage",
+			visibility: "private",
+			participantIds: ["uid-a", "uid-b"],
+		});
+		const privateTask = node({
+			id: "tiles",
+			parentId: "garage",
+			ancestorIds: ["garage"],
+			visibility: "private",
+			participantIds: ["uid-a", "uid-b"],
+		});
+
+		expect(flipPlan(privateRoot, [privateTask], "shared", "uid-a")).toEqual([
+			{
+				id: "garage",
+				visibility: "shared",
+				participantIds: ["uid-a", "uid-b"],
+			},
+			{ id: "tiles", visibility: "shared", participantIds: [] },
+		]);
+	});
+
+	/**
+	 * What makes an interrupted flip resumable rather than repeated — and what
+	 * `subtreeOf()`'s union is for: a mixed subtree is a real state, and running
+	 * the flip again has to finish it.
+	 */
+	it("drops the documents already at the target", () => {
+		const done = node({
+			id: "tiles",
+			parentId: "garage",
+			ancestorIds: ["garage"],
+			visibility: "private",
+			participantIds: ["uid-a"],
+		});
+		const notDone = node({
+			id: "grout",
+			parentId: "tiles",
+			ancestorIds: ["garage", "tiles"],
+		});
+
+		const plan = flipPlan(
+			node({ id: "garage", visibility: "private", participantIds: ["uid-a"] }),
+			[done, notDone],
+			"private",
+			"uid-a",
+		);
+
+		expect(plan.map((write) => write.id)).toEqual(["grout"]);
+	});
+
+	it("plans nothing at all when the subtree is already there", () => {
+		const already = node({
+			id: "garage",
+			visibility: "private",
+			participantIds: ["uid-a"],
+		});
+
+		expect(flipPlan(already, [], "private", "uid-a")).toEqual([]);
+	});
+
+	/**
+	 * Changing who is in on an *already private* project: the visibility is not
+	 * moving, so the participants are the only thing that is — and the whole
+	 * subtree has to follow, because the rules require every descendant to carry
+	 * all of its parent's participants.
+	 *
+	 * The regression this pins: measuring the skip against a `root` doctored to
+	 * carry the new list made the root look already-correct, so the plan came
+	 * back empty and the checkbox silently did nothing.
+	 */
+	it("plans a participants change on a project that is already private", () => {
+		const privateRoot = node({
+			id: "garage",
+			visibility: "private",
+			participantIds: ["uid-a"],
+		});
+		const privateTask = node({
+			id: "tiles",
+			parentId: "garage",
+			ancestorIds: ["garage"],
+			visibility: "private",
+			participantIds: ["uid-a"],
+		});
+
+		expect(
+			flipPlan(privateRoot, [privateTask], "private", "uid-a", [
+				"uid-a",
+				"uid-b",
+			]),
+		).toEqual([
+			{
+				id: "garage",
+				visibility: "private",
+				participantIds: ["uid-a", "uid-b"],
+			},
+			{
+				id: "tiles",
+				visibility: "private",
+				participantIds: ["uid-a", "uid-b"],
+			},
+		]);
+	});
+
+	it("keeps the actor in even when the desired list leaves them out", () => {
+		// The rules refuse a private document whose author could not read it back,
+		// so this is a bare permission error avoided rather than a lockout defended
+		// against.
+		const plan = flipPlan(
+			node({ id: "garage", visibility: "private", participantIds: ["uid-a"] }),
+			[],
+			"private",
+			"uid-a",
+			["uid-b"],
+		);
+
+		expect(plan[0]?.participantIds).toEqual(["uid-a", "uid-b"]);
+	});
+
+	it("ignores the root arriving in the descendant list as well", () => {
+		// `subtreeOf()` filters on `ancestorIds`, so it never returns the node
+		// itself — but the plan is what stops a duplicate write if it ever did.
+		const plan = flipPlan(root, [root, task], "private", "uid-a");
+
+		expect(plan.map((write) => write.id)).toEqual(["garage", "tiles"]);
+	});
 });
 
 describe("toNode", () => {
@@ -579,6 +902,7 @@ describe("toNode", () => {
 				locationId: "roof",
 				locationAncestorIds: ["outside", "roof"],
 				participantIds: ["uid-a"],
+				assigneeIds: ["uid-b"],
 				visibility: "private",
 				columns: [...simpleColumns],
 				childCount: 5,
@@ -612,6 +936,7 @@ describe("toNode", () => {
 				locationId: "roof",
 				locationAncestorIds: ["outside", "roof"],
 				participantIds: ["uid-a"],
+				assigneeIds: ["uid-b"],
 				visibility: "private",
 				columns: [...simpleColumns],
 				childCount: 5,
@@ -680,6 +1005,20 @@ describe("toNode", () => {
 		expect(
 			toNode(snapshot("node-9", { columns: ["blocked"] })).columns,
 		).toEqual([...fullColumns]);
+	});
+
+	/**
+	 * Why `assigneeIds` needs no backfill, unlike `archived`. The absent-field
+	 * trap bites a field a query matches *negatively*; the only query this one
+	 * will ever have (#62) is an `array-contains`, which matches neither an
+	 * absent field nor an empty array. Reading it as `[]` is the whole migration.
+	 */
+	it("reads a node written before assignees existed as unassigned", () => {
+		expect(toNode(snapshot("node-9", {})).assigneeIds).toEqual([]);
+		expect(
+			toNode(snapshot("node-9", { assigneeIds: ["uid-a", 7, null] }))
+				.assigneeIds,
+		).toEqual(["uid-a"]);
 	});
 
 	it("does not read a private node as shared by accident", () => {
