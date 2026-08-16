@@ -9,13 +9,20 @@ import { boardHref, goneHref } from "@/components/board/board-href";
 import { ChoiceField } from "@/components/node/ChoiceField";
 import { DueDateField } from "@/components/node/DueDateField";
 import { NotesField } from "@/components/node/NotesField";
+import { PeopleSection } from "@/components/node/PeopleSection";
 import { StepsSection } from "@/components/node/StepsSection";
+import { VisibilityField } from "@/components/node/VisibilityField";
+import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { type NodeChanges, updateNode } from "@/data/nodes";
+import { useAncestors } from "@/hooks/use-ancestors";
 import { useNode } from "@/hooks/use-node";
+import { membersOf } from "@/models/home";
 import { efforts, priorities } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { contentWidth, space } from "@/theme/tokens";
+
+const noAncestors: string[] = [];
 
 /**
  * Everything about one card that is not its title: its due date, priority,
@@ -36,6 +43,7 @@ export default function NodeDetails() {
 	const theme = useAppTheme();
 	const { nodeId } = useLocalSearchParams<{ nodeId: string }>();
 	const { activeHome } = useHome();
+	const { user } = useAuth();
 	const focused = useIsFocused();
 
 	// A missing param must subscribe to nothing rather than to the wrong node —
@@ -44,6 +52,29 @@ export default function NodeDetails() {
 	const id = nodeId ?? null;
 	const homeId = id === null ? null : (activeHome?.id ?? null);
 	const { node, gone } = useNode(homeId, id);
+
+	/**
+	 * The root of this card's subtree, which is what carries the participants
+	 * both people-controls are built from.
+	 *
+	 * The same hook the breadcrumbs use, memoized per session and per uid — so a
+	 * detail screen opened from a board that has already been drawn adds **no
+	 * read**. A node that is itself a root skips it entirely.
+	 */
+	const { crumbs } = useAncestors(
+		homeId,
+		node === null || node.parentId === null
+			? noAncestors
+			: node.ancestorIds.slice(0, 1),
+	);
+	const root =
+		node === null
+			? null
+			: node.parentId === null
+				? node
+				: (crumbs[0]?.node ?? null);
+
+	const members = activeHome === null ? [] : membersOf(activeHome);
 
 	const [failed, setFailed] = useState(false);
 
@@ -151,6 +182,40 @@ export default function NodeDetails() {
 						stored={node.notes}
 						onSave={(notes) => save({ notes })}
 					/>
+
+					{/* Whose project this is, who is doing this card, and whether it is
+					    anybody else's business. All three are hidden while the home has
+					    one member — in a house she lives in alone, participants (nobody
+					    to involve), assignees (only her) and privacy (nothing to hide
+					    from) are pure clutter on the screen Ingrid uses to write down
+					    what the chimney sweep said, at 200 % text.
+
+					    The one exception: a node that is *already* private always shows
+					    the visibility control, so a home that drops back to one member
+					    can undo it rather than being stuck with a setting it cannot
+					    reach. */}
+					{homeId === null || user === null ? null : (
+						<>
+							<PeopleSection
+								homeId={homeId}
+								node={node}
+								root={root}
+								members={members}
+								onSave={save}
+								onError={() => setFailed(true)}
+							/>
+
+							{node.parentId === null &&
+							(members.length > 1 || node.visibility === "private") ? (
+								<VisibilityField
+									homeId={homeId}
+									node={node}
+									members={members}
+									uid={user.uid}
+								/>
+							) : null}
+						</>
+					)}
 
 					{homeId === null ? null : (
 						<StepsSection
