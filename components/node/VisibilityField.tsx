@@ -158,7 +158,9 @@ export function VisibilityField({
 							onPress={() => {
 								if (!selected) setConfirming(choice);
 							}}
-							accessibilityState={{ selected }}
+							// See `ChoiceField`: the object form is not forwarded by React
+							// Native Web, and Paper's chip is a `<button>`.
+							aria-pressed={selected}
 							style={{ minHeight: outlinedTouchTarget }}
 						>
 							{t(

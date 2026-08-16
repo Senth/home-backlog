@@ -37,7 +37,10 @@ export function BoardMenu({ showEveryone, onShowEveryone }: BoardMenuProps) {
 				// surface, and a switch inside it gives the same row two targets that
 				// do the same thing.
 				trailingIcon={showEveryone ? "check" : undefined}
-				accessibilityState={{ checked: showEveryone }}
+				// The ARIA prop, not `accessibilityState` — React Native Web 0.21
+				// does not forward the object form, so the check would be visible
+				// and nothing else.
+				aria-checked={showEveryone}
 				title={t("board.showEveryone")}
 				onPress={() => {
 					onShowEveryone(!showEveryone);

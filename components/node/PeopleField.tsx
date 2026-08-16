@@ -1,8 +1,8 @@
 import { View } from "react-native";
-import { Checkbox, Text } from "react-native-paper";
+import { Icon, Text, TouchableRipple } from "react-native-paper";
 import type { Member } from "@/models/home";
 import { useAppTheme } from "@/theme";
-import { space, touchTarget } from "@/theme/tokens";
+import { icon, space, touchTarget } from "@/theme/tokens";
 
 interface PeopleFieldProps {
 	label: string;
@@ -24,10 +24,19 @@ interface PeopleFieldProps {
  * fits in a list of four; a search-and-add picker is #88's problem, and inventing
  * it now would be a screen nobody has needed yet.
  *
- * Paper's `Checkbox.Item` is the whole row, so the name is part of the target
- * rather than a label beside it — which at 200 % text is the difference between
- * a control and a puzzle. Its own height is under the 48dp minimum, so it is
- * given one.
+ * The whole row is the target, so the name is part of it rather than a label
+ * beside it — at 200 % text that is the difference between a control and a
+ * puzzle.
+ *
+ * **Deliberately not Paper's `Checkbox.Item`**, for the third time in this
+ * codebase and for the reason `MetaChip` and `Row` both write down.
+ * `Checkbox.Item` is a `TouchableRipple` wrapping a *second* `Checkbox`, and
+ * that inner one is handed no `onPress` — so `TouchableRipple` computes
+ * `disabled = disabledProp || !hasPassedTouchHandler` and React Native Web
+ * writes `role="checkbox" aria-disabled="true"` on it. Paper hides it with
+ * `importantForAccessibility`, which RNW does not translate to `aria-hidden`,
+ * so every person in the list is announced twice, the second time as dimmed.
+ * The mark here is a plain `Icon` and the semantics live on the row.
  */
 export function PeopleField({
 	label,
@@ -57,19 +66,46 @@ export function PeopleField({
 			<View>
 				{members.map((member) => {
 					const checked = value.includes(member.uid);
+					const name = member.displayName || unknownLabel;
 
 					return (
-						// `Checkbox.Item` writes `role="checkbox"` and the checked state
-						// onto the row itself, from `status` — so there is nothing to add
-						// here, and adding it would be a second source for one fact.
-						<Checkbox.Item
+						<TouchableRipple
 							key={member.uid}
-							label={member.displayName || unknownLabel}
-							position="leading"
-							status={checked ? "checked" : "unchecked"}
 							onPress={() => toggle(member.uid)}
-							style={{ minHeight: touchTarget, paddingLeft: space.none }}
-						/>
+							accessibilityRole="checkbox"
+							// `aria-checked`, not `accessibilityState`. React Native Web
+							// 0.21 dropped the object form — it is not in its forwarded
+							// props at all, so it reaches the DOM as nothing and the row
+							// announces as an unchecked checkbox for ever. React Native
+							// itself accepts the ARIA prop too, so this is not web-only.
+							aria-checked={checked}
+							accessibilityLabel={name}
+							style={{ minHeight: touchTarget, justifyContent: "center" }}
+						>
+							<View
+								style={{
+									flexDirection: "row",
+									alignItems: "center",
+									gap: space.md,
+									paddingVertical: space.sm,
+								}}
+							>
+								<Icon
+									source={
+										checked ? "checkbox-marked" : "checkbox-blank-outline"
+									}
+									size={icon.md}
+									color={
+										checked
+											? theme.colors.primary
+											: theme.colors.onSurfaceVariant
+									}
+								/>
+								<Text variant="bodyLarge" style={{ flexShrink: 1 }}>
+									{name}
+								</Text>
+							</View>
+						</TouchableRipple>
 					);
 				})}
 			</View>
