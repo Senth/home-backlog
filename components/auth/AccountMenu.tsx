@@ -4,8 +4,6 @@ import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View } from "react-native";
 import {
-	Button,
-	Dialog,
 	Divider,
 	Menu,
 	Portal,
@@ -15,13 +13,13 @@ import {
 } from "react-native-paper";
 import { displayLabel } from "@/auth/display-name";
 import { type AuthErrorKey, mapAuthError } from "@/auth/errors";
+import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAnchorFocusGuard, useModalFocus } from "@/hooks/use-modal-focus";
+import { useAnchorFocusGuard } from "@/hooks/use-modal-focus";
 import { useAppTheme } from "@/theme";
 import {
 	compactBreakpoint,
-	contentWidth,
 	radius,
 	size,
 	space,
@@ -29,14 +27,6 @@ import {
 } from "@/theme/tokens";
 
 const signOutDialogTestID = "sign-out-dialog";
-
-/**
- * What the focus trap actually looks for. Paper puts `testID` on the modal
- * wrapper and `${testID}-surface` on the dialog itself, and the wrapper
- * contains the scrim's own "Close modal" button — trapping that would put a
- * control in the cycle that is not part of the dialog.
- */
-const signOutDialogSurfaceTestID = `${signOutDialogTestID}-surface`;
 
 /** Kept for the browser reviewers to hook onto. Focus is *not* restored by
  *  this ID — three tab screens stay mounted at once, so it is not unique; the
@@ -77,14 +67,8 @@ export function AccountMenu() {
 
 	const closeConfirm = useCallback(() => setConfirmOpen(false), []);
 
-	// Paper does nothing about focus on web: without this the dialog is reached
-	// only by tabbing through the tab bar behind the scrim, and Escape does
-	// nothing. A dialog that exists to be a deliberate stop has to be operable.
-	useModalFocus(confirmOpen, signOutDialogSurfaceTestID, closeConfirm, {
-		returnFocusTo: triggerRef,
-	});
-
-	// And Paper's `Menu` focuses this trigger on mount, unasked — see the hook.
+	// Paper's `Menu` focuses this trigger on mount, unasked — see the hook. The
+	// dialog's own focus trap comes with `ConfirmDialog`.
 	useAnchorFocusGuard(triggerRef);
 
 	if (!user) return null;
@@ -194,53 +178,24 @@ export function AccountMenu() {
 				/>
 			</Menu>
 
-			<Portal>
-				<Dialog
-					visible={confirmOpen}
-					onDismiss={closeConfirm}
-					testID={signOutDialogTestID}
-					// Paper leaves the surface to fill its container, so on a desktop
-					// monitor the dialog spans the window. Computing the width keeps
-					// the inset on a phone *and* the Material 3 clamp on a monitor —
-					// setting `width: "100%"` instead cancels Paper's own margin.
-					style={{
-						alignSelf: "center",
-						width: Math.min(width - space.lg * 2, contentWidth.dialog),
-					}}
-				>
-					<Dialog.Title>{t("account.signOut.title")}</Dialog.Title>
-					<Dialog.Content>
-						<Text variant="bodyMedium">{t("account.signOut.body")}</Text>
-					</Dialog.Content>
-					{/* Wrapping, because below ~230 px the two labels no longer fit
-					    side by side and Paper's row simply overflows its own card:
-					    "Cancel" — the safe answer — ends up on the scrim with its
-					    left edge off the screen while "Sign out" sits square in the
-					    middle. That is a phone at 200 % zoom, which is exactly the
-					    person this dialog exists to protect. */}
-					<Dialog.Actions style={{ gap: space.md, flexWrap: "wrap" }}>
-						{/* The two answers must not look alike. Paper's default gives
-						    both actions `primary`, so the one that ends your access
-						    reads exactly like the one that does not — and it sits on
-						    the right, under the thumb. `primary` also misses 4.5:1 on
-						    this surface in the light theme; these roles clear it. */}
-						<Button
-							onPress={closeConfirm}
-							textColor={theme.colors.onSurfaceVariant}
-							contentStyle={{ minHeight: touchTarget }}
-						>
-							{t("common.cancel")}
-						</Button>
-						<Button
-							onPress={handleSignOut}
-							textColor={theme.colors.error}
-							contentStyle={{ minHeight: touchTarget }}
-						>
-							{t("common.signOut")}
-						</Button>
-					</Dialog.Actions>
-				</Dialog>
+			{/* `ConfirmDialog`, not a Paper `Dialog` of its own. This screen had
+			    its own copy of the width clamp, the wrapping action row and the
+			    destructive-button colours — and being a copy is how it kept
+			    Paper's untranslated "Close modal" on its scrim after every other
+			    dialog in the app had stopped saying it. */}
+			<ConfirmDialog
+				visible={confirmOpen}
+				onDismiss={closeConfirm}
+				onConfirm={handleSignOut}
+				title={t("account.signOut.title")}
+				body={t("account.signOut.body")}
+				confirmLabel={t("common.signOut")}
+				destructive
+				testID={signOutDialogTestID}
+				returnFocusTo={triggerRef}
+			/>
 
+			<Portal>
 				<Snackbar visible={error !== null} onDismiss={() => setError(null)}>
 					{error ? t(error) : ""}
 				</Snackbar>
