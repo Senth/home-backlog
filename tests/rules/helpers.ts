@@ -138,6 +138,7 @@ export function nodeDoc(
 		locationId: null,
 		locationAncestorIds: [],
 		participantIds: [],
+		assigneeIds: [],
 		visibility: "shared",
 		columns: [
 			"backlog",
