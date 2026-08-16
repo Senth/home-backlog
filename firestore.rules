@@ -397,12 +397,61 @@ service cloud.firestore {
         allow delete: if isMember(homeId) && visibleToMe(resource.data);
       }
 
+      // The automations that have written into this home — one row per API key,
+      // upserted by the function the first time that key touches the home.
+      //
+      // Derived from writes rather than from grants, because there are no
+      // grants: a key reaches every home its owner is a member of, so "who could
+      // write here" is just "every member". What a household actually wants to
+      // know is what *has* written here.
+      //
+      // Readable by every member and writable by none of them. A member cannot
+      // revoke somebody else's key — only its owner can — but this is what lets
+      // them see that it exists, see which cards it wrote, and ask. That is the
+      // same shape as membership itself, which they also cannot unilaterally
+      // undo.
+      //
+      // Query-safe by construction: every document in the collection is readable
+      // by every member, so `orderBy('lastUsedAt', 'desc')` can match nothing
+      // that would be denied.
+      match /apiClients/{keyId} {
+        allow get, list: if isMember(homeId);
+        allow write: if false;
+      }
+
       match /locations/{locationId} {
         allow read, write: if isMember(homeId);
       }
 
       match /recurring/{ruleId} {
         allow read, write: if isMember(homeId);
+      }
+    }
+
+    // A person's API keys.
+    //
+    // The first thing in this database that is scoped to a *user* rather than to
+    // a home, and deliberately so: a person is in several homes, and a key is
+    // the person. It holds nothing but keys — member display names and photos
+    // stay in `memberProfiles` on the home, where the rules read them.
+    match /users/{uid} {
+      match /apiKeys/{keyId} {
+        // Minted by the `createApiKey` callable, which uses the Admin SDK and is
+        // not subject to these rules. A client may see its own keys and revoke
+        // them, and may never write one — a client-written key would let a
+        // member forge a hash they already know the secret for, which is a
+        // credential minted outside every check this file makes.
+        allow get, list: if signedIn() && uid == request.auth.uid;
+        allow delete:    if signedIn() && uid == request.auth.uid;
+        allow create, update: if false;
+
+        // Replay bookkeeping for a bulk create: an `Idempotency-Key` mapped to
+        // the ids it produced. No client has any business reading it, and it
+        // lives under the key that made the run so that revoking the key takes
+        // its history with it.
+        match /runs/{runId} {
+          allow read, write: if false;
+        }
       }
     }
 

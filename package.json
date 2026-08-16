@@ -15,8 +15,8 @@
 		"test": "jest && yarn --cwd functions test",
 		"postinstall": "yarn --cwd functions install",
 		"test:rules": "firebase emulators:exec --only firestore,storage --project demo-home-backlog-rules \"jest --config jest.rules.config.js\"",
-		"emulators": "firebase emulators:start --project home-backlog",
-		"emulators:seed": "firebase emulators:start --project home-backlog --import .emulator-seed",
+		"emulators": "yarn --cwd functions build && firebase emulators:start --project home-backlog",
+		"emulators:seed": "yarn --cwd functions build && firebase emulators:start --project home-backlog --import .emulator-seed",
 		"emulators:export": "firebase emulators:export .emulator-seed --project home-backlog --force",
 		"icons": "python3 scripts/gen-icons.py",
 		"todo": "scripts/sync-todo.sh"

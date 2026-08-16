@@ -47,6 +47,24 @@
 				{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
 			]
 		},
+		{
+			"collectionGroup": "apiClients",
+			"fieldPath": "keyId",
+			"indexes": [
+				{ "order": "ASCENDING", "queryScope": "COLLECTION" },
+				{ "order": "DESCENDING", "queryScope": "COLLECTION" },
+				{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+			]
+		},
+		{ "collectionGroup": "apiClients", "fieldPath": "name", "indexes": [] },
+		{
+			"collectionGroup": "apiClients",
+			"fieldPath": "ownerName",
+			"indexes": []
+		},
+		{ "collectionGroup": "apiKeys", "fieldPath": "name", "indexes": [] },
+		{ "collectionGroup": "apiKeys", "fieldPath": "secretHash", "indexes": [] },
+		{ "collectionGroup": "apiKeys", "fieldPath": "tail", "indexes": [] },
 		{ "collectionGroup": "nodes", "fieldPath": "title", "indexes": [] },
 		{ "collectionGroup": "nodes", "fieldPath": "columns", "indexes": [] },
 		{ "collectionGroup": "nodes", "fieldPath": "notes", "indexes": [] },

@@ -15,3 +15,6 @@ setGlobalOptions({ region: "europe-west1" });
 
 /** The REST API. Everything under `/api/v1` on the app's own origin. */
 export const api = onRequest(app);
+
+export { createApiKey } from "./create-api-key";
+export { onApiKeyDeleted } from "./on-api-key-deleted";

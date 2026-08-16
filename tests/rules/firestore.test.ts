@@ -1740,3 +1740,159 @@ describe("homes/{homeId}/locations and /recurring", () => {
 		await assertFails(getDoc(doc(dbAnon(env), path)));
 	});
 });
+
+describe("users/{uid}/apiKeys", () => {
+	const keyPath = `users/${OWNER.uid}/apiKeys/key-1`;
+
+	/**
+	 * A key document in the shape `createApiKey` writes it. The secret itself is
+	 * never stored — only its SHA-256 — so nothing here is a working credential.
+	 */
+	function apiKeyDoc(overrides: Record<string, unknown> = {}) {
+		return {
+			name: "research agent",
+			secretHash: "0".repeat(64),
+			tail: "3f9c",
+			createdAt: new Date("2026-01-01T00:00:00Z"),
+			lastUsedAt: null,
+			...overrides,
+		};
+	}
+
+	async function seedKey() {
+		await seed(env, async (db) => {
+			await setDoc(doc(db, keyPath), apiKeyDoc());
+		});
+	}
+
+	it("is readable by its owner and nobody else", async () => {
+		await seedKey();
+
+		await assertSucceeds(getDoc(doc(dbAs(env, OWNER), keyPath)));
+		await assertFails(getDoc(doc(dbAs(env, MEMBER), keyPath)));
+		await assertFails(getDoc(doc(dbAnon(env), keyPath)));
+	});
+
+	it("lists only to its owner", async () => {
+		await seedKey();
+		const keys = (db: ReturnType<typeof dbAs>) =>
+			getDocs(
+				query(
+					collection(db, "users", OWNER.uid, "apiKeys"),
+					orderBy("createdAt"),
+				),
+			);
+
+		await assertSucceeds(keys(dbAs(env, OWNER)));
+		await assertFails(keys(dbAs(env, MEMBER)));
+	});
+
+	it("is revoked by its owner and by nobody else", async () => {
+		await seedKey();
+
+		await assertFails(deleteDoc(doc(dbAs(env, MEMBER), keyPath)));
+		await assertSucceeds(deleteDoc(doc(dbAs(env, OWNER), keyPath)));
+	});
+
+	// A client that could write one of these could plant a hash whose secret it
+	// already knows, which is a credential minted outside every check in the
+	// rules. Minting is the callable's alone.
+	it("cannot be created by anyone, including its own owner", async () => {
+		await assertFails(setDoc(doc(dbAs(env, OWNER), keyPath), apiKeyDoc()));
+		await assertFails(setDoc(doc(dbAs(env, MEMBER), keyPath), apiKeyDoc()));
+	});
+
+	it("cannot be updated by its owner", async () => {
+		await seedKey();
+
+		await assertFails(
+			updateDoc(doc(dbAs(env, OWNER), keyPath), { name: "renamed" }),
+		);
+		await assertFails(
+			updateDoc(doc(dbAs(env, OWNER), keyPath), {
+				secretHash: "1".repeat(64),
+			}),
+		);
+	});
+
+	describe("the run records", () => {
+		const runPath = `${keyPath}/runs/idem-1`;
+
+		it("are readable and writable by nobody at all", async () => {
+			await seed(env, async (db) => {
+				await setDoc(doc(db, runPath), { ids: {}, rootId: "node-1" });
+			});
+
+			await assertFails(getDoc(doc(dbAs(env, OWNER), runPath)));
+			await assertFails(getDoc(doc(dbAs(env, MEMBER), runPath)));
+			await assertFails(
+				setDoc(doc(dbAs(env, OWNER), runPath), { ids: {}, rootId: "node-1" }),
+			);
+			await assertFails(deleteDoc(doc(dbAs(env, OWNER), runPath)));
+		});
+	});
+});
+
+describe("homes/{homeId}/apiClients", () => {
+	const clientPath = `${homePath}/apiClients/key-1`;
+
+	function apiClientDoc(overrides: Record<string, unknown> = {}) {
+		return {
+			keyId: "key-1",
+			ownerUid: OWNER.uid,
+			ownerName: "Marcus",
+			name: "research agent",
+			lastUsedAt: new Date("2026-01-01T00:00:00Z"),
+			...overrides,
+		};
+	}
+
+	beforeEach(async () => {
+		await seedHome();
+		await seed(env, async (db) => {
+			await setDoc(doc(db, clientPath), apiClientDoc());
+		});
+	});
+
+	it("is readable by every member of the home", async () => {
+		await assertSucceeds(getDoc(doc(dbAs(env, OWNER), clientPath)));
+		await assertSucceeds(getDoc(doc(dbAs(env, MEMBER), clientPath)));
+	});
+
+	it("tells a non-member nothing", async () => {
+		await assertFails(getDoc(doc(dbAs(env, OUTSIDER), clientPath)));
+		await assertFails(getDoc(doc(dbAnon(env), clientPath)));
+	});
+
+	// The manage screen's list. Every document in the collection is readable by
+	// every member, so nothing this can match could be denied.
+	it("lists to a member ordered by last use, and not to a non-member", async () => {
+		const clients = (db: ReturnType<typeof dbAs>) =>
+			getDocs(
+				query(
+					collection(db, homePath, "apiClients"),
+					orderBy("lastUsedAt", "desc"),
+				),
+			);
+
+		await assertSucceeds(clients(dbAs(env, MEMBER)));
+		await assertFails(clients(dbAs(env, OUTSIDER)));
+	});
+
+	// Written by the function only. A member who could write these could invent
+	// an automation that never existed, or quietly erase the trace of one that
+	// did — on the one screen a household consults to find out.
+	it("is written by no client, member or owner", async () => {
+		await assertFails(
+			setDoc(
+				doc(dbAs(env, OWNER), `${homePath}/apiClients/key-2`),
+				apiClientDoc(),
+			),
+		);
+		await assertFails(
+			updateDoc(doc(dbAs(env, OWNER), clientPath), { name: "renamed" }),
+		);
+		await assertFails(deleteDoc(doc(dbAs(env, OWNER), clientPath)));
+		await assertFails(deleteDoc(doc(dbAs(env, MEMBER), clientPath)));
+	});
+});
