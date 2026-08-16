@@ -6,6 +6,7 @@ import express, {
 } from "express";
 import { requireKey } from "./auth.js";
 import { ApiError, sendError } from "./errors.js";
+import { registerRoutes } from "./routes.js";
 import { apiVersion } from "./version.js";
 
 /**
@@ -41,6 +42,7 @@ v1.get("/health", (_request: Request, response: Response) => {
 
 // Everything below this line needs a valid API key.
 v1.use(requireKey);
+registerRoutes(v1);
 
 export const app = express();
 
