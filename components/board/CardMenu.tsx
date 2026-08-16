@@ -206,6 +206,7 @@ export function CardMenu({
 			<Menu
 				visible={open}
 				onDismiss={close}
+				overlayAccessibilityLabel={t("common.closeMenu")}
 				anchor={
 					<View ref={anchor}>
 						<IconButton

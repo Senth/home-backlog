@@ -5,6 +5,8 @@
 	},
 	"common": {
 		"cancel": "Cancel",
+		"closeDialog": "Close the dialog",
+		"closeMenu": "Close the menu",
 		"dismiss": "Dismiss",
 		"loading": "Loading",
 		"retry": "Try again",
@@ -116,6 +118,8 @@
 		"up": "Up one level",
 		"empty": "Nothing here yet. Add the first card.",
 		"allHidden": "Everything here is somebody's own project. Turn on \"Show everyone's projects\" to see them.",
+		"hiddenHere_one": "1 more here is somebody's own project. Turn on \"{{action}}\" to see it.",
+		"hiddenHere_other": "{{count}} more here are somebody's own projects. Turn on \"{{action}}\" to see them.",
 		"columnEmpty": "Nothing here",
 		"addTo": "Add to {{column}}",
 		"newCard": "New card",

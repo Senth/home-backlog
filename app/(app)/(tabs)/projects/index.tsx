@@ -71,7 +71,7 @@ export default function Projects() {
 					columns={rootColumns}
 					nodes={board.nodes}
 					loading={loading}
-					hiddenCount={board.hiddenCount}
+					hidden={board.hidden}
 				/>
 			) : null}
 

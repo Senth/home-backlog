@@ -18,6 +18,15 @@ interface BoardColumnProps {
 	 * neither is repeated inside the pane.
 	 */
 	wide: boolean;
+	/**
+	 * How many cards in this column the default-hide filter is holding back.
+	 *
+	 * A column emptied by the filter otherwise reads exactly like a column with
+	 * nothing in it — and everywhere else this feature makes a point of never
+	 * being a dead end: the narrowed assignee list names its own escape hatch,
+	 * and so does the stale assignee.
+	 */
+	hiddenCount?: number;
 	onAdd: () => void;
 	onOpen: (node: Node) => void;
 	/** The card's overflow menu, which the board owns because the actions do. */
@@ -37,6 +46,7 @@ export function BoardColumn({
 	nodes,
 	width,
 	wide,
+	hiddenCount = 0,
 	onAdd,
 	onOpen,
 	renderMenu,
@@ -115,6 +125,25 @@ export function BoardColumn({
 						/>
 					))
 				)}
+
+				{/* Says a card is there rather than leaving the column to read as
+				    empty. Not a control: turning it back on is one item in the app
+				    bar's overflow, which this names. */}
+				{hiddenCount > 0 ? (
+					<Text
+						variant="bodySmall"
+						style={{
+							color: theme.colors.onSurfaceVariant,
+							paddingHorizontal: space.sm,
+							paddingVertical: space.sm,
+						}}
+					>
+						{t("board.hiddenHere", {
+							count: hiddenCount,
+							action: t("board.showEveryone"),
+						})}
+					</Text>
+				) : null}
 
 				{wide ? (
 					<Button

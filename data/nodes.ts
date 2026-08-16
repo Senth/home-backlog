@@ -161,7 +161,13 @@ export async function getNode(
 		const snapshot = await getDoc(nodeRef(homeId, nodeId));
 		return snapshot.exists() ? toNode(snapshot) : null;
 	} catch (reason) {
-		console.error("Could not read a node:", reason);
+		// A refusal is the answer, not an error: an unreadable ancestor is the
+		// case this function's own contract is built around, and logging it would
+		// make an ordinary breadcrumb draw a raw `FirebaseError` over the screen
+		// in development. Anything else is worth knowing about.
+		if ((reason as { code?: string } | null)?.code !== "permission-denied") {
+			console.error("Could not read a node:", reason);
+		}
 		return null;
 	}
 }

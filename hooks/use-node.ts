@@ -75,7 +75,16 @@ export function useNode(
 				setLoading(false);
 			},
 			(reason) => {
-				console.error("Could not load this board's card:", reason);
+				// A refusal is the *answer* this hook is documented to treat as
+				// "gone", so it is not also a failure to log. It arrives whenever
+				// somebody opens a private card they are not on by URL, and in
+				// development an unhandled console error is drawn over the screen as
+				// a raw `FirebaseError: evaluation error at L381` — on top of the
+				// honest "That card is gone." the bounce already said. Anything else
+				// really is unexpected and keeps its entry.
+				if (!isDenied(reason)) {
+					console.error("Could not load this board's card:", reason);
+				}
 				setNode(null);
 				setGone(true);
 				setLoading(false);
@@ -84,4 +93,9 @@ export function useNode(
 	}, [homeId, nodeId]);
 
 	return { node, loading, gone };
+}
+
+/** A read the rules refused, which here is a fact rather than a fault. */
+function isDenied(reason: unknown): boolean {
+	return (reason as { code?: string } | null)?.code === "permission-denied";
 }

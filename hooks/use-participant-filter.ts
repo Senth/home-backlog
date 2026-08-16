@@ -24,6 +24,12 @@ import { hiddenByParticipants, type Node } from "@/models/node";
  */
 export function useParticipantFilter(nodes: Node[]): {
 	nodes: Node[];
+	/**
+	 * What is being held back *right now*, for the column that would otherwise
+	 * say "Nothing here" while a card sits in it. Empty once the toggle is on,
+	 * because then nothing is.
+	 */
+	hidden: Node[];
 	hiddenCount: number;
 	showEveryone: boolean;
 	setShowEveryone: (value: boolean) => void;
@@ -33,15 +39,29 @@ export function useParticipantFilter(nodes: Node[]): {
 
 	const uid = user?.uid ?? null;
 	if (uid === null) {
-		return { nodes, hiddenCount: 0, showEveryone, setShowEveryone };
+		return {
+			nodes,
+			hidden: none,
+			hiddenCount: 0,
+			showEveryone,
+			setShowEveryone,
+		};
 	}
 
 	const shown = nodes.filter((node) => !hiddenByParticipants(node, uid));
 
 	return {
 		nodes: showEveryone ? nodes : shown,
+		hidden: showEveryone
+			? none
+			: nodes.filter((node) => hiddenByParticipants(node, uid)),
+		// Counted against the *unfiltered* list, so it stays true with the toggle
+		// on — the app bar renders the toggle from it, and a count that fell to
+		// zero would take the control away under the hand that had just used it.
 		hiddenCount: nodes.length - shown.length,
 		showEveryone,
 		setShowEveryone,
 	};
 }
+
+const none: Node[] = [];

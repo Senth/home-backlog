@@ -42,8 +42,9 @@ Every field is written on create, with the default below.
 | `ancestorIds` | `string[]` | `[]` | root → parent; the last element equals `parentId` |
 | `locationId` | `string \| null` | parent's | inherited unless overridden |
 | `locationAncestorIds` | `string[]` | parent's | denormalized location path |
-| `participantIds` | `string[]` | `[]` | empty means unassigned |
-| `visibility` | `'shared' \| 'private'` | parent's, else `'shared'` | equals the parent's, always |
+| `participantIds` | `string[]` | `[]` | **whose project this is** — set on a root; on a private node, the access list |
+| `assigneeIds` | `string[]` | `[]` | **who is doing this node** — per node, inherited by nothing, read by no rule |
+| `visibility` | `'shared' \| 'private'` | parent's, else `'shared'` | equals the parent's, always; only a root sets it |
 | `dueDate` | `string \| null` | `null` | `'YYYY-MM-DD'` |
 | `priority` | `Priority \| null` | `null` | `low` `normal` `high` `urgent` |
 | `blockedBy` | `string[]` | `[]` | node ids — [#66](https://github.com/Senth/home-backlog/issues/66) |
@@ -65,6 +66,47 @@ numeric form and retuning "< 2 h" must not become a migration.
 
 `photos[].path` is a Cloud Storage path, never a download URL — URLs carry tokens that
 rotate.
+
+### Three questions about people, three fields
+
+They get confused with each other constantly, and the document had a field for only one of
+them:
+
+| Question | Field | Scope | Read by a rule? |
+| --- | --- | --- | --- |
+| Whose project is this? | `participantIds` | root only | only when private |
+| Who is doing this card? | `assigneeIds` | this node | never |
+| Is this anyone else's business? | `visibility` | root only | yes |
+
+`participantIds` was already load-bearing: it is the ACL a private read rule consults, and
+it is what board query Q2 constrains. It could not *also* become "who is doing this card"
+without dragging assignment into the security model, and without making "my tasks" return
+every card in every project you are involved in — which in a two-person household is close
+to everything. So `assigneeIds` is its own field, and the split has a second payoff: an API
+key ([#7](https://github.com/Senth/home-backlog/issues/7)) that may write `assigneeIds`
+cannot revoke anybody's access, where one that may write `participantIds` can.
+
+**`participantIds` and `visibility` are both root-only.** Both answer a question about a
+*project* rather than about a step inside one, so a household that learns the rule once has
+learned it for both — and neither ever needs a greyed-out inherited row on a descendant.
+
+*Rejected:* one field for both people-questions. It is the confusion this exists to fix,
+and it makes assignment a permission change.
+
+*Rejected:* participants editable at every depth, inherited and greyed below. It needs the
+ancestor named and linked on every card to not be a dead end — and if the inherited value
+were *stored*, editing participants on a thirty-card project becomes a second top-down
+subtree cascade with the same half-failure problems as the visibility flip.
+
+*Rejected:* participants per node with no inheritance at all. The default-hide predicate
+then bites unpredictably on drill-down boards, hiding individual steps from people who can
+see the project they are in.
+
+**`assigneeIds` needed no backfill**, and that is a real difference from `archived` rather
+than an oversight. The absent-field trap bites a field a query must match *negatively*; an
+`array-contains` clause matches neither an absent field nor an empty array, and a document
+written before the field existed has no assignees. `toNode` reads it as `[]` and that is
+the whole migration.
 
 ### A field that is absent can never be queried
 
@@ -251,6 +293,19 @@ With the invariant, both subtree reads are provably safe *and* complete:
 The cost is a product restriction: **a private card cannot live inside a shared project.**
 It sits at the root, or under another private card.
 
+**Private is not "mine alone."** `participantIds` on a private node *is* the access list,
+and it has always been allowed to hold several people. A private project is therefore *the
+people on it*: two members planning something for a third in the same household have no
+other way to express it, and the "Celebration as its own private project" example below
+assumes exactly that. The one thing that cannot happen is a member writing themselves out
+— `allow update` requires `visibleToMe(request.resource.data)`, so a private document whose
+participants do not include the writer is denied on create and update alike. There is no
+lockout path to defend against, only a bare permission error to avoid, by writing the actor
+in.
+
+*Rejected:* private means one person, convert to shared to involve anyone. Simpler to say,
+and it removes the only expression the surprise-planning case has.
+
 That restriction is worth having on its own merits. A hidden child makes its parent lie —
 one member sees eight subtasks and another sees seven, so every count derived from children
 diverges per viewer: progress, location roll-ups, and the "all 8 subtasks are done — move
@@ -391,10 +446,28 @@ The second `array-contains` is not expressible, so the ancestor test is client-s
 by the rule's second disjunct — `participantIds array-contains uid` alone proves that — and
 complete by participant inheritance.
 
-The `visibility` clause is what *bounds* it. Being a participant is also how assignment on
-an ordinary **shared** card works, so without that clause this reads every card assigned to
-me anywhere in the home on each private reparent or delete. Private nodes are small by
-construction; assigned ones are not.
+The `visibility` clause is what *bounds* it. A member is also a participant of every shared
+project that is theirs, so without that clause this would read every such card anywhere in
+the home on each reparent or delete. Private nodes are small by construction.
+
+**`subtreeOf()` runs both of these and dedupes by id**, rather than choosing one by the
+node's own visibility. Choosing was only sound while a subtree really is all one thing —
+and a [visibility flip](#the-flip-is-the-dangerous-part) is *n* sequential writes that
+cannot be batched, so one abandoned partway leaves a **mixed subtree**, which is the state
+this has to survive. Under the old form, a project left private with fourteen still-shared
+descendants was a project whose later deletion ran the private query and never saw them:
+they would survive the delete with a dead `parentId`, unreachable from every board and
+every breadcrumb — precisely the orphan the whole invariant exists to prevent, and it bites
+in both directions.
+
+Each half is provably safe on its own, so the union is. It costs one extra one-shot server
+read on reparent, delete and flip, and it buys a mixed subtree that still deletes whole and
+still reparents whole. An abandoned flip then *degrades* — some cards keep the old
+visibility — but can never orphan.
+
+*Rejected:* a `flipPending` marker field so an interrupted flip could be found later.
+Another field on every document, and the union above already removes the consequence that
+made finding it urgent.
 
 ### Storage cost lives in the index, not the document
 
@@ -450,6 +523,7 @@ validNode(data)
   parentId   == null or is string
   locationId == null or is string
   ancestorIds, locationAncestorIds, participantIds, blockedBy  are lists
+  assigneeIds  present-only: !('assigneeIds' in data) || data.assigneeIds is list
   visibility in ['shared', 'private']
   dueDate    == null or matches '^\d{4}-\d{2}-\d{2}$'
   priority   == null or in ['low','normal','high','urgent']
@@ -480,6 +554,15 @@ privacyUnchanged(next, current)   // when true, update skips inherits() entirely
   && next.visibility == current.visibility
   && next.participantIds == current.participantIds
 ```
+
+`assigneeIds` is the **one field validated present-only**, and the one deliberately absent
+from `privacyUnchanged()`. It is not privacy — no rule anywhere reads it — so an assignment
+stays an ordinary edit that skips the parent `get()`. And requiring it outright would deny
+**every** update to a node written before it existed, including the `childCount` bump that
+adding a step to an old project performs: `request.resource.data` is the full post-update
+document, so the missing field fails on a patch that never mentioned it. There is no admin
+tooling in this repo to unstick them, so it would deadlock. New documents always carry it;
+old ones gain it the first time anything writes it.
 
 The status vocabulary is written once, as `allStatuses()`, because `status` and every entry
 of `columns` are drawn from it and the two must never drift.
@@ -550,7 +633,8 @@ evaluation caches a `get()` per path: twenty siblings under one parent cost one 
 between them, and it is *distinct* parents that spend the budget. The rules test moves a
 subtree past it deliberately.
 
-The one window this opens is during a top-down visibility flip (#61): a child edited
+The one window this opens is during a [top-down visibility
+flip](#the-flip-is-the-dangerous-part): a child edited
 between its parent's flip and its own is let through while temporarily mismatched, and the
 flip then reaches it. The failure all of this exists to prevent is a *silent orphan*, and
 producing one needs `parentId` or `visibility` to change — which is exactly the case that
@@ -570,10 +654,10 @@ uniform visibility enforced by the client alone — so a bug, or the REST API (#
 reintroduces the silent orphan.
 
 Operations that **do** change visibility, or create a parent and a child together, still
-cannot be batched: the subtree visibility flip
-([#61](https://github.com/Senth/home-backlog/issues/61)) and bulk subtree create (#7) must
-write **top-down, one document at a time**. They fail loudly — a permission error — if they
-forget, which is the right way for that constraint to be discovered.
+cannot be batched: the [subtree visibility flip](#the-flip-is-the-dangerous-part) and bulk
+subtree create (#7) must write **top-down, one document at a time**. They fail loudly — a
+permission error — if they forget, which is the right way for that constraint to be
+discovered.
 
 ## Rank
 
@@ -638,7 +722,7 @@ against "14 d" — for the same fact on the same chip.
 
 ## Writes, and what each one may touch
 
-`data/nodes.ts` carries five writes, split by what they have to keep consistent:
+`data/nodes.ts` carries six writes, split by what they have to keep consistent:
 
 - **`createNode`** returns the new id immediately — it is generated on the device, not by
   the server — alongside an `acknowledged` promise that resolves when the server has the
@@ -660,9 +744,15 @@ against "14 d" — for the same fact on the same chip.
   column and a new parent is a new column, so the caller passes one computed from the
   target board's neighbours. `locationId` is untouched: a node moving in the project tree
   never moves in the location tree. Moving a node into its own subtree throws before any
-  write.
+  write. It also **clears `participantIds` on a shared node that stops being a root** —
+  the control that edits them is root-only and the default-hide filter bites at every
+  depth, so a demoted project would otherwise stay hidden from everyone not on it with
+  nothing anywhere able to clear the flag. A private node keeps its list: the rules require
+  every descendant to carry all of its parent's.
 - **`deleteNode`** deletes the subtree and the node in one batch. A node whose parent is
   gone is unreachable from every board and every breadcrumb.
+- **`flipVisibility`** makes a project private or shared again, and is the only write here
+  that is not one batch. See [the flip](#the-flip-is-the-dangerous-part).
 
 ### The counters are maintained by four of those five
 
@@ -710,6 +800,58 @@ to prevent. Reading from the server turns that into a loud failure.
 cache" is not "no children" — a cold cache after a reload, or a node reached by URL, brings
 the orphan straight back.
 
+`flipVisibility` requires a connection for a different reason: queuing it optimistically
+would show a private project that is not private yet. Changing participants on an
+**already private** project goes through the same call and inherits the same requirement,
+because there the list *is* the ACL. On a shared project it is a plain `updateNode` and
+queues like any edit — the read grant's first disjunct already lets every member in, so
+the list changes no permission at all.
+
+### The flip is the dangerous part
+
+Uniform visibility means every descendant physically carries the same `visibility` value —
+board Q1 filters on it directly, so it cannot be derived. Making a project private is
+therefore *n* writes, and they **cannot be one batch**: a rule's `get()` reads committed
+state, so a child written to the new visibility while its parent still holds the old one
+fails `inheritsFrom`. Top-down, one document at a time, in both directions.
+
+`flipVisibility(homeId, node, target, uid, { participantIds, onProgress })`:
+
+- reads the subtree from the **server** through the unioned `subtreeOf()`;
+- computes `flipPlan()` in `models/node.ts` — the documents to write, ordered by depth,
+  with every document already at the target dropped;
+- writes them one at a time, `await`ing each, reporting `{ done, total }` after every write
+  and on failure.
+
+Target participants going private are the root's list plus the actor, on every document —
+`allow update` requires `visibleToMe(request.resource.data)`, so writing yourself out is
+refused, and the answer is to write yourself in rather than to defend against a lockout
+that cannot happen. Going shared, the root **keeps** its list, which becomes "whose
+project" again, and descendants drop to `[]`.
+
+`participantIds` is a separate argument rather than a doctored `node`, and that is not
+cosmetic: `flipPlan` measures every skip against what is *stored*, so a copy carrying the
+new list makes the root look already-correct and drops it from its own plan. That is
+exactly the participants-change-on-an-already-private-project case, where the visibility is
+not moving and the list is the only thing that is — it silently wrote nothing.
+
+Dropping the already-correct documents is what makes an interrupted flip **resumable rather
+than repeated**: running it again finishes the job. Which is why the retry lives on the
+progress dialog rather than on the control — the root lands first, so after a half-finished
+participants change the checkbox already shows the new person, and ticking it again would
+take them back off.
+
+Each write changes `visibility` or `participantIds`, so `privacyUnchanged()` is false and
+one parent `get()` is spent per document. These are single-document writes, not a batch, so
+the twenty-document-access budget does not apply.
+
+*Rejected:* a Cloud Function with the admin SDK. It bypasses rules, so all *n* writes go in
+one atomic batch and no half-state exists — and the offline objection that rules out Cloud
+Functions elsewhere in this area does not bind, since the flip is online-only anyway.
+Rejected for what it costs instead: the project's first Cloud Function, a deploy pipeline,
+and the uniform-visibility invariant no longer enforced by the rules on the one path most
+likely to break it.
+
 ## The board
 
 One board component at every depth. `PROJECT.md`: resist per-level special cases, they
@@ -741,12 +883,61 @@ feature exists for. Swiping between columns is tracked as
 [#78](https://github.com/Senth/home-backlog/issues/78) and needs a foundation where the
 gesture reports *to* that state rather than the state being read *from* a scroll offset.
 
+### Whose projects a board shows
+
+**A board hides a card whose `participantIds` is non-empty and does not contain me**,
+unless *Show everyone's projects* is on. That is the motivating sentence implemented
+literally — "I want us to have a shared house, but I want to add my personal projects to
+the list; it does not make sense that my spouse sees them by default, and they should still
+be able to see them." Hidden by default, never denied, always one toggle away.
+
+It costs **no query, no index and no listener**: the two board listeners already merge
+client-side, so this is a predicate over a list the screen already holds
+(`hiddenByParticipants` in `models/node.ts`, applied in `hooks/use-participant-filter.ts`).
+The predicate is uniform at every depth and *bites* only where participants exist, which is
+roots — a shared descendant carries `[]`, and a private one carries the root's, which
+include me or I could not have read it.
+
+The toggle lives in the board's app-bar overflow: it is rarely touched, and a board is
+already carrying a column strip. It is board-level UI state, defaulting to off and **not
+persisted** — a board always opens in the hiding state, the same way it always opens on its
+first column. The overflow appears only where it could do something: a household of one has
+nobody else's projects to hide, and `hiddenCount` covers the case where a card with
+participants arrives from the REST API into one anyway, where hiding with no way back would
+be a trap.
+
+A board whose *every* card is hidden says so, rather than claiming to be empty. "Nothing
+here yet. Add the first card." with a toggle two taps away that disproves it is the kind of
+lie people stop trusting a screen for.
+
+*Rejected:* enforcing the hiding in the rules. It is a display preference, not a permission
+— "should still be able to see them" is the requirement, and a rule cannot express "hidden
+but readable".
+
+*Rejected:* shipping participants with no filter. Without something that *reads* the field,
+setting participants on a shared project changes nothing observable anywhere — a control
+with no effect is a control nobody understands the point of, and the household would meet
+it before meeting the reason for it.
+
 ### The card
 
 A title, a mark when `blockedBy[]` is non-empty, and — only when the value is set — an
 outlined priority chip, an outlined effort chip and a due chip. On the right, `2/5` and the
 chevron when `hasSteps(node)`, and neither when not. A card with nothing set is a title and
 nothing else.
+
+Two of those marks answer the people questions, both only when set, the same rule the due
+chip follows:
+
+- **who is doing it**, as a row of small avatars above the chips. "Is this mine, or is he
+  asking me?" is otherwise answered only on the detail screen, and the phone-only member
+  never opens the detail screen. The row carries one accessibility label for all of it —
+  a screen reader reading "M W, N A" learns nothing.
+- **a *Hidden* chip** with an eye-off icon on a private card, beside priority and effort.
+
+Neither costs a read: `memberProfiles` is already on `activeHome`. The *Hidden* mark stays
+a `MetaChip` — deliberately not a control — which is what keeps a screen reader from
+announcing every private card as "dimmed".
 
 **Tap opens the card as a board once it has a step in it, and as its
 [details](#node-detail) until then.** The chevron is what says which, so the gesture is
@@ -1005,6 +1196,9 @@ screens are.
 | Priority | a wrapping row of chips, four values, tapping the selected one clears it |
 | Effort | the same control, five values |
 | Notes | multiline `TextInput`, `maxLength` 10 000, with the `Saved hh:mm` line beneath |
+| Who's in on this? | checkbox rows of the home's members — **root only** |
+| Who's doing it? | the same control, over the assignable members |
+| Who can see this project? | two chips, *Everyone in the home* / *Only the people I choose* — **root only** |
 
 Then **Steps**: a count line, the children as plain rows in board order, an *Add step*
 button, and *Open board* once there is at least one. With no steps it reads *No steps yet*
@@ -1040,6 +1234,68 @@ left to [#31](https://github.com/Senth/home-backlog/issues/31), which owns deskt
 building it here would mean two layouts for one content definition before the content has
 been used once.
 
+#### The three people controls
+
+**All three are hidden while the home has one member.** Ingrid is alone in her house and
+one of four people at the cabin; in the house, participants (nobody to involve), assignees
+(only her) and privacy (nothing to hide from) are clutter on the screen she uses to write
+down what the chimney sweep said, at 200% text. The one exception: a node that is *already*
+private always shows the visibility control, so a home that drops back to one member can
+undo it rather than being stuck with a setting it cannot reach.
+
+Both people controls are built from `membersOf(activeHome)` — no listener and no read.
+
+**Checkboxes, not chips.** These are people rather than one-of-a-scale values: several are
+ticked at once, ticking one is not "instead of" the others, and a row of green chips reads
+as a state machine. A search-and-add picker above four members is
+[#88](https://github.com/Senth/home-backlog/issues/88); checkboxes serve every household
+that exists today.
+
+**The assignee checkboxes offer the effective participants** — the root's `participantIds`,
+or every member of the home when that is empty, which is the common case and has no
+friction at all. Not a stylistic restriction: with the default-hide filter, assigning
+somebody a step inside a project they are not a participant of hands them work that is
+*hidden from their board and reachable from nowhere*. Adding them to the project is what
+makes the task findable, and the hint under the control says so and takes you there.
+
+The reverse — somebody assigned who has *since* been removed from the project, or who has
+left the home — is a real state and is deliberately **shown rather than hidden**: a named
+sentence with a clear action, never a stray checked box outside its own list. It is
+information, and drawing it as an orphaned checkbox is what would make it read as a bug. A
+member who has left renders through the existing `members.unknown` — *Someone*.
+
+The root a descendant reads its participants from is its **own single-document listener**,
+not the breadcrumb memo. `useAncestors` never invalidates within a session, which is right
+for a crumb title and wrong for an ACL: participants edited on the project would otherwise
+leave a step's assignee list narrowed to the old set, with the "Only people in X are shown"
+and stale-assignee sentences saying something untrue until a reload. A node that is itself a
+root subscribes to nothing extra.
+
+**On a descendant there is no participants control and no visibility control** — one
+sentence each instead, and only when it has something to say. *Change who's in on…*
+navigates to the root's detail screen; *Move … to the top level* makes the same
+`reparentNode` call `Move under… › Top level` does, and needs a connection for the same
+reason.
+
+**On a private project you are the one person who cannot come off it.** That row is locked
+with the reason written under the list rather than left as a checkbox that silently
+refuses — the rules would deny the write, and a control that refuses without saying so is
+the failure the whole checkbox rebuild exists to avoid.
+
+Changing participants on a private project runs the [flip](#the-flip-is-the-dangerous-part)
+rather than a plain update, with the same offline disable and the same progress dialog: the
+list is the ACL there, and the rules require every descendant to carry all of its parent's
+participants, so a plain update would hand somebody a project whose steps they still could
+not read. An empty board is the worst possible answer to "you have been let in".
+
+The confirm dialog before a flip names the people and says what happens to the work, and is
+careful in both directions. It says **"and everything in it"** rather than a count: the
+flip writes the whole subtree and `childCount` is direct children only, so a project of
+three tasks with six steps each would promise "its 3 steps" and then count to 22 — a
+privacy confirmation understating its own blast radius. Going shared it adds that the
+project stays off other people's boards while its participants are set, because the
+permission really does change and the observable outcome does not.
+
 ### Saving has four triggers because one of them always fails
 
 Every control writes on the spot. Pickers need no acknowledgement — the control showing the
@@ -1065,9 +1321,13 @@ server acknowledgement.
 
 ### Offline on the detail screen
 
-Every write on this screen queues: the four fields go through `updateNode`, and `Add step`
-through `createNode`. Nothing here is disabled offline — `Move under…` and `Delete` remain
-the only two operations that require a connection, for the subtree reason already recorded.
+Most writes on this screen queue: the four fields and both people-fields go through
+`updateNode`, and `Add step` through `createNode`.
+
+The exceptions are the ones that read a subtree from the server first, and they are
+disabled with a hint rather than left to fail after the fact: the visibility flip,
+participants on an *already private* project, and *Move … to the top level*. `Move under…`
+and `Delete` on the board are the same case.
 
 ### One dependency
 
@@ -1098,12 +1358,29 @@ time a native build happens, which `PROJECT.md` schedules rather than rules out.
 - **Per-board column configuration and relabels** —
   [#63](https://github.com/Senth/home-backlog/issues/63). The field it edits ships here, so
   #63 is a screen and not a schema change.
-- **The subtree visibility flip** and the participants UI — #61. It must write **top-down,
-  one document at a time**. Until then a board says nothing about whose card is whose, and
-  a private card can only be created by the REST API.
-- **Bulk subtree create over REST** — #7, same ordering constraint. `rankSequence` exists
-  for it. #7 has nothing to set for board-ness, which is derived, but it does have to
-  maintain the two counters, and its `SKILL.md` says so when it is written.
+- **My tasks, unassigned, and what is in progress anywhere** —
+  [#62](https://github.com/Senth/home-backlog/issues/62). Narrowed by the default-hide
+  filter, which shipped here because participants have no observable effect without it.
+  *My tasks* reads `assigneeIds`; whether it also means "unassigned work in a project I
+  participate in" is #62's starting point, not settled here. *Unassigned* stays client-side
+  either way — Firestore cannot query for an empty array.
+- **A search-and-add member picker above four members** —
+  [#88](https://github.com/Senth/home-backlog/issues/88).
+- **What happens to a removed member's private nodes** —
+  [#39](https://github.com/Senth/home-backlog/issues/39). `members.removeBody` already
+  warns about it and nothing here changes the cascade.
+- **Notifying somebody that they have been assigned.** Nothing in the app notifies yet, and
+  Nadia's notifications are off. The card face is the notification.
+- **Persisting the *Show everyone's projects* toggle.** A board always opens in the hiding
+  state, the same way it always opens on its first column.
+- **Bulk subtree create over REST** — #7, which carries the same top-down ordering
+  constraint the flip obeys; a bulk writer that ignores it gets a bare permission error
+  with nothing to say why, and its `SKILL.md` says so when it is written. `rankSequence`
+  exists for it. #7 has nothing to set for board-ness, which is derived, but it does have
+  to maintain the two counters. Which of the two people-fields an API key may write is
+  [#7](https://github.com/Senth/home-backlog/issues/7)'s call: `participantIds` on a
+  private node is an ACL, so a key that writes it can revoke a member's read, while
+  `assigneeIds` is read by no rule and is harmless.
 - **Locations** — [#50](https://github.com/Senth/home-backlog/issues/50),
   [#51](https://github.com/Senth/home-backlog/issues/51). The two location fields are
   written and inherited, but nothing maintains them when a *location* moves.
@@ -1111,13 +1388,10 @@ time a native build happens, which `PROJECT.md` schedules rather than rules out.
   drag and drop #5 — fields only, or not yet. An archive *cascade* over a subtree carries
   the same top-down constraint as the visibility flip. Checklists and photos are both on
   the document and on no screen, and both belong on the detail screen when they arrive.
-- **Participants on the detail screen** — [#61](https://github.com/Senth/home-backlog/issues/61).
-  That is where "is this mine, or is he asking me?" gets loud, and the answer needs the
-  participants UI and the subtree visibility flip.
 - **Cost and budget fields** — [#70](https://github.com/Senth/home-backlog/issues/70).
   `PROJECT.md`: notes absorb it until the real need is understood.
 - **One-tap done on the card row** — [#75](https://github.com/Senth/home-backlog/issues/75).
-  **Filters** — [#62](https://github.com/Senth/home-backlog/issues/62). **Custom statuses**
+  **Custom statuses**
   — [#69](https://github.com/Senth/home-backlog/issues/69). **Swipe between columns** —
   [#78](https://github.com/Senth/home-backlog/issues/78). **Desktop beyond side-by-side
   columns** — [#31](https://github.com/Senth/home-backlog/issues/31).
@@ -1127,5 +1401,3 @@ time a native build happens, which `PROJECT.md` schedules rather than rules out.
   delete client-side and offline-capable.
   [#39](https://github.com/Senth/home-backlog/issues/39) stays scoped to home deletion and
   member removal.
-- **Unassigned filters.** Firestore cannot query for an empty array, so "unassigned" is
-  client-side or needs a denormalized flag — #62.

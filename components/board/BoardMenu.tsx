@@ -23,6 +23,8 @@ export function BoardMenu({ showEveryone, onShowEveryone }: BoardMenuProps) {
 		<Menu
 			visible={open}
 			onDismiss={() => setOpen(false)}
+			// Paper's scrim is announced, and its default name is English.
+			overlayAccessibilityLabel={t("common.closeMenu")}
 			anchor={
 				<Appbar.Action
 					icon="dots-vertical"

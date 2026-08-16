@@ -10,7 +10,10 @@ export function useModalFocus(
 	_visible: boolean,
 	_testID: string,
 	_onDismiss: () => void,
-	_options: { returnFocusTo?: RefObject<View | null> } = {},
+	_options: {
+		returnFocusTo?: RefObject<View | null>;
+		scrim?: { testID: string; label: string };
+	} = {},
 ) {}
 
 export function useAnchorFocusGuard(_ref: RefObject<View | null>) {}

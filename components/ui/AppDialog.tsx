@@ -50,9 +50,15 @@ export function AppDialog({
 	actions,
 	returnFocusTo,
 }: AppDialogProps) {
+	const { t } = useTranslation();
 	const { width } = useWindowDimensions();
 
-	useModalFocus(visible, `${testID}-surface`, onDismiss, { returnFocusTo });
+	useModalFocus(visible, `${testID}-surface`, onDismiss, {
+		returnFocusTo,
+		// Paper hard-codes the scrim's English name and gives `Dialog` no prop
+		// to reach it. See `scrim` in `use-modal-focus.web.ts`.
+		scrim: { testID: `${testID}-backdrop`, label: t("common.closeDialog") },
+	});
 
 	return (
 		<Portal>

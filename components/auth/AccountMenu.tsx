@@ -112,6 +112,7 @@ export function AccountMenu() {
 			<Menu
 				visible={menuOpen}
 				onDismiss={() => setMenuOpen(false)}
+				overlayAccessibilityLabel={t("common.closeMenu")}
 				anchorPosition="bottom"
 				// Otherwise the menu keeps its natural width and slides off the left
 				// edge at high zoom, clipping the avatar and the sign-out icon.

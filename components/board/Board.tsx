@@ -29,12 +29,15 @@ interface BoardProps {
 	nodes: Node[];
 	loading: boolean;
 	/**
-	 * How many cards the default-hide filter is holding back. Only the empty
-	 * state needs it: a board whose every card is somebody else's personal
-	 * project is not a board with nothing on it, and saying "add the first card"
-	 * there is a lie with a toggle sitting two taps away that would disprove it.
+	 * The cards the default-hide filter is holding back, so the board can say so
+	 * rather than draw as though they were not there.
+	 *
+	 * A board whose every card is somebody else's personal project is not a board
+	 * with nothing on it, and "add the first card" is a lie with a toggle sitting
+	 * two taps away that disproves it. The same is true one column at a time,
+	 * which is what a compact pane shows.
 	 */
-	hiddenCount?: number;
+	hidden?: Node[];
 }
 
 /**
@@ -67,7 +70,7 @@ export function Board({
 	columns,
 	nodes,
 	loading,
-	hiddenCount = 0,
+	hidden = noneHidden,
 }: BoardProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
@@ -91,8 +94,12 @@ export function Board({
 	}
 
 	// The frozen set, plus a column for any status that is on this board but not
-	// in it. A card that exists is visible somewhere.
-	const shown = useMemo(() => visibleColumns(columns, nodes), [columns, nodes]);
+	// in it. A card that exists is visible somewhere — including one the filter
+	// is holding back, which would otherwise have no column to be counted in.
+	const shown = useMemo(
+		() => visibleColumns(columns, [...nodes, ...hidden]),
+		[columns, nodes, hidden],
+	);
 	const compact = boardWidth > 0 && boardWidth < compactBreakpoint;
 	// An extra column disappearing would otherwise leave the pane showing a
 	// column that is no longer there.
@@ -101,6 +108,9 @@ export function Board({
 
 	const cardsIn = (status: Status) =>
 		nodes.filter((node) => node.status === status);
+
+	const hiddenIn = (status: Status) =>
+		hidden.filter((node) => node.status === status).length;
 
 	/**
 	 * Queued, never awaited: the card is on the board the instant Firestore
@@ -165,7 +175,7 @@ export function Board({
 						paddingBottom: space.md,
 					}}
 				>
-					{t(hiddenCount > 0 ? "board.allHidden" : "board.empty")}
+					{t(hidden.length > 0 ? "board.allHidden" : "board.empty")}
 				</Text>
 			) : null}
 
@@ -183,6 +193,7 @@ export function Board({
 							nodes={cardsIn(onScreen)}
 							width="100%"
 							wide={false}
+							hiddenCount={hiddenIn(onScreen)}
 							onAdd={() => setAdding(onScreen)}
 							onOpen={open}
 							renderMenu={menu}
@@ -206,6 +217,7 @@ export function Board({
 							nodes={cardsIn(status)}
 							width={size.boardColumn}
 							wide
+							hiddenCount={hiddenIn(status)}
 							onAdd={() => setAdding(status)}
 							onOpen={open}
 							renderMenu={menu}
@@ -263,3 +275,5 @@ export function Board({
 }
 
 const newCardDialogTestID = "new-card-dialog";
+
+const noneHidden: Node[] = [];

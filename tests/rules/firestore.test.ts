@@ -1243,6 +1243,12 @@ describe("homes/{homeId}/nodes", () => {
 			batch.update(doc(db, nodesPath, "moved"), {
 				parentId: "new-home",
 				ancestorIds: ["new-home"],
+				// A shared root that becomes a step drops its participants: they are
+				// "whose project is this", the control that edits them is root-only,
+				// and the board's default-hide filter bites at every depth. The write
+				// already spends a parent get() for the parentId change, so this
+				// costs nothing more.
+				participantIds: [],
 			});
 			batch.update(doc(db, nodesPath, "child"), {
 				ancestorIds: ["new-home", "moved"],

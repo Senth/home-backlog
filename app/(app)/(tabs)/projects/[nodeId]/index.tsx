@@ -164,7 +164,7 @@ export default function NodeBoard() {
 					columns={node.columns}
 					nodes={filtered.nodes}
 					loading={loading}
-					hiddenCount={filtered.hiddenCount}
+					hidden={filtered.hidden}
 				/>
 			) : (
 				<ActivityIndicator
