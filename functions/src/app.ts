@@ -8,6 +8,7 @@ import { requireKey } from "./auth.js";
 import { registerBulkRoute } from "./bulk-route.js";
 import { ApiError, sendError } from "./errors.js";
 import { registerRoutes } from "./routes.js";
+import { registerSkillRoute } from "./skill.js";
 import { apiVersion } from "./version.js";
 import { registerWriteRoutes } from "./writes.js";
 
@@ -41,6 +42,10 @@ export const v1 = Router();
 v1.get("/health", (_request: Request, response: Response) => {
 	response.json({ status: "ok", version: apiVersion });
 });
+
+// The contract itself, also unauthenticated: somebody wiring an agent up has to
+// be able to read it before the key works.
+registerSkillRoute(v1);
 
 // Everything below this line needs a valid API key.
 v1.use(requireKey);

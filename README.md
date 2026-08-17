@@ -43,6 +43,11 @@ sets up through the root `postinstall`. Against the emulators it answers at
 `http://127.0.0.1:8064/home-backlog/europe-west1/api/v1/health`; in production
 Hosting rewrites `/api/**` to it, so it is `https://hb.senth.org/api/v1/health`.
 
+Its contract is [`functions/SKILL.md`](functions/SKILL.md), which the deployment
+serves at `/api/v1/skill.md` — an agent fetches the one it is actually talking
+to rather than a vendored copy. Editing that file **is** editing the published
+contract.
+
 Google sign-in works against the Auth emulator's own account picker, so no real
 Google account is needed locally.
 
