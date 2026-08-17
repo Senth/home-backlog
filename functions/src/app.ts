@@ -26,11 +26,11 @@ import { registerWriteRoutes } from "./writes.js";
 
 /**
  * The request body ceiling. There is deliberately no rate limiting (see the
- * spec's *Out of scope*), so this and the 500-node bulk cap are the only
+ * spec's *Out of scope*), so this and the 498-node bulk cap are the only
  * payload limits — a runaway script is one person's own against their own free
  * tier, and per-key counters would be a Firestore write on every request.
  */
-const maxBodyBytes = "1mb";
+const maxBodyBytes = 1024 * 1024;
 
 export const v1 = Router();
 
@@ -56,12 +56,52 @@ registerBulkRoute(v1);
 export const app = express();
 
 app.disable("x-powered-by");
-app.use(express.json({ limit: maxBodyBytes }));
 
+// Above the body parser, deliberately: a failure inside `express.json()` jumps
+// straight to the error handler, and a header set after it would never be set.
+//
+// One case is outside this app's reach and is documented rather than papered
+// over. `onRequest` wraps the app in the Functions framework's *own* express
+// app, which parses the body first — so a payload that is not valid JSON is
+// rejected out there, with the framework's plain HTML 400 and no
+// `X-Api-Version`. Nothing mounted in here runs for it. `SKILL.md` says so.
 app.use((_request: Request, response: Response, next: NextFunction) => {
 	response.setHeader("X-Api-Version", apiVersion);
 	next();
 });
+
+/**
+ * The body ceiling, enforced **here** rather than by `express.json()`.
+ *
+ * `onRequest` wraps this app in the Functions framework's own express app, which
+ * parses the body first and sets `_body` — so the `limit` passed to
+ * `express.json()` below is never consulted and enforces nothing at all. The
+ * framework has already buffered the payload by the time anything here runs, and
+ * `rawBody` is what it buffered: an authority the caller cannot misreport, where
+ * `Content-Length` is a header a client writes.
+ */
+app.use((request: Request, response: Response, next: NextFunction) => {
+	const buffered = (request as { rawBody?: { length?: number } }).rawBody;
+	const declared = Number(request.get("content-length") ?? Number.NaN);
+	const size = buffered?.length ?? (Number.isNaN(declared) ? 0 : declared);
+
+	if (size > maxBodyBytes) {
+		sendError(
+			response,
+			new ApiError(
+				413,
+				"body_too_large",
+				`The request body is ${size} bytes; the limit is ${maxBodyBytes}.`,
+			),
+		);
+		return;
+	}
+	next();
+});
+
+// Kept even though the framework has usually parsed the body already: it is a
+// no-op when it has, and the correct thing when it has not.
+app.use(express.json({ limit: maxBodyBytes }));
 
 app.use("/api/v1", v1);
 app.use("/v1", v1);
@@ -80,11 +120,12 @@ app.use((request: Request, response: Response) => {
 /**
  * The one place a failure becomes a response.
  *
- * Express hands a body that is not JSON, or one over the size limit, to this
- * same channel — so a malformed payload answers in the API's own envelope
- * rather than in Express's HTML error page. Anything that is not an `ApiError`
- * is a bug in a handler: it is logged whole and answered with a bare 500, which
- * says nothing about the stack it came from.
+ * Anything that is not an `ApiError` is a bug in a handler: it is logged whole
+ * and answered with a bare 500, which says nothing about the stack it came
+ * from. The `400` branch catches a body `express.json()` itself rejects, which
+ * in this runtime is nothing — the framework parses first, and plain malformed
+ * JSON never reaches this app at all. It stays because the day the framework
+ * stops pre-parsing, an unhandled parse error is an HTML page in an API.
  */
 app.use(
 	(

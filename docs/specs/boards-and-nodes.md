@@ -53,6 +53,7 @@ Every field is written on create, with the default below.
 | `effort` | `Effort \| null` | `null` | `quick` `hours` `evening` `weekend` `multi_week` |
 | `photos` | `Photo[]` | `[]` | `{ id, path, uploadedAt, uploadedBy }`, ≤ 50 — [#53](https://github.com/Senth/home-backlog/issues/53) |
 | `archived` | `boolean` | `false` | constrains every board query |
+| `createdVia` | `'app' \| 'api'` | `'app'` | written at creation, immutable; absent on a node older than the field, which reads as `'app'` — see [`rest-api`](rest-api.md) |
 | `completedAt` | `Timestamp \| null` | `null` | set if and only if `status == 'done'` |
 | `createdAt` | `Timestamp` | `serverTimestamp()` | immutable |
 | `createdBy` | `string` | uid | immutable |
@@ -179,10 +180,17 @@ stranding every card that was in Find out or Check in a column that no longer ex
 order, and any status *present in the data but absent from `columns`* gets an extra column
 appended after them, in enum order (`visibleColumns`). It appears only while such a card
 exists and disappears when the card is moved out; the move menu offers only the frozen
-destinations, so it is a one-way exit. Without it, `Move under…`, the REST API and a seeded
-fixture can each put a `research` card on a simple-set board, and the board would render as
-though the card were not there. A card that exists is visible somewhere — the same
-principle as the orphaned node the visibility invariant exists to prevent.
+destinations, so it is a one-way exit. Without it, `Move under…` and a seeded fixture can
+each put a `research` card on a simple-set board, and the board would render as though the
+card were not there. A card that exists is visible somewhere — the same principle as the
+orphaned node the visibility invariant exists to prevent.
+
+The **REST API refuses** to create that state at all: a status outside the parent's frozen
+`columns` is a `400`, naming the allowed set. The rules still permit any of the seven,
+because [#63](https://github.com/Senth/home-backlog/issues/63) is the feature that edits
+column sets and locking it in the rules would make that a rules change before it could be a
+screen. The API is stricter on purpose — a person putting a card in an appended column can
+see the board they did it to, and an agent cannot. See [`rest-api`](rest-api.md).
 
 ### Board-ness is derived, never flagged
 
@@ -208,8 +216,8 @@ adds:
   failure at menu level. It leaves `Move under…` undefined: auto-converting the
   destination makes the flag decoration, and refusing a leaf destination halves the reach
   of the one feature that exists so nobody re-types forty cards. And it is a property the
-  REST API ([#7](https://github.com/Senth/home-backlog/issues/7)) must set correctly or
-  every generated project lands as a leaf holding children.
+  REST API ([`rest-api`](rest-api.md)) must set correctly or every generated project lands
+  as a leaf holding children.
 - *Rejected:* **leaving the tap alone and hanging details off a second icon.** Zero new
   fields and the smallest possible change — but three tap targets on a 48px row, and a
   household's one card still opens a blank pane that reads as a bug rather than as an
@@ -1448,14 +1456,14 @@ time a native build happens, which `PROJECT.md` schedules rather than rules out.
   Nadia's notifications are off. The card face is the notification.
 - **Persisting the *Show everyone's projects* toggle.** A board always opens in the hiding
   state, the same way it always opens on its first column.
-- **Bulk subtree create over REST** — #7, which carries the same top-down ordering
-  constraint the flip obeys; a bulk writer that ignores it gets a bare permission error
-  with nothing to say why, and its `SKILL.md` says so when it is written. `rankSequence`
-  exists for it. #7 has nothing to set for board-ness, which is derived, but it does have
-  to maintain the two counters. Which of the two people-fields an API key may write is
-  [#7](https://github.com/Senth/home-backlog/issues/7)'s call: `participantIds` on a
-  private node is an ACL, so a key that writes it can revoke a member's read, while
-  `assigneeIds` is read by no rule and is harmless.
+- **Bulk subtree create over REST** — shipped, and it escapes the top-down constraint
+  rather than obeying it: the function writes with the Admin SDK, which no rule evaluates,
+  so a whole subtree commits in **one atomic batch** and the ordering problem the flip has
+  does not arise. What that costs is every invariant on this page re-stated in TypeScript,
+  which is [`rest-api`](rest-api.md)'s subject. `rankSequence` exists for it, board-ness
+  stays derived, and the endpoint maintains both counters itself. Of the two people-fields
+  a key may write `assigneeIds` and may not write `participantIds` — an ACL on a private
+  node, so writing it would let a bearer token revoke a member's read.
 - **Locations** — [#50](https://github.com/Senth/home-backlog/issues/50),
   [#51](https://github.com/Senth/home-backlog/issues/51). The two location fields are
   written and inherited, but nothing maintains them when a *location* moves.

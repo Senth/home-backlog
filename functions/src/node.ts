@@ -20,12 +20,18 @@ import {
  * same case list as `tests/rules/firestore.test.ts`, and that the two lists are
  * short and closed: seven statuses, four priorities, five efforts.
  *
- * It is not shared by import, for a plain mechanical reason: `models/node.ts`
- * types its timestamps as the *client* SDK's `Timestamp`, which is a different
- * class from `firebase-admin/firestore`'s, and pulling the client SDK into a
- * Cloud Function to borrow a type would ship it in the deployed image.
- * `models/api-key.ts`, which has no imports at all, *is* shared — the two cases
- * are different, and the difference is the import list.
+ * It is not shared by import, and neither is anything else: **no file crosses
+ * the package boundary.** Two reasons, and the second is the one that decides
+ * it. `models/node.ts` types its timestamps as the *client* SDK's `Timestamp`,
+ * a different class from `firebase-admin/firestore`'s, so borrowing the type
+ * would ship the client SDK in the deployed image. And under a hybrid module
+ * kind TypeScript picks a file's format from the nearest `package.json` — the
+ * repo root's has no `"type"`, so any file compiled from up there emits as
+ * CommonJS into this ESM package and Node cannot named-import it.
+ *
+ * `models/api-key.ts` is therefore *not* shared either: the token format lives
+ * in `api-key.ts` beside this file, and `maxKeyNameLength` is stated on both
+ * sides — a duplicated bound, not duplicated code.
  */
 
 export type Status =

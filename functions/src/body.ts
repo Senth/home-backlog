@@ -51,7 +51,6 @@ export interface NodeBody {
 	assigneeIds?: string[];
 	blockedBy?: string[];
 	checklist?: unknown[];
-	archived?: boolean;
 	parentId?: string | null;
 	/** Honoured on a create at the root, and refused everywhere else. */
 	visibility?: Visibility;
@@ -73,8 +72,18 @@ const createFields = [
 ] as const;
 
 /**
- * Fields a caller may send when changing one. `visibility` is gone; `archived`
- * appears, because archiving is an ordinary edit and unarchiving is the way back.
+ * Fields a caller may send when changing one. `visibility` is gone, and so is
+ * `archived`.
+ *
+ * Archiving looks like an ordinary edit and is not one *yet*. `archived`
+ * constrains every board query, so an archived node vanishes from every screen —
+ * and nothing in the app writes or reads the field today: no archive list, no
+ * unarchive control, nothing that shows an archived card at all. A key that
+ * could set it could hide a household's work somewhere only another API call
+ * could reach. It also moves no counters, so a project whose only step was
+ * archived would keep its chevron and open an empty board, which is exactly what
+ * "a card is a board only once it has steps" was built against. It becomes
+ * writable when there is a surface that can undo it.
  */
 const updateFields = [
 	"title",
@@ -86,7 +95,6 @@ const updateFields = [
 	"assigneeIds",
 	"blockedBy",
 	"checklist",
-	"archived",
 	"parentId",
 ] as const;
 
@@ -228,12 +236,6 @@ export function parseNodeBody(
 			refuse("invalid_type", "checklist must be a list.", "checklist");
 		}
 		parsed.checklist = raw.checklist;
-	}
-	if ("archived" in raw) {
-		if (typeof raw.archived !== "boolean") {
-			refuse("invalid_type", "archived must be a boolean.", "archived");
-		}
-		parsed.archived = raw.archived;
 	}
 	if ("parentId" in raw) {
 		parsed.parentId = asStringOrNull(raw.parentId, "parentId");

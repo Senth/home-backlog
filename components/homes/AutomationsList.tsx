@@ -33,13 +33,16 @@ interface AutomationsListProps {
 export function AutomationsList({ homeId }: AutomationsListProps) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
-	const { clients } = useApiClients(homeId);
+	const { clients, loading } = useApiClients(homeId);
 
 	return (
 		<View style={{ gap: space.sm }}>
 			<Text variant="titleMedium">{t("manageHome.automations.title")}</Text>
 
-			{clients.length === 0 ? (
+			{/* The heading stays put while the answer arrives; only the sentence
+			    below it waits. "No automation has written here" is a claim about
+			    the home, and saying it early would be saying something untrue. */}
+			{loading ? null : clients.length === 0 ? (
 				<Text
 					variant="bodyMedium"
 					style={{ color: theme.colors.onSurfaceVariant }}

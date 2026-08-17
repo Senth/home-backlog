@@ -1,5 +1,11 @@
+import type { DocumentReference } from "firebase-admin/firestore";
 import { onDocumentDeleted } from "firebase-functions/v2/firestore";
-import { apiClientsCollection, db, maxBatchWrites } from "./firestore.js";
+import {
+	apiClientsCollection,
+	db,
+	maxBatchWrites,
+	runsCollection,
+} from "./firestore.js";
 import { region } from "./options.js";
 
 /**
@@ -15,6 +21,14 @@ import { region } from "./options.js";
  * consult to find out. So the rows go with the key, and they go from every home
  * at once — which is a collection-group query, and the only index this feature
  * adds.
+ *
+ * The key's **run history** goes too. Deleting a Firestore document does not
+ * delete its subcollections, so `apiKeys/{keyId}/runs/*` would outlive the key
+ * it belongs to — and the whole reason a bulk create records its
+ * `Idempotency-Key` under the key rather than on the node is that revoking the
+ * key takes the history with it. A TTL policy would eventually reach them, but
+ * that policy is a manual step (`docs/OPERATIONS.md`) and "eventually" is not
+ * what the rules and the spec promise.
  *
  * Revocation itself is already complete when this runs: the key document is
  * gone, so verification's `get()` misses and every request with that token is a
@@ -36,12 +50,25 @@ export const onApiKeyDeleted = onDocumentDeleted(
 		// query that returns one row in practice, and it is free here.
 		const mine = rows.docs.filter((row) => row.get("ownerUid") === uid);
 
-		for (let from = 0; from < mine.length; from += maxBatchWrites) {
-			const batch = db.batch();
-			for (const row of mine.slice(from, from + maxBatchWrites)) {
-				batch.delete(row.ref);
-			}
-			await batch.commit();
-		}
+		await deleteAll(mine.map((row) => row.ref));
+
+		// The subcollection Firestore leaves behind. `listDocuments()` rather than
+		// a query, because it returns the ids that exist under the path without
+		// caring what is in them.
+		const runs = await event.data?.ref
+			.collection(runsCollection)
+			.listDocuments();
+		await deleteAll(runs ?? []);
 	},
 );
+
+/** Delete a list of documents, in commits the batch limit can hold. */
+async function deleteAll(refs: readonly DocumentReference[]): Promise<void> {
+	for (let from = 0; from < refs.length; from += maxBatchWrites) {
+		const batch = db.batch();
+		for (const ref of refs.slice(from, from + maxBatchWrites)) {
+			batch.delete(ref);
+		}
+		await batch.commit();
+	}
+}

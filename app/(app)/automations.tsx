@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, View } from "react-native";
 import {
+	ActivityIndicator,
 	Appbar,
 	Button,
 	Divider,
@@ -49,7 +50,7 @@ export default function Automations() {
 	const router = useRouter();
 	const online = useOnlineStatus();
 	const { user } = useAuth();
-	const { keys } = useApiKeys(user?.uid ?? null);
+	const { keys, loading } = useApiKeys(user?.uid ?? null);
 
 	const [createOpen, setCreateOpen] = useState(false);
 	const [name, setName] = useState("");
@@ -139,7 +140,15 @@ export default function Automations() {
 
 				<Divider />
 
-				{keys.length === 0 ? (
+				{loading ? (
+					// "Nothing is connected yet." is a *fact*, and it must not be said
+					// while the answer is still arriving — somebody with three keys
+					// would read it on every cold open.
+					<ActivityIndicator
+						accessibilityLabel={t("common.loading")}
+						style={{ marginTop: space.lg }}
+					/>
+				) : keys.length === 0 ? (
 					<Text
 						variant="bodyLarge"
 						style={{

@@ -126,10 +126,10 @@ export async function authenticate(request: Request): Promise<ApiCaller> {
  * distinguishing them would turn a guessed id into a test for whether a
  * household exists.
  *
- * The `apiClients` row is upserted here rather than in each handler, because
- * "this key has written into this home" is exactly what reaching a home means.
- * Not awaited, for the same reason the key touch is not: it is the row behind a
- * relative timestamp on a manage screen.
+ * This does **not** record anything. `recordWrite()` below does, and only the
+ * write verbs call it: the manage screen answers "what has written here", and a
+ * key that only ever reads has written nothing. A row for it would say an
+ * automation touched a household's work when it only looked at it.
  */
 export async function homeAccess(
 	caller: ApiCaller,
@@ -152,50 +152,70 @@ export async function homeAccess(
 			? profile.displayName
 			: caller.uid;
 
-	touchApiClient(caller, homeId, callerName);
-
 	return { homeId, callerName };
 }
 
-function touchApiClient(
+/**
+ * Record that this key has written into this home.
+ *
+ * Called by the write verbs only. Derived from writes rather than from grants,
+ * because there are no grants — a key reaches every home its owner is a member
+ * of, so "who could write here" is just "every member", and what a household
+ * actually wants to know is what *has* written here.
+ *
+ * **Awaited**, unlike the `lastUsedAt` touch above. That one starts before the
+ * handler does its work and has the whole request to finish in; this one runs
+ * after the commit, with the response on the next line — and a Cloud Run
+ * instance is CPU-throttled the moment a response returns, so a promise left
+ * running there may simply never complete. The household would then read "No
+ * automation has written here" about a home an agent writes into every night.
+ *
+ * Throttled the same way `lastUsedAt` is, so a busy agent does not write this
+ * document once per request, and a failure is logged rather than thrown: the
+ * work the caller asked for is already committed, and losing the row is not
+ * worth turning a 201 into a 500.
+ */
+export async function recordWrite(
+	caller: ApiCaller,
+	home: HomeAccess,
+): Promise<void> {
+	await touchApiClient(caller, home.homeId, home.callerName);
+}
+
+async function touchApiClient(
 	caller: ApiCaller,
 	homeId: string,
 	callerName: string,
-): void {
+): Promise<void> {
 	const ref = db
 		.collection(homesCollection)
 		.doc(homeId)
 		.collection(apiClientsCollection)
 		.doc(caller.keyId);
 
-	ref
-		.get()
-		.then((existing) => {
-			if (existing.exists && !isStale(existing.get("lastUsedAt"), Date.now())) {
-				return;
-			}
-			return ref.set(
-				{
-					// Duplicated from the document id so the delete trigger can find
-					// every home's row in one collection-group query.
-					keyId: caller.keyId,
-					ownerUid: caller.uid,
-					// Denormalized: the manage screen already has `memberProfiles`, but
-					// a key's owner may have left the home since it last wrote here, and
-					// a row that says "somebody" is worse than no row.
-					ownerName: callerName,
-					name: caller.keyName,
-					lastUsedAt: FieldValue.serverTimestamp(),
-				},
-				{ merge: true },
-			);
-		})
-		.catch((reason) => {
-			console.error(
-				"Could not record an automation's access to a home:",
-				reason,
-			);
-		});
+	try {
+		const existing = await ref.get();
+		if (existing.exists && !isStale(existing.get("lastUsedAt"), Date.now())) {
+			return;
+		}
+		await ref.set(
+			{
+				// Duplicated from the document id so the delete trigger can find every
+				// home's row in one collection-group query.
+				keyId: caller.keyId,
+				ownerUid: caller.uid,
+				// Denormalized: the manage screen already has `memberProfiles`, but a
+				// key's owner may have left the home since it last wrote here, and a
+				// row that says "somebody" is worse than no row.
+				ownerName: callerName,
+				name: caller.keyName,
+				lastUsedAt: FieldValue.serverTimestamp(),
+			},
+			{ merge: true },
+		);
+	} catch (reason) {
+		console.error("Could not record an automation's access to a home:", reason);
+	}
 }
 
 /**

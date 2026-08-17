@@ -6,7 +6,7 @@ import type {
 } from "firebase-admin/firestore";
 import { FieldValue } from "firebase-admin/firestore";
 import { apiNode, etagFor, visibleTo } from "./api-nodes.js";
-import { type ApiCaller, caller, homeAccess } from "./auth.js";
+import { type ApiCaller, caller, homeAccess, recordWrite } from "./auth.js";
 import { type NodeBody, parseNodeBody } from "./body.js";
 import { ApiError } from "./errors.js";
 import {
@@ -232,7 +232,7 @@ function counterFields(childCount: number, doneCount: number) {
 async function createNode(request: Request, response: Response): Promise<void> {
 	const me: ApiCaller = caller(response);
 	const homeId = param(request, "homeId");
-	await homeAccess(me, homeId);
+	const home = await homeAccess(me, homeId);
 
 	const body = parseNodeBody(request.body, "create");
 	const parent = await resolveParent(homeId, body.parentId ?? null, me.uid);
@@ -314,6 +314,7 @@ async function createNode(request: Request, response: Response): Promise<void> {
 		);
 	}
 	await batch.commit();
+	await recordWrite(me, home);
 
 	await respondWithNode(response, homeId, ref.id, 201);
 }
@@ -321,7 +322,7 @@ async function createNode(request: Request, response: Response): Promise<void> {
 async function patchNode(request: Request, response: Response): Promise<void> {
 	const me = caller(response);
 	const homeId = param(request, "homeId");
-	await homeAccess(me, homeId);
+	const home = await homeAccess(me, homeId);
 
 	const nodeId = param(request, "nodeId");
 	const snapshot = await visibleNode(homeId, nodeId, me.uid);
@@ -384,7 +385,6 @@ async function patchNode(request: Request, response: Response): Promise<void> {
 			: {}),
 		...(body.blockedBy !== undefined ? { blockedBy: body.blockedBy } : {}),
 		...(body.checklist !== undefined ? { checklist: body.checklist } : {}),
-		...(body.archived !== undefined ? { archived: body.archived } : {}),
 		...(body.status !== undefined ? { status } : {}),
 		...(completion === "set"
 			? { completedAt: FieldValue.serverTimestamp() }
@@ -453,6 +453,7 @@ async function patchNode(request: Request, response: Response): Promise<void> {
 	}
 
 	await batch.commit();
+	await recordWrite(me, home);
 
 	await respondWithNode(response, homeId, nodeId, 200);
 }
@@ -460,7 +461,7 @@ async function patchNode(request: Request, response: Response): Promise<void> {
 async function deleteNode(request: Request, response: Response): Promise<void> {
 	const me = caller(response);
 	const homeId = param(request, "homeId");
-	await homeAccess(me, homeId);
+	const home = await homeAccess(me, homeId);
 
 	const nodeId = param(request, "nodeId");
 	const snapshot = await visibleNode(homeId, nodeId, me.uid);
@@ -510,6 +511,7 @@ async function deleteNode(request: Request, response: Response): Promise<void> {
 	}
 
 	await batch.commit();
+	await recordWrite(me, home);
 
 	response.json({ id: nodeId, deleted: descendants.length + 1 });
 }

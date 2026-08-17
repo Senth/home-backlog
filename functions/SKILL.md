@@ -13,7 +13,10 @@ Fetch this document from the deployment you are talking to rather than trusting 
 GET https://hb.senth.org/api/v1/skill.md
 ```
 
-Every response carries `X-Api-Version`. If it has moved since you last read this, re-read it.
+Every response from the API carries `X-Api-Version`. If it has moved since you last read this,
+re-read it. The one exception is a request body that is not valid JSON: the hosting platform
+rejects it before this API sees it, and answers with a plain `400` and an HTML body rather
+than the envelope below.
 
 ## Authentication
 
@@ -216,10 +219,10 @@ filed work you did not file.
 | `assigneeIds` | ✅ | Shown in the app — who is doing this card. Uids from `GET /v1/homes`. |
 | `parentId` | ✅ | Structure. On `POST` it places the node; on `PATCH` it moves the subtree. |
 | `visibility` | ✅ on create, at the top level only | Shown in the app. `shared` or `private`. |
-| `archived` | ✅ on `PATCH` | Hides the card from every board. |
 | `blockedBy` | ✅ | **Stored, no screen yet.** Node ids this is waiting on. Nothing renders it today. |
 | `checklist` | ✅ | **Stored, no screen yet.** Up to 200 items. Nothing renders it today. |
 | `participantIds` | ❌ | Shown in the app — whose project this is. Set by a person. |
+| `archived` | ❌ | Hides a card from every board. Nothing in the app can bring one back yet, so nothing here may hide one. |
 | `rank`, `columns`, `ancestorIds`, `childCount`, `doneCount`, `completedAt` | ❌ | Computed. |
 | `createdAt`, `createdBy`, `updatedAt`, `createdVia` | ❌ | Computed. |
 | `locationId`, `locationAncestorIds` | ❌ | See below. |

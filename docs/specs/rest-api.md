@@ -1,46 +1,13 @@
 # REST API, API keys and SKILL.md
 
-# Handoff
-
-**This file is the implementation plan.** Work the [Phases](#9-phases) section in order,
-top to bottom.
-
-Read first, in this order: [`CLAUDE.md`](../../../CLAUDE.md),
-[`docs/PROJECT.md`](../../PROJECT.md) — especially *AI / API* and *Household,
-participants & privacy* — then [`boards-and-nodes`](../boards-and-nodes.md) and
-[`home-and-members`](../home-and-members.md). This spec assumes all four and does not
-repeat them.
-
-Nothing durable may live only in **Handoff** or **Phases**: the cleanup phase deletes both
-sections and folds the rest into `docs/specs/`. If you decide something during
-implementation that a future reader needs, write it into sections 1–8, not here.
-
-Branch `feat/7-rest-api`. One commit per phase, once that phase is green on
-`yarn lint --write`, `yarn typecheck` and `yarn test`.
-
-**After the cleanup phase** — and only then:
-
-```bash
-GIT_VANILLA=1 gh pr create --fill --body "Closes #7"
-GIT_VANILLA=1 gh pr checks --watch
-GIT_VANILLA=1 gh pr merge --squash --delete-branch
-```
-
-Any check failing means stop, report, and **do not merge**.
-
-Committing, opening the PR and merging are an explicit, user-authorized exception to the
-global "never commit without being asked" rule. The exception is scoped to this flow and to
-this branch. Nothing is ever pushed straight to `main` — that deploys to production.
-
----
-
-## 1. What
-
 A REST API on Cloud Functions at `https://<app origin>/api/v1`, authenticated by per-user
-API keys, carrying the node verbs and a served `SKILL.md`, so a household member's own AI
+API keys, carrying the node verbs and a served `SKILL.md` — so a household member's own AI
 agent can populate and drive a board without touching the UI.
 
-## 2. Why
+Assumes [`boards-and-nodes`](boards-and-nodes.md) and
+[`home-and-members`](home-and-members.md), and does not repeat them.
+
+## Why
 
 `PROJECT.md` puts the API in MVP and calls it a first-class surface: the app deliberately
 contains **no LLM**, and instead inverts the usual design — research and task breakdown
@@ -50,8 +17,7 @@ arrives late would mean the app grows a shape agents cannot express.
 
 ### Keys are per user, not per home
 
-The issue body and `PROJECT.md` both said "scoped to a home". That is wrong and is
-corrected by this feature.
+`PROJECT.md` once said "scoped to a home". That was wrong.
 
 A person is in several homes — the house, the cabin, a parent's place. Per-home keys mean
 one credential per home, an agent reconfigured every time a home is added, and a key that
@@ -102,12 +68,11 @@ accepted and mitigated by the tests being written from the same list.
 so it would work until one handler wrote a private child under a shared parent — and then
 fail silently and permanently.
 
-Note that `boards-and-nodes` rejected a Cloud Function for the visibility flip partly
-because it would be "the project's first Cloud Function, a deploy pipeline". This feature
-*is* that first function and brings that pipeline, so that half of the objection is spent.
-The other half — the invariant no longer enforced by rules on the path most likely to break
+`boards-and-nodes` rejected a Cloud Function for the visibility flip partly because it would
+be "the project's first Cloud Function, a deploy pipeline". This *is* that function and it
+brings that pipeline, so that half of the objection is spent. The other half — the invariant no longer enforced by rules on the path most likely to break
 it — stands, and the flip stays a client-side operation. See
-[§7](#7-what-this-does-not-change).
+[below](#what-this-does-not-change).
 
 ### The function is its own ESM package, and shares no code with the app
 
@@ -292,8 +257,18 @@ fullest, which is the clutter `PROJECT.md`'s overwhelm principle exists to preve
 ### Homes list the automations that have written into them
 
 `homes/{homeId}/apiClients/{keyId}` is upserted by the function the first time a key
-touches that home, and read-only for every member. The manage screen shows *"Marcus ·
+**writes into** that home, and read-only for every member. The manage screen shows *"Marcus ·
 research agent · 3 h ago"*.
+
+A read records nothing. The list answers "what has written here", and a key that only ever
+reads has written nothing — a row for it would say an automation touched a household's work
+when it only looked at it.
+
+The upsert is **awaited**, unlike the `lastUsedAt` touch on the key itself. That one starts
+before the handler does its work and has the whole request to finish in; this one runs after
+the commit, and a Cloud Run instance is CPU-throttled the moment a response returns, so a
+promise left running there may never complete. The household would then read "No automation
+has written here" about a home an agent writes into every night.
 
 It is derived from writes rather than from grants, because there are no grants: a key
 reaches every home its owner is in, so "who could write here" is just "every member". What
@@ -320,6 +295,34 @@ answer: `locationId` and `locationAncestorIds` are `locations_unavailable`, `vis
 an update is `visibility_immutable`, and `participantIds` is `participants_immutable` — with
 a different message on a create, where the answer is not "never" but "a private root gets its
 creator, and anyone else is added in the app".
+
+**`archived` is not writable either**, and that is the one entry on the list that is about
+timing rather than authority. It constrains every board query, so an archived node leaves
+every screen — and nothing in the app writes or reads the field yet: no archive list, no
+unarchive control, nothing that shows an archived card at all. A key that could set it could
+put a household's work somewhere only another API call could reach. It also moves no
+counters, so a project whose only step was archived would keep its chevron and open an empty
+board, which is what "a card is a board only once it has steps" exists to prevent. It becomes
+writable when there is a surface that can undo it.
+
+### The body limit is enforced by the app, and one error is not the app's to give
+
+`onRequest` wraps the Express app in the Functions framework's **own** Express app, which
+parses the request body before anything here runs. Two consequences, both found by driving
+the deployed shape rather than by reading it:
+
+- The `limit` passed to `express.json()` enforces nothing, because the framework has already
+  buffered and parsed the payload and marks it done. The 1 MB ceiling is therefore a
+  middleware of the API's own, measuring `rawBody` — what the framework actually buffered,
+  which a caller cannot misreport the way it can misreport `Content-Length`.
+- A body that is not valid JSON is rejected **out there**, with the framework's plain HTML
+  `400` and no `X-Api-Version`. Nothing mounted inside runs for it. `SKILL.md` states that
+  exception rather than promising a header the deployment cannot deliver.
+
+*Rejected:* stamping `X-Api-Version` from a Hosting `headers` rule on `/api/**`. It would
+cover the framework's own error page, at the price of the version being written where
+`functions/src/version.ts` cannot keep it in step — a header that lies is worse than a header
+that is occasionally absent.
 
 ### Optimistic concurrency is `ETag` and `If-Match`
 
@@ -360,7 +363,7 @@ The field table in it marks every field **shown in the app** or **stored, no scr
 ([#66](https://github.com/Senth/home-backlog/issues/66)) accept writes today and render
 nowhere, and an agent that populates them deserves to know that before it does.
 
-## 3. Data & queries
+## Data & queries
 
 ### `users/{uid}/apiKeys/{keyId}`
 
@@ -411,7 +414,7 @@ something `firebase deploy` carries.
 | `name` | `string` | the key's name |
 | `lastUsedAt` | `Timestamp` | |
 
-### `homes/{homeId}/nodes/{nodeId}` gains one field
+### `homes/{homeId}/nodes/{nodeId}` carries one extra field
 
 | Field | Type | Default | Notes |
 | --- | --- | --- | --- |
@@ -421,7 +424,7 @@ something `firebase deploy` carries.
 bites a field a query must match *negatively*; `createdVia` is never queried, only read
 with the document it sits on and displayed — the same argument that let `columns` arrive
 late. `toNode` reads an absent value as `'app'`, which is true of every node written before
-this feature.
+the API existed.
 
 ### Queries
 
@@ -446,15 +449,15 @@ queries mirror the client's so that behaviour matches:
 
 ### Indexes
 
-`firestore.indexes.json` gains:
+`firestore.indexes.json` carries:
 
 - `fieldOverrides` disabling indexing for `nodes.createdVia`, and for `apiKeys.name`,
   `apiKeys.secretHash`, `apiKeys.tail` — none is ever queried, and index entries are where
   storage cost lives.
 - a collection-group single-field index on `apiClients.keyId`, for the delete trigger. It
-  is the only index this feature adds — token verification is a direct `get()`.
+  is the only index this area adds — token verification is a direct `get()`.
 
-## 4. Rules & tests
+## Rules & tests
 
 ### `firestore.rules`
 
@@ -494,7 +497,8 @@ the API wrote — and curating what an agent wrote is the entire point of markin
 create there is no such document, so the same expression means what it looks like it means.
 
 **Present-only**, for the same reason as `assigneeIds`: requiring the field outright would
-deny every update to every node written before this feature, including the `childCount` bump
+deny every update to every node written before the field existed, including the `childCount`
+bump
 that adding a step to an old project performs, and there is no admin tooling in this repo to
 unstick them. **`'app'`-only**, because the function bypasses rules so `'api'` never needs to
 pass through here, and a member who could write it could forge the mark Ingrid relies on.
@@ -526,16 +530,16 @@ within the parent's `columns`, and the private-node participant superset rule. T
 plain unit tests with no emulator; they are the only thing standing between a handler bug
 and a silent orphan.
 
-## 5. UI flow
+## UI flow
 
-Three surfaces change. None of them is on a path Ingrid walks daily.
+Three surfaces. None of them is on a path Ingrid walks daily.
 
-### `AccountMenu` gains a row
+### `AccountMenu` carries an Automations row
 
-An **Automations** `Menu.Item` (`leadingIcon="robot-outline"`) above the existing
-`Divider`; sign out stays last. The component was built "with room for more rows rather
-than a sign-out drawer" — this is the row it was left room for, and the divider is what
-keeps a destructive action from sitting adjacent to a routine one.
+An **Automations** `Menu.Item` (`leadingIcon="robot-outline"`) above the `Divider`; sign out
+stays last. The component was built "with room for more rows rather than a sign-out drawer"
+— this is the row it was left room for, and the divider is what keeps a destructive action
+from sitting adjacent to a routine one.
 
 ### `app/(app)/automations.tsx` — the key list
 
@@ -559,6 +563,15 @@ are disabled with a hint when offline — the same pattern `home-and-members` us
 creating a home and sending an invitation. Queuing a revoke optimistically would show a key
 as gone while it kept working, which is a lie on the one screen where it matters.
 
+The app-wide offline bar says something different here, and has to. Everywhere else it
+promises *changes are saved and will sync when you reconnect*, which is true — Firestore
+serves the cache and queues the write. On this screen nothing queues, so the bar would be
+contradicting the screen's own disabled button three centimetres below it, and somebody who
+read only the bar would walk away believing a key they tried to create was waiting to be
+sent. `OfflineBar` therefore keeps a list of online-only routes and says *nothing on this
+screen can be saved until you reconnect* on them. Adding an online-only screen means adding
+it to that list.
+
 Styling per `CLAUDE.md`: Paper components first, `space` / `radius` / `size` tokens for
 everything else, no numeric literals in style props, no colour literals — destructive
 colouring comes from `ConfirmDialog`'s `destructive` prop, which already owns it.
@@ -574,7 +587,7 @@ another user, and the screen must not suggest otherwise.
 When `createdVia === 'api'`, one `bodySmall` line in `onSurfaceVariant` beneath the title:
 *Added by an automation*. Nothing on the card face, nothing on the board.
 
-## 6. Strings
+## Strings
 
 New keys in `i18n/locales/en-US.json` and `sv-SE.json`, in the same change.
 
@@ -602,6 +615,10 @@ New keys in `i18n/locales/en-US.json` and `sv-SE.json`, in the same change.
 | `manageHome.automations.title` | Automations with access | Automationer med åtkomst |
 | `manageHome.automations.empty` | No automation has written here. | Ingen automation har skrivit här. |
 | `detail.createdViaApi` | Added by an automation | Tillagd av en automation |
+| `automations.createAction` | Create | Skapa |
+| `automations.revoke.for` | Revoke {{name}} | Återkalla {{name}} |
+| `common.done` | Done | Klar |
+| `status.offlineNoQueue` | Offline — nothing on this screen can be saved until you reconnect. | Offline — inget på den här skärmen kan sparas förrän du är uppkopplad igen. |
 
 The Swedish is written as Swedish, not transliterated: *återkalla*, never *revoka*. Ingrid
 meets `account.automations` and possibly `manageHome.automations.title`; every English
@@ -610,7 +627,7 @@ loanword past that point is inside a screen she has no reason to open.
 **API error messages are English only and are not translated.** They are read by agents and
 by developers, never rendered in the app.
 
-## 7. What this does NOT change
+## What this does NOT change
 
 - **`data/nodes.ts` and every client write path.** The app keeps writing through the rules,
   offline-first, exactly as `boards-and-nodes` describes.
@@ -623,7 +640,7 @@ by developers, never rendered in the app.
 - **Offline behaviour anywhere in the app.** The API is online-only by nature and the two
   new screens are the only places that say so.
 
-## 8. Out of scope
+## Out of scope
 
 - **Location and recurring verbs** — [#50](https://github.com/Senth/home-backlog/issues/50),
   [#51](https://github.com/Senth/home-backlog/issues/51),
@@ -648,76 +665,3 @@ by developers, never rendered in the app.
 - **Webhooks, push, or any outbound notification.** Agents poll.
 - **App Check on the API surface.** [#4](https://github.com/Senth/home-backlog/issues/4) is
   about the web client; a bearer key is the API's authentication.
-
-## 9. Phases
-
-Each ends green on `yarn lint --write`, `yarn typecheck` and `yarn test`, and is one
-commit.
-
-**Phase 1 — Cloud Functions bootstrap.**
-`functions/` as its own TypeScript package (its own `package.json`, `tsconfig.json`,
-`node_modules`; the root is yarn, so keep it a plain sibling package rather than fighting a
-workspace into an Expo app). Firebase Functions v2, region `europe-west1` — the same region
-as the Firestore database. `firebase.json`: a `functions` block, a `/api/**` rewrite
-**before** the `**` catch-all, and a functions emulator port beside the existing four.
-`GET /api/v1/health` returning the version. Add `functions` to the deploy target in
-`.github/workflows/deploy.yml`, and record in `OPERATIONS.md` the IAM roles the deploy
-service account needs for functions and the Firestore TTL policy on `apiKeys/*/runs`.
-
-**Phase 2 — API keys.**
-`models/api-key.ts` (token format, parsing, hashing — with unit tests), the callable
-`createApiKey`, the `onDocumentDeleted` cleanup trigger, the `users/{uid}/apiKeys` and
-`homes/{homeId}/apiClients` rules, and the `tests/rules/` cases for both.
-
-**Phase 3 — Validation and authentication middleware.**
-`functions/src/validate.ts` mirroring the rules, with its unit tests. Key verification:
-resolve the token, compare the hash in constant time, load membership, throttle
-`lastUsedAt`, upsert `apiClients`. Error envelope and status codes.
-
-**Phase 4 — Read verbs.**
-`GET /v1/homes`, `GET /v1/homes/{h}/nodes`, `GET /v1/homes/{h}/nodes/{id}`, with the
-visibility predicate applied in code and a test that a member's private project is invisible
-to another member's key.
-
-**Phase 5 — Write verbs.**
-`POST`, `PATCH` (field merge, optional version precondition, `status` recomputing `rank`,
-`parentId` rewriting the subtree and both parents' counters), `DELETE` with the
-`?cascade=true` guard. The `createdVia` field: model, `toNode`, rules clause, index
-override, rules tests.
-
-**Phase 6 — Bulk subtree create.**
-`POST /v1/homes/{h}/nodes:bulk` — ref resolution, whole-payload validation with per-index
-errors, one atomic batch, `rankSequence` in array order per column, counters computed by
-the endpoint and refused in the body, and the `Idempotency-Key` replay through
-`apiKeys/{keyId}/runs`.
-
-**Phase 7 — The screens.**
-`app/(app)/automations.tsx`, the `AccountMenu` row, the automations section on
-`/homes/[homeId]`, the provenance line on node detail, and every string in both locales.
-
-**Phase 8 — Review.**
-`/review` until PASS. `code-review` first, its fixes applied and green, then
-`browser-review` against the clean change, then the fix loop, capped at two rounds. The
-skill smoke-tests the primary path itself before opening a browser agent. `blocking`
-findings are never deferrable; a `should-fix` may be deferred only with a stated reason.
-`idea` findings go to the user, who decides which become issues. This feature has
-user-visible surface, so the browser pass is not optional.
-
-**Phase 9 — Cleanup.**
-
-- Write `SKILL.md` and serve it from `GET /api/v1/skill.md` with `X-Api-Version` on every
-  response, including the field table marking each field *shown in the app* or *stored, no
-  screen yet*, and applying [#93](https://github.com/Senth/home-backlog/issues/93).
-- **Create the area spec `docs/specs/rest-api.md`** from sections 1–8 of this file. This is
-  a genuinely new area with its own data model and screens, so it is a new file rather than
-  a rewrite of an existing one. Cross-link it from `boards-and-nodes` (the `createdVia`
-  field and the API's stricter status rule) and from `home-and-members` (the automations
-  list on the manage screen), and rewrite the affected passages there rather than appending.
-- **Correct `docs/PROJECT.md`**: the *AI / API* section says "hashed API keys scoped to a
-  home" and must say per user, with the reasoning from [§2](#2-why).
-- Add the row to `docs/specs/INDEX.md` and remove `rest-api` from its *Planned areas* list.
-- Delete `docs/specs/wip/07-rest-api.md`.
-- **Refresh `.emulator-seed/`** through the app: at least one API key, one `apiClients` row,
-  and one node created over the API so the provenance line and both new lists have
-  something to show. Generated with `yarn emulators:export`, never hand-written.
-- `yarn todo`, then the PR commands in [Handoff](#handoff).

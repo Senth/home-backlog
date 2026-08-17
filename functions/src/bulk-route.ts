@@ -1,7 +1,7 @@
 import type { Request, Response, Router } from "express";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { visibleTo } from "./api-nodes.js";
-import { type ApiCaller, caller, homeAccess } from "./auth.js";
+import { type ApiCaller, caller, homeAccess, recordWrite } from "./auth.js";
 import { type BulkPlan, parseBulkBody, planBulk } from "./bulk.js";
 import { ApiError } from "./errors.js";
 import {
@@ -57,7 +57,7 @@ async function bulkCreate(request: Request, response: Response): Promise<void> {
 	if (!homeId) {
 		throw new ApiError(400, "invalid_path", "Missing homeId in the path.");
 	}
-	await homeAccess(me, homeId);
+	const home = await homeAccess(me, homeId);
 
 	const nodes = db
 		.collection(homesCollection)
@@ -166,6 +166,7 @@ async function bulkCreate(request: Request, response: Response): Promise<void> {
 	}
 
 	await batch.commit();
+	await recordWrite(me, home);
 
 	response.status(201).json({ rootId: plan.rootId, ids: plan.ids });
 }

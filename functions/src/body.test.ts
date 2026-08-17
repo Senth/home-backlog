@@ -160,14 +160,16 @@ describe("visibility and participants", () => {
 	});
 });
 
+/**
+ * `archived` constrains every board query, so an archived node vanishes from
+ * every screen — and nothing in the app writes or reads the field today: no
+ * archive list, no unarchive control, nothing that shows an archived card at
+ * all. A key that could set it could hide a household's work somewhere only
+ * another API call could reach.
+ */
 describe("archiving", () => {
-	it("is an ordinary edit, both ways", () => {
-		expect(parseNodeBody({ archived: true }, "update").archived).toBe(true);
-		expect(parseNodeBody({ archived: false }, "update").archived).toBe(false);
-	});
-
-	// A new node is never archived, so there is nothing to say on a create.
-	it("is not something a create says", () => {
+	it("is refused until there is a screen that can undo it", () => {
+		expect(refusal({ archived: true }, "update").code).toBe("unknown_field");
 		expect(refusal({ archived: true }, "create").code).toBe("unknown_field");
 	});
 });

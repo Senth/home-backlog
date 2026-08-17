@@ -257,6 +257,7 @@
 		"review": "Check",
 		"done": "Done",
 		"offline": "Offline — changes are saved and will sync when you reconnect.",
+		"offlineNoQueue": "Offline — nothing on this screen can be saved until you reconnect.",
 		"offlineSignedOut": "Offline — you need a connection to sign in."
 	},
 	"update": {
