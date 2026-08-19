@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, View } from "react-native";
 import { IconButton, Menu } from "react-native-paper";
@@ -95,10 +95,22 @@ export function CardMenu({
 		undefined,
 	);
 
-	const close = () => {
+	/**
+	 * Stable on purpose, and not a micro-optimisation.
+	 *
+	 * Paper attaches its Escape handler to `document` once, inside `show()`, and
+	 * tears it down from an effect whose dependency chain ends at `onDismiss`
+	 * (`Menu.tsx`: `handleKeypress` → `removeListeners` → the effect). Nothing
+	 * re-attaches it except opening the menu again. So with a fresh `close` each
+	 * render, *any* re-render while the menu is open killed Escape — which this
+	 * menu does to itself every time it changes page, and which a card arriving
+	 * on the board did to it from outside. One identity, and the handler lives as
+	 * long as the menu does.
+	 */
+	const close = useCallback(() => {
 		setOpen(false);
 		setPage("root");
-	};
+	}, []);
 
 	const column = nodes.filter((card) => card.status === node.status);
 	const index = column.findIndex((card) => card.id === node.id);

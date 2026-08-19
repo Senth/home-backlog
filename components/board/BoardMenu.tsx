@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Appbar, Menu } from "react-native-paper";
 
@@ -19,10 +19,17 @@ export function BoardMenu({ showEveryone, onShowEveryone }: BoardMenuProps) {
 	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 
+	// Stable so Paper keeps its Escape handler: it attaches that to `document`
+	// once, inside `show()`, and tears it down from an effect whose dependency
+	// chain ends at `onDismiss`. A fresh closure each render means any re-render
+	// while the menu is open leaves it with no way out but the mouse. Same
+	// reasoning, and the same fix, as `components/board/CardMenu.tsx`.
+	const close = useCallback(() => setOpen(false), []);
+
 	return (
 		<Menu
 			visible={open}
-			onDismiss={() => setOpen(false)}
+			onDismiss={close}
 			// Paper's scrim is announced, and its default name is English.
 			overlayAccessibilityLabel={t("common.closeMenu")}
 			anchor={
