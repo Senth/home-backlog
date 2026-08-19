@@ -56,12 +56,17 @@ The deploy service account needs, on top of the five roles above:
 | `roles/iam.serviceAccountUser` | acting as the runtime service account |
 | `roles/eventarc.admin` and `roles/pubsub.admin` | the `onDocumentDeleted` trigger, which is delivered through Eventarc over Pub/Sub |
 
-`roles/serviceusage.serviceUsageConsumer` is already held; the first deploy also
-has to have `cloudfunctions`, `cloudbuild`, `artifactregistry`, `run` and
-`eventarc` **enabled as APIs** on the project. Enabling them needs
+`roles/serviceusage.serviceUsageConsumer` was already held. **All of the above are
+granted, and `cloudfunctions`, `cloudbuild`, `artifactregistry`, `run` and
+`eventarc` are enabled** — done once, by hand, on 2026-08-19. Enabling an API needs
 `roles/serviceusage.serviceUsageAdmin`, which the deploy account deliberately
-does not hold — enable them once by hand in the console rather than granting a
-CI identity the right to turn services on.
+does not hold: a CI identity that can turn services on can turn on billable ones.
+
+The **runtime** service account (`<project-number>-compute@developer.gserviceaccount.com`)
+also holds `roles/eventarc.eventReceiver`, which a v2 event-driven function needs
+to be delivered anything. It is granted explicitly rather than left to the
+`roles/editor` it inherits, because that inheritance is a default Google has
+been narrowing for years.
 
 #### The `/api/**` rewrite has to come first
 
@@ -87,6 +92,10 @@ gcloud firestore fields ttls update expiresAt \
 
 Without it nothing breaks and nothing is lost; the documents simply accumulate
 forever. The emulator ignores TTL entirely, so this is invisible locally.
+
+**Done** — the policy is `ACTIVE` as of 2026-08-19. It is a *backstop*, not the
+mechanism: revoking a key deletes its runs immediately through the
+`onApiKeyDeleted` trigger, and this only reaches runs whose key still exists.
 
 ### Why the Storage rules are deployed through a target
 
