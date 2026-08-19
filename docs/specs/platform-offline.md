@@ -243,6 +243,42 @@ Firestore queues its own writes and is never gated on it.
 ⚠️ Firebase **Storage has no offline write queue**. Photos captured without signal will
 need a local pending-upload queue with retry. Nothing has shipped that uploads yet.
 
+### A listener that fails is not an answer
+
+A Firestore listener is **terminated by its own error callback**. It never reconnects, so
+whatever the screen behind it had at that moment is what it keeps — and a query that has
+never answered has nothing. The app cannot tell "nothing arrived" from "there is nothing",
+so a single failed homes query rendered as *You are not in any home yet* to a household
+with a full board, and a failed board rendered as *Nothing here yet. Add the first card.*
+Neither healed without force quitting the app. That is #101, and a cold start on a phone
+waking with an expired token and no connection up yet is exactly where it lives.
+
+Every listener therefore opens through `subscribeWithRetry` in `data/live-query.ts`, which
+re-opens a failed one three times — 400 ms, 1.2 s, 3 s — before reporting anything. The
+waits grow because the failure it exists for is a connection that is not up *yet*; they
+stop because a splash held longer than about five seconds is its own kind of broken. Every
+snapshot that arrives restores the budget, so a listener that has been up for an hour is
+never one failure away from having none left.
+
+Once the ladder is spent the screen **says so** rather than drawing the result as empty:
+`useHome()` and `useNodes()` expose `failed` alongside `loading`, the empty state gives way
+to `homes.loadFailed` / `board.loadFailed` / `detail.stepsFailed`, and a **Try again**
+re-opens the listener. On `/homes` the create-a-home button goes with the empty state —
+"could not load your homes" above "create a new home" is the same invitation to a duplicate
+home, and a connection that could not run the query would not carry `createHome` either.
+
+`failed` is never true while `loading` is. A board is two listeners that give up
+independently, so without that a half-connected board would draw a spinner and a failure at
+once, over a Try again that would tear down the half still arriving. For the same reason the
+homes retry does **not** re-raise `loading`: that swaps the whole router for the splash, and
+a retry that unmounts the screen its own button lives on is barely better than the force
+quit it replaces. It reports itself on the button instead, through `retrying`.
+
+*Rejected:* retrying forever (the splash never lifts, and `/homes` at least has a way
+forward on it), and reporting the first failure straight to the user (on a cold start that
+is a connection three hundred milliseconds from working).
+
+
 ## Install and updates
 
 `InstallCard` captures Chrome's `beforeinstallprompt` and replays it at a moment that

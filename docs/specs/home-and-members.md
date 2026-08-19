@@ -318,6 +318,20 @@ that, a button opens a dialog with a single field prefilled `{{name}}'s home`.
 With no homes and no invitations this same screen *is* onboarding: one prefilled field and
 one button, no wizard and no choice screen.
 
+Which is exactly why an empty list has to be an *answer* and never a failure. When the homes
+query has spent its retry ladder, `useHome()` reports `failed` and this screen shows
+`homes.loadFailed` and a **Try again** in place of both the empty state and the create
+button — an onboarding screen offered to somebody who has had a home for a year is the app
+believing a broken connection, and the second household it produces has no merge path back
+(see the note above on why that is unrecoverable). A connection that could not run the query
+would not carry `createHome` either, so nothing is lost by taking the button away until the
+retry succeeds.
+
+The retry does **not** re-raise `loading`: that would swap the whole router for the splash
+and unmount this screen mid-retry, taking the Try again button and the `joining` state with
+it. It reports itself on the button, through `retrying`. The ladder itself is in
+`docs/specs/platform-offline.md`.
+
 The account menu is in this app bar too. The gate sends a home-less person here and the
 boards are unreachable until a home exists, so without it there would be no way to sign
 out.

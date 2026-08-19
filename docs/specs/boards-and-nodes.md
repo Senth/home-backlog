@@ -931,6 +931,15 @@ The board is handed the hidden cards rather than a count, so each column can spe
 itself — and `visibleColumns` counts them too, so a held-back card sitting in a status
 outside the frozen set still has a column to be counted in.
 
+**A board that could not be read says that instead**, for the same reason. Once its
+listeners have spent the retry ladder in `data/live-query.ts`, `useNodes()` reports
+`failed` and the board draws `board.loadFailed` with a **Try again** in place of the empty
+state — "Add the first card" and "could not load" are contradictory instructions and only
+one of them is ever true. It is said whether or not any cards arrived: a board is two
+listeners and only one has to fail, so a board missing every shared card on it otherwise
+looks perfectly ordinary, and that is the board a card gets added to twice. See
+`docs/specs/platform-offline.md` for the ladder itself.
+
 *Rejected:* enforcing the hiding in the rules. It is a display preference, not a permission
 — "should still be able to see them" is the requirement, and a rule cannot express "hidden
 but readable".
@@ -1125,6 +1134,7 @@ from, and a word Ingrid has never used.
 | `detail.saved` | Saved {{time}} | Sparat {{time}} |
 | `detail.steps` | Steps | Steg |
 | `detail.stepsNone` | No steps yet | Inga steg ännu |
+| `detail.stepsFailed` | Could not load the steps. Check your connection. | Kunde inte ladda stegen. Kontrollera din anslutning. |
 | `detail.stepsDone` | {{done}} of {{total}} done | {{done}} av {{total}} klara |
 | `detail.addStep` | Add step | Lägg till steg |
 | `detail.openBoard` | Open board | Öppna tavla |
@@ -1164,6 +1174,7 @@ is `PERSONAS.md`'s stated quit line rendered as UI.
 | `board.showEveryone` | Show everyone's projects | Visa allas projekt |
 | `board.boardActions` | Board actions | Tavlans åtgärder |
 | `board.allHidden` | Everything here is somebody's own project. Turn on "Show everyone's projects" to see them. | Allt här är någons eget projekt. Slå på ”Visa allas projekt” för att se dem. |
+| `board.loadFailed` | Could not load this board. Check your connection. | Kunde inte ladda den här tavlan. Kontrollera din anslutning. |
 | `board.hiddenHere` | {{count}} more here are somebody's own projects. Turn on "{{action}}" to see them. | {{count}} till här är någons egna projekt. Slå på ”{{action}}” för att se dem. |
 | `visibility.confirmPrivateTitle` | Keep this to yourself? | Hålla det här för dig själv? |
 | `visibility.confirmPrivateBody` | Only {{keeping}} will be able to see {{title}}. | Bara {{keeping}} kommer att se {{title}}. |

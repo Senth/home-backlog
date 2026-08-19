@@ -61,6 +61,11 @@ interface HomeContextType {
 	failed: boolean;
 	/** Opens the homes query again after it gave up. */
 	retry: () => void;
+	/**
+	 * True while a `retry` is in flight. Unlike `loading` it does not hold the
+	 * router — the screen stays where it is and says so on the button itself.
+	 */
+	retrying: boolean;
 	/** Switches home and remembers it. */
 	setActiveHome: (homeId: string) => void;
 }
@@ -77,6 +82,7 @@ export function HomeProvider({
 	const [homes, setHomes] = useState<Home[]>([]);
 	const [homesLoaded, setHomesLoaded] = useState(false);
 	const [homesFailed, setHomesFailed] = useState(false);
+	const [retrying, setRetrying] = useState(false);
 	const [storedId, setStoredId] = useState<string | null>(null);
 	const [storedLoaded, setStoredLoaded] = useState(false);
 	/**
@@ -86,6 +92,20 @@ export function HomeProvider({
 	const [attempt, setAttempt] = useState(0);
 
 	const uid = user.uid;
+
+	// Cleared *during render*, the same way `useNodes` clears a board it is being
+	// re-pointed at: an effect runs after the commit, so a different person's
+	// homes would be on screen for a frame — and `attempt` has to mean "attempt
+	// for this uid" or the guard above would skip the splash on their first load.
+	const [renderedUid, setRenderedUid] = useState(uid);
+	if (renderedUid !== uid) {
+		setRenderedUid(uid);
+		setHomes([]);
+		setHomesLoaded(false);
+		setHomesFailed(false);
+		setRetrying(false);
+		setAttempt(0);
+	}
 
 	useEffect(() => {
 		let live = true;
@@ -109,8 +129,21 @@ export function HomeProvider({
 	}, []);
 
 	useEffect(() => {
-		setHomesLoaded(false);
-		setHomesFailed(false);
+		// Only the first attempt holds the router. `loading` swaps the whole app
+		// for the splash, so doing it again on a manual retry would unmount the
+		// screen the Try again button lives on — and with it the `joining` state
+		// that outlives an accepted invitation on purpose. A retry that takes the
+		// screen away for five seconds is not much better than the force quit it
+		// replaces, so this one reports itself in place, through `retrying`.
+		//
+		// `failed` stays set for the same reason: cleared here, a retry in flight
+		// would drop the screen back to "You are not in any home yet" — the exact
+		// sentence this is all here to stop. Only an arriving snapshot clears it.
+		if (attempt === 0) {
+			setHomesLoaded(false);
+			setHomesFailed(false);
+		}
+		setRetrying(attempt > 0);
 
 		return subscribeWithRetry<QuerySnapshot<DocumentData>>(
 			(next, error) => onSnapshot(homesQuery(uid), next, error),
@@ -122,6 +155,7 @@ export function HomeProvider({
 				);
 				setHomesFailed(false);
 				setHomesLoaded(true);
+				setRetrying(false);
 			},
 			(reason) => {
 				// Handled, and only after the retries are spent: marking the query
@@ -138,6 +172,7 @@ export function HomeProvider({
 				);
 				setHomesFailed(true);
 				setHomesLoaded(true);
+				setRetrying(false);
 			},
 		);
 	}, [uid, attempt]);
@@ -217,6 +252,7 @@ export function HomeProvider({
 			loading: !homesLoaded || !storedLoaded,
 			failed: homesFailed,
 			retry,
+			retrying,
 			setActiveHome,
 		}),
 		[
@@ -225,6 +261,7 @@ export function HomeProvider({
 			uid,
 			homesLoaded,
 			homesFailed,
+			retrying,
 			storedLoaded,
 			retry,
 			setActiveHome,

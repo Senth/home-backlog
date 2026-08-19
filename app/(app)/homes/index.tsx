@@ -46,7 +46,8 @@ export default function Homes() {
 	const router = useRouter();
 	const online = useOnlineStatus();
 	const { user } = useAuth();
-	const { homes, activeHome, failed, retry, setActiveHome } = useHome();
+	const { homes, activeHome, failed, retry, retrying, setActiveHome } =
+		useHome();
 	const { invites } = usePendingInvites();
 
 	const [createOpen, setCreateOpen] = useState(false);
@@ -128,11 +129,12 @@ export default function Homes() {
 					maxWidth: contentWidth.form,
 				}}
 			>
-				{/* Said instead of the empty state, never alongside it: this screen's
-				    empty state is onboarding, and offering to set up a first home to
-				    somebody who has had one for a year is the app believing a broken
-				    connection. With homes already in hand it explains why they may be
-				    stale. `retry` is the way back that used to mean force quitting. */}
+				{/* Said instead of the empty state, and instead of the create button
+				    below: this screen's empty state *is* onboarding, and offering to
+				    set up a first home to somebody who has had one for a year is the
+				    app believing a broken connection. With homes already in hand it
+				    explains why they may be stale. `retry` is the way back that used
+				    to mean force quitting. */}
 				{failed ? (
 					<View style={{ gap: space.md, paddingVertical: space.lg }}>
 						<Text
@@ -148,6 +150,8 @@ export default function Homes() {
 							mode="contained-tonal"
 							icon="refresh"
 							onPress={retry}
+							loading={retrying}
+							disabled={retrying}
 							contentStyle={{ minHeight: touchTarget }}
 						>
 							{t("common.retry")}
@@ -225,28 +229,37 @@ export default function Homes() {
 					</>
 				) : null}
 
-				<Divider />
+				{/* Gone while the load is failed, not merely unaccompanied by the
+				    empty state. "Could not load your homes" above "Create a new home"
+				    is still the app inviting a second home from somebody who already
+				    has one — and a load that failed is a connection that would not
+				    carry `createHome` either. Try again is the way forward here. */}
+				{failed ? null : (
+					<>
+						<Divider />
 
-				<Button
-					ref={createButtonRef}
-					mode="contained"
-					icon="plus"
-					onPress={openCreate}
-					disabled={!online}
-					contentStyle={{ minHeight: touchTarget }}
-				>
-					{t("homes.create")}
-				</Button>
-				{online ? null : (
-					<Text
-						variant="bodyMedium"
-						style={{
-							color: theme.colors.onSurfaceVariant,
-							textAlign: "center",
-						}}
-					>
-						{t("homes.offlineHint")}
-					</Text>
+						<Button
+							ref={createButtonRef}
+							mode="contained"
+							icon="plus"
+							onPress={openCreate}
+							disabled={!online}
+							contentStyle={{ minHeight: touchTarget }}
+						>
+							{t("homes.create")}
+						</Button>
+						{online ? null : (
+							<Text
+								variant="bodyMedium"
+								style={{
+									color: theme.colors.onSurfaceVariant,
+									textAlign: "center",
+								}}
+							>
+								{t("homes.offlineHint")}
+							</Text>
+						)}
+					</>
 				)}
 			</ScrollView>
 
