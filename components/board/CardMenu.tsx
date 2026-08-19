@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { IconButton, Menu } from "react-native-paper";
 import { TitleDialog } from "@/components/board/TitleDialog";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
@@ -52,9 +52,10 @@ type Destination = Node | null | "up";
 /**
  * Everything a card can do except open, which is what tapping it already means.
  *
- * The menu changes *page* rather than opening a submenu: Paper's `Menu` scrolls
- * its own content, so a column with thirty cards is a list you scroll rather
- * than a second overlay to dismiss.
+ * The menu changes *page* rather than opening a submenu: a column with thirty
+ * cards is a list you scroll rather than a second overlay to dismiss. Paper
+ * measures the menu once and never again, so a page is scrolled by this
+ * component and not by `Menu` — see `rootPageHeight`.
  *
  * **Offline.** Move, position and rename queue optimistically, which is what a
  * board in a shed needs. `Move under…` and `Delete` require a connection and say
@@ -80,11 +81,36 @@ export function CardMenu({
 	const [renaming, setRenaming] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const anchor = useRef<View | null>(null);
+	/**
+	 * How tall the root page is, which is the only height Paper ever measured.
+	 *
+	 * `Menu` measures its content once, as it opens, and positions itself from
+	 * that — it never measures again. A later page with a card per row is taller
+	 * than the root page it was measured at, so it hangs off the bottom of the
+	 * window: the document grows past the viewport, the whole app scrolls behind
+	 * the open menu, and the app bar goes with it. Holding every other page to
+	 * this height keeps the one measurement true.
+	 */
+	const [rootPageHeight, setRootPageHeight] = useState<number | undefined>(
+		undefined,
+	);
 
-	const close = () => {
+	/**
+	 * Stable on purpose, and not a micro-optimisation.
+	 *
+	 * Paper attaches its Escape handler to `document` once, inside `show()`, and
+	 * tears it down from an effect whose dependency chain ends at `onDismiss`
+	 * (`Menu.tsx`: `handleKeypress` → `removeListeners` → the effect). Nothing
+	 * re-attaches it except opening the menu again. So with a fresh `close` each
+	 * render, *any* re-render while the menu is open killed Escape — which this
+	 * menu does to itself every time it changes page, and which a card arriving
+	 * on the board did to it from outside. One identity, and the handler lives as
+	 * long as the menu does.
+	 */
+	const close = useCallback(() => {
 		setOpen(false);
 		setPage("root");
-	};
+	}, []);
 
 	const column = nodes.filter((card) => card.status === node.status);
 	const index = column.findIndex((card) => card.id === node.id);
@@ -228,7 +254,11 @@ export function CardMenu({
 				}
 			>
 				{page === "root" ? (
-					<>
+					<View
+						onLayout={(event) =>
+							setRootPageHeight(event.nativeEvent.layout.height)
+						}
+					>
 						<Menu.Item
 							leadingIcon="information-outline"
 							title={t("board.details")}
@@ -278,70 +308,78 @@ export function CardMenu({
 						{online ? null : (
 							<Menu.Item disabled title={t("board.offlineHint")} />
 						)}
-					</>
-				) : null}
+					</View>
+				) : (
+					/* One card per row, so these are the pages that outgrow the height
+					   Paper measured — see `rootPageHeight`. They scroll inside it
+					   instead of hanging off the bottom of the window. */
+					<ScrollView style={{ maxHeight: rootPageHeight }}>
+						{page === "move"
+							? columns.map((status) => (
+									<Menu.Item
+										key={status}
+										title={t(`status.${status}`)}
+										onPress={() => moveTo(status)}
+										disabled={status === node.status}
+									/>
+								))
+							: null}
 
-				{page === "move"
-					? columns.map((status) => (
-							<Menu.Item
-								key={status}
-								title={t(`status.${status}`)}
-								onPress={() => moveTo(status)}
-								disabled={status === node.status}
-							/>
-						))
-					: null}
-
-				{page === "position" ? (
-					<>
-						<Menu.Item
-							title={t("board.positionTop")}
-							onPress={() =>
-								moveWithin(rankBetween(null, others[0]?.rank ?? null))
-							}
-							disabled={index === 0}
-						/>
-						{others.map((other, position) => (
-							<Menu.Item
-								key={other.id}
-								title={t("board.positionAfter", { title: other.title })}
-								onPress={() =>
-									moveWithin(
-										rankBetween(other.rank, others[position + 1]?.rank ?? null),
-									)
-								}
-								// The slot it is already in.
-								disabled={column[index - 1]?.id === other.id}
-							/>
-						))}
-					</>
-				) : null}
-
-				{page === "under" ? (
-					<>
-						{/* Up and Top are the same destination one level down from the
-						    root, so only one of them is ever offered. */}
-						{parent?.parentId ? (
-							<Menu.Item
-								title={t("board.moveUnderUp")}
-								onPress={() => moveUnder("up")}
-							/>
+						{page === "position" ? (
+							<>
+								<Menu.Item
+									title={t("board.positionTop")}
+									onPress={() =>
+										moveWithin(rankBetween(null, others[0]?.rank ?? null))
+									}
+									disabled={index === 0}
+								/>
+								{others.map((other, position) => (
+									<Menu.Item
+										key={other.id}
+										title={t("board.positionAfter", { title: other.title })}
+										onPress={() =>
+											moveWithin(
+												rankBetween(
+													other.rank,
+													others[position + 1]?.rank ?? null,
+												),
+											)
+										}
+										// The slot it is already in.
+										disabled={column[index - 1]?.id === other.id}
+									/>
+								))}
+							</>
 						) : null}
-						{parent !== null ? (
-							<Menu.Item
-								title={t("board.moveUnderTop")}
-								onPress={() => moveUnder(null)}
-							/>
+
+						{page === "under" ? (
+							<>
+								{/* Up and Top are the same destination one level down from
+								    the root, so only one of them is ever offered. */}
+								{parent?.parentId ? (
+									<Menu.Item
+										title={t("board.moveUnderUp")}
+										onPress={() => moveUnder("up")}
+									/>
+								) : null}
+								{parent !== null ? (
+									<Menu.Item
+										title={t("board.moveUnderTop")}
+										onPress={() => moveUnder(null)}
+									/>
+								) : null}
+								{hosts.map((host) => (
+									<Menu.Item
+										key={host.id}
+										title={host.title}
+										onPress={() => moveUnder(host)}
+									/>
+								))}
+							</>
 						) : null}
-						{hosts.map((host) => (
-							<Menu.Item
-								key={host.id}
-								title={host.title}
-								onPress={() => moveUnder(host)}
-							/>
-						))}
-					</>
-				) : null}
+					</ScrollView>
+				)}
 			</Menu>
 
 			{/* Mounted only while open. Each dialog carries a `Portal`, which

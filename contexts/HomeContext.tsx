@@ -1,6 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { User } from "firebase/auth";
-import { onSnapshot } from "firebase/firestore";
+import {
+	type DocumentData,
+	onSnapshot,
+	type QuerySnapshot,
+} from "firebase/firestore";
 import {
 	createContext,
 	type ReactNode,
@@ -12,6 +16,8 @@ import {
 	useState,
 } from "react";
 import { homesQuery, profileOf, saveMyProfile, toHome } from "@/data/homes";
+import { isQueryAnswer, subscribeWithRetry } from "@/data/live-query";
+import { isOnline } from "@/hooks/use-online-status";
 import { resolveActiveHomeId } from "@/models/active-home";
 import { emailHash, type Home, type Role } from "@/models/home";
 
@@ -22,9 +28,11 @@ import { emailHash, type Home, type Role } from "@/models/home";
  * so `user` here is an answer and never a not-yet — this provider cannot race
  * auth, and the homes query it fires is never made without a uid.
  *
- * One listener, fired once per session, as wide as the number of homes one
- * person belongs to. The cost risk in this app is listener *breadth*, not data
- * volume, and this is the only listener that is not scoped to a single home.
+ * One listener, as wide as the number of homes one person belongs to. The cost
+ * risk in this app is listener *breadth*, not data volume, and this is the only
+ * listener that is not scoped to a single home. It is opened once per session
+ * and re-opened only to replace one Firestore has already torn down — see
+ * `subscribeWithRetry`.
  */
 
 /** Where the last opened home is remembered between launches. */
@@ -42,6 +50,23 @@ interface HomeContextType {
 	 * the splash holds the router until then, the same way `AuthGate` does.
 	 */
 	loading: boolean;
+	/**
+	 * True once the homes query has given up, which makes `homes` the last thing
+	 * that arrived rather than an answer — on a first launch, nothing at all.
+	 *
+	 * Screens have to say so instead of drawing an empty list, because an empty
+	 * list here *is* the onboarding: "You are not in any home yet", with a button
+	 * offering to make the first one. Told that by a broken connection, somebody
+	 * who has had a home for a year either believes it or creates a second one.
+	 */
+	failed: boolean;
+	/** Opens the homes query again after it gave up. */
+	retry: () => void;
+	/**
+	 * True while a `retry` is in flight. Unlike `loading` it does not hold the
+	 * router — the screen stays where it is and says so on the button itself.
+	 */
+	retrying: boolean;
 	/** Switches home and remembers it. */
 	setActiveHome: (homeId: string) => void;
 }
@@ -57,10 +82,31 @@ export function HomeProvider({
 }) {
 	const [homes, setHomes] = useState<Home[]>([]);
 	const [homesLoaded, setHomesLoaded] = useState(false);
+	const [homesFailed, setHomesFailed] = useState(false);
+	const [retrying, setRetrying] = useState(false);
 	const [storedId, setStoredId] = useState<string | null>(null);
 	const [storedLoaded, setStoredLoaded] = useState(false);
+	/**
+	 * Which attempt at the homes query this is. `retry` bumps it, and the effect
+	 * below lists it as a dependency, so bumping it is what opens a new listener.
+	 */
+	const [attempt, setAttempt] = useState(0);
 
 	const uid = user.uid;
+
+	// Cleared *during render*, the same way `useNodes` clears a board it is being
+	// re-pointed at: an effect runs after the commit, so a different person's
+	// homes would be on screen for a frame — and `attempt` has to mean "attempt
+	// for this uid" or the guard above would skip the splash on their first load.
+	const [renderedUid, setRenderedUid] = useState(uid);
+	if (renderedUid !== uid) {
+		setRenderedUid(uid);
+		setHomes([]);
+		setHomesLoaded(false);
+		setHomesFailed(false);
+		setRetrying(false);
+		setAttempt(0);
+	}
 
 	useEffect(() => {
 		let live = true;
@@ -84,27 +130,67 @@ export function HomeProvider({
 	}, []);
 
 	useEffect(() => {
-		setHomesLoaded(false);
+		// Only the first attempt holds the router. `loading` swaps the whole app
+		// for the splash, so doing it again on a manual retry would unmount the
+		// screen the Try again button lives on — and with it the `joining` state
+		// that outlives an accepted invitation on purpose. A retry that takes the
+		// screen away for five seconds is not much better than the force quit it
+		// replaces, so this one reports itself in place, through `retrying`.
+		//
+		// `failed` stays set for the same reason: cleared here, a retry in flight
+		// would drop the screen back to "You are not in any home yet" — the exact
+		// sentence this is all here to stop. Only an arriving snapshot clears it.
+		if (attempt === 0) {
+			setHomesLoaded(false);
+			setHomesFailed(false);
+		}
+		setRetrying(attempt > 0);
 
-		return onSnapshot(
-			homesQuery(uid),
+		return subscribeWithRetry<QuerySnapshot<DocumentData>>(
+			// `includeMetadataChanges` is what makes the cache-only hold in
+			// `isQueryAnswer` releasable: a server confirming that no homes is
+			// *still* no homes changes nothing but `fromCache`, and Firestore
+			// suppresses metadata-only events by default. Same reason, and the same
+			// comment, as `hooks/use-node.ts`.
+			(next, error) =>
+				onSnapshot(
+					homesQuery(uid),
+					{ includeMetadataChanges: true },
+					next,
+					error,
+				),
 			(snapshot) => {
 				setHomes(
 					snapshot.docs
 						.map(toHome)
 						.sort((a, b) => a.name.localeCompare(b.name)),
 				);
+				setHomesFailed(false);
 				setHomesLoaded(true);
+				setRetrying(false);
 			},
 			(reason) => {
-				// Handled: marking the query answered is what stops a failed listener
-				// from holding the splash forever. With no homes, `/homes` is where
-				// the ladder sends you, and its empty state is also its onboarding.
-				console.error("Could not load your homes:", reason);
+				// Handled, and only after the retries are spent: marking the query
+				// answered is what stops a failed listener from holding the splash
+				// forever. Not silently, though — `/homes` is where the ladder sends
+				// you with no active home, and its empty state is also its onboarding.
+				// An answer of "no homes" to a household with a full board is the app
+				// calling a broken connection onboarding, so `failed` is what stops
+				// that screen saying it, and `retry` is the way back that used to mean
+				// force quitting the app (#101).
+				console.error(
+					`Could not load your homes, attempt ${attempt + 1}:`,
+					reason,
+				);
+				setHomesFailed(true);
 				setHomesLoaded(true);
+				setRetrying(false);
 			},
+			{ isAnswer: (snapshot) => isQueryAnswer(snapshot, isOnline()) },
 		);
-	}, [uid]);
+	}, [uid, attempt]);
+
+	const retry = useCallback(() => setAttempt((count) => count + 1), []);
 
 	const homeIds = useMemo(() => homes.map((home) => home.id), [homes]);
 	const activeHomeId = resolveActiveHomeId(homeIds, storedId);
@@ -177,9 +263,22 @@ export function HomeProvider({
 			activeHome,
 			myRole: activeHome?.members[uid] ?? null,
 			loading: !homesLoaded || !storedLoaded,
+			failed: homesFailed,
+			retry,
+			retrying,
 			setActiveHome,
 		}),
-		[homes, activeHome, uid, homesLoaded, storedLoaded, setActiveHome],
+		[
+			homes,
+			activeHome,
+			uid,
+			homesLoaded,
+			homesFailed,
+			retrying,
+			storedLoaded,
+			retry,
+			setActiveHome,
+		],
 	);
 
 	return <HomeContext.Provider value={value}>{children}</HomeContext.Provider>;

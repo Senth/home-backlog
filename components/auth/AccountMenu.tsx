@@ -63,6 +63,12 @@ export function AccountMenu() {
 	const { width } = useWindowDimensions();
 	const isFocused = useIsFocused();
 	const [menuOpen, setMenuOpen] = useState(false);
+	// Stable so Paper keeps its Escape handler: it attaches that to `document`
+	// once, inside `show()`, and tears it down from an effect whose dependency
+	// chain ends at `onDismiss`. A fresh closure each render means any re-render
+	// while the menu is open leaves it with no way out but the mouse. Same
+	// reasoning, and the same fix, as `components/board/CardMenu.tsx`.
+	const closeMenu = useCallback(() => setMenuOpen(false), []);
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [error, setError] = useState<AuthErrorKey | null>(null);
 	const triggerRef = useRef<View | null>(null);
@@ -97,7 +103,7 @@ export function AccountMenu() {
 		<>
 			<Menu
 				visible={menuOpen}
-				onDismiss={() => setMenuOpen(false)}
+				onDismiss={closeMenu}
 				overlayAccessibilityLabel={t("common.closeMenu")}
 				anchorPosition="bottom"
 				// Otherwise the menu keeps its natural width and slides off the left

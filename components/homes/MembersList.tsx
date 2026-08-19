@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Chip, IconButton, Menu, Text } from "react-native-paper";
@@ -84,6 +84,12 @@ function MemberRow({
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const [menuOpen, setMenuOpen] = useState(false);
+	// Stable so Paper keeps its Escape handler: it attaches that to `document`
+	// once, inside `show()`, and tears it down from an effect whose dependency
+	// chain ends at `onDismiss`. A fresh closure each render means any re-render
+	// while the menu is open leaves it with no way out but the mouse. Same
+	// reasoning, and the same fix, as `components/board/CardMenu.tsx`.
+	const closeMenu = useCallback(() => setMenuOpen(false), []);
 	const [confirmRemove, setConfirmRemove] = useState(false);
 	const menuAnchorRef = useRef<View | null>(null);
 
@@ -127,7 +133,7 @@ function MemberRow({
 						{canManage ? (
 							<Menu
 								visible={menuOpen}
-								onDismiss={() => setMenuOpen(false)}
+								onDismiss={closeMenu}
 								overlayAccessibilityLabel={t("common.closeMenu")}
 								anchorPosition="bottom"
 								anchor={

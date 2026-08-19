@@ -243,6 +243,59 @@ Firestore queues its own writes and is never gated on it.
 ⚠️ Firebase **Storage has no offline write queue**. Photos captured without signal will
 need a local pending-upload queue with retry. Nothing has shipped that uploads yet.
 
+### A listener that fails is not an answer
+
+A Firestore listener is **terminated by its own error callback**. It never reconnects, so
+whatever the screen behind it had at that moment is what it keeps — and a query that has
+never answered has nothing. The app cannot tell "nothing arrived" from "there is nothing",
+so a single failed homes query rendered as *You are not in any home yet* to a household
+with a full board, and a failed board rendered as *Nothing here yet. Add the first card.*
+Neither healed without force quitting the app. That is #101, and a cold start on a phone
+waking with an expired token and no connection up yet is exactly where it lives.
+
+Every listener therefore opens through `subscribeWithRetry` in `data/live-query.ts`, which
+re-opens a failed one three times — 400 ms, 1.2 s, 3 s — before reporting anything. The
+waits grow because the failure it exists for is a connection that is not up *yet*; they
+stop because a splash held longer than about five seconds is its own kind of broken. Every
+snapshot that **answers** restores the budget, so a listener that has been up for an hour is
+never one failure away from having none left.
+
+Answering is the other half, and the half that bites first. **No listener has to fail for
+#101 to happen.** Firestore raises its first event from the local cache, and on a phone
+whose cache has been evicted that event is empty and `fromCache` — which the app read as
+"there is nothing". The splash lifted on no homes, the ladder bounced to `/homes`, and the
+household was told it was not in any home, with no error anywhere for a retry to catch.
+`isQueryAnswer` is that rule written down: a snapshot answers when it is **not empty**, or
+when the **server** sent it, or when we are **offline** and nothing better is coming. The
+last clause is what keeps a genuinely empty board in a shed reading as empty rather than as
+broken. Anything else is held, and held is not free — nothing better within the ladder's
+own budget is a failure like any other.
+
+`hooks/use-node.ts` has held this line for a single document since it shipped: *"Not in the
+cache is not not there."* This is that rule for a query, and it needs the same
+`{ includeMetadataChanges: true }` for the same reason — a server confirming that an empty
+result is *still* empty changes nothing but `fromCache`, and Firestore suppresses
+metadata-only events by default. Without it the hold would never release on a board that
+really is empty.
+
+Once the ladder is spent the screen **says so** rather than drawing the result as empty:
+`useHome()` and `useNodes()` expose `failed` alongside `loading`, the empty state gives way
+to `homes.loadFailed` / `board.loadFailed` / `detail.stepsFailed`, and a **Try again**
+re-opens the listener. On `/homes` the create-a-home button goes with the empty state —
+"could not load your homes" above "create a new home" is the same invitation to a duplicate
+home, and a connection that could not run the query would not carry `createHome` either.
+
+`failed` is never true while `loading` is. A board is two listeners that give up
+independently, so without that a half-connected board would draw a spinner and a failure at
+once, over a Try again that would tear down the half still arriving. For the same reason the
+homes retry does **not** re-raise `loading`: that swaps the whole router for the splash, and
+a retry that unmounts the screen its own button lives on is barely better than the force
+quit it replaces. It reports itself on the button instead, through `retrying`.
+
+*Rejected:* retrying forever (the splash never lifts, and `/homes` at least has a way
+forward on it), and reporting the first failure straight to the user (on a cold start that
+is a connection three hundred milliseconds from working).
+
 ## Install and updates
 
 `InstallCard` captures Chrome's `beforeinstallprompt` and replays it at a moment that
@@ -295,6 +348,12 @@ so it is testable in plain Node.
 - **Native auth.** `GoogleSignIn.tsx` keeps the `expo-auth-session` PKCE flow and
   `initializeAuth` runs without a persistence adapter, so a native app forgets the user on
   relaunch. Both are [#8](https://github.com/Senth/home-backlog/issues/8).
+- **`isQueryAnswer`'s offline clause cannot fire on native.** `isOnline()` returns `true`
+  off the web, and native runs on the in-memory cache, so a board opened offline there is
+  always `empty && fromCache && online` — it holds for the ladder's budget and then says
+  "Could not load this board", which is the exact lie the clause exists to prevent. It
+  costs nothing today because native does not ship; it wants a real connectivity read
+  (`expo-network` or `@react-native-community/netinfo`) whenever it does.
 - **Switching between homes** — [#21](https://github.com/Senth/home-backlog/issues/21).
   The account menu is shaped to hold the row; it does not hold it yet.
 - **Telling a visitor what the app is, or who invited them** —

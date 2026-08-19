@@ -42,7 +42,7 @@ export function StepsSection({ homeId, node, onOpenBoard }: StepsSectionProps) {
 
 	const [adding, setAdding] = useState(false);
 
-	const { nodes: steps, loading } = useNodes(homeId, node.id);
+	const { nodes: steps, loading, failed, retry } = useNodes(homeId, node.id);
 	const done = steps.filter((step) => step.status === "done").length;
 
 	/**
@@ -79,9 +79,14 @@ export function StepsSection({ homeId, node, onOpenBoard }: StepsSectionProps) {
 				<ActivityIndicator accessibilityLabel={t("common.loading")} />
 			) : (
 				<Text variant="bodyMedium">
-					{steps.length === 0
-						? t("detail.stepsNone")
-						: t("detail.stepsDone", { done, total: steps.length })}
+					{/* "No steps yet" says the same thing whether there are none or
+					    whether they could not be read, and only one of those is worth
+					    adding a step against. */}
+					{failed
+						? t("detail.stepsFailed")
+						: steps.length === 0
+							? t("detail.stepsNone")
+							: t("detail.stepsDone", { done, total: steps.length })}
 				</Text>
 			)}
 
@@ -101,6 +106,16 @@ export function StepsSection({ homeId, node, onOpenBoard }: StepsSectionProps) {
 			)}
 
 			<View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+				{failed ? (
+					<Button
+						mode="contained-tonal"
+						icon="refresh"
+						onPress={retry}
+						contentStyle={{ minHeight: touchTarget }}
+					>
+						{t("common.retry")}
+					</Button>
+				) : null}
 				<Button
 					mode="contained-tonal"
 					icon="plus"
