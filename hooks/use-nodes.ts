@@ -5,8 +5,9 @@ import {
 } from "firebase/firestore";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { subscribeWithRetry } from "@/data/live-query";
+import { isQueryAnswer, subscribeWithRetry } from "@/data/live-query";
 import { participatingBoardQuery, sharedBoardQuery } from "@/data/nodes";
+import { isOnline } from "@/hooks/use-online-status";
 import { mergeNodeResults, type Node, toNode } from "@/models/node";
 
 /**
@@ -87,9 +88,23 @@ export function useNodes(
 		setSharedFailed(false);
 		setParticipatingFailed(false);
 
+		// Both halves hold on a cache-only empty snapshot for the same reason, and
+		// `isOnline()` is read when the snapshot arrives rather than now: going
+		// offline *while* holding is exactly the transition that decides it.
+		const isAnswer = (snapshot: QuerySnapshot<DocumentData>) =>
+			isQueryAnswer(snapshot, isOnline());
+
 		const unsubscribeShared = subscribeWithRetry<QuerySnapshot<DocumentData>>(
+			// `includeMetadataChanges` is what makes the cache-only hold in
+			// `isQueryAnswer` releasable — see `hooks/use-node.ts` for the same
+			// reason on a single document.
 			(next, error) =>
-				onSnapshot(sharedBoardQuery(homeId, parentId), next, error),
+				onSnapshot(
+					sharedBoardQuery(homeId, parentId),
+					{ includeMetadataChanges: true },
+					next,
+					error,
+				),
 			(snapshot) => {
 				setShared(snapshot.docs.map(toNode));
 				setSharedFailed(false);
@@ -111,13 +126,19 @@ export function useNodes(
 				setSharedFailed(true);
 				setSharedLoaded(true);
 			},
+			{ isAnswer },
 		);
 
 		const unsubscribeParticipating = subscribeWithRetry<
 			QuerySnapshot<DocumentData>
 		>(
 			(next, error) =>
-				onSnapshot(participatingBoardQuery(homeId, parentId, uid), next, error),
+				onSnapshot(
+					participatingBoardQuery(homeId, parentId, uid),
+					{ includeMetadataChanges: true },
+					next,
+					error,
+				),
 			(snapshot) => {
 				setParticipating(snapshot.docs.map(toNode));
 				setParticipatingFailed(false);
@@ -132,6 +153,7 @@ export function useNodes(
 				setParticipatingFailed(true);
 				setParticipatingLoaded(true);
 			},
+			{ isAnswer },
 		);
 
 		return () => {

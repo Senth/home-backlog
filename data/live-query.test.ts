@@ -1,4 +1,5 @@
-import { subscribeWithRetry } from "@/data/live-query";
+import type { DocumentData, QuerySnapshot } from "firebase/firestore";
+import { isQueryAnswer, subscribeWithRetry } from "@/data/live-query";
 
 /**
  * A stand-in for `onSnapshot`: it hands back the callbacks of every listener it
@@ -165,5 +166,101 @@ describe("subscribeWithRetry", () => {
 
 		expect(onNext).not.toHaveBeenCalled();
 		expect(onGaveUp).not.toHaveBeenCalled();
+	});
+});
+
+/** Only the two fields `isQueryAnswer` looks at. */
+function snapshot(empty: boolean, fromCache: boolean) {
+	return { empty, metadata: { fromCache } } as QuerySnapshot<DocumentData>;
+}
+
+describe("isQueryAnswer", () => {
+	it("takes anything the cache actually had", () => {
+		// The offline case working: cards in hand are cards in hand.
+		expect(isQueryAnswer(snapshot(false, true), true)).toBe(true);
+	});
+
+	it("takes an empty result the server confirmed", () => {
+		expect(isQueryAnswer(snapshot(true, false), true)).toBe(true);
+	});
+
+	it("holds an empty cache-only result while there is a connection", () => {
+		// #101: "the cache has nothing" is not "there is nothing", and online
+		// there is a server answer on its way that can say which.
+		expect(isQueryAnswer(snapshot(true, true), true)).toBe(false);
+	});
+
+	it("takes an empty cache-only result once offline, where nothing better is coming", () => {
+		// A genuinely empty board in a shed reads as empty, not as broken.
+		expect(isQueryAnswer(snapshot(true, true), false)).toBe(true);
+	});
+});
+
+describe("subscribeWithRetry, on a value that is not an answer", () => {
+	const isAnswer = (value: string) => value !== "from cache";
+
+	it("passes nothing on, and does not fail straight away", () => {
+		const listener = fakeListener();
+		const onNext = jest.fn();
+		const onGaveUp = jest.fn();
+
+		subscribeWithRetry(listener.open, onNext, onGaveUp, { delays, isAnswer });
+		listener.current().next("from cache");
+
+		expect(onNext).not.toHaveBeenCalled();
+		expect(onGaveUp).not.toHaveBeenCalled();
+		// Still the same listener: the server answer arrives on it.
+		expect(listener.opened).toHaveLength(1);
+	});
+
+	it("gives up if nothing better follows it", () => {
+		const listener = fakeListener();
+		const onGaveUp = jest.fn();
+
+		subscribeWithRetry(listener.open, jest.fn(), onGaveUp, {
+			delays,
+			isAnswer,
+		});
+		listener.current().next("from cache");
+
+		jest.advanceTimersByTime(4600);
+		expect(onGaveUp).toHaveBeenCalled();
+	});
+
+	it("stops waiting as soon as a real answer arrives", () => {
+		const listener = fakeListener();
+		const onNext = jest.fn();
+		const onGaveUp = jest.fn();
+
+		subscribeWithRetry(listener.open, onNext, onGaveUp, { delays, isAnswer });
+		listener.current().next("from cache");
+		listener.current().next("a board");
+
+		jest.advanceTimersByTime(10_000);
+		expect(onNext).toHaveBeenCalledWith("a board");
+		expect(onGaveUp).not.toHaveBeenCalled();
+	});
+
+	it("does not restore the retry budget, so a cache-then-reject loop still ends", () => {
+		// The listener answers from cache, the server rejects it, and it does that
+		// for ever. If a cache-only snapshot refilled the budget, `onGaveUp` would
+		// never be reached and the screen would never say anything.
+		const listener = fakeListener();
+		const onGaveUp = jest.fn();
+
+		subscribeWithRetry(listener.open, jest.fn(), onGaveUp, {
+			delays,
+			isAnswer,
+		});
+
+		for (const delay of delays) {
+			listener.current().next("from cache");
+			listener.current().error(new Error("permission-denied"));
+			jest.advanceTimersByTime(delay);
+		}
+		listener.current().next("from cache");
+		listener.current().error(new Error("permission-denied"));
+
+		expect(onGaveUp).toHaveBeenCalled();
 	});
 });

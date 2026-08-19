@@ -16,7 +16,8 @@ import {
 	useState,
 } from "react";
 import { homesQuery, profileOf, saveMyProfile, toHome } from "@/data/homes";
-import { subscribeWithRetry } from "@/data/live-query";
+import { isQueryAnswer, subscribeWithRetry } from "@/data/live-query";
+import { isOnline } from "@/hooks/use-online-status";
 import { resolveActiveHomeId } from "@/models/active-home";
 import { emailHash, type Home, type Role } from "@/models/home";
 
@@ -146,7 +147,18 @@ export function HomeProvider({
 		setRetrying(attempt > 0);
 
 		return subscribeWithRetry<QuerySnapshot<DocumentData>>(
-			(next, error) => onSnapshot(homesQuery(uid), next, error),
+			// `includeMetadataChanges` is what makes the cache-only hold in
+			// `isQueryAnswer` releasable: a server confirming that no homes is
+			// *still* no homes changes nothing but `fromCache`, and Firestore
+			// suppresses metadata-only events by default. Same reason, and the same
+			// comment, as `hooks/use-node.ts`.
+			(next, error) =>
+				onSnapshot(
+					homesQuery(uid),
+					{ includeMetadataChanges: true },
+					next,
+					error,
+				),
 			(snapshot) => {
 				setHomes(
 					snapshot.docs
@@ -174,6 +186,7 @@ export function HomeProvider({
 				setHomesLoaded(true);
 				setRetrying(false);
 			},
+			{ isAnswer: (snapshot) => isQueryAnswer(snapshot, isOnline()) },
 		);
 	}, [uid, attempt]);
 

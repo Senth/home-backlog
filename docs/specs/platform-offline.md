@@ -257,8 +257,26 @@ Every listener therefore opens through `subscribeWithRetry` in `data/live-query.
 re-opens a failed one three times — 400 ms, 1.2 s, 3 s — before reporting anything. The
 waits grow because the failure it exists for is a connection that is not up *yet*; they
 stop because a splash held longer than about five seconds is its own kind of broken. Every
-snapshot that arrives restores the budget, so a listener that has been up for an hour is
+snapshot that **answers** restores the budget, so a listener that has been up for an hour is
 never one failure away from having none left.
+
+Answering is the other half, and the half that bites first. **No listener has to fail for
+#101 to happen.** Firestore raises its first event from the local cache, and on a phone
+whose cache has been evicted that event is empty and `fromCache` — which the app read as
+"there is nothing". The splash lifted on no homes, the ladder bounced to `/homes`, and the
+household was told it was not in any home, with no error anywhere for a retry to catch.
+`isQueryAnswer` is that rule written down: a snapshot answers when it is **not empty**, or
+when the **server** sent it, or when we are **offline** and nothing better is coming. The
+last clause is what keeps a genuinely empty board in a shed reading as empty rather than as
+broken. Anything else is held, and held is not free — nothing better within the ladder's
+own budget is a failure like any other.
+
+`hooks/use-node.ts` has held this line for a single document since it shipped: *"Not in the
+cache is not not there."* This is that rule for a query, and it needs the same
+`{ includeMetadataChanges: true }` for the same reason — a server confirming that an empty
+result is *still* empty changes nothing but `fromCache`, and Firestore suppresses
+metadata-only events by default. Without it the hold would never release on a board that
+really is empty.
 
 Once the ladder is spent the screen **says so** rather than drawing the result as empty:
 `useHome()` and `useNodes()` expose `failed` alongside `loading`, the empty state gives way
@@ -277,7 +295,6 @@ quit it replaces. It reports itself on the button instead, through `retrying`.
 *Rejected:* retrying forever (the splash never lifts, and `/homes` at least has a way
 forward on it), and reporting the first failure straight to the user (on a cold start that
 is a connection three hundred milliseconds from working).
-
 
 ## Install and updates
 
