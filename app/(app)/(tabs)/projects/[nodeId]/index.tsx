@@ -30,9 +30,9 @@ const noAncestors: string[] = [];
  * any depth. `PROJECT.md`: resist per-level special cases.
  *
  * The columns are the ones frozen on *this* node when it was created, never
- * recomputed from where it sits now: a subtree moved one level deeper would
- * otherwise swap the full stage set for the simple one and strand every card
- * that was in Find out or Check.
+ * recomputed from the current default: every later change to that default —
+ * #99 was one — would otherwise swap the set under every board that already
+ * exists and strand each card sitting in a column the new set drops.
  *
  * The app bar names the card and keeps the home as its subtitle — which home you
  * are in has to be visible without a tap at every depth, and the breadcrumbs

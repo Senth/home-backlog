@@ -33,7 +33,7 @@ Every field is written on create, with the default below.
 | Field | Type | Default | Notes |
 | ----- | ---- | ------- | ----- |
 | `title` | `string` | — | 1–200 characters |
-| `status` | `Status` | `'backlog'` | `backlog` `next_up` `research` `planning` `execution` `review` `done` |
+| `status` | `Status` | `'backlog'` | `backlog` `next_up` `execution` `done` |
 | `columns` | `Status[]` | by depth, see below | the column set of the board this node's **children** form |
 | `childCount` | `number` | `0` | direct children; clamped to ≥ 0 on read |
 | `doneCount` | `number` | `0` | direct children with `status == 'done'` |
@@ -134,7 +134,7 @@ are the cost — see [the index](#storage-cost-lives-in-the-index-not-the-docume
 
 ### `blocked` is not a status
 
-The vocabulary is seven values. Being **blocked is a condition, not a stage.**
+The vocabulary is four values. Being **blocked is a condition, not a stage.**
 
 A card is in exactly one status, so parking one in Blocked destroys the stage it was in,
 and nothing says where it goes when the blocker clears. `blockedBy[]` already exists on the
@@ -152,18 +152,55 @@ writes and nothing shows is a trap for the REST API
 `toNode` coerces an unrecognised status to `backlog`, so a document carrying the old value
 renders in To do rather than crashing a board.
 
-### The column set is chosen by depth, then frozen
+### Find out, Plan and Check are cards, not stages
 
-`columns` is the column set of the board formed by a node's **children**, decided once when
-the node is created from the node's own depth (`ancestorIds.length`):
+`research`, `planning` and `review` were in the enum and are not any more
+([#99](https://github.com/Senth/home-backlog/issues/99)). They read as *Find out*, *Plan*
+and *Check*, and living with them showed the mistake: finding out whether the gutter vents
+to the soffit is **a step you put In progress and finish**, not a stage the gutter job
+passes through on its way to done. Nobody dragged a card across them. Three of the seven
+columns stood empty on every board and cost the four that were used their width — which on
+a 390 px phone showing one column at a time is three extra swipes to reach Done.
 
-- depth 0 → the **full stage set**, all seven. Its children are depth 1, and `PROJECT.md`
-  gives the full set to the root board and to a board inside a project.
-- depth ≥ 1 → the **simple set**, `backlog` / `execution` / `done`. A research column whose
-  cards each contain their own research column is nonsense.
+Removing them is the same argument `blocked` lost, run the other way: a value nothing
+writes and nothing shows is a trap for the REST API and for whoever reads the enum next.
+
+**Removing a status is a migration, and `blocked` was not.** `blocked` was gone before the
+first document was written; these three were in production data. The rules check
+`request.resource.data`, the *full post-update* document, so the moment `allStatuses()`
+lost a value, every node still holding one would have had **every** update to it denied —
+including the `childCount` bump that adding a step to the project above it performs — and
+there is no admin tooling in this repo to unstick it. So the order is fixed: migrate every
+stored `status` and every stored `columns` entry first, then ship the narrower rules.
+`functions/scripts/migrate-99-statuses.mjs` is that migration, and `OPERATIONS.md` carries
+the runbook — including the second `--apply` after the deploy lands, which catches anything
+the still-live old build wrote in between.
+`toNode` also maps the three to `execution` on read, which costs one lookup and covers the
+device holding a node it cached before the migration; `backlog` would say a card in flight
+had never been started.
+
+*Rejected:* leaving the three in the enum and hiding them in the UI. That is the trap
+above, and it keeps the seven-wide column bound in the rules for columns no board draws.
+
+*Rejected:* mapping them to `next_up` rather than `execution`. All three describe a card
+somebody is holding right now, and Next up says nobody has picked it up yet.
+
+### The column set is the same everywhere, then frozen
+
+`columns` is the column set of the board formed by a node's **children**, taken from
+`defaultColumns` when the node is created and then frozen. `defaultColumns` is the whole
+enum, at every depth.
+
+It used to be chosen by the node's own depth (`ancestorIds.length`): depth 0 got the full
+stage set, all seven, and depth ≥ 1 the simple set `backlog` / `execution` / `done`,
+because a research column whose cards each contain their own research column is nonsense.
+With the stage columns gone, the two sets collapsed into one — and one set buys more than
+the depth rule did: every board reads the same, and a card keeps its column when it is
+moved deeper, where before a `next_up` card moved into a task's board landed in a set that
+had no Next up.
 
 The **root board is not a document.** It cannot be moved, deleted or reparented, so there
-is nothing for a freeze to protect: its set is the `rootColumns` constant in
+is nothing for a freeze to protect: its set is the `defaultColumns` constant in
 `models/node.ts`. [#63](https://github.com/Senth/home-backlog/issues/63) is where a stored
 root set earns its keep, and can put one on the home document.
 
@@ -172,21 +209,22 @@ immutable: the rules validate the shape and let the value change, because #63 is
 the feature that changes it, and locking it would make #63 a rules change before it could
 be a screen.
 
-*Rejected:* deriving the columns from depth at render time. It costs no field, and moving a
-subtree from depth 1 to depth 2 then silently swaps the full stage set for the simple one —
-stranding every card that was in Find out or Check in a column that no longer exists.
+*Rejected:* deriving the columns from the default at render time. It costs no field, and
+then every later change to the default — #99 was one — silently swaps the set under every
+board that already exists, stranding each card sitting in a column the new set drops.
 
 **A column that is not in the set still renders.** A board shows its frozen columns in
 order, and any status *present in the data but absent from `columns`* gets an extra column
 appended after them, in enum order (`visibleColumns`). It appears only while such a card
 exists and disappears when the card is moved out; the move menu offers only the frozen
 destinations, so it is a one-way exit. Without it, `Move under…` and a seeded fixture can
-each put a `research` card on a simple-set board, and the board would render as though the
-card were not there. A card that exists is visible somewhere — the same principle as the
+each put a `next_up` card on a board frozen without that column — one created before #99,
+or one configured narrow by #63 — and the board would render as though the card were not
+there. A card that exists is visible somewhere — the same principle as the
 orphaned node the visibility invariant exists to prevent.
 
 The **REST API refuses** to create that state at all: a status outside the parent's frozen
-`columns` is a `400`, naming the allowed set. The rules still permit any of the seven,
+`columns` is a `400`, naming the allowed set. The rules still permit any of the four,
 because [#63](https://github.com/Senth/home-backlog/issues/63) is the feature that edits
 column sets and locking it in the rules would make that a rules change before it could be a
 screen. The API is stricter on purpose — a person putting a card in an appended column can
@@ -317,7 +355,7 @@ and it removes the only expression the surprise-planning case has.
 That restriction is worth having on its own merits. A hidden child makes its parent lie —
 one member sees eight subtasks and another sees seven, so every count derived from children
 diverges per viewer: progress, location roll-ups, and the "all 8 subtasks are done — move
-this to Review?" nudge ([#65](https://github.com/Senth/home-backlog/issues/65)). A private
+this to Done?" nudge ([#65](https://github.com/Senth/home-backlog/issues/65)). A private
 *project* is cleanly absent for everyone not in it. "Celebration" as its own private
 project is the honest shape of what a private card was reaching for.
 
@@ -524,8 +562,8 @@ every one.
 ```
 validNode(data)
   title      is string, size 1..200
-  status     in the seven-value enum
-  columns    is a list, size 1..7, every entry in the same seven
+  status     in the four-value enum
+  columns    is a list, size 1..4, every entry in the same four
   childCount is int             doneCount is int
   rank       is string, size > 0
   parentId   == null or is string
@@ -869,17 +907,17 @@ likely to break it.
 ## The board
 
 One board component at every depth. `PROJECT.md`: resist per-level special cases, they
-multiply. `/projects` renders the root board from `rootColumns`; `/projects/[nodeId]`
+multiply. `/projects` renders the root board from `defaultColumns`; `/projects/[nodeId]`
 renders the same component from that node's frozen `columns`.
 
 ### Layout
 
 - **Below `compactBreakpoint` (720)** — one column at a time, with a scrollable strip of
   chips above it: each names its column and carries its card count, the current one is
-  marked, and a tap switches to it. Six of eight panes are empty in a small household, and
-  without the strip a board is navigated blind — an empty pane is indistinguishable from a
-  broken app. The strip is also the way back after a move, and the way to Done without
-  seven swipes.
+  marked, and a tap switches to it. Two of the four panes are empty in a small household,
+  and without the strip a board is navigated blind — an empty pane is indistinguishable
+  from a broken app. The strip is also the way back after a move, and the way to Done
+  without three swipes.
 - **At 720 and above** — columns side by side, the board scrolling horizontally, each
   column on its own surface. The column headers say what the strip says, so the strip is
   not rendered.
@@ -1035,7 +1073,8 @@ dismiss.
 
 **Move** stays on the pane you are on and raises a snackbar naming the destination, with
 **Undo**, which restores the status *and* the rank the card had — both are in hand.
-Following the card would drag someone moving six cards in a row seven panes sideways;
+Following the card would drag someone moving six cards in a row three panes sideways
+each time;
 saying nothing makes a move read as a delete, because the destination is off-screen. Only
 the board's frozen columns are offered as destinations.
 
@@ -1103,15 +1142,12 @@ away from. Swedish uses verbs where a verb is what a household says.
 | --- | ------- | ------- |
 | `status.backlog` | To do | Att göra |
 | `status.next_up` | Next up | Härnäst |
-| `status.research` | Find out | Undersök |
-| `status.planning` | Plan | Planera |
 | `status.execution` | In progress | Pågående |
-| `status.review` | Check | Granska |
 | `status.done` | Done | Klart |
 
-The deep-board simple set therefore reads *To do · In progress · Done* / *Att göra ·
-Pågående · Klart* with no per-board relabel — which is why those three statuses were chosen
-for it.
+`status.research`, `status.planning` and `status.review` — *Find out* / *Undersök*, *Plan* /
+*Planera*, *Check* / *Granska* — went with the statuses themselves in #99, and are gone
+from both locale files.
 
 The detail screen is written to one more vocabulary rule: **a household never meets the
 word "board" until it has made one.** So the section is *Steps* / *Steg* and the button is

@@ -74,19 +74,17 @@ Nothing is ever half-written. A request that fails writes nothing at all.
 
 A **node** is one card. It has a `parentId` (`null` at the top level) and an `ancestorIds`
 path derived from it. Its `columns` field is the column set of the board *its children*
-form — chosen by depth when it is created and then frozen:
-
-- children of a top-level project get all seven statuses;
-- anything deeper gets `backlog`, `execution`, `done` (which read as *To do · In progress ·
-  Done*).
+form — every status, at every depth, fixed when the node is created and then frozen. A
+board created by an older version of the app may carry a narrower set.
 
 **A node's `status` must be one of its parent's `columns`.** The API is stricter than the
 database here on purpose: a card in a column its board does not draw can be moved out and
 never back, and you cannot see the board you are writing to.
 
-The seven statuses are `backlog`, `next_up`, `research`, `planning`, `execution`, `review`,
-`done`. There is deliberately no `blocked` — being blocked is a condition a card at any stage
-can be in, carried by `blockedBy`, not a stage of its own.
+The four statuses are `backlog`, `next_up`, `execution`, `done` (which read as *To do ·
+Next up · In progress · Done*). There is deliberately no `blocked` — being blocked is a
+condition a card at any stage can be in, carried by `blockedBy`, not a stage of its own.
+Finding out and checking are ordinary cards you put in `execution`, not statuses.
 
 ### Privacy
 
@@ -241,7 +239,7 @@ it helps you, but do not expect a person to see it.
 - **Recurring maintenance.** Same: no verbs yet.
 - **Changing `visibility` or `participantIds`** on anything that exists. A person does that.
 - **Creating a home, inviting, accepting an invitation.** Human-only.
-- **Custom statuses.** The seven are the vocabulary.
+- **Custom statuses.** The four are the vocabulary.
 - **Notifications of any kind.** There are no webhooks. Poll.
 
 ## Practical notes

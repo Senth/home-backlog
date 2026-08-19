@@ -200,9 +200,17 @@ service cloud.firestore {
         // parking one in Blocked destroys the stage it was in and nothing says
         // where it goes when the blocker clears. Being blocked is a *condition*,
         // carried by `blockedBy[]` (#66), not a stage.
+        //
+        // `research`, `planning` and `review` were in here until #99, which
+        // removed them because finding out, planning and checking turned out to
+        // be cards rather than stages. Every stored document was migrated before
+        // this list shrank: `request.resource.data` is the full post-update
+        // document, so a node left holding a retired id would have had every
+        // update to it denied — including the childCount bump that adding a step
+        // to the project above it performs — with no admin tooling in this repo
+        // to unstick it.
         function allStatuses() {
-          return ['backlog', 'next_up', 'research', 'planning', 'execution',
-                  'review', 'done'];
+          return ['backlog', 'next_up', 'execution', 'done'];
         }
 
         function validNode(data) {

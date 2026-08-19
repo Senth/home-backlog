@@ -118,20 +118,21 @@ describe("a planned subtree", () => {
 	});
 
 	/**
-	 * Chosen by depth at creation and then frozen. A root's children get the full
-	 * stage set; anything deeper gets To do · In progress · Done, because a
-	 * research column whose cards each contain their own research column is
-	 * nonsense.
+	 * Taken from the default at creation and then frozen. The default stopped
+	 * depending on depth with #99, so a subtree the API writes reads the same at
+	 * every level of it.
 	 */
-	it("freezes each node's column set by its own depth", () => {
+	it("freezes the same column set on every node it writes", () => {
 		const result = plan(tree);
 
-		expect(itemFor(result, "root").columns).toHaveLength(7);
-		expect(itemFor(result, "buy").columns).toEqual([
-			"backlog",
-			"execution",
-			"done",
-		]);
+		for (const item of result.items) {
+			expect(item.data.columns).toEqual([
+				"backlog",
+				"next_up",
+				"execution",
+				"done",
+			]);
+		}
 	});
 
 	it("marks every node as written by an agent", () => {
@@ -431,21 +432,24 @@ describe("per-index errors", () => {
 	// writing to, and a card in a column the board does not draw has a one-way
 	// exit.
 	it("refuses a status the board it lands on does not show", () => {
-		// A root's children get the full stage set, so `research` is fine there.
-		// One level deeper the set is To do · In progress · Done, and it is not.
+		// The existing parent's set was frozen before #99 and has no Next up, so
+		// `next_up` is refused directly under it. Every node the payload creates
+		// gets the current default, where `next_up` is fine again.
 		const error = refusal(() =>
-			plan({
-				nodes: [
-					{ ref: "root", title: "Root" },
-					{ ref: "a", parentRef: "root", title: "A", status: "research" },
-					{ ref: "b", parentRef: "a", title: "B", status: "research" },
-				],
-			}),
+			plan(
+				{
+					nodes: [
+						{ ref: "root", title: "Root", status: "next_up" },
+						{ ref: "a", parentRef: "root", title: "A", status: "next_up" },
+					],
+				},
+				{ parent: parentFacts({ columns: ["backlog", "execution", "done"] }) },
+			),
 		);
 
 		expect(error.code).toBe("status_not_in_columns");
 		expect(error.details).toHaveLength(1);
-		expect(error.details?.[0].index).toBe(2);
+		expect(error.details?.[0].index).toBe(0);
 	});
 });
 

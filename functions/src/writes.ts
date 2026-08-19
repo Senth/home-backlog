@@ -18,8 +18,8 @@ import {
 import { handle } from "./handler.js";
 import {
 	childAncestorIds,
-	columnsForDepth,
 	completionChange,
+	defaultColumns,
 	movedAncestorIds,
 	rankAfter,
 	type Status,
@@ -282,8 +282,8 @@ async function createNode(request: Request, response: Response): Promise<void> {
 		participantIds,
 		assigneeIds: body.assigneeIds ?? [],
 		visibility,
-		// The board this node's *children* will form, frozen by its own depth.
-		columns: [...columnsForDepth(ancestorIds.length)],
+		// The board this node's *children* will form, frozen at creation.
+		columns: [...defaultColumns],
 		childCount: 0,
 		doneCount: 0,
 		dueDate: body.dueDate ?? null,

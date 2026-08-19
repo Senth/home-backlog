@@ -67,8 +67,13 @@ multi-tenancy, sharing, or store release.
 ### Statuses & columns
 
 - **Global status enum**, not freeform columns:
-  `backlog`, `next_up`, `research`, `planning`, `execution`, `review`, `done`.
+  `backlog`, `next_up`, `execution`, `done`.
   Stored as a string id so custom statuses can be added later without migration.
+- **`research`, `planning` and `review` were in it and are not any more**
+  ([#99](https://github.com/Senth/home-backlog/issues/99)). Living with them showed that
+  finding out, planning and checking are *cards* — a step you put in progress and finish —
+  not stages every card passes through. Nobody dragged a card across them: three of the
+  seven columns stood empty on every board and cost the four that were used their width.
 - **`blocked` is not one of them.** A card is in exactly one status, so parking it in
   Blocked destroys the stage it was in and nothing says where it goes when the blocker
   clears: being blocked is a *condition* a card at any stage can be in, carried by
@@ -79,15 +84,16 @@ multi-tenancy, sharing, or store release.
 - Rationale: cross-board queries — the dashboard, the suggestion engine, "what's in
   progress anywhere" — only work if status is globally comparable. Freeform columns would
   each need a semantic flag, which is this design wearing a disguise.
-- **Default column set is chosen by depth at board creation, then frozen and editable**:
-  - depth 0 (all projects) and depth 1 (inside a project) → full stage set.
-  - depth ≥ 2 → simple set (To Do / In Progress / Done).
-  - Frozen at creation so moving a subtree never silently rearranges columns or strands
-    cards in a column that no longer exists.
-  - Rationale: a research column whose cards each contain their own research column is
-    nonsense.
+- **Default column set is the whole enum at every depth, then frozen and editable**:
+  - Frozen at creation so a later change to the default never silently rearranges an
+    existing board or strands cards in a column that no longer exists.
+  - It used to depend on depth — depth 0 and 1 got the full stage set, depth ≥ 2 a simple
+    To Do / In Progress / Done, because a research column whose cards each contain their
+    own research column is nonsense. #99 removed the stage columns and the two sets
+    collapsed into one. One set is worth more than the depth rule was: every board reads
+    the same, and a card keeps its column when it is moved deeper.
 - **Parent status is manual**, with nudges ("all 8 subtasks are done — move this to
-  Review?"). Derived status was rejected: it makes it impossible to say a project is
+  Done?"). Derived status was rejected: it makes it impossible to say a project is
   parked while its tasks look active.
 
 ### Locations
@@ -279,7 +285,7 @@ and paid tiers, web plus iOS/Android. It overlaps this project substantially:
    HomeQueue is a flat list.
 2. **A location hierarchy.** Outside/Inside → floors → rooms, with projects attached at any
    level and views rolled up from it.
-3. **Kanban with real workflow stages** — research / planning / execution / review — rather
+3. **A Kanban board you move cards across** — To do / Next up / In progress / Done — rather
    than a priority-sorted list.
 4. **A REST API with API keys and a SKILL.md** so external AI agents can populate and drive
    the board.

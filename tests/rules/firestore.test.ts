@@ -931,6 +931,28 @@ describe("homes/{homeId}/nodes", () => {
 			);
 		});
 
+		/**
+		 * The three stage columns #99 removed. Production was migrated before this
+		 * list shrank, so nothing stored holds one — and a client that still writes
+		 * one is writing a column no board draws.
+		 */
+		it.each([
+			"research",
+			"planning",
+			"review",
+		])("refuses the retired stage %s", async (status) => {
+			await assertFails(
+				create(dbAs(env, MEMBER), `stage-${status}`, {
+					status,
+				}),
+			);
+			await assertFails(
+				create(dbAs(env, MEMBER), `column-${status}`, {
+					columns: ["backlog", status, "done"],
+				}),
+			);
+		});
+
 		describe("the column set", () => {
 			it("refuses a board with no columns at all", async () => {
 				await assertFails(

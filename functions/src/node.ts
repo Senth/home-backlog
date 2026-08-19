@@ -34,23 +34,13 @@ import {
  * sides — a duplicated bound, not duplicated code.
  */
 
-export type Status =
-	| "backlog"
-	| "next_up"
-	| "research"
-	| "planning"
-	| "execution"
-	| "review"
-	| "done";
+export type Status = "backlog" | "next_up" | "execution" | "done";
 
 /** Enum order, and the order an appended column takes. */
 export const statuses: readonly Status[] = [
 	"backlog",
 	"next_up",
-	"research",
-	"planning",
 	"execution",
-	"review",
 	"done",
 ];
 
@@ -85,29 +75,11 @@ export const efforts: readonly Effort[] = [
 	"multi_week",
 ];
 
-/** The root board and the board inside a project get every stage. */
-export const fullColumns: readonly Status[] = statuses;
-
 /**
- * Deep boards. A research column whose cards each contain their own research
- * column is nonsense, and these three read as *To do · In progress · Done*.
+ * The set a new board starts with, at every depth. It used to depend on depth,
+ * and stopped when #99 removed the three stage columns — see `models/node.ts`.
  */
-export const simpleColumns: readonly Status[] = [
-	"backlog",
-	"execution",
-	"done",
-];
-
-/** The root board is not a document, so its set is a constant. */
-export const rootColumns: readonly Status[] = fullColumns;
-
-/**
- * The frozen column set for a node at `depth`, describing the board its
- * *children* form. A node's own depth is `ancestorIds.length`.
- */
-export function columnsForDepth(depth: number): readonly Status[] {
-	return depth === 0 ? fullColumns : simpleColumns;
-}
+export const defaultColumns: readonly Status[] = statuses;
 
 export const maxTitleLength = 200;
 export const maxNotesLength = 10000;
