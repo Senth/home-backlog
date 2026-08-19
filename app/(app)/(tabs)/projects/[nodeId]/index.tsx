@@ -53,7 +53,7 @@ export default function NodeBoard() {
 	const board = nodeId ?? null;
 	const homeId = board === null ? null : (activeHome?.id ?? null);
 	const { node, gone } = useNode(homeId, board);
-	const { nodes, loading } = useNodes(homeId, board);
+	const { nodes, loading, failed, retry } = useNodes(homeId, board);
 	const { crumbs } = useAncestors(homeId, node?.ancestorIds ?? noAncestors);
 	const filtered = useParticipantFilter(nodes);
 
@@ -164,6 +164,8 @@ export default function NodeBoard() {
 					columns={node.columns}
 					nodes={filtered.nodes}
 					loading={loading}
+					failed={failed}
+					onRetry={retry}
 					hidden={filtered.hidden}
 				/>
 			) : (

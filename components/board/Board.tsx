@@ -2,7 +2,13 @@ import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, View } from "react-native";
-import { ActivityIndicator, FAB, Snackbar, Text } from "react-native-paper";
+import {
+	ActivityIndicator,
+	Button,
+	FAB,
+	Snackbar,
+	Text,
+} from "react-native-paper";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import { boardHref, detailsHref } from "@/components/board/board-href";
 import { CardMenu, type Notice } from "@/components/board/CardMenu";
@@ -18,7 +24,7 @@ import {
 	visibleColumns,
 } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { compactBreakpoint, size, space } from "@/theme/tokens";
+import { compactBreakpoint, size, space, touchTarget } from "@/theme/tokens";
 
 interface BoardProps {
 	homeId: string;
@@ -28,6 +34,17 @@ interface BoardProps {
 	columns: readonly Status[];
 	nodes: Node[];
 	loading: boolean;
+	/**
+	 * True once the board's listeners gave up, which makes `nodes` the last thing
+	 * that arrived rather than what is on the board.
+	 *
+	 * The empty state has to give way to it. "Nothing here yet. Add the first
+	 * card." is the same sentence whether the board is empty or unreadable, and
+	 * on the second one it invites a duplicate of a card that is already there.
+	 */
+	failed?: boolean;
+	/** Opens the board's listeners again after they gave up. */
+	onRetry?: () => void;
 	/**
 	 * The cards the default-hide filter is holding back, so the board can say so
 	 * rather than draw as though they were not there.
@@ -70,6 +87,8 @@ export function Board({
 	columns,
 	nodes,
 	loading,
+	failed = false,
+	onRetry,
 	hidden = noneHidden,
 }: BoardProps) {
 	const { t } = useTranslation();
@@ -165,7 +184,39 @@ export function Board({
 				/>
 			) : null}
 
-			{!loading && nodes.length === 0 ? (
+			{/* Said whether or not any cards arrived. The board is two listeners and
+			    only one of them has to fail, so a board that looks ordinary can be
+			    missing every shared card on it — and a half board that says nothing
+			    is the one a card gets added to twice. */}
+			{failed ? (
+				<View style={{ gap: space.md, paddingBottom: space.md }}>
+					<Text
+						variant="bodyLarge"
+						style={{
+							color: theme.colors.onSurfaceVariant,
+							textAlign: "center",
+							paddingHorizontal: space.md,
+						}}
+					>
+						{t("board.loadFailed")}
+					</Text>
+					{onRetry ? (
+						<Button
+							mode="contained-tonal"
+							icon="refresh"
+							onPress={onRetry}
+							contentStyle={{ minHeight: touchTarget }}
+							style={{ alignSelf: "center" }}
+						>
+							{t("common.retry")}
+						</Button>
+					) : null}
+				</View>
+			) : null}
+
+			{/* Not while `failed`: "add the first card" and "could not load" are
+			    contradictory instructions, and only one of them is true. */}
+			{!loading && !failed && nodes.length === 0 ? (
 				<Text
 					variant="bodyLarge"
 					style={{

@@ -46,7 +46,7 @@ export default function Homes() {
 	const router = useRouter();
 	const online = useOnlineStatus();
 	const { user } = useAuth();
-	const { homes, activeHome, setActiveHome } = useHome();
+	const { homes, activeHome, failed, retry, setActiveHome } = useHome();
 	const { invites } = usePendingInvites();
 
 	const [createOpen, setCreateOpen] = useState(false);
@@ -128,17 +128,46 @@ export default function Homes() {
 					maxWidth: contentWidth.form,
 				}}
 			>
+				{/* Said instead of the empty state, never alongside it: this screen's
+				    empty state is onboarding, and offering to set up a first home to
+				    somebody who has had one for a year is the app believing a broken
+				    connection. With homes already in hand it explains why they may be
+				    stale. `retry` is the way back that used to mean force quitting. */}
+				{failed ? (
+					<View style={{ gap: space.md, paddingVertical: space.lg }}>
+						<Text
+							variant="bodyLarge"
+							style={{
+								color: theme.colors.onSurfaceVariant,
+								textAlign: "center",
+							}}
+						>
+							{t("homes.loadFailed")}
+						</Text>
+						<Button
+							mode="contained-tonal"
+							icon="refresh"
+							onPress={retry}
+							contentStyle={{ minHeight: touchTarget }}
+						>
+							{t("common.retry")}
+						</Button>
+					</View>
+				) : null}
+
 				{homes.length === 0 ? (
-					<Text
-						variant="bodyLarge"
-						style={{
-							color: theme.colors.onSurfaceVariant,
-							textAlign: "center",
-							paddingVertical: space.lg,
-						}}
-					>
-						{t("homes.empty")}
-					</Text>
+					failed ? null : (
+						<Text
+							variant="bodyLarge"
+							style={{
+								color: theme.colors.onSurfaceVariant,
+								textAlign: "center",
+								paddingVertical: space.lg,
+							}}
+						>
+							{t("homes.empty")}
+						</Text>
+					)
 				) : (
 					<List.Section>
 						{homes.map((home) => (

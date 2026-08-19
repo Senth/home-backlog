@@ -71,6 +71,7 @@
 	"homes": {
 		"title": "Mina hem",
 		"empty": "Du är inte med i något hem än.",
+		"loadFailed": "Kunde inte ladda dina hem. Kontrollera din anslutning.",
 		"create": "Skapa ett nytt hem",
 		"nameLabel": "Namn",
 		"nameHint": "Det ni själva kallar det — ”Huset”, ”Stugan”.",
@@ -149,6 +150,7 @@
 		"root": "Projekt",
 		"up": "En nivå upp",
 		"empty": "Inget här ännu. Lägg till första kortet.",
+		"loadFailed": "Kunde inte ladda den här tavlan. Kontrollera din anslutning.",
 		"allHidden": "Allt här är någons eget projekt. Slå på ”Visa allas projekt” för att se dem.",
 		"hiddenHere_one": "1 till här är någons eget projekt. Slå på ”{{action}}” för att se det.",
 		"hiddenHere_other": "{{count}} till här är någons egna projekt. Slå på ”{{action}}” för att se dem.",
@@ -229,6 +231,7 @@
 		"notesPlaceholder": "Något värt att minnas",
 		"steps": "Steg",
 		"stepsNone": "Inga steg ännu",
+		"stepsFailed": "Kunde inte ladda stegen. Kontrollera din anslutning.",
 		"stepsDone": "{{done}} av {{total}} klara",
 		"addStep": "Lägg till steg",
 		"openBoard": "Öppna tavla",

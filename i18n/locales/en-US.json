@@ -71,6 +71,7 @@
 	"homes": {
 		"title": "My homes",
 		"empty": "You are not in any home yet.",
+		"loadFailed": "Could not load your homes. Check your connection.",
 		"create": "Create a new home",
 		"nameLabel": "Name",
 		"nameHint": "What you call it between yourselves — \"The house\", \"The cabin\".",
@@ -149,6 +150,7 @@
 		"root": "Projects",
 		"up": "Up one level",
 		"empty": "Nothing here yet. Add the first card.",
+		"loadFailed": "Could not load this board. Check your connection.",
 		"allHidden": "Everything here is somebody's own project. Turn on \"Show everyone's projects\" to see them.",
 		"hiddenHere_one": "1 more here is somebody's own project. Turn on \"{{action}}\" to see it.",
 		"hiddenHere_other": "{{count}} more here are somebody's own projects. Turn on \"{{action}}\" to see them.",
@@ -229,6 +231,7 @@
 		"notesPlaceholder": "Anything worth remembering",
 		"steps": "Steps",
 		"stepsNone": "No steps yet",
+		"stepsFailed": "Could not load the steps. Check your connection.",
 		"stepsDone": "{{done}} of {{total}} done",
 		"addStep": "Add step",
 		"openBoard": "Open board",

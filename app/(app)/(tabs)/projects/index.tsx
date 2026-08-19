@@ -34,7 +34,7 @@ export default function Projects() {
 	const notice = useGoneNotice();
 
 	const homeId = activeHome?.id ?? null;
-	const { nodes, loading } = useNodes(homeId, null);
+	const { nodes, loading, failed, retry } = useNodes(homeId, null);
 	const board = useParticipantFilter(nodes);
 
 	// The menu carries one item, so it appears where that item could have
@@ -71,6 +71,8 @@ export default function Projects() {
 					columns={rootColumns}
 					nodes={board.nodes}
 					loading={loading}
+					failed={failed}
+					onRetry={retry}
 					hidden={board.hidden}
 				/>
 			) : null}
