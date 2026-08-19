@@ -62,11 +62,51 @@ granted, and `cloudfunctions`, `cloudbuild`, `artifactregistry`, `run` and
 `roles/serviceusage.serviceUsageAdmin`, which the deploy account deliberately
 does not hold: a CI identity that can turn services on can turn on billable ones.
 
-The **runtime** service account (`<project-number>-compute@developer.gserviceaccount.com`)
-also holds `roles/eventarc.eventReceiver`, which a v2 event-driven function needs
-to be delivered anything. It is granted explicitly rather than left to the
-`roles/editor` it inherits, because that inheritance is a default Google has
-been narrowing for years.
+#### What the *first* functions deploy needed, beyond those roles
+
+The list above is what the deploy account needs. It is not the whole list of
+what has to exist, and the rest was learned by watching the first deploy fail
+four times. All of it is **done**; this is here so the next person recognises
+the failure rather than rediscovering it.
+
+`firebase-tools` tries to grant three **service-agent** bindings itself, and
+cannot, because the deploy account has no `setIamPolicy`. It prints them and
+stops before releasing anything — so the failure is safe, and the fix is to run
+them once as an owner:
+
+| Member | Role |
+| --- | --- |
+| `service-<project-number>@gcp-sa-pubsub.iam.gserviceaccount.com` | `roles/iam.serviceAccountTokenCreator` |
+| `<project-number>-compute@developer.gserviceaccount.com` | `roles/run.invoker` |
+| `<project-number>-compute@developer.gserviceaccount.com` | `roles/eventarc.eventReceiver` |
+
+The last of those is what a v2 event-driven function needs to be delivered
+anything; it is granted explicitly rather than left to the `roles/editor` the
+runtime account inherits, because that inheritance is a default Google has been
+narrowing for years.
+
+Two more APIs are needed and are not in the list `firebase deploy` names up
+front: **`cloudbilling.googleapis.com`** (a gen-2 function checks the billing
+account) and **`firebaseextensions.googleapis.com`**.
+
+The Artifact Registry **cleanup policy** has to be set once, or every deploy
+exits non-zero *after* successfully deploying the functions — which reads like a
+failed deploy and is not one:
+
+```bash
+firebase functions:artifacts:setpolicy --location=europe-west1 --force
+```
+
+It is set by hand rather than by adding `--force` to the deploy command, because
+on `firebase deploy` that flag also deletes functions that have disappeared from
+the source without asking.
+
+Finally, the **first** 2nd-gen deploy in a project fails its Eventarc trigger
+with *"Permission denied while using the Eventarc Service Agent … it may take a
+few minutes"*. That one is real propagation and not a missing grant — check that
+`service-<project-number>@gcp-sa-eventarc.iam.gserviceaccount.com` holds
+`roles/eventarc.serviceAgent`, then wait and re-run. `api` and `createApiKey`
+deploy on that attempt; only the trigger has to be retried.
 
 #### The `/api/**` rewrite has to come first
 
