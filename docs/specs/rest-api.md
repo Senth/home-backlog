@@ -234,10 +234,10 @@ did not file.
 
 ### A status outside the parent's frozen columns is refused
 
-`400 status_not_in_columns`, naming the allowed set. The column set is frozen by depth at
-creation, and a card in a column the board does not show has a **one-way exit**: the move
-sheet only offers frozen destinations, so it can be moved out of an appended column and
-never back. The rules permit any of the seven statuses because
+`400 status_not_in_columns`, naming the allowed set. The column set is frozen at creation,
+and a card in a column the board does not show has a **one-way exit**: the move sheet only
+offers frozen destinations, so it can be moved out of an appended column and never back.
+The rules permit any of the four statuses because
 [#63](https://github.com/Senth/home-backlog/issues/63) will edit column sets; the API is
 stricter than the rules on purpose, because an agent has no eyes on the board it is
 writing to.
@@ -281,7 +281,7 @@ nothing does.
 ### A request body is an allow-list, and an unknown field is a refusal
 
 Most of a node document is the server's: `ancestorIds` is derived from `parentId`, `columns`
-is frozen by depth at creation, `rank` is computed from the target column's neighbours, the
+is frozen at creation, `rank` is computed from the target column's neighbours, the
 counters move with `increment()`, and `completedAt` follows `status`. A caller that could set
 any of them could write a document that is internally consistent field by field and wrong as
 a whole. So the two write verbs each carry a list of the fields they accept, and anything
@@ -660,7 +660,7 @@ by developers, never rendered in the app.
   a threat that is one person's own runaway script against their own free tier.
 - **Creating a home, inviting, or accepting an invitation over the API.** Already recorded
   as human-only in `home-and-members`; a key cannot bootstrap the first home.
-- **Custom statuses.** [#69](https://github.com/Senth/home-backlog/issues/69). The seven
+- **Custom statuses.** [#69](https://github.com/Senth/home-backlog/issues/69). The four
   are the vocabulary.
 - **Webhooks, push, or any outbound notification.** Agents poll.
 - **App Check on the API surface.** [#4](https://github.com/Senth/home-backlog/issues/4) is

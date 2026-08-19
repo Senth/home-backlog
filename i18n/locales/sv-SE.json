@@ -254,10 +254,7 @@
 	"status": {
 		"backlog": "Att göra",
 		"next_up": "Härnäst",
-		"research": "Undersök",
-		"planning": "Planera",
 		"execution": "Pågående",
-		"review": "Granska",
 		"done": "Klart",
 		"offline": "Offline — ändringar sparas och synkas när du är uppkopplad igen.",
 		"offlineNoQueue": "Offline — inget på den här skärmen kan sparas förrän du är uppkopplad igen.",

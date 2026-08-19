@@ -43,6 +43,7 @@
 				"node_modules",
 				".git",
 				"src",
+				"scripts",
 				"jest.config.js",
 				"tsconfig.json",
 				"firebase-debug.log",

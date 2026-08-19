@@ -4,13 +4,12 @@ import {
 	childAncestorIds,
 	childArrives,
 	childLeaves,
-	columnsForDepth,
 	compareNodes,
 	completionChange,
+	defaultColumns,
 	doneChange,
 	effectiveParticipants,
 	flipPlan,
-	fullColumns,
 	hasDetails,
 	hasSteps,
 	hiddenByParticipants,
@@ -21,9 +20,8 @@ import {
 	rankAtEnd,
 	rankBetween,
 	rankSequence,
-	rootColumns,
 	rootIdOf,
-	simpleColumns,
+	type Status,
 	staleAssignees,
 	titleError,
 	toNode,
@@ -43,7 +41,7 @@ function node(overrides: Partial<Node> = {}): Node {
 		participantIds: [],
 		assigneeIds: [],
 		visibility: "shared",
-		columns: [...fullColumns],
+		columns: [...defaultColumns],
 		childCount: 0,
 		doneCount: 0,
 		dueDate: null,
@@ -213,79 +211,68 @@ describe("movedAncestorIds", () => {
 	});
 });
 
-describe("columnsForDepth", () => {
+describe("defaultColumns", () => {
 	/**
-	 * `columns` describes the board a node's *children* form, so a depth-0 node's
-	 * children are depth 1 — which `PROJECT.md` gives the full stage set.
+	 * The depth split went with the stage columns (#99): the whole point of the
+	 * four that survived is that every board reads the same, so a card keeps its
+	 * column when it is moved deeper.
 	 */
-	it("gives the full stage set to a root node's children", () => {
-		expect(columnsForDepth(0)).toEqual(fullColumns);
-	});
-
-	it("gives the simple set to everything deeper", () => {
-		expect(columnsForDepth(1)).toEqual(simpleColumns);
-		expect(columnsForDepth(4)).toEqual(simpleColumns);
-	});
-
-	it("gives the root board the full stage set too", () => {
-		expect(rootColumns).toEqual(fullColumns);
-	});
-
-	it("keeps the simple set to statuses the full set also has", () => {
-		// The deep-board set reads To do / In progress / Done with no per-board
-		// relabel only because these three are ordinary statuses.
-		expect(fullColumns).toEqual(expect.arrayContaining([...simpleColumns]));
+	it("is the whole status vocabulary, in enum order", () => {
+		expect(defaultColumns).toEqual(["backlog", "next_up", "execution", "done"]);
 	});
 });
 
 describe("visibleColumns", () => {
+	/** A board frozen before #99, or configured narrow by #63. */
+	const narrow: readonly Status[] = ["backlog", "execution", "done"];
+
 	it("is the frozen set when nothing sits outside it", () => {
 		const nodes = [node({ id: "a", status: "backlog" })];
 
-		expect(visibleColumns(simpleColumns, nodes)).toEqual([...simpleColumns]);
+		expect(visibleColumns(narrow, nodes)).toEqual([...narrow]);
 	});
 
 	/**
-	 * `Move under…`, the REST API and a seeded fixture can each put a `research`
-	 * card on a simple-set board. A card that exists is visible somewhere.
+	 * `Move under…`, the REST API and a seeded fixture can each put a `next_up`
+	 * card on a board frozen without that column. A card that exists is visible
+	 * somewhere.
 	 */
 	it("appends a column for a status present in the data but not in the set", () => {
 		const nodes = [
 			node({ id: "a", status: "backlog" }),
-			node({ id: "b", status: "research" }),
+			node({ id: "b", status: "next_up" }),
 		];
 
-		expect(visibleColumns(simpleColumns, nodes)).toEqual([
+		expect(visibleColumns(narrow, nodes)).toEqual([
 			"backlog",
 			"execution",
 			"done",
-			"research",
+			"next_up",
 		]);
 	});
 
 	it("appends the extras in enum order, however the cards are ordered", () => {
 		const nodes = [
-			node({ id: "a", status: "review" }),
+			node({ id: "a", status: "done" }),
 			node({ id: "b", status: "next_up" }),
 		];
 
-		expect(visibleColumns(simpleColumns, nodes)).toEqual([
+		expect(visibleColumns(["backlog", "execution"], nodes)).toEqual([
 			"backlog",
 			"execution",
-			"done",
 			"next_up",
-			"review",
+			"done",
 		]);
 	});
 
 	it("drops the extra column again once the card leaves it", () => {
-		expect(visibleColumns(simpleColumns, [])).toEqual([...simpleColumns]);
+		expect(visibleColumns(narrow, [])).toEqual([...narrow]);
 	});
 
 	it("does not duplicate a column the set already has", () => {
 		const nodes = [node({ id: "a", status: "execution" })];
 
-		expect(visibleColumns(simpleColumns, nodes)).toEqual([...simpleColumns]);
+		expect(visibleColumns(narrow, nodes)).toEqual([...narrow]);
 	});
 });
 
@@ -420,7 +407,7 @@ describe("newNodeData", () => {
 			participantIds: [],
 			assigneeIds: [],
 			visibility: "shared",
-			columns: [...fullColumns],
+			columns: [...defaultColumns],
 			childCount: 0,
 			doneCount: 0,
 			dueDate: null,
@@ -436,11 +423,11 @@ describe("newNodeData", () => {
 	});
 
 	/**
-	 * The new node's *own* depth, not its parent's: `columns` describes the board
-	 * its children will form, and a task created inside a project is the thing
-	 * whose children get the simple set.
+	 * The set no longer depends on depth (#99), and a test says so: a board deep
+	 * in a tree offering different columns than the one above it is exactly what
+	 * that change removed.
 	 */
-	it("freezes the column set from the new node's own depth", () => {
+	it("freezes the same column set at every depth", () => {
 		const project = node({ id: "project", ancestorIds: [] });
 		const task = node({
 			id: "task",
@@ -449,14 +436,14 @@ describe("newNodeData", () => {
 		});
 
 		expect(newNodeData({ title: "Project", rank: "a0" }).columns).toEqual([
-			...fullColumns,
+			...defaultColumns,
 		]);
 		expect(
 			newNodeData({ title: "Task", rank: "a0", parent: project }).columns,
-		).toEqual([...simpleColumns]);
+		).toEqual([...defaultColumns]);
 		expect(
 			newNodeData({ title: "Subtask", rank: "a0", parent: task }).columns,
-		).toEqual([...simpleColumns]);
+		).toEqual([...defaultColumns]);
 	});
 
 	it("inherits the parent's structure and location", () => {
@@ -906,7 +893,7 @@ describe("toNode", () => {
 				participantIds: ["uid-a"],
 				assigneeIds: ["uid-b"],
 				visibility: "private",
-				columns: [...simpleColumns],
+				columns: ["backlog", "execution", "done"],
 				childCount: 5,
 				doneCount: 2,
 				dueDate: "2026-09-30",
@@ -940,7 +927,7 @@ describe("toNode", () => {
 				participantIds: ["uid-a"],
 				assigneeIds: ["uid-b"],
 				visibility: "private",
-				columns: [...simpleColumns],
+				columns: ["backlog", "execution", "done"],
 				childCount: 5,
 				doneCount: 2,
 				dueDate: "2026-09-30",
@@ -988,14 +975,72 @@ describe("toNode", () => {
 	});
 
 	/**
+	 * Production is migrated before #99 ships, so this is for the device holding
+	 * a node it cached beforehand. `backlog` would say the card never started.
+	 */
+	it("reads a stage retired by #99 as in progress", () => {
+		expect(toNode(snapshot("node-9", { status: "research" })).status).toBe(
+			"execution",
+		);
+		expect(toNode(snapshot("node-9", { status: "planning" })).status).toBe(
+			"execution",
+		);
+		expect(toNode(snapshot("node-9", { status: "review" })).status).toBe(
+			"execution",
+		);
+	});
+
+	it("reads a status it has never heard of as backlog", () => {
+		expect(toNode(snapshot("node-9", { status: "blocked" })).status).toBe(
+			"backlog",
+		);
+	});
+
+	/**
+	 * The retired-stage lookup is a plain object, so an `in` test would walk its
+	 * prototype and hand the board `Object.prototype.toString` — a *function* —
+	 * where a status belongs.
+	 */
+	it.each([
+		"constructor",
+		"toString",
+		"valueOf",
+		"hasOwnProperty",
+	])("reads the inherited property %s as backlog, not as a function", (status) => {
+		expect(toNode(snapshot("node-9", { status })).status).toBe("backlog");
+	});
+
+	/**
 	 * `columns` arrived after the document did, so every node written by #74 is
 	 * without one — and a board with no columns renders nothing at all.
 	 */
-	it("falls back to the depth default when columns is absent", () => {
-		expect(toNode(snapshot("node-9", {})).columns).toEqual([...fullColumns]);
+	it("falls back to the default when columns is absent", () => {
+		expect(toNode(snapshot("node-9", {})).columns).toEqual([...defaultColumns]);
 		expect(
 			toNode(snapshot("node-9", { ancestorIds: ["project"] })).columns,
-		).toEqual([...simpleColumns]);
+		).toEqual([...defaultColumns]);
+	});
+
+	/**
+	 * A set frozen before #99 carries the three retired stages, and dropping an
+	 * unknown value is what leaves it with the four that survived.
+	 */
+	it("drops the retired stages from a column set frozen before #99", () => {
+		expect(
+			toNode(
+				snapshot("node-9", {
+					columns: [
+						"backlog",
+						"next_up",
+						"research",
+						"planning",
+						"execution",
+						"review",
+						"done",
+					],
+				}),
+			).columns,
+		).toEqual([...defaultColumns]);
 	});
 
 	it("drops a column value nothing could ever be moved to", () => {
@@ -1006,7 +1051,7 @@ describe("toNode", () => {
 		// All of them unknown is the same as none at all.
 		expect(
 			toNode(snapshot("node-9", { columns: ["blocked"] })).columns,
-		).toEqual([...fullColumns]);
+		).toEqual([...defaultColumns]);
 	});
 
 	/**

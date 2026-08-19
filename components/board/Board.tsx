@@ -30,7 +30,7 @@ interface BoardProps {
 	homeId: string;
 	/** The card this board belongs to, or null for the root board. */
 	parent: Node | null;
-	/** The frozen column set: the parent's `columns`, or `rootColumns`. */
+	/** The frozen column set: the parent's `columns`, or `defaultColumns`. */
 	columns: readonly Status[];
 	nodes: Node[];
 	loading: boolean;

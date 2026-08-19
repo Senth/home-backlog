@@ -1,11 +1,12 @@
 import {
 	childAncestorIds,
-	columnsForDepth,
 	completionChange,
+	defaultColumns,
 	movedAncestorIds,
 	rankAfter,
 	rankAtEnd,
 	rankSequence,
+	statuses,
 } from "./node.js";
 
 /**
@@ -65,15 +66,11 @@ describe("a sequence of ranks", () => {
 });
 
 describe("the frozen column set", () => {
-	it("gives the root board every stage", () => {
-		expect(columnsForDepth(0)).toHaveLength(7);
-	});
-
-	// A research column whose cards each contain their own research column is
-	// nonsense; these three read as To do · In progress · Done.
-	it("gives anything deeper the simple set", () => {
-		expect(columnsForDepth(1)).toEqual(["backlog", "execution", "done"]);
-		expect(columnsForDepth(4)).toEqual(["backlog", "execution", "done"]);
+	// It used to depend on depth, and stopped when #99 removed the three stage
+	// columns. `models/node.ts` states the same set, and the two must not drift.
+	it("is the whole status vocabulary, at every depth", () => {
+		expect(defaultColumns).toEqual(["backlog", "next_up", "execution", "done"]);
+		expect(defaultColumns).toEqual(statuses);
 	});
 });
 

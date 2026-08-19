@@ -1,5 +1,4 @@
 import {
-	columnsUnder,
 	isMember,
 	type NodeContext,
 	type ParentFacts,
@@ -35,15 +34,7 @@ function nodeDoc(
 		participantIds: [],
 		assigneeIds: [],
 		visibility: "shared",
-		columns: [
-			"backlog",
-			"next_up",
-			"research",
-			"planning",
-			"execution",
-			"review",
-			"done",
-		],
+		columns: ["backlog", "next_up", "execution", "done"],
 		childCount: 0,
 		doneCount: 0,
 		dueDate: null,
@@ -67,15 +58,7 @@ function parentFacts(overrides: Partial<ParentFacts> = {}): ParentFacts {
 		id: "project",
 		visibility: "shared",
 		participantIds: [],
-		columns: [
-			"backlog",
-			"next_up",
-			"research",
-			"planning",
-			"execution",
-			"review",
-			"done",
-		],
+		columns: ["backlog", "next_up", "execution", "done"],
 		ancestorIds: [],
 		...overrides,
 	};
@@ -418,7 +401,7 @@ describe("inheritance", () => {
 });
 
 /**
- * Stricter than `firestore.rules`, which permits any of the seven because #63
+ * Stricter than `firestore.rules`, which permits any of the four because #63
  * will edit column sets. An agent has no eyes on the board it is writing to, and
  * a card in a column the board does not draw has a one-way exit: the move sheet
  * only offers frozen destinations.
@@ -447,7 +430,7 @@ describe("status within the parent's columns", () => {
 			nodeDoc({
 				parentId: "project",
 				ancestorIds: ["project"],
-				status: "research",
+				status: "next_up",
 			}),
 			simple,
 		);
@@ -458,38 +441,8 @@ describe("status within the parent's columns", () => {
 		expect(issues[0].message).toContain("backlog, execution, done");
 	});
 
-	it("measures a root node against the root board's full set", () => {
-		expect(validateNode(nodeDoc({ status: "research" }), atRoot)).toEqual([]);
-	});
-});
-
-describe("the column set a new node gets for its own children", () => {
-	it("is the full stage set at the root", () => {
-		expect(columnsUnder(null)).toEqual([
-			"backlog",
-			"next_up",
-			"research",
-			"planning",
-			"execution",
-			"review",
-			"done",
-		]);
-	});
-
-	// A node created under a root is at depth 1, whose children are depth 2 —
-	// the simple set. A research column whose cards each contain their own
-	// research column is nonsense.
-	it("is the simple set below the root", () => {
-		expect(columnsUnder(parentFacts())).toEqual([
-			"backlog",
-			"execution",
-			"done",
-		]);
-		expect(columnsUnder(parentFacts({ ancestorIds: ["root"] }))).toEqual([
-			"backlog",
-			"execution",
-			"done",
-		]);
+	it("measures a root node against the root board's set", () => {
+		expect(validateNode(nodeDoc({ status: "next_up" }), atRoot)).toEqual([]);
 	});
 });
 

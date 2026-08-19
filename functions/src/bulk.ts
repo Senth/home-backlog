@@ -2,7 +2,7 @@ import { asObject, type NodeBody, parseNodeBody } from "./body.js";
 import { ApiError, type ApiErrorDetail } from "./errors.js";
 import { maxBatchWrites } from "./firestore.js";
 import {
-	columnsForDepth,
+	defaultColumns,
 	rankSequence,
 	type Status,
 	type Visibility,
@@ -345,7 +345,7 @@ export function planBulk(context: BulkContext): BulkPlan {
 			participantIds,
 			assigneeIds: node.assigneeIds ?? [],
 			visibility,
-			columns: [...columnsForDepth(depth)],
+			columns: [...defaultColumns],
 			// Computed by the endpoint, never taken from the body: the payload is
 			// the only thing that knows how many children each node has, and a
 			// caller-supplied count could disagree with the tree it arrived with.
@@ -380,7 +380,7 @@ export function planBulk(context: BulkContext): BulkPlan {
 			id,
 			visibility,
 			participantIds,
-			columns: [...columnsForDepth(depth)],
+			columns: [...defaultColumns],
 			ancestorIds,
 			depth,
 		};

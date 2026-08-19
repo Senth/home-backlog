@@ -254,10 +254,7 @@
 	"status": {
 		"backlog": "To do",
 		"next_up": "Next up",
-		"research": "Find out",
-		"planning": "Plan",
 		"execution": "In progress",
-		"review": "Check",
 		"done": "Done",
 		"offline": "Offline — changes are saved and will sync when you reconnect.",
 		"offlineNoQueue": "Offline — nothing on this screen can be saved until you reconnect.",

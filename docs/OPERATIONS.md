@@ -209,6 +209,52 @@ into Firestore with `firestore.get()`, which resolves against the emulator's
 own project. A mismatch fails every upload test with a permission error that
 looks like a rules bug and is not.
 
+## One-off migrations
+
+A change that **narrows what `firestore.rules` accepts** has to migrate the stored
+documents *before* it merges, because pushing to `main` deploys production. The
+rules validate `request.resource.data` — the *full post-update* document — so a
+node still holding a value the new rules reject has **every** update to it denied,
+including the `childCount` bump that adding a step to the project above it
+performs. Nothing in the app can unstick that.
+
+The scripts live in `functions/scripts/`, because that is the package that depends
+on `firebase-admin`; `firebase.json` lists `scripts` in the functions `ignore`, so
+they are never part of the deployed upload. They run under Application Default
+Credentials (`gcloud auth application-default login`), report by default, and
+write only with `--apply`:
+
+```bash
+node functions/scripts/<script>.mjs --project home-backlog            # dry run
+node functions/scripts/<script>.mjs --project home-backlog --apply    # write
+node functions/scripts/<script>.mjs --project home-backlog            # 0 changes
+```
+
+The third line is the point: every script is idempotent and skips a settled
+document, so a clean second dry run is the proof the migration finished. A write
+that fails is named on stderr and exits non-zero rather than being swallowed.
+
+**Run `--apply` again once the deploy has landed.** Between the migration and the
+new build reaching every browser, the old one is still live and can still write
+the value the new rules reject — and that node is then stuck with nothing to say
+so. The re-run costs one collection-group read.
+
+The same script migrates `.emulator-seed/`, which is the other place stored
+documents live:
+
+```bash
+yarn emulators:seed
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8062 \
+  node functions/scripts/<script>.mjs --project home-backlog --apply
+yarn emulators:export
+```
+
+Written so far:
+
+| Script | What it did |
+| ------ | ----------- |
+| `migrate-99-statuses.mjs` | [#99](https://github.com/Senth/home-backlog/issues/99) — rewrote `status` `research` / `planning` / `review` to `execution`, and every `columns` array to the four that survived. |
+
 ## Emulators
 
 The Auth emulator intercepts `signInWithPopup`, so Google sign-in works locally

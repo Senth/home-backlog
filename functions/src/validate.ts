@@ -1,5 +1,5 @@
 import {
-	columnsForDepth,
+	defaultColumns,
 	dueDatePattern,
 	type Effort,
 	efforts,
@@ -9,7 +9,6 @@ import {
 	maxTitleLength,
 	type Priority,
 	priorities,
-	rootColumns,
 	type Status,
 	statuses,
 	type Visibility,
@@ -101,12 +100,7 @@ function oneOf<T extends string>(
 
 /** The columns a node's `status` may take, given the board it sits on. */
 export function allowedColumns(parent: ParentFacts | null): readonly Status[] {
-	return parent === null ? rootColumns : parent.columns;
-}
-
-/** The frozen set a node created under `parent` gets for its own children. */
-export function columnsUnder(parent: ParentFacts | null): readonly Status[] {
-	return columnsForDepth(parent === null ? 0 : parent.ancestorIds.length + 1);
+	return parent === null ? defaultColumns : parent.columns;
 }
 
 /**
