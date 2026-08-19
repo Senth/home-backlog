@@ -1,6 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { User } from "firebase/auth";
-import { onSnapshot } from "firebase/firestore";
+import {
+	type DocumentData,
+	onSnapshot,
+	type QuerySnapshot,
+} from "firebase/firestore";
 import {
 	createContext,
 	type ReactNode,
@@ -12,6 +16,7 @@ import {
 	useState,
 } from "react";
 import { homesQuery, profileOf, saveMyProfile, toHome } from "@/data/homes";
+import { subscribeWithRetry } from "@/data/live-query";
 import { resolveActiveHomeId } from "@/models/active-home";
 import { emailHash, type Home, type Role } from "@/models/home";
 
@@ -22,9 +27,11 @@ import { emailHash, type Home, type Role } from "@/models/home";
  * so `user` here is an answer and never a not-yet — this provider cannot race
  * auth, and the homes query it fires is never made without a uid.
  *
- * One listener, fired once per session, as wide as the number of homes one
- * person belongs to. The cost risk in this app is listener *breadth*, not data
- * volume, and this is the only listener that is not scoped to a single home.
+ * One listener, as wide as the number of homes one person belongs to. The cost
+ * risk in this app is listener *breadth*, not data volume, and this is the only
+ * listener that is not scoped to a single home. It is opened once per session
+ * and re-opened only to replace one Firestore has already torn down — see
+ * `subscribeWithRetry`.
  */
 
 /** Where the last opened home is remembered between launches. */
@@ -86,8 +93,8 @@ export function HomeProvider({
 	useEffect(() => {
 		setHomesLoaded(false);
 
-		return onSnapshot(
-			homesQuery(uid),
+		return subscribeWithRetry<QuerySnapshot<DocumentData>>(
+			(next, error) => onSnapshot(homesQuery(uid), next, error),
 			(snapshot) => {
 				setHomes(
 					snapshot.docs
@@ -97,9 +104,13 @@ export function HomeProvider({
 				setHomesLoaded(true);
 			},
 			(reason) => {
-				// Handled: marking the query answered is what stops a failed listener
-				// from holding the splash forever. With no homes, `/homes` is where
-				// the ladder sends you, and its empty state is also its onboarding.
+				// Handled, and only after the retries are spent: marking the query
+				// answered is what stops a failed listener from holding the splash
+				// forever. With no homes, `/homes` is where the ladder sends you, and
+				// its empty state is also its onboarding — which is precisely why this
+				// must not be reached on the first failure. An answer of "no homes" to
+				// a household with a full board is the app calling a broken connection
+				// onboarding, and nothing short of a restart takes it back (#101).
 				console.error("Could not load your homes:", reason);
 				setHomesLoaded(true);
 			},
