@@ -69,4 +69,10 @@ jobs:
         # storage.rules; leave it out and photo permissions silently never
         # update. It needs roles/firebaserules.admin on the deploy service
         # account, same as firestore:rules.
-        run: firebase deploy --only hosting,firestore:rules,firestore:indexes,storage --project home-backlog
+        #
+        # `functions` carries the REST API. Its TypeScript is compiled by the
+        # `predeploy` hook in firebase.json, against the dependencies the root
+        # `postinstall` installed into functions/node_modules. The roles it needs
+        # are listed in docs/OPERATIONS.md — there are five of them, and a
+        # missing one fails the deploy after hosting has already gone out.
+        run: firebase deploy --only hosting,functions,firestore:rules,firestore:indexes,storage --project home-backlog

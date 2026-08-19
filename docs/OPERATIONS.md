@@ -30,6 +30,73 @@ uploads rules, and without it the whole deploy fails with a 403 that mentions
 no service account at all. Adding a deploy target means checking the roles
 again.
 
+### Cloud Functions
+
+`functions/` is a plain sibling npm package, not a yarn workspace — the root is
+an Expo app whose Metro config, `@/` alias and jest preset all assume they own
+the tree. The root `postinstall` runs `yarn --cwd functions install`, so one
+`yarn install` covers both, and `yarn typecheck` and `yarn test` each run the
+app's pass and then the function's.
+
+The `predeploy` hook in `firebase.json` compiles TypeScript into
+`functions/lib/` before the source is uploaded; `src/` is in the deploy `ignore`
+list because the runtime only ever loads `lib/`. `engines.node` is `"22"` —
+that is the **runtime the deploy picks**, not a constraint on the machine
+installing, which is why `functions/.yarnrc` sets `--install.ignore-engines`.
+
+The deploy service account needs, on top of the five roles above:
+
+| Role | For |
+| --- | --- |
+| `roles/cloudfunctions.admin` | creating and updating the functions |
+| `roles/run.admin` | v2 functions *are* Cloud Run services |
+| `roles/artifactregistry.admin` | the container images the build produces |
+| `roles/cloudbuild.builds.editor` | the build that produces them |
+| `roles/storage.admin` | the `gcf-sources-*` upload bucket |
+| `roles/iam.serviceAccountUser` | acting as the runtime service account |
+| `roles/eventarc.admin` and `roles/pubsub.admin` | the `onDocumentDeleted` trigger, which is delivered through Eventarc over Pub/Sub |
+
+`roles/serviceusage.serviceUsageConsumer` was already held. **All of the above are
+granted, and `cloudfunctions`, `cloudbuild`, `artifactregistry`, `run` and
+`eventarc` are enabled** — done once, by hand, on 2026-08-19. Enabling an API needs
+`roles/serviceusage.serviceUsageAdmin`, which the deploy account deliberately
+does not hold: a CI identity that can turn services on can turn on billable ones.
+
+The **runtime** service account (`<project-number>-compute@developer.gserviceaccount.com`)
+also holds `roles/eventarc.eventReceiver`, which a v2 event-driven function needs
+to be delivered anything. It is granted explicitly rather than left to the
+`roles/editor` it inherits, because that inheritance is a default Google has
+been narrowing for years.
+
+#### The `/api/**` rewrite has to come first
+
+Hosting matches rewrites **in order**, and `**` catches everything. The `/api/**`
+entry is therefore above it in `firebase.json`; move it below and every API call
+is answered with `index.html` and a 200, which an agent reads as a successful
+request that returned no data.
+
+The rewrite names `europe-west1` explicitly. Hosting defaults a function rewrite
+to `us-central1`, where this function does not exist.
+
+#### The TTL policy on API run records
+
+`users/{uid}/apiKeys/{keyId}/runs/{idempotencyKey}` holds a bulk create's
+`ref` → id map for 24 hours so a repeated `Idempotency-Key` replays instead of
+writing a second subtree. Firestore TTL is configured **per collection group and
+is not carried by `firebase deploy`** — it is a one-off:
+
+```bash
+gcloud firestore fields ttls update expiresAt \
+  --collection-group=runs --enable-ttl --project=home-backlog
+```
+
+Without it nothing breaks and nothing is lost; the documents simply accumulate
+forever. The emulator ignores TTL entirely, so this is invisible locally.
+
+**Done** — the policy is `ACTIVE` as of 2026-08-19. It is a *backstop*, not the
+mechanism: revoking a key deletes its runs immediately through the
+`onApiKeyDeleted` trigger, and this only reaches runs whose key still exists.
+
 ### Why the Storage rules are deployed through a target
 
 `firebase.json` configures `storage` as an *array* with a `target`, and

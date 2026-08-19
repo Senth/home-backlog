@@ -286,6 +286,28 @@ service cloud.firestore {
             && data.updatedAt is timestamp;
         }
 
+        // Who wrote this node — a person in the app, or somebody's agent over
+        // the REST API (#7).
+        //
+        // Checked on **create only**, and this is not the obvious shape. The
+        // obvious one puts it in validNode() alongside every other field — but
+        // request.resource.data is the full post-update document, so an
+        // 'app'-only test there would deny every *update* to a node the API
+        // wrote, which is exactly the curation the mark exists to enable.
+        // Immutability is immutable()'s job, below.
+        //
+        // Present-only for the same reason as assigneeIds: requiring it would
+        // deny every update to every node written before this feature,
+        // including the childCount bump that adding a step to an old project
+        // performs, and there is no admin tooling in this repo to unstick them.
+        //
+        // 'app'-only because the function bypasses these rules, so 'api' never
+        // needs to pass through here — and a member who could write it would be
+        // able to forge the mark that a household relies on.
+        function createdInApp(data) {
+          return !('createdVia' in data) || data.createdVia == 'app';
+        }
+
         // Validated structurally, with no get(): a rule's get() reads
         // *committed* state and cannot see the rest of a writeBatch, so a check
         // against the parent's new value would refuse every reparent — which
@@ -367,7 +389,12 @@ service cloud.firestore {
 
         function immutable(next, current) {
           return next.createdAt == current.createdAt
-            && next.createdBy == current.createdBy;
+            && next.createdBy == current.createdBy
+            // Both directions, and the `null` default is what covers the third
+            // case: an old node can never *gain* the field, so a member cannot
+            // retroactively mark a card as somebody's, and a marked one can
+            // never lose it.
+            && next.get('createdVia', null) == current.get('createdVia', null);
         }
 
         // A node that is not there is an *answer*, not an error. `resource` is
@@ -384,6 +411,7 @@ service cloud.firestore {
         allow create: if isMember(homeId)
           && visibleToMe(request.resource.data)
           && validNode(request.resource.data)
+          && createdInApp(request.resource.data)
           && structure(request.resource.data)
           && inherits(request.resource.data);
         allow update: if isMember(homeId)
@@ -397,12 +425,61 @@ service cloud.firestore {
         allow delete: if isMember(homeId) && visibleToMe(resource.data);
       }
 
+      // The automations that have written into this home — one row per API key,
+      // upserted by the function the first time that key touches the home.
+      //
+      // Derived from writes rather than from grants, because there are no
+      // grants: a key reaches every home its owner is a member of, so "who could
+      // write here" is just "every member". What a household actually wants to
+      // know is what *has* written here.
+      //
+      // Readable by every member and writable by none of them. A member cannot
+      // revoke somebody else's key — only its owner can — but this is what lets
+      // them see that it exists, see which cards it wrote, and ask. That is the
+      // same shape as membership itself, which they also cannot unilaterally
+      // undo.
+      //
+      // Query-safe by construction: every document in the collection is readable
+      // by every member, so `orderBy('lastUsedAt', 'desc')` can match nothing
+      // that would be denied.
+      match /apiClients/{keyId} {
+        allow get, list: if isMember(homeId);
+        allow write: if false;
+      }
+
       match /locations/{locationId} {
         allow read, write: if isMember(homeId);
       }
 
       match /recurring/{ruleId} {
         allow read, write: if isMember(homeId);
+      }
+    }
+
+    // A person's API keys.
+    //
+    // The first thing in this database that is scoped to a *user* rather than to
+    // a home, and deliberately so: a person is in several homes, and a key is
+    // the person. It holds nothing but keys — member display names and photos
+    // stay in `memberProfiles` on the home, where the rules read them.
+    match /users/{uid} {
+      match /apiKeys/{keyId} {
+        // Minted by the `createApiKey` callable, which uses the Admin SDK and is
+        // not subject to these rules. A client may see its own keys and revoke
+        // them, and may never write one — a client-written key would let a
+        // member forge a hash they already know the secret for, which is a
+        // credential minted outside every check this file makes.
+        allow get, list: if signedIn() && uid == request.auth.uid;
+        allow delete:    if signedIn() && uid == request.auth.uid;
+        allow create, update: if false;
+
+        // Replay bookkeeping for a bulk create: an `Idempotency-Key` mapped to
+        // the ids it produced. No client has any business reading it, and it
+        // lives under the key that made the run so that revoking the key takes
+        // its history with it.
+        match /runs/{runId} {
+          allow read, write: if false;
+        }
       }
     }
 

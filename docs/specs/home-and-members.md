@@ -215,7 +215,7 @@ again is a no-op write of membership they already have.
 ## Rules
 
 Beyond membership, three invariants live in `firestore.rules` rather than in a component,
-so the REST API ([#7](https://github.com/Senth/home-backlog/issues/7)) inherits them.
+so the REST API ([`rest-api`](rest-api.md)) inherits them.
 
 ### A home always has a name and an owner
 
@@ -424,8 +424,12 @@ in the data. On a family-shared cabin, "ägare" makes a claim about the deed;
 - **Sending email.** No invitation is delivered anywhere. Discovery is in-app only.
 - **A Cloud Function cascade** for home deletion and member removal, and exact
   private-node counts in the remove dialog — #39, which shares machinery with #1.
-- **Bootstrap over REST.** A key is scoped to a home, so no agent can create the first one
-  or accept an invite — #38, to be written into `SKILL.md` when #7 lands.
+- **Bootstrap over REST.** Creating a home, inviting and accepting an invitation stay
+  human-only — #38. An API key is scoped to a *person* and reaches every home they are
+  already a member of ([`rest-api`](rest-api.md)), so it can never bring the first one into
+  existence, and `SKILL.md` says so. What a member's key *can* do is write into any home
+  they belong to, which is why every home lists the automations that have written into it,
+  read-only, on its manage screen.
 - **A `users/{uid}` settings document.**
 - Transferring ownership as a single explicit action (promote, then demote yourself),
   per-home preferences, and archiving a home instead of deleting it.

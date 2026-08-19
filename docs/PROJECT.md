@@ -172,9 +172,15 @@ multi-tenancy, sharing, or store release.
 ### AI / API
 
 - **No LLM inside the app.** Instead, the app is made drivable *by* agents.
-- **REST API on Cloud Functions, in MVP**, with hashed API keys scoped to a home, plus a
-  `SKILL.md` documenting the verbs and hierarchy rules so an agent can populate whole
-  project trees. Needs a bulk/subtree create endpoint.
+- **REST API on Cloud Functions, in MVP**, with hashed API keys **scoped to a user, not to a
+  home**, plus a `SKILL.md` documenting the verbs and hierarchy rules so an agent can
+  populate whole project trees, and a bulk subtree create that commits atomically. A person
+  is in several homes — the house, the cabin, a parent's place — so per-home keys would mean
+  one credential per home, an agent reconfigured every time a home is added, and a key that
+  silently stops covering work when a project moves. The cost is that a member's agent can
+  write into a home whose owner cannot revoke the key; what answers it is that every home
+  lists the automations that have written into it and every agent-written card says so. See
+  [`specs/rest-api.md`](specs/rest-api.md).
 - An MCP wrapper over the same REST surface is a cheap later addition.
 - This inverts the usual design: research and task breakdown are done by the user's own
   agent, which writes results in. No per-user inference cost, no liability for generated

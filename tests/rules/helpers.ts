@@ -125,11 +125,17 @@ export function inviteDoc(
  * The timestamps are real dates rather than `serverTimestamp()` so that a seed
  * and a client write are comparable, and so `immutable()` has a value to hold
  * an update against.
+ *
+ * An override of `undefined` **removes** the field rather than writing one. Two
+ * fields here are present-only in the rules — `assigneeIds` and `createdVia` —
+ * and "a node written before this field existed" is a case each of them has to
+ * be tested against; `{ createdVia: undefined }` spread over an object would
+ * otherwise be a key holding `undefined`, which the SDK refuses outright.
  */
 export function nodeDoc(
 	overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
-	return {
+	const document: Record<string, unknown> = {
 		title: "Fix the gutter",
 		status: "backlog",
 		rank: "a0",
@@ -159,12 +165,21 @@ export function nodeDoc(
 		effort: null,
 		photos: [],
 		archived: false,
+		// Written by the client on every create since #7. A node from before it
+		// has none, which is what `createdVia: undefined` in an override covers.
+		createdVia: "app",
 		completedAt: null,
 		createdAt: new Date("2026-01-01T00:00:00Z"),
 		createdBy: OWNER.uid,
 		updatedAt: new Date("2026-01-01T00:00:00Z"),
 		...overrides,
 	};
+
+	for (const [field, value] of Object.entries(document)) {
+		if (value === undefined) delete document[field];
+	}
+
+	return document;
 }
 
 export async function createTestEnv(): Promise<RulesTestEnvironment> {

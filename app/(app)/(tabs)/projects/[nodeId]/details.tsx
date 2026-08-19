@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, View } from "react-native";
-import { ActivityIndicator, Appbar, Snackbar } from "react-native-paper";
+import { ActivityIndicator, Appbar, Snackbar, Text } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { boardHref, goneHref } from "@/components/board/board-href";
 import { ChoiceField } from "@/components/node/ChoiceField";
@@ -143,6 +143,22 @@ export default function NodeDetails() {
 						maxWidth: contentWidth.form,
 					}}
 				>
+					{/* One plain line, and only for a card an agent wrote.
+					    Marcus curates everything and needs to know which of forty
+					    cards a machine wrote; Ingrid needs to understand eleven cabin
+					    cards that appeared at 03:00 without meeting the word "API".
+					    Nothing on the card face — a chip there would mark every card
+					    on the boards that are already fullest, which is the clutter
+					    `PROJECT.md`'s overwhelm principle exists to prevent. */}
+					{node.createdVia === "api" ? (
+						<Text
+							variant="bodySmall"
+							style={{ color: theme.colors.onSurfaceVariant }}
+						>
+							{t("detail.createdViaApi")}
+						</Text>
+					) : null}
+
 					<DueDateField
 						label={t("detail.dueDate")}
 						value={node.dueDate}

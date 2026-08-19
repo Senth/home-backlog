@@ -1,0 +1,40 @@
+{
+	// A plain sibling package, deliberately not a yarn workspace: the root is an
+	// Expo app whose Metro config, `@/` alias and jest preset all assume they own
+	// the tree, and a workspace hoist puts `firebase-admin` where the app can
+	// import it by accident.
+	//
+	// It compiles **only its own `src/`**. Reaching up into the app's `models/`
+	// was tried and does not work: with a hybrid module kind TypeScript decides a
+	// file's format from the nearest `package.json`, and the repo root's has no
+	// `"type"` — so a shared file emits as CommonJS into an ESM package and Node
+	// cannot named-import it. What would have been shared is the token format,
+	// which the app never parses anyway; see `src/api-key.ts`.
+	"compilerOptions": {
+		"target": "ES2022",
+		"lib": ["ES2022"],
+		// ESM, not CommonJS. `fractional-indexing` — the one dependency the app and
+		// the function genuinely share, and the one place a mirrored implementation
+		// would be a real risk, because a malformed rank makes the *client's* next
+		// `generateKeyBetween` throw — ships as ESM only, and a CommonJS function
+		// cannot require it at all. The price is the `.js` extension on every
+		// relative import in `src/`, which is what Node's own resolver wants.
+		"module": "node16",
+		"moduleResolution": "node16",
+		"rootDir": "src",
+		"outDir": "lib",
+		"strict": true,
+		"noUnusedLocals": true,
+		// ts-jest compiles one file at a time, which is only sound under a hybrid
+		// module kind if the source never relies on cross-file type elision.
+		"isolatedModules": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"types": ["jest", "node"]
+	},
+	"include": ["src/**/*.ts"],
+	// The suite runs from TypeScript through ts-jest and has no business in the
+	// artefact that is uploaded and run in production.
+	"exclude": ["src/**/*.test.ts"]
+}

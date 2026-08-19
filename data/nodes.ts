@@ -275,6 +275,10 @@ export type NodeChanges = Partial<
 		| "rank"
 		| "childCount"
 		| "doneCount"
+		// Written once, by whoever created the node. `immutable()` in the rules
+		// refuses to let it change in either direction — including being added to
+		// a node that predates it, which is what keeps the mark trustworthy.
+		| "createdVia"
 	>
 >;
 

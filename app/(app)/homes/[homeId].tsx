@@ -11,6 +11,7 @@ import {
 	Text,
 	TextInput,
 } from "react-native-paper";
+import { AutomationsList } from "@/components/homes/AutomationsList";
 import { DangerZone } from "@/components/homes/DangerZone";
 import { InviteForm } from "@/components/homes/InviteForm";
 import { MembersList } from "@/components/homes/MembersList";
@@ -164,6 +165,12 @@ export default function ManageHome() {
 								/>
 							</>
 						) : null}
+
+						{/* Above the Danger zone, because it is information rather than
+						    an action — and because the one thing a member *can* do about
+						    an automation somebody else owns is go and ask them. */}
+						<Divider />
+						<AutomationsList homeId={home.id} />
 
 						{user ? (
 							<>

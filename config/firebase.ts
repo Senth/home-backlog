@@ -14,6 +14,7 @@ import {
 	persistentLocalCache,
 	persistentMultipleTabManager,
 } from "firebase/firestore";
+import { connectFunctionsEmulator, getFunctions } from "firebase/functions";
 import { connectStorageEmulator, getStorage } from "firebase/storage";
 import { Platform } from "react-native";
 
@@ -125,6 +126,21 @@ const db =
 const storage = getStorage(app);
 
 /**
+ * The callables, in the region the functions are actually deployed to.
+ *
+ * `getFunctions(app)` defaults to `us-central1`, where none of them exists — and
+ * the failure is a CORS error on a URL that does not resolve, which says nothing
+ * about regions. Firestore and Storage are both in `europe-west1` and cannot be
+ * moved, so the functions are there too; this literal and the one in
+ * `functions/src/options.ts` have to agree.
+ *
+ * Only `createApiKey` is called from here. Everything else the API does is
+ * reached over HTTP by an agent, not by this app.
+ */
+const functionsRegion = "europe-west1";
+const functions = getFunctions(app, functionsRegion);
+
+/**
  * There is no dev Firebase project — see `CLAUDE.md`. Local development
  * always targets the emulator suite, so a rules experiment or a bad migration
  * cannot reach the household's real data.
@@ -138,6 +154,7 @@ if (__DEV__) {
 	connectAuthEmulator(auth, `http://${host}:8061`, { disableWarnings: true });
 	connectFirestoreEmulator(db, host, 8062);
 	connectStorageEmulator(storage, host, 8063);
+	connectFunctionsEmulator(functions, host, 8064);
 }
 
-export { auth, db, storage };
+export { auth, db, functions, storage };

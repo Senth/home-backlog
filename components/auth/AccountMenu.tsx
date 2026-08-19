@@ -1,4 +1,5 @@
 import { useIsFocused } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import type { User } from "firebase/auth";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -58,6 +59,7 @@ export function AccountMenu() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const { user, signOut } = useAuth();
+	const router = useRouter();
 	const { width } = useWindowDimensions();
 	const isFocused = useIsFocused();
 	const [menuOpen, setMenuOpen] = useState(false);
@@ -166,6 +168,20 @@ export function AccountMenu() {
 					</View>
 				</View>
 
+				{/* The row this menu was left room for. Automations belong here
+				    rather than on a home, because a key is *the person*: one
+				    credential reaches every home its owner is a member of, and gains
+				    a new one the moment they join it. */}
+				<Menu.Item
+					leadingIcon="robot-outline"
+					title={t("account.automations")}
+					onPress={() => {
+						setMenuOpen(false);
+						router.push("/automations");
+					}}
+				/>
+
+				{/* Between a routine row and the one that cannot be undone. */}
 				<Divider />
 
 				<Menu.Item
