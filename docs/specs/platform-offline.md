@@ -348,6 +348,12 @@ so it is testable in plain Node.
 - **Native auth.** `GoogleSignIn.tsx` keeps the `expo-auth-session` PKCE flow and
   `initializeAuth` runs without a persistence adapter, so a native app forgets the user on
   relaunch. Both are [#8](https://github.com/Senth/home-backlog/issues/8).
+- **`isQueryAnswer`'s offline clause cannot fire on native.** `isOnline()` returns `true`
+  off the web, and native runs on the in-memory cache, so a board opened offline there is
+  always `empty && fromCache && online` — it holds for the ladder's budget and then says
+  "Could not load this board", which is the exact lie the clause exists to prevent. It
+  costs nothing today because native does not ship; it wants a real connectivity read
+  (`expo-network` or `@react-native-community/netinfo`) whenever it does.
 - **Switching between homes** — [#21](https://github.com/Senth/home-backlog/issues/21).
   The account menu is shaped to hold the row; it does not hold it yet.
 - **Telling a visitor what the app is, or who invited them** —
