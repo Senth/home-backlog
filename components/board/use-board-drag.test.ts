@@ -8,6 +8,7 @@ import {
 	useBoardDrag,
 } from "@/components/board/use-board-drag";
 import { moveNode } from "@/data/nodes";
+import { paneDwellMs, paneRepeatDwellMs } from "@/models/drag";
 import type { Node, Status } from "@/models/node";
 
 /**
@@ -51,33 +52,63 @@ function box(top: number, height: number, left = 0, width = 300): View {
 
 interface Board {
 	cards: Node[];
-	pane?: { index: number; count: number; onChange: (index: number) => void };
+	/** Below the breakpoint: which pane is on screen, and how many there are. */
+	pane?: number;
 }
 
 function board({ cards, pane }: Board) {
 	const onNotice = jest.fn();
+	const onChange = jest.fn();
+
+	// The pane goes through props and comes back as a re-render, the way the
+	// board really moves: a walk that only called a spy would never change the
+	// index the drag reads, and the re-measure it triggers would never run.
 	const view = renderHook(
-		(props: { nodes: Node[] }) =>
+		(props: { nodes: Node[]; index: number }) =>
 			useBoardDrag({
 				homeId,
 				nodes: props.nodes,
 				shown,
 				onNotice,
-				pane,
+				pane:
+					pane === undefined
+						? undefined
+						: {
+								index: props.index,
+								count: shown.length,
+								onChange: (next: number) => {
+									onChange(next);
+									props.index = next;
+									act(() => view.rerender({ nodes: props.nodes, index: next }));
+									showPane(next);
+								},
+							},
 			}),
-		{ initialProps: { nodes: cards } },
+		{ initialProps: { nodes: cards, index: pane ?? 0 } },
 	);
 
-	// The board is 300 wide and 600 tall; each column fills it, and every card is
-	// 100 tall in the order it is given.
+	// The board is 300 wide and 600 tall; every card is 100 tall in the order it
+	// is given.
 	const register = view.result.current.register;
 	register(boardKey)(box(0, 600));
-	for (const status of shown) {
-		register(columnKey(status))(box(0, 600));
-	}
 	cards.forEach((card, index) => {
 		register(cardKey(card.id))(box(index * 100, 100));
 	});
+
+	/**
+	 * Which column fills the board.
+	 *
+	 * Below the breakpoint every pane is mounted and one is shown, so the panes
+	 * that are not on screen measure as nothing — which is what keeps them from
+	 * winning a hit test. A harness where every column filled the board would
+	 * agree with any answer.
+	 */
+	const showPane = (index: number) => {
+		shown.forEach((status, at) => {
+			register(columnKey(status))(at === index ? box(0, 600) : box(0, 0, 0, 0));
+		});
+	};
+	showPane(pane ?? 0);
 
 	/** Runs the measuring the grab is waiting on. */
 	const measured = async () => {
@@ -88,7 +119,7 @@ function board({ cards, pane }: Board) {
 
 	/** The board's listeners delivering something while the card is in the air. */
 	const arrive = (nodes: Node[]) => {
-		act(() => view.rerender({ nodes }));
+		act(() => view.rerender({ nodes, index: pane ?? 0 }));
 	};
 
 	/**
@@ -111,7 +142,7 @@ function board({ cards, pane }: Board) {
 		},
 	});
 
-	return { view, onNotice, register, measured, arrive, gesture };
+	return { view, onNotice, onChange, register, measured, arrive, gesture };
 }
 
 beforeEach(() => {
@@ -235,10 +266,9 @@ describe("useBoardDrag", () => {
 	});
 
 	it("walks the board one pane per dwell while a card rests at the edge", async () => {
-		const onChange = jest.fn();
-		const { view, measured, gesture } = board({
+		const { onChange, measured, gesture } = board({
 			cards: [a, b, c],
-			pane: { index: 1, count: 2, onChange },
+			pane: 1,
 		});
 		const card = gesture(a);
 
@@ -246,20 +276,46 @@ describe("useBoardDrag", () => {
 		await measured();
 		card.move({ x: 2, y: 300 });
 
-		expect(view.result.current.edge).toBe("left");
-
 		act(() => {
-			jest.advanceTimersByTime(800);
+			jest.advanceTimersByTime(paneDwellMs + 50);
 		});
-		expect(onChange).toHaveBeenCalledWith(0);
+		expect(onChange).toHaveBeenLastCalledWith(0);
 
 		// And the walk stops the moment the card is put down, rather than taking
 		// the board one more pane after the finger has gone.
 		onChange.mockClear();
 		card.cancel();
 		act(() => {
-			jest.advanceTimersByTime(3000);
+			jest.advanceTimersByTime(paneRepeatDwellMs * 2);
 		});
 		expect(onChange).not.toHaveBeenCalled();
+	});
+
+	it("places the gap in the pane the walk arrived at, with the finger still", async () => {
+		// The cards are in the pane on screen; walking left reaches an empty one.
+		const later = [a, b, c].map((card) => ({ ...card, status: "next_up" }));
+		const { onChange, measured, gesture } = board({
+			cards: later as Node[],
+			pane: 1,
+		});
+		const card = gesture(later[0] as Node);
+
+		card.grab({ x: 10, y: 50 });
+		await measured();
+		card.move({ x: 2, y: 300 });
+
+		act(() => {
+			jest.advanceTimersByTime(paneDwellMs + 50);
+		});
+		expect(onChange).toHaveBeenLastCalledWith(0);
+
+		// The board moved under the finger, and the finger has not moved since —
+		// so nothing but the re-measure can put the gap in the pane that arrived.
+		await act(async () => {
+			jest.runAllTimers();
+		});
+		card.drop();
+
+		expect(moved.mock.calls[0]?.[2]).toBe("backlog");
 	});
 });

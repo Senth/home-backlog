@@ -209,8 +209,11 @@ export function useBoardDrag({
 		return callback;
 	}, []);
 
+	// Not a token bump: this also runs as the settle spring's tidy-up, long after
+	// the press ended, and bumping there would cancel a *new* grab that started
+	// while the last card was still flying home. Every path that ends a press
+	// bumps for itself.
 	const clear = useCallback(() => {
-		grabbed.current++;
 		stopWalking();
 		edgeRef.current = null;
 		setEdge(null);
@@ -363,6 +366,12 @@ export function useBoardDrag({
 			run.start(({ finished }) => {
 				if (!finished) return;
 				current.onChange(next);
+				// Taken as read rather than waited for. `onChange` is a `setState`,
+				// and the repeat below starts before React has re-rendered, so a
+				// repeat reading the pane from the last render would ask for the
+				// column the board has already left — filling the whole bar and
+				// moving nothing, every second dwell.
+				paneRef.current = { ...current, index: next };
 				walk(side, true);
 			});
 		},
@@ -400,10 +409,15 @@ export function useBoardDrag({
 		const held = live.current;
 		if (held === null || paneIndex === undefined) return;
 
+		// The token, for the same reason the grab carries one: this measuring
+		// outlives the press by up to `paneSettleMs` plus a turn, and a card put
+		// down inside that window would otherwise have its geometry written over
+		// the next card's — or the gap placed from a board that is no longer up.
+		const token = grabbed.current;
 		let stale = false;
 		const settled = setTimeout(() => {
 			void measure(held.cards).then((measured) => {
-				if (stale || measured === null) return;
+				if (stale || grabbed.current !== token || measured === null) return;
 				geometry.current = measured;
 
 				// And the gap moves with it. The finger has not gone anywhere — the

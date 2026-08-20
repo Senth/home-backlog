@@ -278,7 +278,8 @@ fi
 # The `use-*.ts` clause is the gap this check used to have. A hook is a domain
 # module wherever it lives, and `components/board/use-board-drag.ts` — a whole
 # drag gesture, its geometry and its write — sat outside the two directories and
-# so passed clean. `.tsx` is out: that is a component, and CLAUDE.md forbids
+# so passed clean. The directory in the middle is optional, or a hook sitting
+# directly in `components/` would be the same hole one level up. `.tsx` is out: that is a component, and CLAUDE.md forbids
 # tests that only assert layout. `hooks/` is out too, deliberately, because half
 # of what is in there is a one-line wrapper around a Firestore listener.
 #
@@ -289,7 +290,7 @@ declare -A HAVE=()
 for f in "${TREE[@]}"; do HAVE["$f"]=1; done
 missing=""
 for f in "${TREE[@]}"; do
-	[[ "$f" =~ ^(models|utils)/ || "$f" =~ ^components/.*/use-[^/]+\.ts$ ]] || continue
+	[[ "$f" =~ ^(models|utils)/ || "$f" =~ ^components/(.*/)?use-[^/]+\.ts$ ]] || continue
 	[[ "$f" =~ \.(test|d)\.tsx?$ ]] && continue
 	base="${f%.*}"
 	[[ -n "${HAVE["$base.test.ts"]:-}${HAVE["$base.test.tsx"]:-}" ]] || missing+="$f"$'\n'
