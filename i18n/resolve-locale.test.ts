@@ -1,6 +1,6 @@
-import enUS from "./locales/en-US.json";
-import svSE from "./locales/sv-SE.json";
-import { resolveLocale } from "./resolve-locale";
+import enUS from "@/i18n/locales/en-US.json";
+import svSE from "@/i18n/locales/sv-SE.json";
+import { resolveLocale } from "@/i18n/resolve-locale";
 
 describe("resolveLocale", () => {
 	it("matches Swedish regardless of region", () => {

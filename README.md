@@ -60,6 +60,7 @@ Google account is needed locally.
 | `yarn emulators:seed` | Emulator suite with the `.emulator-seed/` review fixture |
 | `yarn emulators:export` | Overwrite `.emulator-seed/` from the running suite |
 | `yarn lint` / `yarn lint --write` | Biome check / autofix |
+| `yarn invariants` | The grep-shaped `CLAUDE.md` invariants (`scripts/check-invariants.sh`) |
 | `yarn typecheck` | `tsc --noEmit` |
 | `yarn test` | Unit tests |
 | `yarn test:rules` | Security rules against the emulators |
