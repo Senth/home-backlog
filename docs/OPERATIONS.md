@@ -13,6 +13,43 @@ moved without recreating the project.
 Auth is Google sign-in only. A new host has to be added to the
 authorized-domain list in the Firebase console before login works there.
 
+## Merging a PR
+
+**Watch the run, then merge. Never `gh pr merge --auto`.**
+
+```bash
+GIT_VANILLA=1 gh pr create --base main --head <branch> --title "..." --body "..."
+# The run is not registered the instant the PR exists, so poll for its id.
+for _ in $(seq 30); do
+  RUN=$(GIT_VANILLA=1 gh run list --branch <branch> \
+          --workflow "PR - Lint, typecheck, test and build" \
+          --limit 1 --json databaseId --jq '.[0].databaseId')
+  [ -n "$RUN" ] && break || sleep 2
+done
+
+GIT_VANILLA=1 gh run watch "$RUN" --exit-status && GIT_VANILLA=1 gh pr merge <n> --squash
+```
+
+`--exit-status` makes `gh run watch` exit non-zero on a failed run, so the `&&`
+is the whole gate: the merge only happens on green, and a red run leaves the PR
+open.
+
+The poll matters. `gh run list` returns an empty array for a few seconds after
+`gh pr create`, and an empty `$RUN` makes `gh run watch` open its interactive
+run picker — which hangs forever in a non-interactive session.
+
+`--auto` does **not** do this, and the failure is silent. It queues a merge
+behind *required status checks*, and this repo has none — branch protection is a
+paid feature on a private repo, and `gh api repos/Senth/home-backlog/branches/main/protection`
+returns `403 Upgrade to GitHub Pro`. With nothing required, `--auto` merges the
+instant it is called. That merged #127 into `main` while its CI was still
+running, and because pushing to `main` deploys, it shipped to production
+unverified. It happened to be green.
+
+Two things would make `--auto` mean what it says, neither of them in place:
+making the repo public (branch protection is free there) or upgrading to Pro.
+Until one of those, the `&&` above *is* the branch protection.
+
 ## Deploy
 
 Pushing to `main` runs `.github/workflows/deploy.yml`, which authenticates

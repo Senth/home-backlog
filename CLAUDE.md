@@ -69,5 +69,9 @@ todo`.
   an area spec in `docs/specs/` — one per feature area, present tense, keeping
   the _why_ and the rejected alternatives — and deletes the wip file.
 - Pushing to `main` deploys to production. There is only one cloud project.
+  So a merge is a deploy: gate it on CI with
+  `gh run watch <id> --exit-status && gh pr merge <n> --squash`, never
+  `gh pr merge --auto`. This repo has no required status checks for `--auto`
+  to wait on, so it merges immediately — see `docs/OPERATIONS.md`.
 - Any issues with label `idea` should be moved to project column `Idea` after it
   has been created.
