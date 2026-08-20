@@ -105,17 +105,14 @@ export function dropPlan({
 	const from = column.findIndex((card) => card.id === dragged.id);
 
 	const above = others[index - 1] ?? null;
-	const below = others[index] ?? null;
 
-	if (toStatus === dragged.status && from >= 0) {
-		const wasAbove = column[from - 1] ?? null;
-		const wasBelow = column[from + 1] ?? null;
-
-		// Both shapes of "it did not move": the slot it was already in, and the
-		// same pair of neighbours reached by another route.
-		if (from === index) return null;
-		if (above?.id === wasAbove?.id && below?.id === wasBelow?.id) return null;
-	}
+	// It did not move. The two shapes this can take — the slot the card was
+	// already in, and the same pair of neighbours reached by another route — are
+	// the same shape: taking the card out at `from` and putting it back at
+	// `index` restores its old neighbours exactly when the two are equal. Both
+	// ends included, because the clamp above folds a drop past the end of the
+	// column onto the last slot, which is where a card already sitting there is.
+	if (toStatus === dragged.status && from === index) return null;
 
 	return {
 		status: toStatus,

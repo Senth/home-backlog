@@ -129,9 +129,8 @@ describe("dropPlan", () => {
 		).toBeNull();
 	});
 
-	it("writes nothing for a card released between the neighbours it already had", () => {
-		// The bottom card, dropped past the end of the list: a different index,
-		// the same pair of neighbours.
+	it("writes nothing for the last card dropped past the end of its column", () => {
+		// Every slot below the last one is the slot the card is already in.
 		expect(
 			dropPlan({ column, dragged: c, toStatus: "backlog", toIndex: 9 }),
 		).toBeNull();
@@ -181,6 +180,21 @@ describe("dropPlan", () => {
 		});
 
 		expect(ordered("V1", plan?.rank, last.rank)).toBe(true);
+	});
+
+	it("appends past a tied run sitting at the end of a column", () => {
+		// Nothing below the tie to rank against, so the card goes after both.
+		const tiedFirst = card("t1", "V1");
+		const tiedSecond = card("t2", "V1");
+
+		const plan = dropPlan({
+			column: [tiedFirst, tiedSecond],
+			dragged: card("d", "V0"),
+			toStatus: "backlog",
+			toIndex: 1,
+		});
+
+		expect(ordered("V1", plan?.rank)).toBe(true);
 	});
 
 	it("says which way the card went", () => {

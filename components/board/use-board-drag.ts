@@ -165,13 +165,34 @@ export function useBoardDrag({
 	const live = useRef<Session | null>(null);
 	const geometry = useRef<Geometry | null>(null);
 	const start = useRef<DragPoint | null>(null);
+	const at = useRef<DragPoint | null>(null);
 	const edgeRef = useRef<"left" | "right" | null>(null);
+	/**
+	 * Which grab is the current one.
+	 *
+	 * Measuring is asynchronous — a frame or two on a full column — and a quick
+	 * press can be over before it finishes. Without this, the drop runs against
+	 * no session and the measurement that arrives afterwards lifts a card nobody
+	 * is holding: it stays in the air, its row stays flattened, and the board
+	 * stays frozen with no gesture left to end it.
+	 */
+	const grabbed = useRef(0);
 	const offset = useRef(new Animated.ValueXY()).current;
 	const dwell = useRef(new Animated.Value(0)).current;
 	const walking = useRef<Animated.CompositeAnimation | null>(null);
 	// Read by the dwell timer, which outlives the render that moved the board.
 	const paneRef = useRef<Pane | undefined>(pane);
 	paneRef.current = pane;
+
+	const stopWalking = useCallback(() => {
+		walking.current?.stop();
+		walking.current = null;
+		dwell.setValue(0);
+	}, [dwell]);
+
+	// Nothing goes on animating into a board that has been left: the dwell's
+	// completion moves the pane, and the pane belongs to a screen.
+	useEffect(() => stopWalking, [stopWalking]);
 
 	const views = useRef(new Map<string, View>());
 	const refCallbacks = useRef(new Map<string, (view: View | null) => void>());
@@ -189,9 +210,8 @@ export function useBoardDrag({
 	}, []);
 
 	const clear = useCallback(() => {
-		walking.current?.stop();
-		walking.current = null;
-		dwell.setValue(0);
+		grabbed.current++;
+		stopWalking();
 		edgeRef.current = null;
 		setEdge(null);
 		live.current = null;
@@ -199,7 +219,7 @@ export function useBoardDrag({
 		start.current = null;
 		offset.setValue({ x: 0, y: 0 });
 		setSession(null);
-	}, [dwell, offset]);
+	}, [offset, stopWalking]);
 
 	/**
 	 * The card flies back to where it came from rather than vanishing from under
@@ -208,6 +228,12 @@ export function useBoardDrag({
 	 */
 	const settle = useCallback(
 		(from: Session) => {
+			// A card put down in the edge zone must not go on walking the board
+			// while it flies home.
+			stopWalking();
+			edgeRef.current = null;
+			setEdge(null);
+
 			const home = { ...from, over: from.home };
 			live.current = home;
 			setSession(home);
@@ -220,34 +246,55 @@ export function useBoardDrag({
 				if (live.current === home) clear();
 			});
 		},
-		[clear, offset],
+		[clear, offset, stopWalking],
 	);
 
 	const measure = useCallback(
 		async (cards: Node[]): Promise<Geometry | null> => {
-			const board = await boxOf(views.current.get(boardKey));
+			// One turn, not one per view: `measureInWindow` is a task of its own on
+			// React Native Web and a bridge call on native, so measuring a full
+			// column card by card is the difference between a card that lifts and a
+			// card that lifts eventually.
+			const [board, columns, chips, byStatus] = await Promise.all([
+				boxOf(views.current.get(boardKey)),
+				Promise.all(
+					shown.map((status) =>
+						boxOf(views.current.get(columnKey(status))).then((box) =>
+							box === null ? null : { ...box, status },
+						),
+					),
+				),
+				Promise.all(
+					shown.map((status) =>
+						boxOf(views.current.get(chipKey(status))).then((box) =>
+							box === null ? null : { ...box, status },
+						),
+					),
+				),
+				Promise.all(
+					shown.map(async (status) => {
+						const measured = await Promise.all(
+							cards
+								.filter((node) => node.status === status)
+								.map((card) =>
+									boxOf(views.current.get(cardKey(card.id))).then((box) =>
+										box === null ? null : { id: card.id, box },
+									),
+								),
+						);
+						return [status, measured.filter(isMeasured)] as const;
+					}),
+				),
+			]);
+
 			if (board === null) return null;
 
-			const columns: StatusBox[] = [];
-			const chips: StatusBox[] = [];
-			const byStatus: Geometry["cards"] = {};
-
-			for (const status of shown) {
-				const column = await boxOf(views.current.get(columnKey(status)));
-				if (column !== null) columns.push({ ...column, status });
-
-				const chip = await boxOf(views.current.get(chipKey(status)));
-				if (chip !== null) chips.push({ ...chip, status });
-
-				const measured: { id: string; box: Box }[] = [];
-				for (const card of cards.filter((node) => node.status === status)) {
-					const box = await boxOf(views.current.get(cardKey(card.id)));
-					if (box !== null) measured.push({ id: card.id, box });
-				}
-				byStatus[status] = measured;
-			}
-
-			return { board, columns, chips, cards: byStatus };
+			return {
+				board,
+				columns: columns.filter(isStatusBox),
+				chips: chips.filter(isStatusBox),
+				cards: Object.fromEntries(byStatus),
+			};
 		},
 		[shown],
 	);
@@ -299,9 +346,7 @@ export function useBoardDrag({
 	 */
 	const walk = useCallback(
 		(side: "left" | "right" | null, repeat: boolean) => {
-			walking.current?.stop();
-			walking.current = null;
-			dwell.setValue(0);
+			stopWalking();
 
 			const current = paneRef.current;
 			if (side === null || current === undefined) return;
@@ -321,8 +366,25 @@ export function useBoardDrag({
 				walk(side, true);
 			});
 		},
-		[dwell],
+		[dwell, stopWalking],
 	);
+
+	/** Where the gap is now, if that is somewhere new. */
+	const commit = useCallback((slot: DropSlot | null) => {
+		const held = live.current;
+		if (held === null || slot === null) return;
+		if (
+			slot.status === held.over?.status &&
+			slot.index === held.over?.index &&
+			slot.via === held.over?.via
+		) {
+			return;
+		}
+
+		const next = { ...held, over: slot };
+		live.current = next;
+		setSession(next);
+	}, []);
 
 	/**
 	 * The board moved under the card — an edge hold walked it to the next pane —
@@ -341,7 +403,15 @@ export function useBoardDrag({
 		let stale = false;
 		const settled = setTimeout(() => {
 			void measure(held.cards).then((measured) => {
-				if (!stale && measured !== null) geometry.current = measured;
+				if (stale || measured === null) return;
+				geometry.current = measured;
+
+				// And the gap moves with it. The finger has not gone anywhere — the
+				// board came to it — so nothing else would place the gap until the
+				// next movement, and a card let go the instant the pane arrives
+				// would be written back into the column it was picked up from.
+				const point = at.current;
+				if (point !== null) commit(slotAt(point, held));
 			});
 		}, paneSettleMs);
 
@@ -349,13 +419,15 @@ export function useBoardDrag({
 			stale = true;
 			clearTimeout(settled);
 		};
-	}, [measure, paneIndex]);
+	}, [commit, measure, paneIndex, slotAt]);
 
 	const grab = useCallback(
 		async (node: Node, point: DragPoint) => {
+			const token = ++grabbed.current;
 			const frozen = nodes;
 			const measured = await measure(frozen);
-			if (measured === null) return;
+			// Let go before the measuring finished, so there is no card to lift.
+			if (grabbed.current !== token || measured === null) return;
 
 			const box = measured.cards[node.status]?.find(
 				(card) => card.id === node.id,
@@ -364,6 +436,7 @@ export function useBoardDrag({
 
 			geometry.current = measured;
 			start.current = point;
+			at.current = point;
 			offset.setValue({ x: 0, y: 0 });
 
 			const others = (measured.cards[node.status] ?? []).filter(
@@ -402,10 +475,21 @@ export function useBoardDrag({
 			const from = start.current;
 			if (held === null || from === null) return;
 
+			at.current = point;
 			offset.setValue({ x: point.x - from.x, y: point.y - from.y });
 
+			// A point outside every column keeps the gap where it was: a card
+			// released off the board is not a cancel — that is #129 — so there is
+			// always somewhere for it to land.
+			const slot = slotAt(point, held);
+
+			// The strip wins over the edge. On a 390px phone the leftmost chip and
+			// the edge zone overlap, and aiming at the chip — the primary way
+			// across on a phone — would otherwise arm a pane walk behind it.
 			const side =
-				geometry.current === null || paneRef.current === undefined
+				slot?.via === "chip" ||
+				geometry.current === null ||
+				paneRef.current === undefined
 					? null
 					: edgeAt(
 							geometry.current.board,
@@ -419,27 +503,17 @@ export function useBoardDrag({
 				walk(side, false);
 			}
 
-			// A point outside every column keeps the gap where it was: a card
-			// released off the board is not a cancel — that is #129 — so there is
-			// always somewhere for it to land.
-			const slot = slotAt(point, held);
-			if (slot === null) return;
-			if (
-				slot.status === held.over?.status &&
-				slot.index === held.over?.index &&
-				slot.via === held.over?.via
-			) {
-				return;
-			}
-
-			const next = { ...held, over: slot };
-			live.current = next;
-			setSession(next);
+			commit(slot);
 		},
-		[offset, slotAt, walk],
+		[commit, offset, slotAt, walk],
 	);
 
 	const drop = useCallback(() => {
+		// Whatever else happens, this press is over: a grab still measuring must
+		// not lift a card afterwards, and the early return below is exactly the
+		// case where it would — a click quick enough to finish first.
+		grabbed.current++;
+
 		const held = live.current;
 		if (held === null) return;
 
@@ -492,6 +566,7 @@ export function useBoardDrag({
 	}, [clear, homeId, nodes, onNotice, settle, t]);
 
 	const cancel = useCallback(() => {
+		grabbed.current++;
 		const held = live.current;
 		if (held !== null) settle(held);
 	}, [settle]);
@@ -535,6 +610,16 @@ const paneSettleMs = 80;
 
 const failed = (reason: unknown) =>
 	console.error("Could not move the card:", reason);
+
+function isStatusBox(box: StatusBox | null): box is StatusBox {
+	return box !== null;
+}
+
+function isMeasured(
+	card: { id: string; box: Box } | null,
+): card is { id: string; box: Box } {
+	return card !== null;
+}
 
 /** One view's frame in window coordinates, or `null` if it is not mounted. */
 function boxOf(view: View | undefined): Promise<Box | null> {

@@ -275,7 +275,10 @@ export function Board({
 				<>
 					<ColumnStrip
 						columns={shown}
-						nodes={nodes}
+						// The frozen board, like the panes below it: a count that moves
+						// while the pane under it does not is the strip contradicting the
+						// column it names.
+						nodes={drag.cards}
 						current={column}
 						onSelect={setCurrent}
 						register={drag.register}
@@ -300,6 +303,16 @@ export function Board({
 								key={status}
 								style={visible ? { flex: 1 } : offScreenPane}
 								collapsable={false}
+								// A pane that is only mounted is not a pane anybody is on.
+								// `opacity: 0` hides it from eyes and from nothing else, so
+								// without this a screen reader reads three more columns —
+								// "Nothing here", three times — on every board, to exactly
+								// the person the gesture was designed around.
+								aria-hidden={!visible}
+								accessibilityElementsHidden={!visible}
+								importantForAccessibility={
+									visible ? "auto" : "no-hide-descendants"
+								}
 							>
 								<BoardColumn
 									status={status}

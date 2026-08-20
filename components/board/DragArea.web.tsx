@@ -218,16 +218,21 @@ export function DragArea({
 			cancelHold();
 			armed = true;
 			lockScrollers();
-			shieldOn();
 
 			// The press this card was already negotiating is *ended* rather than
 			// released, which is the responder system's own word for "the pointer
 			// was taken away" — exactly a tap that never happened.
+			//
+			// Before the shield, not after: `touchcancel` is one of the events the
+			// shield holds at the document, so a shield already in place would
+			// swallow this on its way and the press would never be called off.
 			node.dispatchEvent(
 				new Event(type === "mouse" ? "dragstart" : "touchcancel", {
 					bubbles: true,
 				}),
 			);
+
+			shieldOn();
 
 			handlers.current.onGrab(point);
 		};
