@@ -318,8 +318,13 @@ export function DragArea({
 			if (armed || hold !== null) event.preventDefault();
 		};
 
-		// Not in the CSS typings, and the only way to say it.
+		// Both set here rather than through a style prop: neither is in React
+		// Native's `ViewStyle`, and this file is the web by definition. The
+		// selection is what a slow press on a card otherwise starts — and it
+		// survives the drop, so the card lands with its title highlighted.
 		node.style.setProperty("-webkit-touch-callout", "none");
+		node.style.setProperty("user-select", "none");
+		node.style.setProperty("-webkit-user-select", "none");
 		node.addEventListener("pointerdown", down);
 		node.addEventListener("contextmenu", contextMenu);
 
@@ -336,11 +341,5 @@ export function DragArea({
 		};
 	}, [enabled]);
 
-	// `userSelect` rather than a drag image: a slow press on a card otherwise
-	// selects its title, and the selection survives the drop.
-	return (
-		<View ref={host} style={{ userSelect: "none" }}>
-			{children}
-		</View>
-	);
+	return <View ref={host}>{children}</View>;
 }
