@@ -116,7 +116,7 @@ that stops a decision being re-litigated later — never trim it.
 ### Phases
 
 Vertical slices, each small enough for one sub-agent session and each ending green on
-`yarn lint --write`, `yarn typecheck` and `yarn test`. Typical shape:
+`yarn lint --write`, `yarn invariants`, `yarn typecheck` and `yarn test`. Typical shape:
 
 ```
 Phase 1  models + rules + tests/rules
@@ -206,7 +206,7 @@ Written for a session with no context but the file. It states:
 - Nothing durable may live only in **Handoff** or **Phases** — the cleanup phase deletes
   both.
 - Branch `feat/<nn>-<slug>`. One commit per phase, once that phase is green on
-  `yarn lint --write`, `yarn typecheck` and `yarn test`.
+  `yarn lint --write`, `yarn invariants`, `yarn typecheck` and `yarn test`.
 - **After the cleanup phase** — and only then:
 
   ```bash

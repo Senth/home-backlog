@@ -22,10 +22,15 @@ code-review  →  fix + lint/typecheck/test  →  browser-review  →  fix  → 
 ```
 
 `code-review` is static and cheap, and it catches the things that would otherwise show up
-as browser findings — style literals, colour literals, `useAppTheme()`, missing `t()`
-calls, `en-US`/`sv-SE` key drift. Running it **first** and fixing before the browser opens
-is what makes the browser pass run once instead of three times. Do not parallelise them; a
-code fix invalidates a browser pass by construction.
+as browser findings — missing `t()` calls, and everything `scripts/check-invariants.sh`
+reports when the agent runs `yarn invariants`: style literals, colour literals,
+`useAppTheme()`, `en-US`/`sv-SE` key drift. Running it **first** and fixing before the
+browser opens is what makes the browser pass run once instead of three times. Do not
+parallelise them; a code fix invalidates a browser pass by construction.
+
+Run `yarn invariants` yourself before spawning anything. It is a second of shell, it is
+the same gate CI applies, and a failure it catches is a round of `code-review` you did not
+have to spend.
 
 Flags: `/review` (auto-scope), `/review --all` (force both), `/review --code` (static
 only, no browser), `/review --quick` (`code-review` only, and you smoke-test the primary
@@ -65,7 +70,7 @@ Read `.tmp/review/code-review.md`. Apply every `blocking` and every `should-fix`
 not explicitly deferring, then:
 
 ```bash
-yarn lint --write && yarn typecheck && yarn test
+yarn lint --write && yarn invariants && yarn typecheck && yarn test
 ```
 
 Green before going further. If `code-review` found `blocking` items, re-run it **scoped** —
@@ -158,7 +163,7 @@ The bar:
 While not PASS and rounds used **< 2**:
 
 1. Apply the fixes yourself.
-2. `yarn lint --write`, `yarn typecheck`, `yarn test` — green.
+2. `yarn lint --write`, `yarn invariants`, `yarn typecheck`, `yarn test` — green.
 3. **Re-run scoped, not whole.** Hand `browser-review` the list of fixes and ask it to
    verify exactly those, plus any checklist item they could have broken. Do not re-run the
    full walk, and do not re-run `code-review` unless a fix changed logic rather than

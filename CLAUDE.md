@@ -36,8 +36,15 @@ Setup and scripts: [`README.md`](README.md) · vision and architecture:
   rule. Must not: snapshot tests, or component render tests that only assert
   layout — verify visuals in the browser instead. A one-line wrapper around an
   SDK call is not a domain module.
-- After implementing anything, run `yarn lint --write`, `yarn typecheck` and
-  `yarn test`. Fix everything they report, including pre-existing failures.
+- After implementing anything, run `yarn lint --write`, `yarn invariants`,
+  `yarn typecheck` and `yarn test`. Fix everything they report, including
+  pre-existing failures.
+- `yarn invariants` (`scripts/check-invariants.sh`) is where the grep-shaped
+  rules above are actually enforced — style literals, colour literals,
+  `useAppTheme()`, the `@/` alias, `StyleSheet.create` / Tailwind / NativeWind,
+  locale key parity, rules-changed-without-rules-tests, and a sibling test for
+  every module in `models/` and `utils/`. It runs on every PR. Adding a rule to
+  this file that a regex could catch means adding it to that script too.
 - Then run the `/review` skill and ship only on a PASS. Cheap first, expensive
   once: `code-review` (diff, CLAUDE.md invariants) runs and is fixed _before_
   `browser-review` opens a browser at all — one session, one walk, acceptance

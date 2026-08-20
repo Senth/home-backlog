@@ -9,7 +9,12 @@ jobs:
     name: Lint, typecheck, test and build
     runs-on: ubuntu-latest
     steps:
+      # Full history: `yarn invariants` diffs against the PR's base branch to
+      # check that a rules change brought its rules tests with it, and a
+      # shallow single-branch checkout has no base commit to diff against.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -49,6 +54,12 @@ jobs:
         uses: borales/actions-yarn@v5
         with:
           cmd: lint
+
+      # The grep-shaped half of the CLAUDE.md invariants. Deliberately its own
+      # step rather than folded into `lint`, so a failure names the rule that
+      # broke instead of arriving as a biome exit code.
+      - name: Check invariants
+        run: yarn invariants --base origin/${{ github.base_ref || github.event.repository.default_branch }}
 
       - name: Typecheck
         uses: borales/actions-yarn@v5

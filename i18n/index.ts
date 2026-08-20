@@ -2,9 +2,9 @@ import * as Localization from "expo-localization";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
-import enUS from "./locales/en-US.json";
-import svSE from "./locales/sv-SE.json";
-import { fallbackLocale, resolveLocale } from "./resolve-locale";
+import enUS from "@/i18n/locales/en-US.json";
+import svSE from "@/i18n/locales/sv-SE.json";
+import { fallbackLocale, resolveLocale } from "@/i18n/resolve-locale";
 
 export const resources = {
 	"en-US": { translation: enUS },

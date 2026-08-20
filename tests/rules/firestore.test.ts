@@ -38,7 +38,7 @@ import {
 	ownerAndMember,
 	profilesFor,
 	seed,
-} from "./helpers";
+} from "@/tests/rules/helpers";
 
 let env: RulesTestEnvironment;
 

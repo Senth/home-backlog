@@ -6,6 +6,9 @@
 module.exports = {
 	testEnvironment: "node",
 	testMatch: ["<rootDir>/tests/rules/**/*.test.ts"],
+	// This project has no preset, so nothing teaches it the `@/` alias that
+	// tsconfig.json declares and the whole codebase imports by.
+	moduleNameMapper: { "^@/(.*)$": "<rootDir>/$1" },
 	// Every suite talks to the same emulator project, and each one calls
 	// clearFirestore() between tests. Run in parallel and they delete each
 	// other's fixtures mid-assertion, which fails at random.

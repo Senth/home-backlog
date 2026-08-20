@@ -14,7 +14,7 @@ import {
 	seed,
 	storageAnon,
 	storageAs,
-} from "./helpers";
+} from "@/tests/rules/helpers";
 
 let env: RulesTestEnvironment;
 
