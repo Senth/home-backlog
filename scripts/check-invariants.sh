@@ -268,11 +268,20 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 8. Every module in models/ and utils/ has a sibling test
+# 8. Every module in models/ and utils/ has a sibling test — and so does any
+#    hook that hides under components/
 #
 # These directories are domain logic by definition — nothing that is only a
 # one-line wrapper around an SDK call belongs in either. `auth/` is deliberately
 # not in the list: auth/redirect.ts really is that one-line wrapper.
+#
+# The `use-*.ts` clause is the gap this check used to have. A hook is a domain
+# module wherever it lives, and `components/board/use-board-drag.ts` — a whole
+# drag gesture, its geometry and its write — sat outside the two directories and
+# so passed clean. The directory in the middle is optional, or a hook sitting
+# directly in `components/` would be the same hole one level up. `.tsx` is out: that is a component, and CLAUDE.md forbids
+# tests that only assert layout. `hooks/` is out too, deliberately, because half
+# of what is in there is a one-line wrapper around a Firestore listener.
 #
 # Read from the same TREE as everything else, so an untracked test does not
 # satisfy the check locally and then fail in CI, or the reverse.
@@ -281,7 +290,7 @@ declare -A HAVE=()
 for f in "${TREE[@]}"; do HAVE["$f"]=1; done
 missing=""
 for f in "${TREE[@]}"; do
-	[[ "$f" =~ ^(models|utils)/ ]] || continue
+	[[ "$f" =~ ^(models|utils)/ || "$f" =~ ^components/(.*/)?use-[^/]+\.ts$ ]] || continue
 	[[ "$f" =~ \.(test|d)\.tsx?$ ]] && continue
 	base="${f%.*}"
 	[[ -n "${HAVE["$base.test.ts"]:-}${HAVE["$base.test.tsx"]:-}" ]] || missing+="$f"$'\n'

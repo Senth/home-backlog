@@ -713,9 +713,10 @@ discovered.
 
 ## Rank
 
-`rank` is a **fractional index** from day one. Drag and drop
-([#5](https://github.com/Senth/home-backlog/issues/5)) is deliberately post-MVP, so `rank`
-exists now purely to make it a UI change with no data migration.
+`rank` is a **fractional index**, and was from the first document. Drag and drop
+([#5](https://github.com/Senth/home-backlog/issues/5)) was deliberately post-MVP, and this
+is the bet that made it a pure UI change when it arrived: no migration, no new field, no
+new index, and no change to any query or listener.
 
 A rank is ordered **within its `(parentId, status)` column** — that is what a board reorder
 manipulates. Moving a card to another column recomputes its rank from that column's
@@ -741,6 +742,20 @@ Two people offline can still produce the same rank between the same neighbours. 
 sort is therefore **`(rank, id)`**, always, so a tie renders identically on every device and
 the next drag breaks it permanently. No extra field, no write, and it covers ties arriving
 from the REST API or a seeded fixture too.
+
+A tie has one more consequence, met by [dragging](#moving-a-card-by-dragging-it): there is
+no key strictly *between* two equal ranks, and asking `rankBetween` for one throws. A card
+dropped inside a tied run therefore lands just **after** the run rather than inside it, and
+that drop breaks the tie for good.
+
+**A drop ranks against the cards you can see.** Where a column is
+[hiding](#whose-projects-a-board-shows) somebody's personal projects, those cards keep
+their own ranks wherever they fall, and the hidden-card line at the bottom of a column is
+never a drop target.
+
+*Rejected:* ranking a drop against the unfiltered list. It keeps the order stable whether or
+not *Show everyone's projects* is on — at the price of a card landing visibly in one place
+and actually being in another, which is the kind of lie the board refuses everywhere else.
 
 ## `dueDate` is a calendar day, not an instant
 
@@ -923,8 +938,13 @@ renders the same component from that node's frozen `columns`.
   not rendered.
 - A board **always opens on its first column**, rather than restoring the last pane anyone
   was on.
+- Below the breakpoint **every pane is mounted** and one is shown. That is what lets a card
+  [dragged to the screen edge](#crossing-columns-and-two-ways-to-do-it-on-a-phone) walk the
+  board without the gesture dying with the column it came from — see
+  [the traps](#paper-and-react-native-web-traps-this-area-hit).
 
-**The pane on screen is state, set only by a tap on a chip.** It is never read back from a
+**The pane on screen is state, set only by deliberate input** — a tap on a chip, or a card
+held at the screen edge long enough to walk the board one column. It is never read back from a
 scroll position, and that is not a stylistic preference. It was a swipeable pager, and the
 pager is what broke it: a scroll-snapping container is not something the app is the only
 one moving — the browser re-snaps it when content changes and scrolls it to bring a focused
@@ -1013,7 +1033,7 @@ never ambiguous: a card without steps has nothing to drill into, and an empty bo
 as a bug rather than as an empty board. Everything else is on an overflow menu on the card,
 whose button stops the press reaching the card underneath.
 
-The chips are **outlined labels, not Paper's `Chip`** — see [the traps](#five-paper-and-react-native-web-traps-this-area-hit).
+The chips are **outlined labels, not Paper's `Chip`** — see [the traps](#paper-and-react-native-web-traps-this-area-hit).
 
 **The due date appears only when it is overdue or within a week.** A date three months out
 is not asking for anything, and a board where every card carries a date teaches people to
@@ -1098,6 +1118,171 @@ as the destructive action the way `ConfirmDialog` already does elsewhere.
 queue; `Move under…` and `Delete` are disabled with a hint rather than failing after the
 tap.
 
+Nothing on this menu was removed when [dragging](#moving-a-card-by-dragging-it) arrived.
+The drag is an added gesture, and the menu stays the path that works without it — with a
+keyboard, with a screen reader, and for the two actions a drag deliberately cannot do.
+
+### Moving a card by dragging it
+
+A card can be **picked up and dropped**: within a column to reorder it, or onto another
+column to change its status. It is an added gesture on top of [the card
+menu](#the-card-menu), which is unchanged and stays the complete, accessible,
+offline-proof path to everything a drag can do.
+
+The board is where a household's work gets sorted, and sorting it through a menu costs two
+dialogs per card. Eleven cards typed the night before is eleven trips through *Change
+position…*, and that number only grows on a real renovation board.
+
+A drop is exactly the write *Move to → column* already makes — `moveNode(homeId, node,
+status, rank)`, one write, `completedAt` owned in both directions, the parent's `doneCount`
+kept in step, queued offline. **No document, rule, query or listener changes**, which is
+what [`rank`](#rank) was made fractional for.
+
+#### The gesture was built around the person it endangers
+
+`PERSONAS.md` has Ingrid, 71, at 200 % text with one thumb, doing the most scrolling in the
+app. Her scroll is *press → hesitate → move*, and her deliberate tap is long. So:
+
+- **Touch** arms on a press that stays **still for 500 ms**. Movement past a small slop
+  threshold before the hold completes is a scroll, and can never become a drag afterwards.
+  Releasing before it is the tap the card already had.
+- **A pointer** arms on a few pixels of movement with the button down, and never waits.
+
+A 200 ms long-press-anywhere reads both her hesitation and her tap as a drag, so ordinary
+scrolling would move cards she never touched — her stated quit line. The 500 ms hold, the
+movement threshold that turns an arming hold back into a scroll, and the Undo on every drop
+that changes anything are all there because the gesture is otherwise a trap for the person
+with the least ability to get out of it.
+
+*Rejected:* a drag handle on the card. It removes the gesture collision completely and a
+keyboard could reach it — but it puts a third target on a 48 dp card row that already
+carries a tap and an overflow button, and [the card face](#the-card) refuses exactly that
+kind of addition.
+
+*Rejected:* 200 ms with only a movement threshold added. The pause is what misfires, not the
+movement — a still finger resting before a deliberate scroll is precisely that gesture, and
+a threshold does not see it.
+
+*Rejected:* the same hold on pointer and touch. A mouse that waits half a second before a
+card moves reads as lag, on the wide board where the heaviest reordering happens.
+
+#### While a card is held
+
+- It lifts to `elevation.high` and follows the finger at a slight scale, drawn at board
+  level so it is not clipped by the column it is leaving.
+- The other cards **part to leave a card-height gap** at the landing spot. The gap is the
+  indicator: nothing extra is drawn under the hand, which matters when a card is three
+  lines tall at 200 % text and a thumb covers most of the pane.
+- **Every column keeps a named landing area** — *Drop here in Next up* — while a card is
+  up. Two of four columns are empty in a small household, and an empty column is otherwise
+  one line of grey text, which is nothing to aim at.
+- **The rendered order freezes** for the duration. A board is two live listeners, and a
+  card arriving from the garden — or twenty from an agent — would otherwise move the gap
+  out from under the finger, which is a bug nobody can reproduce or describe. Arrivals
+  apply the instant the card lands.
+
+*Rejected:* an insertion line between cards. Cheaper, and nothing reflows during the drag —
+but a hairline is exactly what disappears under a thumb and at 200 % text.
+
+#### Crossing columns, and two ways to do it on a phone
+
+At 720 and above the columns are side by side and a card is dragged straight into one.
+Below the breakpoint only one is on screen, and **both** paths exist because one is not
+enough:
+
+- **Dropping on a chip in the column strip** is the primary one. The strip is already how
+  you change column, so the gesture agrees with a model the board has taught since it
+  shipped — and it never moves the pane, so a bulk sort of six cards out of To do costs no
+  navigation at all. A chip drop appends. The chip under the finger is marked, and the
+  strip draws above the lifted card, which would otherwise cover the very chip it is aimed
+  at.
+- **Holding the card in the narrow zone at a screen edge** switches the visible pane, one
+  column per dwell, with a visible fill so the switch is never a surprise. The first switch
+  takes **750 ms**; each repeat while the finger stays there takes **1250 ms**, the fill
+  restarting visibly. The first is deliberate — you moved there on purpose — and the
+  repeats are the dangerous ones, so they get the longer window to escape.
+
+The pane an edge hold sets is **the same state a chip tap sets**, so [the pane
+rule](#layout) is untouched: after an edge-hold drop the board stays where the drag walked
+it, and after a chip drop it never moved.
+
+*Rejected:* edge-hold as the only path. A thumb naturally rests near the right edge of a
+390 px screen — that *is* the edge zone — so aiming at a gap one-handed would walk a card
+through three columns without meaning to.
+
+*Rejected:* chips as the only path. It works, and it is the safest thing here, but it makes
+the phone the one place a card cannot be put where you want it, which is most of the app's
+use.
+
+*Rejected:* returning to the origin column after every drop, to match the card menu's
+*Move*. The menu has no way to stay put *and* place a card precisely, so its rule is a
+compromise; the drag has two paths and the chip drop already is the stay-put one. Yanking
+someone back after they deliberately walked three panes across reads as the move being
+undone.
+
+#### Nesting stays out, and the drag does not pretend otherwise
+
+Dropping a card onto a card to nest it is **not** part of this. `reparentNode` requires a
+connection, reads a subtree from the server, and has no Undo
+([#79](https://github.com/Senth/home-backlog/issues/79)) — so one gesture would be
+sometimes-offline-capable and sometimes not, which is worse than a gesture that does one
+thing. [*Move under…*](#the-card-menu) stays the only way to nest.
+
+The consequence is designed for rather than ignored: there is **no drop-onto-card target at
+all**. The gesture only ever resolves to a position between cards, and nothing in the drag
+highlights, scales or outlines a card in a way that suggests it could receive another one.
+An affordance that does nothing is worse than no affordance.
+
+*Rejected:* a one-time hint pointing at *Move under…* when somebody releases a card squarely
+over another. Nesting is the app's differentiator and a drag-first reflex can hide it — but
+this app has no onboarding, no coach marks and no "you have seen this" flag, and the first
+one should not be introduced by a message that fires on a gesture the person may have meant
+exactly as it landed.
+
+#### When the card lands
+
+- A drop that changes nothing **writes nothing and says nothing**, and the card settles
+  back — mirroring *Change position…* disabling the slot a card already occupies. A
+  snackbar for a move that did not happen teaches people that the screen lies.
+- Every drop that changes something raises **one snackbar with Undo**, restoring both
+  `status` and `rank`. Across columns it reuses *Moved to ‹column›*; within a column it
+  says which way the card went.
+- Twelve drags in a row raise **one snackbar, replaced and never stacked**, its Undo
+  applying to the most recent drop.
+- A card **deleted under you** while you carried it writes nothing and says
+  *That card is gone.*
+
+A drag queues offline like the *Move* and *Change position…* it shares a write with.
+Nothing here needs a connection and nothing is disabled offline.
+
+#### Accessibility, and the card face
+
+**A drag is never the only path to any board change**, and that is the rule to keep rather
+than a limitation to apologise for. Keyboard and screen-reader users get no drag — they get
+*Move to*, *Change position…* and *Move under…*, which between them do everything a drag
+does and more. The result of a drop is announced through the same snackbar every other move
+already uses. The card keeps its own semantics, and the drag adds no `aria-*` state a
+reader would announce on every card.
+
+The card face gains **nothing**: no handle, no grip dots, no drag affordance of any kind.
+The gesture is invisible until it is used.
+
+#### Where the logic lives
+
+`models/drag.ts` is pure and sibling-tested: `dropPlan({ column, dragged, toStatus,
+toIndex })` returns `{ status, rank, direction }` or **`null` when the drop changes
+nothing**, plus the hit testing — which column a point is over, which slot in it, and which
+screen edge a held card is resting in. The gesture's timings and slop live there too,
+because a millisecond is not a spacing step; the lift scale, the landing height and the
+edge-zone width are layout and live in `theme/tokens.ts`.
+
+`components/board/use-board-drag.ts` owns one drag: the frozen board, the measured
+geometry, the write and the snackbar. **The geometry is measured once, when the card
+lifts**, and hit-tested against for the rest of the drag — the gap that opens at the
+landing spot moves every card below it, so re-measuring would feed the gesture its own
+output and the gap would flicker between two slots. The one exception is an edge hold,
+which changes the pane on purpose and so measures the pane that arrives.
+
 ### Breadcrumbs and navigation
 
 *Projects › Bathroom › Tiling*, above the board, the last crumb being the current board and
@@ -1148,6 +1333,13 @@ away from. Swedish uses verbs where a verb is what a household says.
 `status.research`, `status.planning` and `status.review` — *Find out* / *Undersök*, *Plan* /
 *Planera*, *Check* / *Granska* — went with the statuses themselves in #99, and are gone
 from both locale files.
+
+Dragging obeys the same register: nothing a person reads says *drag*, *drop zone*, *rank*
+or *reorder*, which is the vocabulary the status labels already avoid. What it says is
+where the card went — *Moved up* / *Flyttad uppåt*, *Moved down* / *Flyttad nedåt*, and
+*Drop here in ‹column›* / *Släpp här i ‹column›* on an empty column. Everything else it
+needs was already there: *Moved to ‹column›*, *That card is gone.*, *Undo*, and the
+`status.*` labels the strip and the landing areas name themselves with.
 
 The detail screen is written to one more vocabulary rule: **a household never meets the
 word "board" until it has made one.** So the section is *Steps* / *Steg* and the button is
@@ -1243,7 +1435,9 @@ chips, never a due date that is not asking for anything yet, never a progress ba
 lies. The four detail fields live one tap away rather than on the face, and the chevron and
 `2/5` say whether that tap opens a board or the details. Done grows without bound until
 [#64](https://github.com/Senth/home-backlog/issues/64) archives it and
-[#76](https://github.com/Senth/home-backlog/issues/76) sorts it newest-first.
+[#76](https://github.com/Senth/home-backlog/issues/76) sorts it newest-first. Dragging adds
+nothing to any of it: the card face gains no handle and no grip, and the gesture is
+invisible until it is used.
 
 ### Paper and React Native Web traps this area hit
 
@@ -1278,6 +1472,31 @@ Kept because each one is the kind of thing the next person reintroduces:
   forward the object form at all, so a selected priority chip carried no `aria-pressed` and
   a ticked person no `aria-checked`. The ARIA props (`aria-pressed`, `aria-checked`) are
   what work, and React Native accepts them too, so this is not a web-only spelling.
+- **A browser decides whether a touch belongs to a scroll as the finger lands, and never
+  looks again.** So a card cannot ask for the touch back when a long press completes:
+  `preventDefault()` on the first move is already too late, holding the scrolling ancestors
+  still is too late, and setting `touch-action` at that point is ignored — Chrome takes the
+  pointer away with a `pointercancel` and the card dies in mid-air. All three were measured
+  here, in that order. Declaring `touch-action: none` up front does work, and is what every
+  gesture library does, `react-native-gesture-handler` included — but on this board the
+  cards *are* the column, so that is a column that will not scroll, for the person who
+  scrolls most. The web drag therefore lets the browser win: the scrolling ancestors are
+  held still so the pan moves nothing, and `pointercancel` on a touch is not the end of the
+  drag, because *touch* events keep coming and the finger is still on the card. Native is a
+  separate file and has none of this — there the gesture handler arbitrates with the scroll
+  view properly.
+- **React Native Web recognises a press through its responder system**, on the mouse and
+  touch events that arrive alongside pointer events — and a mouse is not retargeted by
+  pointer capture. Left alone, releasing a dragged card reads as a tap on whatever is under
+  it, usually the card in its new place, and the board navigates into it. The drag holds
+  those events at the document, in the capture phase, while a card is up, and swallows the
+  click that follows a drop.
+- **A touch belongs to the element it landed on for as long as it lasts.** Unmount that
+  element mid-gesture and the events go where nothing can hear them. Both halves of the
+  drag depend on this: the row of a lifted card stays mounted and flattened to nothing
+  rather than being removed, and below the breakpoint every pane is mounted with one
+  visible, so an edge hold that walks the board does not take the card's own element with
+  it.
 - **Paper names its own scrim, in English, and `Dialog` gives you no way to change it.**
   `Menu` takes `overlayAccessibilityLabel`; `Dialog` hard-codes its `Modal`'s to "Close
   modal". A Swedish screen-reader user got that mid-sentence on every dialog in the app.
@@ -1514,8 +1733,20 @@ time a native build happens, which `PROJECT.md` schedules rather than rules out.
 - **Locations** — [#50](https://github.com/Senth/home-backlog/issues/50),
   [#51](https://github.com/Senth/home-backlog/issues/51). The two location fields are
   written and inherited, but nothing maintains them when a *location* moves.
-- **Archive** #64, **Done newest-first** #76, checklists #52, photos #53, blocked-by #66,
-  drag and drop #5 — fields only, or not yet. An archive *cascade* over a subtree carries
+- **Nesting by dropping a card onto a card.** *Move under…* stays the only way to nest, and
+  the drag has no drop-onto-card target at all rather than an affordance that does nothing.
+  Its missing Undo is [#79](https://github.com/Senth/home-backlog/issues/79).
+- **Cancelling a lifted card by dropping it outside the board** —
+  [#129](https://github.com/Senth/home-backlog/issues/129). The Undo on every drop covers
+  the recoverable case; #129 is for the person who would rather not have committed at all.
+- **Selecting several cards and moving them at once** —
+  [#130](https://github.com/Senth/home-backlog/issues/130), by drag *and* from the card
+  menu. Not before single-card drag has been lived with; a multi-select gesture layered on
+  a drag nobody has used yet is a guess. That is where `rankSequence` finally gets a caller
+  in the UI.
+- **A keyboard drag.** The card menu is the keyboard path, by design.
+- **Archive** #64, **Done newest-first** #76, checklists #52, photos #53, blocked-by #66
+  — fields only, or not yet. An archive *cascade* over a subtree carries
   the same top-down constraint as the visibility flip. Checklists and photos are both on
   the document and on no screen, and both belong on the detail screen when they arrive.
 - **Cost and budget fields** — [#70](https://github.com/Senth/home-backlog/issues/70).

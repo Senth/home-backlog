@@ -1,19 +1,26 @@
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, View } from "react-native";
+import { Animated, ScrollView, View } from "react-native";
 import {
 	ActivityIndicator,
 	Button,
 	FAB,
 	Snackbar,
+	Surface,
 	Text,
 } from "react-native-paper";
+import { BoardCard } from "@/components/board/BoardCard";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import { boardHref, detailsHref } from "@/components/board/board-href";
 import { CardMenu, type Notice } from "@/components/board/CardMenu";
 import { ColumnStrip } from "@/components/board/ColumnStrip";
 import { TitleDialog } from "@/components/board/TitleDialog";
+import {
+	boardKey,
+	type ColumnDrag,
+	useBoardDrag,
+} from "@/components/board/use-board-drag";
 import { useAuth } from "@/contexts/AuthContext";
 import { createNode } from "@/data/nodes";
 import {
@@ -24,7 +31,15 @@ import {
 	visibleColumns,
 } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { compactBreakpoint, size, space, touchTarget } from "@/theme/tokens";
+import {
+	compactBreakpoint,
+	contentWidth,
+	drag as dragTokens,
+	elevation,
+	size,
+	space,
+	touchTarget,
+} from "@/theme/tokens";
 
 interface BoardProps {
 	homeId: string;
@@ -125,8 +140,33 @@ export function Board({
 	const column = Math.min(current, shown.length - 1);
 	const onScreen: Status | undefined = shown[column];
 
+	const drag = useBoardDrag({
+		homeId,
+		nodes,
+		shown,
+		onNotice: setNotice,
+		// Only below the breakpoint: above it every column is already on screen,
+		// so there is nowhere for an edge hold to walk to. The pane it sets is the
+		// same state a chip tap sets — deliberate input, never read back from a
+		// scroll position — so the board simply stays where the drag left it.
+		pane: compact
+			? { index: column, count: shown.length, onChange: setCurrent }
+			: undefined,
+	});
+
+	// The frozen order while a card is up, the live one otherwise. A board is two
+	// listeners, and a card arriving mid-drag would move the gap out from under
+	// the finger.
 	const cardsIn = (status: Status) =>
-		nodes.filter((node) => node.status === status);
+		drag.cards.filter((node) => node.status === status);
+
+	const columnDrag = (status: Status): ColumnDrag => ({
+		node: drag.node,
+		gapAt: drag.over?.status === status ? drag.over.index : null,
+		gapHeight: drag.overlay?.height ?? space.none,
+		register: drag.register,
+		handlers: drag.handlers,
+	});
 
 	const hiddenIn = (status: Status) =>
 		hidden.filter((node) => node.status === status).length;
@@ -174,6 +214,8 @@ export function Board({
 
 	return (
 		<View
+			ref={drag.register(boardKey)}
+			collapsable={false}
 			style={{ flex: 1 }}
 			onLayout={(event) => setBoardWidth(event.nativeEvent.layout.width)}
 		>
@@ -234,22 +276,68 @@ export function Board({
 				<>
 					<ColumnStrip
 						columns={shown}
-						nodes={nodes}
+						// The frozen board, like the panes below it: a count that moves
+						// while the pane under it does not is the strip contradicting the
+						// column it names.
+						nodes={drag.cards}
 						current={column}
 						onSelect={setCurrent}
+						register={drag.register}
+						dropOn={drag.over?.via === "chip" ? drag.over.status : null}
 					/>
-					{onScreen === undefined ? null : (
-						<BoardColumn
-							status={onScreen}
-							nodes={cardsIn(onScreen)}
-							width="100%"
-							wide={false}
-							hiddenCount={hiddenIn(onScreen)}
-							onAdd={() => setAdding(onScreen)}
-							onOpen={open}
-							renderMenu={menu}
-						/>
-					)}
+					{shown.map((status) => {
+						const visible = status === onScreen;
+						// The pane a lifted card came from keeps its cards while the
+						// card is in the air, even once the board has walked past it.
+						//
+						// An edge hold moves the board to the next pane, and on a touch
+						// screen the gesture *is* the card's own element: the browser
+						// sends every later touch to the node the finger landed on, and
+						// a node that has been unmounted receives them where nothing can
+						// hear. The card would stick to the screen halfway across the
+						// board. Every other pane stays what it always was — a column
+						// shell with nothing in it.
+						const carrying = drag.node?.status === status;
+
+						return (
+							<View
+								key={status}
+								// A pane that is only mounted is not a pane anybody is on,
+								// and hiding it from eyes alone is not hiding it: a
+								// scrollable box stays in the browser's tab order however
+								// transparent it is, and `aria-hidden` does not take it out
+								// — so Tab walked into three invisible columns and the focus
+								// ring went with it. `display: none` is the one that takes a
+								// subtree out of layout, out of the tab order and out of the
+								// accessibility tree at once.
+								//
+								// The exception is the pane holding a card that is in the
+								// air, which stays laid out at no size because the browser
+								// sends every touch of that drag to an element inside it.
+								style={
+									visible ? { flex: 1 } : carrying ? offScreenPane : hiddenPane
+								}
+								collapsable={false}
+								aria-hidden={!visible}
+								accessibilityElementsHidden={!visible}
+								importantForAccessibility={
+									visible ? "auto" : "no-hide-descendants"
+								}
+							>
+								<BoardColumn
+									status={status}
+									nodes={visible || carrying ? cardsIn(status) : noCards}
+									width="100%"
+									wide={false}
+									hiddenCount={visible ? hiddenIn(status) : undefined}
+									onAdd={() => setAdding(status)}
+									onOpen={open}
+									renderMenu={menu}
+									drag={columnDrag(status)}
+								/>
+							</View>
+						);
+					})}
 				</>
 			) : (
 				<ScrollView
@@ -272,10 +360,62 @@ export function Board({
 							onAdd={() => setAdding(status)}
 							onOpen={open}
 							renderMenu={menu}
+							drag={columnDrag(status)}
 						/>
 					))}
 				</ScrollView>
 			)}
+
+			{/* The edge a held card is resting in, filling as the pane it would
+			    switch to gets closer. The switch is never a surprise, and the fill
+			    restarting visibly is what says a *second* one is coming — those are
+			    the dangerous ones, and they get the longer window. */}
+			{drag.edge === null ? null : (
+				<Animated.View
+					style={{
+						position: "absolute",
+						top: space.none,
+						bottom: space.none,
+						left: drag.edge === "left" ? space.none : undefined,
+						right: drag.edge === "right" ? space.none : undefined,
+						// Filling in from the edge rather than fading: what it is
+						// counting down is a switch, and a bar says how long is left.
+						width: drag.dwell.interpolate({
+							inputRange: [0, 1],
+							outputRange: [space.none, dragTokens.edgeZone],
+						}),
+						backgroundColor: theme.colors.primaryContainer,
+						pointerEvents: "none",
+					}}
+				/>
+			)}
+
+			{/* The card itself, off the board and under the hand. Nothing else is
+			    drawn under the finger — the gap the other cards leave is the whole
+			    indicator, which is what survives a three-line card at 200% text and
+			    a thumb covering most of the pane. */}
+			{drag.node !== null && drag.overlay !== null ? (
+				<Animated.View
+					style={{
+						position: "absolute",
+						// The card is a picture under the hand: everything it passes
+						// over stays reachable by the hit test underneath it.
+						pointerEvents: "none",
+						left: drag.overlay.left,
+						top: drag.overlay.top,
+						width: drag.overlay.width,
+						transform: [
+							{ translateX: drag.offset.x },
+							{ translateY: drag.offset.y },
+							{ scale: dragTokens.lift },
+						],
+					}}
+				>
+					<Surface elevation={elevation.high}>
+						<BoardCard node={drag.node} onOpen={noop} />
+					</Surface>
+				</Animated.View>
+			) : null}
 
 			{/* One FAB below the breakpoint, naming its destination in words. The
 			    column it adds to is the one on screen, so "Add to To do" is a
@@ -288,7 +428,11 @@ export function Board({
 					style={{
 						position: "absolute",
 						right: space.md,
-						bottom: space.md,
+						// Above the snackbar while there is one. Undo is not decoration
+						// here — it is the way back from a gesture that can move a card
+						// somebody did not mean to move — and a FAB parked on top of it
+						// is the one control that must never be covered.
+						bottom: notice === null ? space.md : space.xxl + space.lg,
 					}}
 				/>
 			) : null}
@@ -307,6 +451,14 @@ export function Board({
 			<Snackbar
 				visible={notice !== null}
 				onDismiss={() => setNotice(null)}
+				// Material caps a snackbar well short of the window. Left to stretch,
+				// a wide monitor gets "Moved down" and "Undo" pinned to opposite ends
+				// of two metres of empty bar.
+				style={{
+					maxWidth: contentWidth.snackbar,
+					alignSelf: "center",
+					marginBottom: space.md,
+				}}
 				action={
 					notice?.undo
 						? {
@@ -326,5 +478,26 @@ export function Board({
 }
 
 const newCardDialogTestID = "new-card-dialog";
+
+/** A pane that is mounted and has nothing in the air: gone, in every sense. */
+const hiddenPane = { display: "none" } as const;
+
+/**
+ * The pane a lifted card came from, once the board has walked past it. Not
+ * `display: none`: it has to keep receiving the browser's touches, and it only
+ * does that while it is really laid out.
+ */
+const offScreenPane = {
+	position: "absolute",
+	width: space.none,
+	height: space.none,
+	overflow: "hidden",
+	opacity: 0,
+} as const;
+
+const noCards: Node[] = [];
+
+/** The lifted card is a picture of a card; the tap belongs to the one it left. */
+const noop = () => {};
 
 const noneHidden: Node[] = [];

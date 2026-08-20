@@ -43,7 +43,8 @@ Setup and scripts: [`README.md`](README.md) · vision and architecture:
   rules above are actually enforced — style literals, colour literals,
   `useAppTheme()`, the `@/` alias, `StyleSheet.create` / Tailwind / NativeWind,
   locale key parity, rules-changed-without-rules-tests, and a sibling test for
-  every module in `models/` and `utils/`. It runs on every PR. Adding a rule to
+  every module in `models/` and `utils/` and every `use-*.ts` under
+  `components/`. It runs on every PR. Adding a rule to
   this file that a regex could catch means adding it to that script too.
 - Then run the `/review` skill and ship only on a PASS. Cheap first, expensive
   once: `code-review` (diff, CLAUDE.md invariants) runs and is fixed _before_

@@ -52,6 +52,9 @@ export const contentWidth = {
 	/** Material 3's maximum dialog width. Paper does not clamp it on web, where
 	 *  the surface otherwise stretches the full window. */
 	dialog: 560,
+	/** Material 3's maximum snackbar width, which Paper does not clamp either —
+	 *  on a wide monitor the message and its action end up two metres apart. */
+	snackbar: 600,
 } as const;
 
 /**
@@ -79,6 +82,28 @@ export const size = {
 	 * read as a mark rather than a badge, large enough to survive a dark theme.
 	 */
 	dot: 8,
+} as const;
+
+/**
+ * The look of a card while it is being dragged, and the room a drop needs.
+ *
+ * `lift` is a scale rather than a size: a card picked up grows just enough to
+ * read as *off the board* without the title reflowing under the finger.
+ *
+ * `landing` is the height every column keeps free for a drop even when it is
+ * empty. Two of four columns are empty in a small household, and an empty
+ * column is otherwise one line of grey text — nothing to aim at, and below the
+ * breakpoint no clue that a drop is allowed at all.
+ *
+ * `edgeZone` is how far into the screen the pane-switching strip reaches while
+ * a card is held. Narrow on purpose: a thumb rests near the right edge of a
+ * 390px screen, and that edge is the one a one-handed drag walks into by
+ * accident.
+ */
+export const drag = {
+	lift: 1.04,
+	landing: 72,
+	edgeZone: 36,
 } as const;
 
 /**
