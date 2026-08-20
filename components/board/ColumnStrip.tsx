@@ -3,6 +3,7 @@ import { ScrollView, View } from "react-native";
 import { Chip } from "react-native-paper";
 import { chipKey } from "@/components/board/use-board-drag";
 import type { Node, Status } from "@/models/node";
+import { useAppTheme } from "@/theme";
 import { space } from "@/theme/tokens";
 
 interface ColumnStripProps {
@@ -37,6 +38,7 @@ export function ColumnStrip({
 	dropOn = null,
 }: ColumnStripProps) {
 	const { t } = useTranslation();
+	const theme = useAppTheme();
 
 	return (
 		<ScrollView
@@ -79,10 +81,16 @@ export function ColumnStrip({
 							// not a mark anyone can find while swiping.
 							mode={index === current || marked ? "flat" : "outlined"}
 							selected={index === current || marked}
-							// Lifted while a card is over it, so the mark for "this is where
-							// it would go" is not the same mark as "this is where you are".
-							elevated={marked}
 							showSelectedCheck={false}
+							// "This is where the card would land" is inverted rather than
+							// tinted, because the selected tint is already spoken for by
+							// "this is the pane you are on" — and a household member sorting
+							// one-handed mid-drag reads a colour, not a word. Nothing
+							// changes size, so the strip does not shift under the hand.
+							style={
+								marked ? { backgroundColor: theme.colors.primary } : undefined
+							}
+							selectedColor={marked ? theme.colors.onPrimary : undefined}
 							onPress={() => onSelect(index)}
 							accessibilityState={{ selected: index === current }}
 						>

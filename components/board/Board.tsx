@@ -33,6 +33,7 @@ import {
 import { useAppTheme } from "@/theme";
 import {
 	compactBreakpoint,
+	contentWidth,
 	drag as dragTokens,
 	elevation,
 	size,
@@ -301,13 +302,22 @@ export function Board({
 						return (
 							<View
 								key={status}
-								style={visible ? { flex: 1 } : offScreenPane}
+								// A pane that is only mounted is not a pane anybody is on,
+								// and hiding it from eyes alone is not hiding it: a
+								// scrollable box stays in the browser's tab order however
+								// transparent it is, and `aria-hidden` does not take it out
+								// — so Tab walked into three invisible columns and the focus
+								// ring went with it. `display: none` is the one that takes a
+								// subtree out of layout, out of the tab order and out of the
+								// accessibility tree at once.
+								//
+								// The exception is the pane holding a card that is in the
+								// air, which stays laid out at no size because the browser
+								// sends every touch of that drag to an element inside it.
+								style={
+									visible ? { flex: 1 } : carrying ? offScreenPane : hiddenPane
+								}
 								collapsable={false}
-								// A pane that is only mounted is not a pane anybody is on.
-								// `opacity: 0` hides it from eyes and from nothing else, so
-								// without this a screen reader reads three more columns —
-								// "Nothing here", three times — on every board, to exactly
-								// the person the gesture was designed around.
 								aria-hidden={!visible}
 								accessibilityElementsHidden={!visible}
 								importantForAccessibility={
@@ -418,7 +428,11 @@ export function Board({
 					style={{
 						position: "absolute",
 						right: space.md,
-						bottom: space.md,
+						// Above the snackbar while there is one. Undo is not decoration
+						// here — it is the way back from a gesture that can move a card
+						// somebody did not mean to move — and a FAB parked on top of it
+						// is the one control that must never be covered.
+						bottom: notice === null ? space.md : space.xxl + space.lg,
 					}}
 				/>
 			) : null}
@@ -437,6 +451,14 @@ export function Board({
 			<Snackbar
 				visible={notice !== null}
 				onDismiss={() => setNotice(null)}
+				// Material caps a snackbar well short of the window. Left to stretch,
+				// a wide monitor gets "Moved down" and "Undo" pinned to opposite ends
+				// of two metres of empty bar.
+				style={{
+					maxWidth: contentWidth.snackbar,
+					alignSelf: "center",
+					marginBottom: space.md,
+				}}
 				action={
 					notice?.undo
 						? {
@@ -457,10 +479,13 @@ export function Board({
 
 const newCardDialogTestID = "new-card-dialog";
 
+/** A pane that is mounted and has nothing in the air: gone, in every sense. */
+const hiddenPane = { display: "none" } as const;
+
 /**
- * A pane that is mounted but not the one on screen. Not `display: none`: the
- * pane the drag came from has to keep receiving the browser's touches, and it
- * only does that while it is really laid out.
+ * The pane a lifted card came from, once the board has walked past it. Not
+ * `display: none`: it has to keep receiving the browser's touches, and it only
+ * does that while it is really laid out.
  */
 const offScreenPane = {
 	position: "absolute",

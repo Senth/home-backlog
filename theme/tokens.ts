@@ -52,6 +52,9 @@ export const contentWidth = {
 	/** Material 3's maximum dialog width. Paper does not clamp it on web, where
 	 *  the surface otherwise stretches the full window. */
 	dialog: 560,
+	/** Material 3's maximum snackbar width, which Paper does not clamp either —
+	 *  on a wide monitor the message and its action end up two metres apart. */
+	snackbar: 600,
 } as const;
 
 /**
