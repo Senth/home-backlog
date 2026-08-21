@@ -294,5 +294,54 @@ Written so far:
 
 ## Emulators
 
-The Auth emulator intercepts `signInWithPopup`, so Google sign-in works locally
-without a real Google account.
+The Auth emulator serves its own sign-in widget, so Google sign-in works locally
+without a real Google account. The web flow is a **redirect**, not a popup — see
+`components/auth/GoogleSignIn.web.tsx` — so signing in leaves the app for
+`localhost:8061`, picks an account from `.emulator-seed/auth_export`, and comes
+back. One tab throughout.
+
+### The local stack
+
+`scripts/dev-stack.sh` owns bringing the emulators and the Expo web server up and
+down. Three callers share it: you, `playwright.config.ts` (whose `webServer`
+points at it), and the `/review` skill.
+
+```bash
+scripts/dev-stack.sh up      # idempotent; imports .emulator-seed
+scripts/dev-stack.sh up --no-web   # emulators only
+scripts/dev-stack.sh up --fresh    # boot empty, for rebuilding the fixture
+scripts/dev-stack.sh status  # which ports are listening, and whose they are
+scripts/dev-stack.sh down    # stops only what it started
+```
+
+`up` leaves an already-listening port completely alone, and `status` says whether
+a running stack is `ours` or `external`. That distinction matters for review: a
+stack you did not start holds whatever data the last session left in it, not the
+committed fixture.
+
+Two traps, both of which cost real time before this script existed, and one of
+which cost it again while writing this:
+
+- **Never `pkill -f "firebase emulators:start"`** — or `pkill -f "playwright
+  test"`, for the same reason. The pattern matches the shell running the command,
+  so it kills itself before reaching the target.
+- `yarn` is a wrapper. Killing its pid leaves the `firebase` child holding the
+  ports. Everything is started under `setsid`, so its pid is also its process
+  group id, and `down` signals the group.
+
+### End-to-end tests
+
+`yarn e2e` runs `playwright test` against that stack. It covers what a browser
+agent used to walk by hand: the console, an offline write surviving a reload,
+reload and back, deep links, contrast in both colour schemes, touch-target size,
+horizontal overflow, clipped control labels, and untranslated `sv-SE` strings.
+
+Two things it depends on, both easy to break by regenerating the fixture:
+
+- `e2e/auth.setup.ts` signs in as **Marcus** and opens the home **Huset**. The
+  tab routes bounce to `/homes` without an active home, so a suite that stopped
+  at the home list would assert the wrong screen five times and still go green.
+- `e2e/support/app.ts` waits on a **readiness marker** per route — a seeded title
+  such as `Renovera badrummet`. `networkidle` is not enough: Firestore's
+  WebChannel never goes quiet, so the page is "idle" while the board still shows
+  its empty state.
