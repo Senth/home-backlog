@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Request, Response, Router } from "express";
 import { ApiError, sendError } from "./errors.js";
+import { apiVersion } from "./version.js";
 
 /**
  * The contract, served by the deployment that implements it.
@@ -26,14 +27,33 @@ const skillPath = fileURLToPath(new URL("../SKILL.md", import.meta.url));
 let cached: string | null = null;
 
 /**
+ * The frontmatter line the deployment stamps on the way out.
+ *
+ * Anchored to the start of a line and replaced once, so it hits the
+ * frontmatter's `api-version` and nothing that resembles it further down.
+ */
+const versionLine = /^api-version:.*$/m;
+
+/**
  * Read once per instance, on first request rather than at module load.
  *
  * At load, a missing or unreadable file would throw during startup and take the
  * **whole API** down — every verb, not just this one. Lazily, the failure is a
  * 500 on the one route that needs it.
+ *
+ * The `api-version` in the frontmatter is rewritten from `version.ts` rather
+ * than trusted from the file. An agent decides whether its own copy is stale by
+ * comparing that value against `X-Api-Version`, so the served copy stating a
+ * version the deployment is not running would be worse than stating none: it
+ * would tell a stale reader it was current. Checked in, the two are kept in step
+ * by `yarn invariants`; served, they cannot drift at all.
  */
 function skillMarkdown(): string {
-	if (cached === null) cached = readFileSync(skillPath, "utf8");
+	if (cached === null)
+		cached = readFileSync(skillPath, "utf8").replace(
+			versionLine,
+			`api-version: ${apiVersion}`,
+		);
 	return cached;
 }
 

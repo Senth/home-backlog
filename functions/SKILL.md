@@ -1,3 +1,9 @@
+---
+name: home-backlog-api
+description: Read and write a Home Backlog board over REST — nested kanban nodes where a project, a task and a subtask are the same thing at different depths. Use when asked to research, break down, file or re-prioritise home-improvement work for a household, or when a prompt mentions Home Backlog, hb.senth.org, or an API key beginning hb_. Covers bearer auth, the node verbs, and the atomic bulk create that writes a whole subtree in one undoable call.
+api-version: 1.0.0
+---
+
 # Home Backlog API
 
 Home Backlog is a home-improvement backlog built from nested kanban boards. A project, a
@@ -7,16 +13,25 @@ with children can be opened as a board.
 This API exists so your own agent can do the research and the breaking-down, and write the
 result in. The app deliberately contains no LLM.
 
-Fetch this document from the deployment you are talking to rather than trusting a copy:
+## Staying current
+
+This file states the contract version it was written against, as `api-version` in the
+frontmatter above. Every API response carries an `X-Api-Version` header, which is the
+version the deployment is actually running.
+
+While the two agree, this copy is current and there is nothing to fetch. When they differ,
+this copy is stale:
 
 ```
 GET https://hb.senth.org/api/v1/skill.md
 ```
 
-Every response from the API carries `X-Api-Version`. If it has moved since you last read this,
-re-read it. There is one exception. The hosting platform rejects a body that is not valid JSON
-before this API sees it, and answers with a plain `400` and an HTML body rather than the
-envelope below.
+Follow what that returns and ignore this file. The served copy is stamped by the deployment
+serving it, so its `api-version` is never a claim about somebody else's version.
+
+One answer never carries the header. The hosting platform rejects a body that is not valid
+JSON before this API sees it, and replies with a plain `400` and an HTML body rather than
+the envelope below. A missing header there says nothing about the version.
 
 ## Authentication
 

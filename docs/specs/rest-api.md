@@ -362,6 +362,36 @@ yet. `checklist` ([#52](https://github.com/Senth/home-backlog/issues/52)) and `b
 ([#66](https://github.com/Senth/home-backlog/issues/66)) accept writes today and render
 nowhere, and an agent that populates them deserves to know that before it does.
 
+### The contract is a skill, and a vendored copy is the normal case
+
+`SKILL.md` opens with YAML frontmatter — `name`, `description`, `api-version` — so the file
+is installable as an agent skill rather than only readable as documentation. The
+`description` is the only part a harness loads before the skill is invoked, so it names the
+product, the URL and the `hb_` key prefix: the three things a prompt is likely to contain
+when this file is the right one to open.
+
+The body is complete on its own. An agent that installed it a month ago, or is running with
+no network reachable from its sandbox, still knows the verbs, the error envelope and the
+frozen-column rule. Staleness is handled by a *Staying current* section instead: compare the
+frontmatter's `api-version` against `X-Api-Version` on any response, and re-fetch only when
+they differ. In step, which is nearly always, that costs one header comparison and no
+request at all.
+
+`skill.ts` rewrites the `api-version` line from `version.ts` as it serves the file, so the
+served copy states the version of the deployment serving it and cannot claim otherwise.
+Check 11 in [`check-invariants.sh`](../../scripts/check-invariants.sh) holds the checked-in
+copy to the same value, because that is the copy people read on GitHub and the copy the next
+reader vendors.
+
+*Rejected:* serving a thin `SKILL.md` whose body is an instruction to fetch the real one.
+It reads as the fix for staleness and is worse at everything else. The fetch is a tool call
+the agent may not have, may be refused, or may answer through a summarizer that paraphrases
+the contract — and when it fails there is no contract left to fall back on, only an agent
+guessing at verb names against a live household's data. A fat copy degrades to *slightly
+out of date*; a stub degrades to *nothing*. The real defence against staleness is that the
+contract only grows: a version bump means a new field or a new status code, which an older
+copy does not use and is not broken by.
+
 ## Data and queries
 
 ### `users/{uid}/apiKeys/{keyId}`
