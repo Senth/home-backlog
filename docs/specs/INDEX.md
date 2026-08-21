@@ -6,8 +6,8 @@ decisions are not re-litigated. They are not implementation plans.
 
 A feature does not get its own file. It is written as a temporary per-issue spec under
 [`wip/`](wip/) by the [`new-feature`](../../.claude/skills/new-feature/SKILL.md) skill,
-and its cleanup phase folds that content into the area spec below and deletes the wip
-file. Folding means rewriting the affected sections, never appending a chapter: an area
+and [`/ship`](../../.claude/skills/ship/SKILL.md) folds that content into the area spec
+below and deletes the wip file. Folding means rewriting the affected sections, never appending a chapter: an area
 spec must read as one description of the app. Everything that matters survives the
 rewrite. The *why*, the rejected alternatives, formulas, thresholds, tables.
 

@@ -14,7 +14,9 @@ Home Backlog: an Expo / React Native web-first PWA on Firebase.
 - Every user-facing string goes through `t()`, with `en-US.json` and `sv-SE.json`
   updated in the same change.
 - Domain modules and rules have tests; snapshot and layout-only render tests do not
-  exist, and a one-line wrapper around an SDK call is not a domain module.
+  exist, and a one-line wrapper around an SDK call is not a domain module. `e2e/` is the
+  exception that proves it: those drive a real browser, so asserting layout there is the
+  visual check made exact, not a render test.
 - Local development is always the emulators (`yarn emulators`) — there is no dev
   project, and the alternative is real household data.
 - Firestore queries must be provably safe, not just rule-safe — one deniable document
@@ -26,14 +28,20 @@ Home Backlog: an Expo / React Native web-first PWA on Firebase.
 - The console is clean and its exceptions are a closed list — see "The console" in
   [`platform-offline.md`](docs/specs/platform-offline.md).
 - After implementing: `yarn lint --write`, `yarn invariants`, `yarn typecheck`,
-  `yarn test` — fix everything they report, including pre-existing failures.
+  `yarn test` — fix everything they report, including pre-existing failures. `yarn e2e`
+  is the fifth gate, run by `/review` and CI, and needs `scripts/dev-stack.sh up`.
 - `yarn invariants` ([`scripts/check-invariants.sh`](scripts/check-invariants.sh)) is
   where the greppable rules above are enforced; a new rule here that a regex could
   catch goes in that script too.
-- Then [`/review`](.claude/skills/review/SKILL.md) and ship only on a PASS — the
-  session that wrote the code never signs it off.
-- Features start with [`/new-feature`](.claude/skills/new-feature/SKILL.md), whose
-  cleanup phase folds its wip spec into [`docs/specs/`](docs/specs/INDEX.md).
+- Work runs as five stages, **each in a fresh session** so no stage inherits the last
+  one's context: [`/new-feature`](.claude/skills/new-feature/SKILL.md) ·
+  [`/cleanup`](.claude/skills/cleanup/SKILL.md) · [`/bug`](.claude/skills/bug/SKILL.md)
+  → [`/implement`](.claude/skills/implement/SKILL.md)
+  → [`/review`](.claude/skills/review/SKILL.md)
+  → [`/ship`](.claude/skills/ship/SKILL.md).
+- Ship only on a PASS — the session that wrote the code never signs it off, and
+  `/ship` folds the wip spec into [`docs/specs/`](docs/specs/INDEX.md) and opens a
+  **draft** PR.
 - Work lives in **GitHub Issues + the Kanban board** (project 4), not markdown —
   labels `bug` / `feature` / `idea` / `cleanup`, an `idea` moves to the Idea column,
   and the PR closes it with `Closes #NN`.
