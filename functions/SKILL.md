@@ -1,7 +1,7 @@
 # Home Backlog API
 
-Home Backlog is a home-improvement backlog built from **nested kanban boards**. A project, a
-task and a subtask are the same kind of thing — a *node* — at different depths, and any node
+Home Backlog is a home-improvement backlog built from nested kanban boards. A project, a
+task and a subtask are the same kind of thing, a *node*, at different depths, and any node
 with children can be opened as a board.
 
 This API exists so your own agent can do the research and the breaking-down, and write the
@@ -14,9 +14,9 @@ GET https://hb.senth.org/api/v1/skill.md
 ```
 
 Every response from the API carries `X-Api-Version`. If it has moved since you last read this,
-re-read it. The one exception is a request body that is not valid JSON: the hosting platform
-rejects it before this API sees it, and answers with a plain `400` and an HTML body rather
-than the envelope below.
+re-read it. There is one exception. The hosting platform rejects a body that is not valid JSON
+before this API sees it, and answers with a plain `400` and an HTML body rather than the
+envelope below.
 
 ## Authentication
 
@@ -26,19 +26,13 @@ Send your key as a bearer token:
 Authorization: Bearer hb_<uid>.<keyId>.<secret>
 ```
 
-A key is created by its owner in the app, under **Account → Automations**. It is shown once.
-
-A key **is its owner**. It reaches every home that person is a member of, and gains a new one
-the moment they join one — there is nothing to reconfigure per home. It cannot create a home,
-invite anybody, or accept an invitation; those are human-only.
-
 Every home you write into records that your key wrote there, and every node you create is
 marked as written by an automation. Both are visible to the whole household. That is the
-deal: you get broad access without a permission dance, and the people whose home it is can
+deal. You get broad access without a permission dance, and the people whose home it is can
 see what you did.
 
-Anything wrong with the token — missing, malformed, revoked, wrong secret — is the same
-`401`. It does not tell you which.
+Anything wrong with the token, whether missing, malformed, revoked or the wrong secret, is
+the same `401`. It does not tell you which.
 
 ## Errors
 
@@ -54,15 +48,15 @@ Anything wrong with the token — missing, malformed, revoked, wrong secret — 
 }
 ```
 
-`code` is stable and machine-readable; `message` is English prose for a human reading your
+`code` is stable and machine-readable. `message` is English prose for a human reading your
 logs. `details` appears when more than one thing is wrong, and carries `index` for a bulk
-payload. Messages are **not translated** — they are never shown in the app.
+payload. Messages are not translated, because the app never shows them.
 
 | Status | Means |
 | --- | --- |
 | `400` | The request is wrong. Fix it and resend; it will not become right. |
 | `401` | The key is missing, malformed or revoked. |
-| `404` | No such home or node — **or** one you are not allowed to see. Deliberately the same answer. |
+| `404` | No such home or node, or one you are not allowed to see. Deliberately the same answer. |
 | `409` | You asked for something that needs confirming (`has_children`) or does not fit (`subtree_too_large`). |
 | `412` | `If-Match` did not agree. Read the node again. |
 | `413` | The body is over 1 MB. |
@@ -72,50 +66,45 @@ Nothing is ever half-written. A request that fails writes nothing at all.
 
 ## The shape of the data
 
-A **node** is one card. It has a `parentId` (`null` at the top level) and an `ancestorIds`
+A node is one card. It has a `parentId` (`null` at the top level) and an `ancestorIds`
 path derived from it. Its `columns` field is the column set of the board *its children*
-form — every status, at every depth, fixed when the node is created and then frozen. A
+form. Every status, at every depth, set when the node is created and never changed after. A
 board created by an older version of the app may carry a narrower set.
 
-**A node's `status` must be one of its parent's `columns`.** The API is stricter than the
-database here on purpose: a card in a column its board does not draw can be moved out and
+A node's `status` must be one of its parent's `columns`. The API is stricter than the
+database here on purpose. A card in a column its board does not draw can be moved out and
 never back, and you cannot see the board you are writing to.
 
-The four statuses are `backlog`, `next_up`, `execution`, `done` (which read as *To do ·
-Next up · In progress · Done*). There is deliberately no `blocked` — being blocked is a
-condition a card at any stage can be in, carried by `blockedBy`, not a stage of its own.
-Finding out and checking are ordinary cards you put in `execution`, not statuses.
+The four statuses are `backlog`, `next_up`, `execution`, `done`, which read as *To do ·
+Next up · In progress · Done*.
 
 ### Privacy
 
 A node is `shared` (everyone in the home) or `private` (only its `participantIds`).
-**Visibility is uniform down a subtree**: every child has its parent's visibility, and a
+Visibility is uniform down a subtree. Every child has its parent's visibility, and a
 private child carries all of its parent's participants. A private card therefore cannot live
-inside a shared project — it sits at the top level, or under another private card.
+inside a shared project. It sits at the top level, or under another private card.
 
 You may create a private top-level node, and it gets your key's owner as its only
-participant. You may **not** change `visibility` or `participantIds` on anything that already
+participant. You may not change `visibility` or `participantIds` on anything that already
 exists. A bearer token in an env file must not be able to change who can see a household's
-work; that belongs to a person, in the app.
-
-`assigneeIds` is different and is not restricted: no permission depends on it, so you can
-give somebody a card without being able to grant or revoke anything.
+work. That belongs to a person, in the app.
 
 ## Verbs
 
 ### `GET /v1/homes`
 
-Every home your key's owner is a member of, with its members' uids and display names — which
+Every home your key's owner is a member of, with its members' uids and display names, which
 is what you need to fill `assigneeIds`.
 
 ### `GET /v1/homes/{homeId}/nodes?parentId={nodeId}`
 
 One board: the non-archived children of `nodeId`, in `rank` order. Omit `parentId` for the
-top-level board. Cards you are not allowed to see are simply not there.
+top-level board. Cards you are not allowed to see are not there.
 
 ### `GET /v1/homes/{homeId}/nodes/{nodeId}`
 
-One node. The response carries an `ETag`; send it back as `If-Match` on a later write to be
+One node. The response carries an `ETag`. Send it back as `If-Match` on a later write to be
 told, rather than silently overwrite, if somebody edited the card in between.
 
 ### `POST /v1/homes/{homeId}/nodes`
@@ -126,33 +115,33 @@ One node. `title` is required; everything else is optional.
 { "title": "Replace the bathroom extractor fan", "status": "next_up", "priority": "high" }
 ```
 
-Returns `201` and the created node. `rank` is computed for you at the end of its column.
+Returns `201` and the created node. The API computes `rank` for you, at the end of its column.
 
 ### `PATCH /v1/homes/{homeId}/nodes/{nodeId}`
 
 One update verb, and it owns moving as well as editing:
 
-- send `status` and the card changes column — its `rank` is recomputed for the new column and
-  `completedAt` follows `done` in both directions;
-- send `parentId` and the card moves, taking its whole subtree with it — `ancestorIds` is
-  rewritten all the way down and both parents' counters are fixed.
+- send `status` and the card changes column. The API recomputes its `rank` for the new
+  column, and `completedAt` follows `done` in both directions.
+- send `parentId` and the card moves, taking its whole subtree with it. The API rewrites
+  `ancestorIds` all the way down and fixes both parents' counters.
 
 You do not need to know which of those you are doing. Send the fields you want changed.
 
 ### `DELETE /v1/homes/{homeId}/nodes/{nodeId}`
 
 A node with children answers `409 has_children` and tells you how many. Repeat with
-`?cascade=true` to delete the subtree. That is deliberate: the destructive act has to be
+`?cascade=true` to delete the subtree. That is deliberate. The destructive act has to be
 spelled out rather than stumbled into, and the first answer tells you how much you were about
 to remove.
 
 ### `POST /v1/homes/{homeId}/nodes:bulk`
 
-**The endpoint this API exists for.** One run, one new subtree, one atomic commit.
+This is the endpoint the API exists for. One run, one new subtree, one atomic commit.
 
 Nodes reference each other by a `ref` you choose, valid only inside the request. Exactly one
-node has no `parentRef` — that is the new root. The optional top-level `parentId` attaches
-that root under a node that already exists.
+node has no `parentRef`, and that one is the new root. The optional top-level `parentId`
+attaches that root under a node that already exists.
 
 ```json
 {
@@ -182,18 +171,18 @@ that root under a node that already exists.
 }
 ```
 
-Siblings land in the order you list them, per column. At most **498** nodes per call, because
-it commits as one batch; send the rest as a second run under the same root.
+Siblings land in the order you list them, per column. At most 498 nodes per call, because
+it commits as one batch. Send the rest as a second run under the same root.
 
-One call is one new root, and that is what makes your run undoable: the person whose home it
+One call is one new root, and that is what makes your run undoable. The person whose home it
 is deletes one card, once, and everything you wrote goes with it.
 
-**Retrying safely.** Send an `Idempotency-Key` header — any string of up to 200 characters of
+**Retrying safely.** Send an `Idempotency-Key` header, any string of up to 200 characters of
 letters, digits, `-`, `_`, `.` or `:`. A repeat of the same key returns the same `ids` with
-`Idempotency-Replayed: true` and writes nothing. Runs are remembered for 24 hours.
+`Idempotency-Replayed: true` and writes nothing. The API remembers runs for 24 hours.
 
-**Errors are per index.** The whole payload is validated before anything is written, and you
-get every failure at once:
+**Errors are per index.** The API validates the whole payload before writing anything, and
+you get every failure at once:
 
 ```json
 { "error": { "code": "title_required", "message": "3 nodes in this payload are not valid. Nothing was written.",
@@ -202,41 +191,41 @@ get every failure at once:
 
 ## Fields
 
-Fields you may send are marked ✅. The rest are computed, and sending one is a
-`400 unknown_field` rather than something quietly ignored — you should never believe you
+Fields you may send are marked ✅. The API computes the rest, and sending one is a
+`400 unknown_field` rather than something quietly ignored. You should never believe you
 filed work you did not file.
 
 | Field | Write | Where it shows up |
 | --- | --- | --- |
-| `title` | ✅ | Shown in the app — the card face. |
-| `status` | ✅ | Shown in the app — which column the card is in. |
-| `notes` | ✅ | Shown in the app — the detail screen. Up to 10 000 characters. |
+| `title` | ✅ | Shown in the app as the card face. |
+| `status` | ✅ | Shown in the app. Which column the card is in. |
+| `notes` | ✅ | Shown in the app, on the detail screen. Up to 10 000 characters. |
 | `dueDate` | ✅ | Shown in the app. `YYYY-MM-DD`, a calendar day rather than an instant. |
 | `priority` | ✅ | Shown in the app. `low`, `normal`, `high`, `urgent`, or `null`. |
 | `effort` | ✅ | Shown in the app. `quick`, `hours`, `evening`, `weekend`, `multi_week`, or `null`. |
-| `assigneeIds` | ✅ | Shown in the app — who is doing this card. Uids from `GET /v1/homes`. |
+| `assigneeIds` | ✅ | Shown in the app. Who is doing this card. Uids from `GET /v1/homes`. |
 | `parentId` | ✅ | Structure. On `POST` it places the node; on `PATCH` it moves the subtree. |
 | `visibility` | ✅ on create, at the top level only | Shown in the app. `shared` or `private`. |
 | `blockedBy` | ✅ | **Stored, no screen yet.** Node ids this is waiting on. Nothing renders it today. |
 | `checklist` | ✅ | **Stored, no screen yet.** Up to 200 items. Nothing renders it today. |
-| `participantIds` | ❌ | Shown in the app — whose project this is. Set by a person. |
+| `participantIds` | ❌ | Shown in the app. Whose project this is. Set by a person. |
 | `archived` | ❌ | Hides a card from every board. Nothing in the app can bring one back yet, so nothing here may hide one. |
 | `rank`, `columns`, `ancestorIds`, `childCount`, `doneCount`, `completedAt` | ❌ | Computed. |
 | `createdAt`, `createdBy`, `updatedAt`, `createdVia` | ❌ | Computed. |
 | `locationId`, `locationAncestorIds` | ❌ | See below. |
 | `photos` | ❌ | Uploaded by a person, from a device. |
 
-Everything marked *stored, no screen yet* accepts writes and renders nowhere. Populate it if
+Everything marked **stored, no screen yet** accepts writes and renders nowhere. Populate it if
 it helps you, but do not expect a person to see it.
 
 ## What this API cannot do yet
 
-- **Locations.** Home Backlog has a second hierarchy of places — rooms, floors, garden areas
-  — that work is filed under. It has no verbs here, so **everything you create is unfiled**,
-  and sending `locationId` or `locationAncestorIds` is refused rather than ignored. Nothing
-  could hand you a valid location id today, and an invented one would make "everything in the
-  bathroom" quietly return the wrong set.
-- **Recurring maintenance.** Same: no verbs yet.
+- **Locations.** Home Backlog files work under a second hierarchy of places: rooms, floors,
+  garden areas. It has no verbs here, so everything you create is unfiled, and sending
+  `locationId` or `locationAncestorIds` is refused rather than ignored. Nothing could hand
+  you a valid location id today, and an invented one would make "everything in the bathroom"
+  return the wrong set.
+- **Recurring maintenance.** Same story. No verbs yet.
 - **Changing `visibility` or `participantIds`** on anything that exists. A person does that.
 - **Creating a home, inviting, accepting an invitation.** Human-only.
 - **Custom statuses.** The four are the vocabulary.
@@ -244,11 +233,11 @@ it helps you, but do not expect a person to see it.
 
 ## Practical notes
 
-- **Read before you write.** Fetch the top-level board first: a household usually already has
+- **Read before you write.** Fetch the top-level board first. A household usually already has
   a project your work belongs under, and attaching to it beats creating a ninth root.
 - **Prefer one bulk call to twenty single ones.** It is atomic, it is one undo, and it is one
   row in the household's automations list rather than a stream.
-- **Write plainly.** Your titles are read by whoever lives there, on a phone, possibly at
-  large text. "Order a quieter fan" beats "Procurement: acoustic specification".
+- **Write plainly.** Whoever lives there reads your titles, on a phone, possibly at large
+  text. "Order a quieter fan" beats "Procurement: acoustic specification".
 - **Do not give safety advice you would not sign.** Gas, mains electricity and structural
-  work are jobs to book somebody for; say that instead of describing the procedure.
+  work are jobs to book somebody for. Say that instead of describing the procedure.
