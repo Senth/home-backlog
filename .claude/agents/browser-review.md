@@ -103,8 +103,8 @@ test. Say what you did not reach and why.
   measuring the box.
 
 Check anything you want to raise against the rejected decisions in `docs/PROJECT.md` —
-drag and drop in MVP, freeform columns, derived parent status, multi-location nodes,
-catch-up spawning, cost tracking, an LLM in the app. A re-opened decision goes under
+freeform columns, derived parent status, multi-location nodes, catch-up spawning, cost
+tracking, an LLM in the app. A re-opened decision goes under
 **Out of scope / already decided**, never in the findings.
 
 ## Step 3: rank

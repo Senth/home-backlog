@@ -422,7 +422,7 @@ The UI noun is Home / hem, but the app prefers the home's *own* name, "Huset" or
 two named rows asks nobody to learn anything.
 
 "Home" does not collide with the house in the Locations tree. They are deliberately the
-same thing. The post-MVP dashboard in [`PROJECT.md`](../PROJECT.md) is called Overview /
+same thing. The planned dashboard in [`PROJECT.md`](../PROJECT.md) is called Overview /
 Översikt so it does not take the word.
 
 The `owner` role is labelled Admin / Administratör in the UI while staying `owner` in the

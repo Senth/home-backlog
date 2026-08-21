@@ -9,8 +9,8 @@ Assumes [`boards-and-nodes`](boards-and-nodes.md) and
 
 ## Why
 
-`PROJECT.md` puts the API in MVP and treats it as part of the product rather than an
-add-on. The app deliberately contains no LLM, and inverts the usual design: research and
+`PROJECT.md` puts the API in the core scope and treats it as part of the product rather
+than an add-on. The app deliberately contains no LLM, and inverts the usual design: research and
 task breakdown happen in the user's own agent, which writes the results in. That removes
 per-user inference cost and any liability for generated advice about wiring or gas. An API
 that arrives late would mean the app grows a shape agents cannot express.

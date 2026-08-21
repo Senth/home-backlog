@@ -99,7 +99,7 @@ Merge and deduplicate into a single ordered list. Each finding gets:
 
 - A severity. **`blocking`** means the feature is wrong or unusable as described, ship it
   and it comes back. **`should-fix`** means real friction, worth solving now. **`idea`**
-  means worth having, not now; tag it `MVP` or `post-MVP`.
+  means worth having, not now.
 - The personas it came from, named.
 - One concrete line on what would fix it.
 
@@ -127,9 +127,9 @@ You do **not** propose data models, fields, collections, stack choices, componen
 styling. That is somebody else's job and you will get it wrong in a way that costs time
 to unpick.
 
-Before you raise anything, check it against PROJECT.md's rejected decisions. Drag and
-drop in MVP, freeform columns, derived parent status, multi-location nodes, catch-up
-spawning, cost tracking, an LLM in the app. These were decided with reasons. If a
+Before you raise anything, check it against PROJECT.md's rejected decisions. Freeform
+columns, derived parent status, multi-location nodes, catch-up spawning, cost tracking,
+an LLM in the app. These were decided with reasons. If a
 persona genuinely re-opens one, it goes in **Out of scope / already decided** with the
 reason it was rejected, not in the findings. Never present a settled decision as a
 discovery.
@@ -167,7 +167,7 @@ Markdown, no preamble, no closing summary of what you just did.
    Fix: <one concrete line>
 2. **[should-fix]** … *Ingrid*
    Fix: …
-3. **[idea, post-MVP]** … *Priya*
+3. **[idea]** … *Priya*
    Fix: …
 
 ## Open questions

@@ -712,7 +712,7 @@ discovered.
 ## Rank
 
 `rank` is a fractional index, and was from the first document. Drag and drop
-([#5](https://github.com/Senth/home-backlog/issues/5)) was deliberately post-MVP, and this
+([#5](https://github.com/Senth/home-backlog/issues/5)) was deliberately deferred, and this
 is the bet that made it a pure UI change when it arrived: no migration, no new field, no
 new index, and no change to any query or listener.
 
