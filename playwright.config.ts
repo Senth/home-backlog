@@ -48,9 +48,17 @@ export default defineConfig({
 	timeout: 120_000,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 1 : 0,
-	reporter: process.env.CI
-		? [["github"], ["html", { outputFolder: ".tmp/e2e/report", open: "never" }]]
-		: [["list"], ["html", { outputFolder: ".tmp/e2e/report", open: "never" }]],
+	// `line` everywhere, because this suite takes minutes and silence for minutes
+	// reads as a hang. It prints `[12/107] e2e/craft.spec.ts:34:3 › a title` per
+	// test — one updating line in a terminal, one timestamped line per test in the
+	// Actions log, since Playwright drops the cursor escapes when stdout is not a
+	// TTY. `github` prints nothing to stdio (it only emits annotations), so it
+	// needs a stdio reporter beside it rather than instead of it.
+	reporter: [
+		...(process.env.CI ? [["github"] as const] : []),
+		["line"],
+		["html", { outputFolder: ".tmp/e2e/report", open: "never" }],
+	],
 	outputDir: ".tmp/e2e/results",
 
 	use: {

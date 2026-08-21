@@ -100,9 +100,9 @@ jobs:
       - name: Install Playwright Chromium
         run: yarn playwright install --with-deps chromium
 
-      # `scripts/dev-stack.sh` boots the emulators and the Expo web server, and
-      # playwright.config.ts points its `webServer` at it. The emulator jars are
-      # already cached by the step above this job's rules tests.
+      # `yarn e2e` boots the emulators and the Expo web server through
+      # `scripts/dev-stack.sh`, then runs the suite against it. The emulator jars
+      # are already cached by the step above this job's rules tests.
       - name: End-to-end tests
         uses: borales/actions-yarn@v5
         with:
