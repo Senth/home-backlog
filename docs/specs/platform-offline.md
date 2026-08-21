@@ -337,6 +337,144 @@ silently fall back to English — including for the Swedish speakers this app is
 for. Every other language is treated as English. It is kept free of `expo-localization`
 so it is testable in plain Node.
 
+## The console
+
+The [`/review`](../../.claude/skills/review/SKILL.md) hostile checklist treats the console
+as a gate: an error is `blocking`, a warning is `should-fix`. That only works while the
+console is quiet by default. Three framework warnings fired on every load and a burst of
+red arrives on every network cut, and a console that is never clean teaches the next
+reviewer — human or agent — to read past it, which is exactly how a real error gets waved
+through.
+
+Every source is therefore either silenced or written down here, with a reason. None of it
+is left as folklore.
+
+### Silenced: three framework warnings `react-native-paper` provokes
+
+```
+props.pointerEvents is deprecated. Use style.pointerEvents
+"shadow*" style props are deprecated. Use "boxShadow".
+Animated: `useNativeDriver` is not supported because the native animated module is missing…
+```
+
+All three are `react-native-web` warning about what `react-native-paper` hands it: Paper
+passes a `pointerEvents` prop, builds `Surface`'s elevation out of `shadow*` styles, and
+animates with `useNativeDriver: true`. No code in this repository does any of the three,
+and every one of them is a `warnOnce` — three lines per load, on every screen.
+
+**A version bump does not clear them.** `react-native-web` is on its latest release, and
+`react-native-paper`'s latest passes all three exactly as the pinned version does. The
+`useNativeDriver` one is not even a bug awaiting a fix: there is no native animated module
+on the web, so it is permanent rather than pending.
+
+So they are filtered at the console boundary, in `utils/dev-console.ts`.
+
+**The filter is installed from the repo-root `index.ts`, which is what
+`package.json`'s `main` points at**, ahead of its own `import "expo-router/entry"`. That
+entry-point move is the part of this worth remembering, because the obvious placement does
+not work: a module's imports are all evaluated before its first statement, so installing
+from `app/_layout.tsx` runs *after* the router, its dependencies and everything they touch
+— and the `shadow*` warning fires in there, before the root layout is reached at all. That
+was tried, and the warning still appeared in the browser. `index.ts` is the only position
+upstream of all of it. Nothing else belongs in that file.
+
+*Rejected:* a call in `app/_layout.tsx` (demonstrably too late, above) and a Metro
+`serializer` or Babel transform (a build-time answer to a runtime problem, and far more
+machinery than three `startsWith` calls).
+
+A filter's own danger is hiding a real warning that happens to match, so it is kept as
+narrow as it can be:
+
+- **`console.warn` only.** None of the three is ever logged as an error, and an error is
+  the signal the checklist most needs to keep.
+- **The `useNativeDriver` entry is filtered on the web only.** Off the web those same
+  words are not a deprecation at all: they are `react-native`'s own `NativeAnimatedHelper`
+  reporting that the native animated module is genuinely missing, and the message's own
+  advice is to run `pod install`. Filtering it on iOS or Android would pre-install a blind
+  spot in the one line that explains a broken autolink, on builds this project has not
+  done yet. The other two are `react-native-web`'s and are filtered everywhere.
+- **A long literal prefix, matched with `startsWith`** — never a keyword, never a regular
+  expression. An app message that *quotes* a deprecation while reporting something real
+  still comes through.
+- **`__DEV__` only.** It is false in an `expo export` bundle, so a production build never
+  patches `console` at all.
+- **The first suppression announces itself.** One `[dev-console]` line naming the filter
+  and this document, so a console that is missing three warnings explains why rather than
+  just being quiet.
+
+Each prefix deliberately stops short of its message's trailing advice — "run `bundle exec
+pod install`", "Use `boxShadow`" — because that tail is the part a framework release
+rewords. A filter that fails *open* puts the noise back and somebody re-triages it; one
+that fails closed goes on swallowing whatever the message turned into.
+`utils/dev-console.test.ts` keeps the three messages verbatim for the same reason, and
+`check-invariants.sh` check 9 keeps this from becoming the first of several filters
+scattered around the tree.
+
+*Rejected:* patching Paper through `postinstall` (three separate internals, maintained
+forever, to change nothing a user sees); a regular expression per warning (wider than the
+thing it matches, for no gain when the messages are constants); and filtering
+`console.error` as well (nothing needs it, and it is the one signal that must never be
+lost).
+
+### Not silenced: Firestore's transport on a real network cut
+
+Cutting the network for real — `page.context().setOffline(true)`, not the app's own
+offline state — produces a burst of
+
+```
+net::ERR_INTERNET_DISCONNECTED
+@firebase/firestore: Firestore (…): WebChannelConnection RPC 'Listen' stream … transport errored
+```
+
+while the Firestore listener retries. Nothing user-facing breaks: the offline bar appears,
+controls that need a connection are disabled, cached reads still render, and a reload after
+reconnecting is clean.
+
+**It is expected, and it stays.** Two separate reasons, neither of them laziness:
+
+`net::ERR_INTERNET_DISCONNECTED` is **not reachable from JavaScript**. Chrome's own network
+stack writes it when a request fails — it is not a `console.*` call, so no wrapper, no
+filter and no SDK log level can remove it. Anything done about the second line would leave
+the first one exactly where it is.
+
+The `WebChannelConnection` line is Firestore's own warning, and it is **the same message a
+genuinely unreachable backend produces** — the wrong project, a rules deploy that broke
+`Listen`, an emulator suite nobody started. Silencing it trades three lines during a test
+we deliberately triggered for the only clue in the case where nobody triggered anything.
+
+*Rejected:* `setLogLevel("silent")` under `__DEV__` (removes the second line, cannot touch
+the first, and takes every real Firestore diagnostic with it); and
+`experimentalForceLongPolling` / `experimentalAutoDetectLongPolling` in
+`config/firebase.ts` — those choose which transport the SDK uses, not whether the browser
+logs a socket that died, and forcing long-polling puts a latency cost on every session in
+order to reword a message in a test.
+
+### What "console clean" means
+
+The gate counts **errors and warnings**. Expo's own dev runtime always logs a couple of
+`info` and `log` lines ("Download the React DevTools…", "Running application `main`"), and
+so does the filter above; none of them is a warning and none of them is a finding.
+
+On any screen, in normal use, the count is **0 errors and 0 warnings**. Two things may
+change that, and only these two:
+
+1. **A real network cut** — `page.context().setOffline(true)`, the offline item on the
+   checklist. Firestore's long-poll channel produces a burst of
+   `net::ERR_INTERNET_DISCONNECTED` and `WebChannelConnection … transport errored` while
+   it retries, as above. Expected *during that check only*.
+2. **A backend the browser cannot reach while it still believes it is online** — the
+   emulator suite is not running, the wrong project, a rules deploy that broke `Listen`.
+   Chrome logs `net::ERR_CONNECTION_REFUSED` per attempt, Firestore logs the same
+   `transport errored` warning, and once the `subscribeWithRetry` ladder is spent the app
+   adds its own `Could not load this board, attempt 1: …`. That last one is **not noise**:
+   it is `hooks/use-nodes.ts` reporting a failure the user is being shown on screen, and it
+   is the difference between a board that is empty and a board that could not be read. If
+   you see it and you did not cut the connection, the finding is whatever broke the
+   connection.
+
+Anything else is a finding. The list is closed: a new entry is added here with a reason,
+or the noise is fixed. "Known warnings" is not an answer.
+
 ## Known gaps
 
 - **iOS installed-PWA sign-in is unverified.** The redirect flow plus a same-origin

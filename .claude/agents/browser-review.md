@@ -111,6 +111,30 @@ passing.
    Any error or unhandled rejection is `blocking`. A warning is `should-fix`; note it even
    when it looks pre-existing, because this project fixes pre-existing problems rather
    than inheriting them.
+
+   The console is expected to be **0 errors and 0 warnings**. Expo's dev runtime and the
+   deprecation filter log a couple of `info` / `log` lines on every load — those are not
+   warnings and not findings. Two situations legitimately break the count, and only two:
+
+   - **during check 2 with the network genuinely cut**, `net::ERR_INTERNET_DISCONNECTED`
+     and `WebChannelConnection RPC 'Listen' stream … transport errored` while Firestore
+     retries. Chrome writes the first one itself and no code can intercept it.
+   - **a backend that is unreachable while the browser thinks it is online** — usually the
+     emulator suite is not running. `net::ERR_CONNECTION_REFUSED`, the same
+     `transport errored` warning, then `Could not load this board, attempt 1: …` from the
+     app once the retry ladder is spent.
+
+     **Waive this one only on proof.** The same signature is what a branch that broke the
+     board read produces — a `firestore.rules` change that denies `Listen`, a malformed
+     `sharedBoardQuery` / `participatingBoardQuery`. Before waiving it you must see
+     `net::ERR_CONNECTION_REFUSED` against the emulator port itself, which is the backend
+     being down rather than the branch being wrong. If the connection is up and you did
+     not cut it, the finding is whatever broke it, and it is `blocking`.
+
+   Both are explained in `docs/specs/platform-offline.md` — "The console". A warning you
+   want to wave through as known belongs in that document, with a reason, before it is
+   waved through.
+
 2. **Offline** — the whole point of the PWA. Go offline, perform the feature's main write,
    confirm the UI reflects it and says something honest about being offline, go back
    online, reload, confirm the write actually landed in Firestore. A write that silently
