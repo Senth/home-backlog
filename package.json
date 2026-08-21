@@ -1,6 +1,6 @@
 {
 	"name": "home-backlog",
-	"main": "expo-router/entry",
+	"main": "index.ts",
 	"version": "1.0.0",
 	"private": true,
 	"scripts": {

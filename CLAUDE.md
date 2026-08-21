@@ -44,8 +44,22 @@ Setup and scripts: [`README.md`](README.md) · vision and architecture:
   `useAppTheme()`, the `@/` alias, `StyleSheet.create` / Tailwind / NativeWind,
   locale key parity, rules-changed-without-rules-tests, and a sibling test for
   every module in `models/` and `utils/` and every `use-*.ts` under
-  `components/`. It runs on every PR. Adding a rule to
-  this file that a regex could catch means adding it to that script too.
+  `components/`, and the single-console-filter rule below. It runs on every PR.
+  Adding a rule to this file that a regex could catch means adding it to that
+  script too.
+- **The console is clean, and the exceptions are a closed list.**
+  `utils/dev-console.ts` is the only place that may replace a console method: in
+  `__DEV__` only, on `console.warn` only, it drops the two `react-native-web`
+  deprecations `react-native-paper` provokes plus, **on web only**, the
+  `useNativeDriver` notice — off the web that one is a real missing-module
+  diagnostic. It announces itself once, at `info` level. It is installed from
+  the repo-root `index.ts`, which is what `package.json`'s `main` points at;
+  `app/_layout.tsx` is too late and that is load-bearing. Everything else in
+  the console is a finding — including the Firestore transport errors on a real
+  network cut, which are expected during the offline check and nowhere else.
+  Adding an exception means adding it to "The console" in
+  `docs/specs/platform-offline.md` with a reason; "known warnings" is not an
+  answer.
 - Then run the `/review` skill and ship only on a PASS. Cheap first, expensive
   once: `code-review` (diff, CLAUDE.md invariants) runs and is fixed _before_
   `browser-review` opens a browser at all — one session, one walk, acceptance

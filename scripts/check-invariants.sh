@@ -303,6 +303,28 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 9. Only utils/dev-console.ts may replace a console method
+#
+# That module swallows two react-native-web deprecations, plus the
+# useNativeDriver notice on web only, so that `/review`'s
+# console gate means something again — see docs/specs/platform-offline.md. The
+# whole reason it is safe is that it is *one* narrow, tested, __DEV__-only
+# filter that announces itself. A second one somewhere else, or a widening of
+# this one to console.error, turns "the console is clean" back into a claim
+# nobody can check.
+#
+# Assignment only: reading console.warn, or calling it, is not a filter.
+# ---------------------------------------------------------------------------
+PATTERN='(console|target)\.(warn|error|log|info|debug)[[:space:]]*=[^=]'
+hits=$(scan "${ALL_TS[@]}" | strip_comments | grep -v '^utils/dev-console\.tsx\?:' || true)
+if [[ -n "$hits" ]]; then
+	report 9 "one console filter" FAIL "$hits" \
+		"utils/dev-console.ts is the only place a console method may be replaced."
+else
+	report 9 "one console filter" ok
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 printf '\ncheck-invariants — %d files\n\n' "${#ALL_TS[@]}"
