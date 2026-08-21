@@ -65,7 +65,7 @@ Google account is needed locally.
 | `yarn test`                              | Unit tests                                                             |
 | `yarn test:rules`                        | Security rules against the emulators                                   |
 | `yarn build:web`                         | Static web export to `dist/`                                           |
-| `yarn icons`                             | Regenerate every app and PWA icon                                      |
+| `yarn icons`                             | Regenerate every app and PWA icon from `scripts/gen-icons.py`          |
 
 ## Deployment
 
