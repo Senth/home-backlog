@@ -10,7 +10,7 @@ ends when the spec is confirmed and the issue is In Progress. Implementation hap
 separate session that reads the spec — do not start coding here.
 
 Work lives in **GitHub Issues + the Kanban board** (project 4, columns Backlog / Next Up /
-In progress / Done). `TODO.md` is a generated mirror — never hand-edit it. Context:
+In progress / Done). Context:
 [`docs/PROJECT.md`](../../../docs/PROJECT.md),
 [`docs/PERSONAS.md`](../../../docs/PERSONAS.md),
 [`docs/specs/INDEX.md`](../../../docs/specs/INDEX.md).
@@ -22,7 +22,7 @@ happens rarely and is allowed — do not refuse it.
 ## Step 1 — Identify the feature
 
 `GIT_VANILLA=1 gh issue list --state open --label feature` plus the board's **Next Up**
-column (mirrored in `TODO.md`). Read `docs/PROJECT.md` and `docs/specs/INDEX.md` first.
+column. Read `docs/PROJECT.md` and `docs/specs/INDEX.md` first.
 
 - Feature named by the user → confirm it.
 - Nothing named → propose the top of **Next Up**, falling back to **Backlog**.
@@ -33,7 +33,7 @@ column (mirrored in `TODO.md`). Read `docs/PROJECT.md` and `docs/specs/INDEX.md`
 ## Step 2 — Ask just enough to review
 
 Backlog issues here are one-liners ("Drag and drop on boards"). The `homeowner-review`
-agent stops when its input is too thin, so ask **at most three** questions — only the ones
+agent stops when its input is too thin, so ask **at most four** questions — only the ones
 the personas need in order to be concrete: which screens, which users, what triggers it,
 web or native. Use `AskUserQuestion`.
 
@@ -141,15 +141,6 @@ which become issues.
 
 A feature with no user-visible surface takes `/review --code` and says so.
 
-**If the total comes to more than 8 phases**, stop and offer three options:
-
-1. Keep it as one issue with all phases
-2. Split into 2 issues
-3. Split into the number of issues you think is right, with proposed titles
-
-On a split: create the extra issues (`--label feature`, they land in Backlog), narrow the
-current spec to the confirmed slice, and list the rest under **Out of scope** with links.
-
 ### The cleanup phase
 
 The final phase folds the wip spec into `docs/specs/`:
@@ -160,7 +151,7 @@ The final phase folds the wip spec into `docs/specs/`:
   — never a third file that reads as a diff against the others.
 - **Rewrite, never append.** The area spec must read as one description of current
   behaviour, not as a stack of feature chapters. Delete what is no longer true. Keep every
-  important thing: the *why*, the rejected alternatives, formulas, thresholds, tables.
+  important thing: the _why_, the rejected alternatives, formulas, thresholds, tables.
 - Delete `docs/specs/wip/<nn>-<slug>.md`. Git history keeps it.
 - Add or update the row in `docs/specs/INDEX.md`.
 - **Refresh `.emulator-seed/`** when the feature adds data that every future review should
@@ -193,8 +184,8 @@ until an explicit yes):
 
    If the project scope is missing, `gh auth refresh -s project` and retry; if it still
    fails, say so and ask the user to move the card by hand.
-4. **`yarn todo`** — leave `TODO.md` dirty; the first implementation phase commits it.
-5. Do **not** create a branch, and do **not** commit. Tell the user the spec is ready and
+
+4. Do **not** create a branch, and do **not** commit. Tell the user the spec is ready and
    that a fresh session should implement it, then stop.
 
 ## The Handoff section of the spec
@@ -216,6 +207,7 @@ Written for a session with no context but the file. It states:
   ```
 
   Any check failing means stop, report, and **do not merge**.
+
 - **Committing, opening the PR and merging are an explicit, user-authorized exception to
   the global "never commit without being asked" rule.** The exception is scoped to this
   flow and to this feature's branch — nothing else may be committed or pushed without
