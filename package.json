@@ -16,7 +16,7 @@
 		"test": "jest && yarn --cwd functions test",
 		"postinstall": "yarn --cwd functions install",
 		"test:rules": "firebase emulators:exec --only firestore,storage --project demo-home-backlog-rules \"jest --config jest.rules.config.js\"",
-		"e2e": "playwright test",
+		"e2e": "scripts/dev-stack.sh up && playwright test",
 		"e2e:report": "playwright show-report .tmp/e2e/report",
 		"emulators": "yarn --cwd functions build && firebase emulators:start --project home-backlog",
 		"emulators:seed": "yarn --cwd functions build && firebase emulators:start --project home-backlog --import .emulator-seed",

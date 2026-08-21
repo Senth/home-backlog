@@ -39,6 +39,13 @@ export default defineConfig({
 	// hand, which matters more here than wall-clock time on a suite this size.
 	fullyParallel: false,
 	workers: 1,
+	// Well above the default 30s, for two reasons. The readiness waits in
+	// `e2e/support/app.ts` are themselves 30s, so at the default a test would die
+	// before its own wait could report which marker never appeared — the useful
+	// half of the failure. And on a cold CI machine the first navigation is what
+	// triggers Expo's initial web bundle, which is far slower than any assertion
+	// here.
+	timeout: 120_000,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 1 : 0,
 	reporter: process.env.CI
@@ -89,14 +96,13 @@ export default defineConfig({
 		},
 	],
 
-	webServer: {
-		command: "scripts/dev-stack.sh up",
-		url: WEB,
-		reuseExistingServer: true,
-		// Expo's first web bundle is slow, and a cold emulator start compiles the
-		// functions first.
-		timeout: 300_000,
-		stdout: "pipe",
-		stderr: "pipe",
-	},
+	// No `webServer` block. Playwright expects that command to *stay running* and
+	// treats its exit as the server dying — but `dev-stack.sh up` starts the
+	// emulators and Expo detached and returns as soon as they answer, which is
+	// what makes it idempotent and safe to call against a stack you already have
+	// open. The two models cannot be reconciled without giving the script a
+	// foreground mode that exists only to satisfy a config block.
+	//
+	// So `yarn e2e` boots the stack and then runs the tests. Use that rather than
+	// `npx playwright test`, which assumes the stack is already up.
 });

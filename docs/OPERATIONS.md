@@ -331,7 +331,11 @@ which cost it again while writing this:
 
 ### End-to-end tests
 
-`yarn e2e` runs `playwright test` against that stack. It covers what a browser
+`yarn e2e` brings that stack up and then runs `playwright test` against it. Use
+the yarn script rather than `npx playwright test`, which assumes the stack is
+already running: Playwright's own `webServer` block expects a command that stays
+in the foreground, and `dev-stack.sh up` deliberately returns once the ports
+answer. It covers what a browser
 agent used to walk by hand: the console, an offline write surviving a reload,
 reload and back, deep links, contrast in both colour schemes, touch-target size,
 horizontal overflow, clipped control labels, and untranslated `sv-SE` strings.
