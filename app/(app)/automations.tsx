@@ -23,7 +23,13 @@ import { useOnlineStatus } from "@/hooks/use-online-status";
 import { type ApiKey, type KeyNameError, keyNameError } from "@/models/api-key";
 import { formatElapsed } from "@/models/relative-time";
 import { useAppTheme } from "@/theme";
-import { contentWidth, radius, space, touchTarget } from "@/theme/tokens";
+import {
+	contentWidth,
+	radius,
+	space,
+	touchTarget,
+	touchTargetStyle,
+} from "@/theme/tokens";
 
 const createDialogTestID = "create-api-key-dialog";
 const secretDialogTestID = "api-key-secret-dialog";
@@ -112,6 +118,7 @@ export default function Automations() {
 				    in-app history — a reload, a bookmark, a pasted URL — and there
 				    `back()` is a no-op that leaves the arrow dead. */}
 				<Appbar.BackAction
+					style={touchTargetStyle}
 					accessibilityLabel={t("tab.projects")}
 					onPress={() =>
 						router.canGoBack()

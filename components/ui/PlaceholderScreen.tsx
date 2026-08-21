@@ -5,7 +5,7 @@ import { View } from "react-native";
 import { Appbar, Text } from "react-native-paper";
 import { useHome } from "@/contexts/HomeContext";
 import { useAppTheme } from "@/theme";
-import { space } from "@/theme/tokens";
+import { space, touchTargetStyle } from "@/theme/tokens";
 
 interface PlaceholderScreenProps {
 	body: string;
@@ -47,6 +47,7 @@ export function PlaceholderScreen({
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
 			<Appbar.Header>
 				<Appbar.BackAction
+					style={touchTargetStyle}
 					accessibilityLabel={t("homes.title")}
 					onPress={() => router.push("/homes")}
 				/>

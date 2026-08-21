@@ -21,7 +21,7 @@ import { useNodes } from "@/hooks/use-nodes";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
 import { hasDetails } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { radius, size, space } from "@/theme/tokens";
+import { radius, size, space, touchTargetStyle } from "@/theme/tokens";
 
 const noAncestors: string[] = [];
 
@@ -99,6 +99,7 @@ export default function NodeBoard() {
 				{/* The label names where the arrow *goes*, which is the parent card
 				    at every depth but one — not "Projects". */}
 				<Appbar.BackAction
+					style={touchTargetStyle}
 					accessibilityLabel={t("board.up")}
 					onPress={() => router.dismissTo(boardHref(node?.parentId ?? null))}
 				/>
@@ -114,6 +115,7 @@ export default function NodeBoard() {
 				{node === null ? null : (
 					<View>
 						<Appbar.Action
+							style={touchTargetStyle}
 							icon="information-outline"
 							accessibilityLabel={t("detail.title")}
 							onPress={() => router.push(detailsHref(node.id))}

@@ -20,7 +20,7 @@ import { useNode } from "@/hooks/use-node";
 import { membersOf } from "@/models/home";
 import { efforts, priorities, rootIdOf } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { contentWidth, space } from "@/theme/tokens";
+import { contentWidth, space, touchTargetStyle } from "@/theme/tokens";
 
 /**
  * Everything about one card that is not its title: its due date, priority,
@@ -117,6 +117,7 @@ export default function NodeDetails() {
 				    board X as well, and tapping the mark then back lands you a level
 				    above where you started, with the board you were on gone. */}
 				<Appbar.BackAction
+					style={touchTargetStyle}
 					accessibilityLabel={t("board.up")}
 					onPress={() =>
 						router.canGoBack()

@@ -187,7 +187,18 @@ export default function Homes() {
 								right={(props) => (
 									<View style={{ flexDirection: "row", alignItems: "center" }}>
 										{home.id === activeHome?.id ? (
-											<View accessible accessibilityLabel={t("homes.current")}>
+											// `accessible` alone renders a bare `div` carrying an
+											// `aria-label`, which ARIA forbids on an element with no
+											// role — axe reports `aria-prohibited-attr` and a screen
+											// reader may ignore the label entirely. The check mark is
+											// the only thing marking the current home, so the label
+											// has to survive: giving the wrapper an image role is what
+											// makes the attribute legal on it.
+											<View
+												accessible
+												accessibilityRole="image"
+												accessibilityLabel={t("homes.current")}
+											>
 												<List.Icon
 													{...props}
 													icon="check"
