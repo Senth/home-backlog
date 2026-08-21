@@ -1,7 +1,7 @@
 # Platform, auth and offline
 
 How the app gets onto a device, who it lets in, what language it speaks, and what
-survives losing the connection. Everything here is web behaviour — native builds exist
+survives losing the connection. Everything here is web behaviour. Native builds exist
 in the codebase but are unfinished and unverified
 ([#8](https://github.com/Senth/home-backlog/issues/8)).
 
@@ -24,8 +24,8 @@ is offered.
 ### A redirect, not a popup
 
 Web sign-in is `signInWithRedirect`. `signInWithPopup` is the smaller change and works
-fine in a desktop tab, but it dead-ends in an installed PWA: the popup opens outside the
-app shell and the result may never return to the opener — and the installed PWA is the
+fine in a desktop tab, but it dead-ends in an installed PWA. The popup opens outside the
+app shell and the result may never return to the opener, and the installed PWA is the
 shipping product for the least technical person in [`PERSONAS.md`](../PERSONAS.md). A
 redirect has no popup to block, no opener to lose, and one code path rather than a tab
 path plus a standalone path that is the hardest of the two to test.
@@ -36,27 +36,27 @@ the one that matters is the one never exercised in review).
 
 ### `authDomain` is the app's own origin
 
-A redirect's own weakness is Safari's third-party-storage blocking: Firebase's redirect
+A redirect's own weakness is Safari's third-party-storage blocking. Firebase's redirect
 handler at `<project>.firebaseapp.com` is a different origin from the app, so the
 handshake relies on cross-site storage Safari discards. Pointing `authDomain` at the
-origin the app is served from removes the cross-site leg entirely — Firebase Hosting
+origin the app is served from removes the cross-site leg entirely. Firebase Hosting
 reserves `/__/auth/` on every domain it serves, so `https://hb.senth.org/__/auth/handler`
 is same-origin with the app.
 
 `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN` carries it; with the key unset or blank the app falls
 back to its own origin. The host has to be on the Firebase authorized-domain list *and*
 `https://<host>/__/auth/handler` has to be an authorized redirect URI on the web OAuth
-client — see [`OPERATIONS.md`](../OPERATIONS.md), which also covers the `ENV` secret the
+client. See [`OPERATIONS.md`](../OPERATIONS.md), which also covers the `ENV` secret the
 deploy reads.
 
-Local development is unaffected: `__DEV__` connects the Auth emulator, which serves its
+Local development is unaffected. `__DEV__` connects the Auth emulator, which serves its
 own handler and its own account picker, so sign-in works without a real Google account.
 
 ### The account chooser is always forced
 
 `prompt: 'select_account'` on every sign-in. Without it Google silently reuses whichever
 account the browser saw last, so signing out and back in is a no-op that returns the same
-wrong account — a person with a work and a personal Google account can be locked out of
+wrong account. A person with a work and a personal Google account can be locked out of
 their own board with no way back from inside the app. The cost is one extra tap on a
 screen a persistent session means you see roughly never.
 
@@ -64,10 +64,10 @@ screen a persistent session means you see roughly never.
 
 `initializeAuth` is given the persistence chain explicitly:
 `[indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence]`. That
-array is Firebase's own default, so it changes no behaviour — it states the app's
+array is Firebase's own default, so it changes no behaviour. It states the app's
 headline promise in code, where a future Firebase major cannot quietly alter it.
 
-The chain is kept rather than pinning IndexedDB alone: a browser that blocks IndexedDB
+The chain is kept rather than pinning IndexedDB alone. A browser that blocks IndexedDB
 (a Firefox private window, some embedded webviews) would otherwise fail and make sign-in
 impossible, where the chain degrades to a session-only login that still works.
 
@@ -89,9 +89,10 @@ all come from the `User` object the Auth SDK holds in memory and restores from l
 persistence.
 
 Worth stating rather than leaving implied: the "signed in as" line and the account menu
-are exactly the kind of surface that invites a `users/{uid}` profile document, and adding
-one would put a read on the app's startup path for data the SDK already has. There is no
-`homes` read either — home creation does not exist yet.
+are exactly the kind of feature that invites a `users/{uid}` profile document, and adding
+one would put a read on the app's startup path for data the SDK already has. One read does
+sit on that path, `HomeProvider`'s homes listener, and it belongs to
+[`home-and-members`](home-and-members.md) rather than here. Auth adds nothing beside it.
 
 Consequently there is no query-safety question here, and `firestore.rules` /
 `storage.rules` say nothing about auth beyond `request.auth != null`, which they already
@@ -99,43 +100,43 @@ required.
 
 ## Startup, and never showing the wrong screen
 
-`AuthGate` in `app/_layout.tsx` renders `<SplashScreen />` **in place of** `<Slot />`
-until auth is unresolved — that is, until both the first `onAuthStateChanged` **and**
+`AuthGate` in `app/_layout.tsx` renders `<SplashScreen />` in place of `<Slot />`
+while auth is unresolved, that is, until both the first `onAuthStateChanged` and
 `getRedirectResult()` have settled. No route mounts, so no wrong screen can appear
 underneath.
 
 Awaiting the redirect result is what stops the login screen appearing for half a second
-on the way back from Google: `onAuthStateChanged` can report "no user" before the
+on the way back from Google. `onAuthStateChanged` can report "no user" before the
 redirect credential has been exchanged.
 
 That wait is capped at five seconds. The gate holds the entire router, and Firebase's
 redirect resolver sits on a 30–60 s network timeout, so on lie-fi an already signed-in
-user would stare at a splash — the exact failure the splash was built to prevent, in a
-new costume. After the cap the app routes on what `onAuthStateChanged` alone has said; a
-credential that lands later still arrives through it, which is the only path that can
-sign anyone in. For the same reason the popup/redirect resolver is passed per call rather
-than to `initializeAuth`, which would otherwise load the handler iframe — on that same
-timeout — before the first `onAuthStateChanged` can fire at all.
+user would stare at a splash, which is the exact failure the splash was built to prevent,
+in a new costume. After the cap the app routes on what `onAuthStateChanged` alone has
+said; a credential that lands later still arrives through it, which is the only path that
+can sign anyone in. For the same reason the popup/redirect resolver is passed per call
+rather than to `initializeAuth`, which would otherwise load the handler iframe, on that
+same timeout, before the first `onAuthStateChanged` can fire at all.
 
 The splash is the app mark, a spinner, and nothing else. It deliberately does not
-resemble the login screen — a splash that looks like login is a login screen that keeps
+resemble the login screen. A splash that looks like login is a login screen that keeps
 refusing to accept a tap.
 
-*Rejected:* a Projects skeleton (a signed-out visitor is shown a fake board — the same
-lie in a nicer costume) and a blank surface (indistinguishable from a white-screen
+*Rejected:* a Projects skeleton (a signed-out visitor is shown a fake board, the same
+lie in a nicer costume) and a blank screen (indistinguishable from a white-screen
 crash).
 
-The reason this matters more than it sounds: the app used to redirect to the tabs
-immediately while the gate waited on `loading`, so a signed-out or still-restoring
-visitor saw the empty Projects board flash before being bounced to login. On a phone in a
-garage with no signal, that flash reads as *the app logged me out and my list is gone* —
-and that user opens the app nowhere else.
+This matters more than it sounds. The app used to redirect to the tabs immediately while
+the gate waited on `loading`, so a signed-out or still-restoring visitor saw the empty
+Projects board flash before being bounced to login. On a phone in a garage with no signal,
+that flash reads as *the app logged me out and my list is gone*, and that user opens the
+app nowhere else.
 
 ## The login screen
 
 One layout at every width: a Paper `Surface` centred in a `ScrollView` and clamped to
 `contentWidth.form`, filling the screen below that. The `ScrollView` is what keeps the
-screen usable at large text sizes — content that no longer fits scrolls instead of
+screen usable at large text sizes. Content that no longer fits scrolls instead of
 clipping, and this is the one screen where clipping means locked out.
 
 App mark, title, tagline, then the Google button. A blank line's worth of layout room is
@@ -154,7 +155,7 @@ comes back through `mapAuthError()` into the screen's `Snackbar`.
 wherever the user is.
 
 **Identity is visible without a tap.** Signing in with the wrong Google account produces
-"No projects yet" — identical to a working app with an empty board, and identical to a
+"No projects yet", identical to a working app with an empty board, and identical to a
 broken one. The fix is redundancy at no cost: the empty state names the signed-in
 address, the app bar shows the display name beside the avatar at desktop widths, and the
 menu header carries both. A phone app bar stays avatar-only for room, which is why the
@@ -162,10 +163,10 @@ empty-state line matters most there.
 
 The avatar is the account photo where there is one, with initials underneath it. The
 photo is a `googleusercontent.com` request, so the initials are painted *over* the image
-and removed only once it has loaded: the app bar never shows a hole, never shifts layout,
+and removed only once it has loaded. The app bar never shows a hole, never shifts layout,
 and keeps the initials if the request fails or the user is offline.
 
-**Sign out is two deliberate steps** — the menu holds it, and choosing it opens a
+**Sign out is two deliberate steps.** The menu holds it, and choosing it opens a
 confirmation dialog. For the developer, sign-out is trivially reversible; for a
 71-year-old whose phone has remembered her Google password since 2019, it is total loss
 of access until a family member visits. Google sign-in only is settled, so the mitigation
@@ -176,44 +177,50 @@ far has needed to invent one) and a menu with no dialog (a menu opened by accide
 has the cliff one tap away).
 
 Paper gives a web dialog no focus management at all, so `useModalFocus` traps Tab inside
-it, closes it on Escape, and hands focus back to the avatar that opened it — by ref, not
-by `testID`, because every visited tab stays mounted and three identical `testID`s are in
-the DOM at once. That same fact is why the trigger is `tabIndex={-1}` unless its own
-screen is focused: otherwise the app bars of the screens you are *not* looking at keep
-their place in the tab order, as invisible buttons that still open a menu. (`focusable`
-does not work for this — React Native Web's `Pressable` always writes a `tabIndex` of its
-own, and only falls back to `focusable` when none was given.)
+it, closes it on Escape, and hands focus back to the avatar that opened it, by ref rather
+than by `testID`, because every visited tab stays mounted and three identical `testID`s
+are in the DOM at once. That same fact is why the trigger is `tabIndex={-1}` unless its
+own screen is focused. Otherwise the app bars of the screens you are *not* looking at
+keep their place in the tab order, as invisible buttons that still open a menu.
+(`focusable` does not work for this. React Native Web's `Pressable` always writes a
+`tabIndex` of its own, and only falls back to `focusable` when none was given.)
 
-`useAnchorFocusGuard` undoes a focus nobody asked for: a closed Paper `Menu` focuses its
+`useAnchorFocusGuard` undoes a focus nobody asked for. A closed Paper `Menu` focuses its
 own anchor on mount, so without it every screen and every tab change greeted the user
 with a focus ring drawn around the one control that signs them out. It returns focus
 where it came from rather than blurring, so activating a tab from the keyboard does not
 leave focus on `<body>`.
 
-The dialog's two actions wrap rather than sitting in a row that overflows the card —
-below about 230 px, which is a phone at 200 % zoom, the unwrapped row pushed *Cancel* off
-the screen and left only the destructive answer visible.
+The dialog's two actions wrap rather than sitting in a row that overflows the card. Below
+about 230 px, which is a phone at 200 % zoom, the unwrapped row pushed *Cancel* off the
+screen and left only the destructive answer visible.
 
 The menu is built as an *account* menu with room for more rows, not a sign-out drawer,
-because "Switch home" ([#21](https://github.com/Senth/home-backlog/issues/21)) lands
-here, and API keys will once the REST API exists
-([#7](https://github.com/Senth/home-backlog/issues/7)) — web sign-out will not invalidate
-an agent's key, and the menu should say so when keys exist.
+and that room is now used. An Automations row
+([#7](https://github.com/Senth/home-backlog/issues/7)) sits above the divider and sign out
+stays last; [`rest-api`](rest-api.md) covers what it opens. Switching home went the other
+way. [#21](https://github.com/Senth/home-backlog/issues/21) proposed a row here, and it
+shipped as the `/homes` route instead, a level above the boards rather than a line in the
+menu used to reach it, for the reasons [`home-and-members`](home-and-members.md) records.
+
+One thing the menu still does not say: web sign-out does not invalidate an agent's key.
+Keys exist now, and `account.signOut.body` promises only that you will need to sign in
+again.
 
 ## The keyboard focus ring
 
 One CSS rule, app-wide, in `theme/focus-visible.ts` and injected by `app/+html.tsx` the
-same way that file sources its `theme-color` metas — so the ring colour cannot drift from
+same way that file sources its `theme-color` metas, so the ring colour cannot drift from
 `primary`, in either scheme.
 
 It has to be CSS rather than a style prop. React Native Web compiles `outline*` style
 props to atomic classes with no selector attached, so an outline in a style prop is
-painted *always*: it decorates a control rather than indicating focus, and it leaves a
+painted *always*. It decorates a control rather than indicating focus, and it leaves a
 keyboard user with focused and unfocused rendering identically. React Native has no
 `:focus-visible` equivalent, and `Pressable`'s `focused` state is true for a mouse click
 too, so it would strand a ring behind after every tap.
 
-Chrome's default — a 1 px near-black outline — is what this replaces, because it all but
+Chrome's default, a 1 px near-black outline, is what this replaces, because it all but
 disappears against a dark app bar.
 
 ## Offline
@@ -240,13 +247,13 @@ signed out.
 `useOnlineStatus()` reads `navigator.onLine` and is only ever used to *tell* the user.
 Firestore queues its own writes and is never gated on it.
 
-⚠️ Firebase **Storage has no offline write queue**. Photos captured without signal will
+**Firebase Storage has no offline write queue.** Photos captured without signal will
 need a local pending-upload queue with retry. Nothing has shipped that uploads yet.
 
 ### A listener that fails is not an answer
 
-A Firestore listener is **terminated by its own error callback**. It never reconnects, so
-whatever the screen behind it had at that moment is what it keeps — and a query that has
+A Firestore listener is terminated by its own error callback. It never reconnects, so
+whatever the screen behind it had at that moment is what it keeps, and a query that has
 never answered has nothing. The app cannot tell "nothing arrived" from "there is nothing",
 so a single failed homes query rendered as *You are not in any home yet* to a household
 with a full board, and a failed board rendered as *Nothing here yet. Add the first card.*
@@ -254,41 +261,41 @@ Neither healed without force quitting the app. That is #101, and a cold start on
 waking with an expired token and no connection up yet is exactly where it lives.
 
 Every listener therefore opens through `subscribeWithRetry` in `data/live-query.ts`, which
-re-opens a failed one three times — 400 ms, 1.2 s, 3 s — before reporting anything. The
+re-opens a failed one three times, at 400 ms, 1.2 s and 3 s, before reporting anything. The
 waits grow because the failure it exists for is a connection that is not up *yet*; they
 stop because a splash held longer than about five seconds is its own kind of broken. Every
-snapshot that **answers** restores the budget, so a listener that has been up for an hour is
+snapshot that answers restores the budget, so a listener that has been up for an hour is
 never one failure away from having none left.
 
 Answering is the other half, and the half that bites first. **No listener has to fail for
 #101 to happen.** Firestore raises its first event from the local cache, and on a phone
-whose cache has been evicted that event is empty and `fromCache` — which the app read as
+whose cache has been evicted that event is empty and `fromCache`, which the app read as
 "there is nothing". The splash lifted on no homes, the ladder bounced to `/homes`, and the
 household was told it was not in any home, with no error anywhere for a retry to catch.
-`isQueryAnswer` is that rule written down: a snapshot answers when it is **not empty**, or
-when the **server** sent it, or when we are **offline** and nothing better is coming. The
-last clause is what keeps a genuinely empty board in a shed reading as empty rather than as
-broken. Anything else is held, and held is not free — nothing better within the ladder's
-own budget is a failure like any other.
+`isQueryAnswer` is that rule written down: a snapshot answers when it is not empty, when
+the server sent it, or when we are offline and nothing better is coming. That last clause
+is what keeps a genuinely empty board in a shed reading as empty rather than as broken.
+Anything else is held, and held is not free. Nothing better within the ladder's own budget
+is a failure like any other.
 
 `hooks/use-node.ts` has held this line for a single document since it shipped: *"Not in the
 cache is not not there."* This is that rule for a query, and it needs the same
-`{ includeMetadataChanges: true }` for the same reason — a server confirming that an empty
+`{ includeMetadataChanges: true }` for the same reason. A server confirming that an empty
 result is *still* empty changes nothing but `fromCache`, and Firestore suppresses
 metadata-only events by default. Without it the hold would never release on a board that
 really is empty.
 
-Once the ladder is spent the screen **says so** rather than drawing the result as empty:
+Once the ladder is spent the screen says so rather than drawing the result as empty:
 `useHome()` and `useNodes()` expose `failed` alongside `loading`, the empty state gives way
-to `homes.loadFailed` / `board.loadFailed` / `detail.stepsFailed`, and a **Try again**
-re-opens the listener. On `/homes` the create-a-home button goes with the empty state —
-"could not load your homes" above "create a new home" is the same invitation to a duplicate
+to `homes.loadFailed` / `board.loadFailed` / `detail.stepsFailed`, and a Try again
+re-opens the listener. On `/homes` the create-a-home button goes with the empty state.
+"Could not load your homes" above "create a new home" is the same invitation to a duplicate
 home, and a connection that could not run the query would not carry `createHome` either.
 
 `failed` is never true while `loading` is. A board is two listeners that give up
 independently, so without that a half-connected board would draw a spinner and a failure at
 once, over a Try again that would tear down the half still arriving. For the same reason the
-homes retry does **not** re-raise `loading`: that swaps the whole router for the splash, and
+homes retry does not re-raise `loading`. That swaps the whole router for the splash, and
 a retry that unmounts the screen its own button lives on is barely better than the force
 quit it replaces. It reports itself on the button instead, through `retrying`.
 
@@ -303,26 +310,29 @@ makes sense, instead of leaving it to the browser's mini-infobar. Safari and Fir
 never fire the event, so the card simply does not render there and those users install
 through the browser menu.
 
-`public/sw.js` is a hand-rolled runtime-caching service worker — no Workbox, no precache
+`public/sw.js` is a hand-rolled runtime-caching service worker. No Workbox, no precache
 manifest, no build step. Assets are cached the first time they are used, which is enough
 because the app cannot be used before signing in online once. Its routing table lives in
 `public/sw-routing.js`, free of service worker globals so it can be unit tested directly,
 and `importScripts` also makes the browser check it for updates.
 
-The strategies: writes and cross-origin requests pass through untouched (Firestore, Google
-auth and fonts run their own offline handling, and the Firestore write queue breaks if the
-worker answers for it); **anything under `/__/` is passed straight through**, because
-`authDomain` is now the app's own origin, which puts Firebase's OAuth handler on a path the
-worker would otherwise treat as a navigation and cache as the app shell — sign-in would
-then be answered by a cached copy of the app instead of by Google, and the cached shell
-would be a Google page; navigations are network-first and store the single app shell,
-never a per-route copy, because each exported HTML file names a content-hashed bundle and
-a stale per-route copy would boot old app code on one route while others ran the new
-build; content-hashed assets under `/_expo/static/` are cache-first forever; everything
-else is stale-while-revalidate.
+The strategies:
+
+- Writes and cross-origin requests pass through untouched. Firestore, Google auth and
+  fonts run their own offline handling, and the Firestore write queue breaks if the worker
+  answers for it.
+- Anything under `/__/` is passed straight through. `authDomain` is now the app's own
+  origin, which puts Firebase's OAuth handler on a path the worker would otherwise treat
+  as a navigation and cache as the app shell. Sign-in would then be answered by a cached
+  copy of the app instead of by Google, and the cached shell would be a Google page.
+- Navigations are network-first and store the single app shell, never a per-route copy.
+  Each exported HTML file names a content-hashed bundle, so a stale per-route copy would
+  boot old app code on one route while others ran the new build.
+- Content-hashed assets under `/_expo/static/` are cache-first forever.
+- Everything else is stale-while-revalidate.
 
 The worker never calls `skipWaiting()` on its own. A worker swap reloads the page, and a
-reload loses whatever the user was typing — `UpdateBanner` offers the new build and the
+reload loses whatever the user was typing. `UpdateBanner` offers the new build and the
 user chooses. `VERSION` in `sw.js` is bumped whenever that file changes, so `activate`
 drops the old cache.
 
@@ -331,9 +341,9 @@ drops the old cache.
 `i18next`, initialised from the device locale, with `en-US` and `sv-SE` shipped from day
 one. Both locale files are updated in the same change as any string.
 
-`resolveLocale()` matches on the **language subtag**, not the full tag. Matching the full
-tag is not enough: a device set to `sv`, `sv-FI` or `en-GB` would match no resource and
-silently fall back to English — including for the Swedish speakers this app is partly
+`resolveLocale()` matches on the language subtag, not the full tag. Matching the full
+tag is not enough. A device set to `sv`, `sv-FI` or `en-GB` would match no resource and
+silently fall back to English, including for the Swedish speakers this app is partly
 for. Every other language is treated as English. It is kept free of `expo-localization`
 so it is testable in plain Node.
 
@@ -343,7 +353,7 @@ The [`/review`](../../.claude/skills/review/SKILL.md) hostile checklist treats t
 as a gate: an error is `blocking`, a warning is `should-fix`. That only works while the
 console is quiet by default. Three framework warnings fired on every load and a burst of
 red arrives on every network cut, and a console that is never clean teaches the next
-reviewer — human or agent — to read past it, which is exactly how a real error gets waved
+reviewer, human or agent, to read past it, which is exactly how a real error gets waved
 through.
 
 Every source is therefore either silenced or written down here, with a reason. None of it
@@ -360,22 +370,22 @@ Animated: `useNativeDriver` is not supported because the native animated module 
 All three are `react-native-web` warning about what `react-native-paper` hands it: Paper
 passes a `pointerEvents` prop, builds `Surface`'s elevation out of `shadow*` styles, and
 animates with `useNativeDriver: true`. No code in this repository does any of the three,
-and every one of them is a `warnOnce` — three lines per load, on every screen.
+and every one of them is a `warnOnce`, so it is three lines per load, on every screen.
 
 **A version bump does not clear them.** `react-native-web` is on its latest release, and
 `react-native-paper`'s latest passes all three exactly as the pinned version does. The
-`useNativeDriver` one is not even a bug awaiting a fix: there is no native animated module
+`useNativeDriver` one is not even a bug awaiting a fix. There is no native animated module
 on the web, so it is permanent rather than pending.
 
 So they are filtered at the console boundary, in `utils/dev-console.ts`.
 
 **The filter is installed from the repo-root `index.ts`, which is what
 `package.json`'s `main` points at**, ahead of its own `import "expo-router/entry"`. That
-entry-point move is the part of this worth remembering, because the obvious placement does
-not work: a module's imports are all evaluated before its first statement, so installing
-from `app/_layout.tsx` runs *after* the router, its dependencies and everything they touch
-— and the `shadow*` warning fires in there, before the root layout is reached at all. That
-was tried, and the warning still appeared in the browser. `index.ts` is the only position
+entry-point move is the part worth remembering, because the obvious placement does not
+work. A module's imports are all evaluated before its first statement, so installing from
+`app/_layout.tsx` runs *after* the router, its dependencies and everything they touch, and
+the `shadow*` warning fires in there, before the root layout is reached at all. That was
+tried, and the warning still appeared in the browser. `index.ts` is the only position
 upstream of all of it. Nothing else belongs in that file.
 
 *Rejected:* a call in `app/_layout.tsx` (demonstrably too late, above) and a Metro
@@ -388,12 +398,12 @@ narrow as it can be:
 - **`console.warn` only.** None of the three is ever logged as an error, and an error is
   the signal the checklist most needs to keep.
 - **The `useNativeDriver` entry is filtered on the web only.** Off the web those same
-  words are not a deprecation at all: they are `react-native`'s own `NativeAnimatedHelper`
+  words are not a deprecation at all. They are `react-native`'s own `NativeAnimatedHelper`
   reporting that the native animated module is genuinely missing, and the message's own
   advice is to run `pod install`. Filtering it on iOS or Android would pre-install a blind
   spot in the one line that explains a broken autolink, on builds this project has not
   done yet. The other two are `react-native-web`'s and are filtered everywhere.
-- **A long literal prefix, matched with `startsWith`** — never a keyword, never a regular
+- **A long literal prefix, matched with `startsWith`.** Never a keyword, never a regular
   expression. An app message that *quotes* a deprecation while reporting something real
   still comes through.
 - **`__DEV__` only.** It is false in an `expo export` bundle, so a production build never
@@ -402,8 +412,8 @@ narrow as it can be:
   and this document, so a console that is missing three warnings explains why rather than
   just being quiet.
 
-Each prefix deliberately stops short of its message's trailing advice — "run `bundle exec
-pod install`", "Use `boxShadow`" — because that tail is the part a framework release
+Each prefix deliberately stops short of its message's trailing advice, "run `bundle exec
+pod install`" or "Use `boxShadow`", because that tail is the part a framework release
 rewords. A filter that fails *open* puts the noise back and somebody re-triages it; one
 that fails closed goes on swallowing whatever the message turned into.
 `utils/dev-console.test.ts` keeps the three messages verbatim for the same reason, and
@@ -418,8 +428,8 @@ lost).
 
 ### Not silenced: Firestore's transport on a real network cut
 
-Cutting the network for real — `page.context().setOffline(true)`, not the app's own
-offline state — produces a burst of
+Cutting the network for real, with `page.context().setOffline(true)` rather than the app's
+own offline state, produces a burst of
 
 ```
 net::ERR_INTERNET_DISCONNECTED
@@ -430,44 +440,44 @@ while the Firestore listener retries. Nothing user-facing breaks: the offline ba
 controls that need a connection are disabled, cached reads still render, and a reload after
 reconnecting is clean.
 
-**It is expected, and it stays.** Two separate reasons, neither of them laziness:
+**It is expected, and it stays.** Two separate reasons, neither of them laziness.
 
-`net::ERR_INTERNET_DISCONNECTED` is **not reachable from JavaScript**. Chrome's own network
-stack writes it when a request fails — it is not a `console.*` call, so no wrapper, no
+`net::ERR_INTERNET_DISCONNECTED` is not reachable from JavaScript. Chrome's own network
+stack writes it when a request fails. It is not a `console.*` call, so no wrapper, no
 filter and no SDK log level can remove it. Anything done about the second line would leave
 the first one exactly where it is.
 
-The `WebChannelConnection` line is Firestore's own warning, and it is **the same message a
-genuinely unreachable backend produces** — the wrong project, a rules deploy that broke
+The `WebChannelConnection` line is Firestore's own warning, and it is the same message a
+genuinely unreachable backend produces: the wrong project, a rules deploy that broke
 `Listen`, an emulator suite nobody started. Silencing it trades three lines during a test
 we deliberately triggered for the only clue in the case where nobody triggered anything.
 
 *Rejected:* `setLogLevel("silent")` under `__DEV__` (removes the second line, cannot touch
 the first, and takes every real Firestore diagnostic with it); and
 `experimentalForceLongPolling` / `experimentalAutoDetectLongPolling` in
-`config/firebase.ts` — those choose which transport the SDK uses, not whether the browser
+`config/firebase.ts`. Those choose which transport the SDK uses, not whether the browser
 logs a socket that died, and forcing long-polling puts a latency cost on every session in
 order to reword a message in a test.
 
 ### What "console clean" means
 
-The gate counts **errors and warnings**. Expo's own dev runtime always logs a couple of
+The gate counts errors and warnings. Expo's own dev runtime always logs a couple of
 `info` and `log` lines ("Download the React DevTools…", "Running application `main`"), and
 so does the filter above; none of them is a warning and none of them is a finding.
 
 On any screen, in normal use, the count is **0 errors and 0 warnings**. Two things may
 change that, and only these two:
 
-1. **A real network cut** — `page.context().setOffline(true)`, the offline item on the
+1. **A real network cut.** `page.context().setOffline(true)`, the offline item on the
    checklist. Firestore's long-poll channel produces a burst of
    `net::ERR_INTERNET_DISCONNECTED` and `WebChannelConnection … transport errored` while
    it retries, as above. Expected *during that check only*.
-2. **A backend the browser cannot reach while it still believes it is online** — the
+2. **A backend the browser cannot reach while it still believes it is online.** The
    emulator suite is not running, the wrong project, a rules deploy that broke `Listen`.
    Chrome logs `net::ERR_CONNECTION_REFUSED` per attempt, Firestore logs the same
    `transport errored` warning, and once the `subscribeWithRetry` ladder is spent the app
-   adds its own `Could not load this board, attempt 1: …`. That last one is **not noise**:
-   it is `hooks/use-nodes.ts` reporting a failure the user is being shown on screen, and it
+   adds its own `Could not load this board, attempt 1: …`. That last one is not noise.
+   It is `hooks/use-nodes.ts` reporting a failure the user is being shown on screen, and it
    is the difference between a board that is empty and a board that could not be read. If
    you see it and you did not cut the connection, the finding is whatever broke the
    connection.
@@ -488,16 +498,16 @@ or the noise is fixed. "Known warnings" is not an answer.
   relaunch. Both are [#8](https://github.com/Senth/home-backlog/issues/8).
 - **`isQueryAnswer`'s offline clause cannot fire on native.** `isOnline()` returns `true`
   off the web, and native runs on the in-memory cache, so a board opened offline there is
-  always `empty && fromCache && online` — it holds for the ladder's budget and then says
+  always `empty && fromCache && online`. It holds for the ladder's budget and then says
   "Could not load this board", which is the exact lie the clause exists to prevent. It
   costs nothing today because native does not ship; it wants a real connectivity read
   (`expo-network` or `@react-native-community/netinfo`) whenever it does.
-- **Switching between homes** — [#21](https://github.com/Senth/home-backlog/issues/21).
-  The account menu is shaped to hold the row; it does not hold it yet.
-- **Telling a visitor what the app is, or who invited them** —
+- **Sign-out does not mention API keys.** Signing out of the web app leaves every key in
+  [`rest-api`](rest-api.md) working, and the confirmation dialog says nothing about it.
+- **Telling a visitor what the app is, or who invited them**,
   [#22](https://github.com/Senth/home-backlog/issues/22). Layout room is reserved.
 - **The redirect's edges are the browser's, not ours.** A back-navigation straight after
   signing in leaves the app for Google's chooser rather than returning to the board, and
   losing the connection between the tap and the handler lands on the browser's own error
-  page — the app is not running at that moment, so it cannot say anything better. Both
+  page. The app is not running at that moment, so it cannot say anything better. Both
   are known and unhandled.
