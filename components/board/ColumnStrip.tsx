@@ -4,7 +4,7 @@ import { Chip } from "react-native-paper";
 import { chipKey } from "@/components/board/use-board-drag";
 import type { Node, Status } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { space } from "@/theme/tokens";
+import { outlinedTouchTarget, space } from "@/theme/tokens";
 
 interface ColumnStripProps {
 	columns: readonly Status[];
@@ -87,9 +87,18 @@ export function ColumnStrip({
 							// "this is the pane you are on" — and a household member sorting
 							// one-handed mid-drag reads a colour, not a word. Nothing
 							// changes size, so the strip does not shift under the hand.
-							style={
-								marked ? { backgroundColor: theme.colors.primary } : undefined
-							}
+							// Paper's chip is 32dp tall, under the project's 48, and it is
+							// the primary way across a board on a phone — exactly the control
+							// that must not be a small target. `outlinedTouchTarget` rather
+							// than `touchTarget` because the chip keeps a 1dp border in both
+							// modes and measures it inside its own height; see the token.
+							style={[
+								{
+									minHeight: outlinedTouchTarget,
+									justifyContent: "center",
+								},
+								marked ? { backgroundColor: theme.colors.primary } : null,
+							]}
 							selectedColor={marked ? theme.colors.onPrimary : undefined}
 							onPress={() => onSelect(index)}
 							accessibilityState={{ selected: index === current }}

@@ -84,6 +84,38 @@ jobs:
       - name: Export environment variables
         run: echo "${{ secrets.ENV }}" > .env.local
 
+      # The checks that used to be a browser agent's checklist, and are now
+      # assertions: the console, an offline write surviving a reload, reload and
+      # back, deep links, contrast in both colour schemes, touch targets, and
+      # untranslated strings in sv-SE. `browser-review` keeps only what a machine
+      # cannot decide. Chromium is cached because the download is ~115 MB.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright Chromium
+        run: yarn playwright install --with-deps chromium
+
+      # `yarn e2e` boots the emulators and the Expo web server through
+      # `scripts/dev-stack.sh`, then runs the suite against it. The emulator jars
+      # are already cached by the step above this job's rules tests.
+      - name: End-to-end tests
+        uses: borales/actions-yarn@v5
+        with:
+          cmd: e2e
+
+      - name: Upload e2e report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: .tmp/e2e/report
+          retention-days: 7
+
       - name: Build web
         uses: borales/actions-yarn@v5
         with:

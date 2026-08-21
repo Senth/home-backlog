@@ -410,8 +410,9 @@ export const maxPhotos = 50;
  * Rank
  * ---------------------------------------------------------------------------
  *
- * Drag and drop (#5) is post-MVP; `rank` exists now purely so that adding it is
- * a UI change with no data migration.
+ * Drag and drop (#5) landed after the card menu's move sheet; `rank` existed
+ * from the first document purely so that adding it was a UI change with no data
+ * migration.
  *
  * A rank is ordered **within its `(parentId, status)` column** — that is what a
  * board reorder manipulates. Moving a card to another column recomputes its

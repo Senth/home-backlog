@@ -22,7 +22,12 @@ import { renameHome } from "@/data/homes";
 import { useHomeInvites } from "@/hooks/use-home-invites";
 import { type HomeNameError, homeNameError } from "@/models/home";
 import { useAppTheme } from "@/theme";
-import { contentWidth, space, touchTarget } from "@/theme/tokens";
+import {
+	contentWidth,
+	space,
+	touchTarget,
+	touchTargetStyle,
+} from "@/theme/tokens";
 
 /**
  * Managing one home: its name, its people, and the two ways out of it.
@@ -89,6 +94,7 @@ export default function ManageHome() {
 				    any navigator" and leaves the arrow dead. The destination is the
 				    same either way, so name it. */}
 				<Appbar.BackAction
+					style={touchTargetStyle}
 					accessibilityLabel={t("homes.title")}
 					onPress={() => router.replace("/homes")}
 				/>

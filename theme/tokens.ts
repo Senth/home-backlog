@@ -136,6 +136,20 @@ export const border = {
 export const touchTarget = 48;
 
 /**
+ * The minimum tappable box, as a style prop.
+ *
+ * Paper's `IconButton` and `Appbar.Action` render a 40dp container, under this
+ * project's 48. Neither takes a prop for the container — `size` changes the
+ * glyph inside it — so every call site carries this style instead. Missing one
+ * is not a judgement call any more: `e2e/craft.spec.ts` measures every
+ * interactive element on every route and fails the build.
+ */
+export const touchTargetStyle = {
+	width: touchTarget,
+	height: touchTarget,
+} as const;
+
+/**
  * `touchTarget` for a control that carries an outline — Paper's `Chip`, which
  * keeps a 1dp border in **both** its flat and outlined modes.
  *

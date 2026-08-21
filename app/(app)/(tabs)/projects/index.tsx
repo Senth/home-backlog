@@ -12,6 +12,7 @@ import { useNodes } from "@/hooks/use-nodes";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
 import { defaultColumns } from "@/models/node";
 import { useAppTheme } from "@/theme";
+import { touchTargetStyle } from "@/theme/tokens";
 
 /**
  * The board you land on: every root-level card.
@@ -49,6 +50,7 @@ export default function Projects() {
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
 			<Appbar.Header>
 				<Appbar.BackAction
+					style={touchTargetStyle}
 					accessibilityLabel={t("homes.title")}
 					onPress={() => router.push("/homes")}
 				/>

@@ -59,10 +59,11 @@ multi-tenancy, sharing, or store release.
 - **One unified `Node` type**, infinitely nestable. A project, a task and a subtask are
   the same shape at different depths; any node with children can be opened as a board.
 - **No hard depth limit.** Depth is derived, not declared.
-- Node fields (MVP): `title`, `status`, `rank`, `parentId`, `ancestorIds[]`, `locationId`,
+- Node fields: `title`, `status`, `rank`, `parentId`, `ancestorIds[]`, `locationId`,
   `locationAncestorIds[]`, `participantIds[]`, `visibility`, `dueDate`, `priority`,
   `blockedBy[]`, `notes`, `checklist[]`, `effort`, `photos[]`.
-- **Not in MVP**: cost/budget tracking. Notes absorb it until the real need is understood.
+- **Deliberately absent**: cost/budget tracking. Notes absorb it until the real need is
+  understood ([#70](https://github.com/Senth/home-backlog/issues/70)).
 
 ### Statuses & columns
 
@@ -80,7 +81,7 @@ multi-tenancy, sharing, or store release.
   `blockedBy[]` ([#66](https://github.com/Senth/home-backlog/issues/66)), not a stage of
   work. The card stays in its real column and shows a mark.
 - A **board configures which statuses it shows**, in what order, with optional relabels.
-  It cannot invent new ones in MVP.
+  It cannot invent new ones yet.
 - Rationale: cross-board queries — the dashboard, the suggestion engine, "what's in
   progress anywhere" — only work if status is globally comparable. Freeform columns would
   each need a semantic flag, which is this design wearing a disguise.
@@ -107,7 +108,7 @@ multi-tenancy, sharing, or store release.
 - **One location per node.** Work spanning several rooms is modelled as a project at the
   common ancestor with a child per room — the shape the app is already good at. Rejected
   multi-location because it makes roll-up counts ambiguous.
-- **Blank start in MVP** — no seeded room templates, no starter maintenance library.
+- **Blank start** — no seeded room templates, no starter maintenance library.
   Revisit once there is real usage to learn from.
 
 ### Household, participants & privacy
@@ -178,7 +179,7 @@ multi-tenancy, sharing, or store release.
 ### AI / API
 
 - **No LLM inside the app.** Instead, the app is made drivable *by* agents.
-- **REST API on Cloud Functions, in MVP**, with hashed API keys **scoped to a user, not to a
+- **REST API on Cloud Functions**, with hashed API keys **scoped to a user, not to a
   home**, plus a `SKILL.md` documenting the verbs and hierarchy rules so an agent can
   populate whole project trees, and a bulk subtree create that commits atomically. A person
   is in several homes — the house, the cabin, a parent's place — so per-home keys would mean
@@ -209,16 +210,19 @@ multi-tenancy, sharing, or store release.
 
 ### Drag & drop
 
-- **Not in MVP.** Card tap opens a move sheet ("Move to → column") plus reorder controls;
-  the board is a horizontal pager, one column per screen on phone.
-- Cross-column drag with auto-scroll, drop placeholders and rank recalculation in React
-  Native is a multi-week problem and a classic place where solo projects stall.
-- **`rank` uses fractional / lexicographic ordering from day one**, so adding real drag and
-  drop later is a pure UI change with no data migration. Tracked as a post-MVP issue.
+- **Cards move two ways**: dragging them, and a move sheet ("Move to → column") plus
+  reorder controls in the card menu. The sheet came first and stays — it is the path that
+  works for a screen reader, and for a thumb that finds the gesture awkward.
+- Deliberately **deferred, not skipped**. Cross-column drag with auto-scroll, drop
+  placeholders and rank recalculation in React Native is a multi-week problem and a classic
+  place where solo projects stall, so the sheet shipped first and drag followed
+  ([#5](https://github.com/Senth/home-backlog/issues/5)).
+- **`rank` uses fractional / lexicographic ordering from day one**, which is what made
+  adding drag a pure UI change with no data migration.
 
 ## Scope
 
-### MVP
+### Core
 
 1. Projects board with infinite drill-down and breadcrumb navigation.
 2. Location tree view — sidebar/drawer navigation, showing work rolled up from descendants.
@@ -226,17 +230,16 @@ multi-tenancy, sharing, or store release.
 4. Auth, home creation, member invite.
 5. REST API + `SKILL.md` for agent access.
 
-### Post-MVP, roughly in order
+### Beyond the core, roughly in order
 
 1. Overview: ongoing projects, upcoming maintenance, 30-day completed summary. Named
    *Overview* / *Översikt* rather than "dashboard home", because **home** is the
    household you are in — see [`specs/home-and-members.md`](specs/home-and-members.md).
 2. Next-task suggestion engine (needs real data before its weights mean anything).
-3. Drag and drop on boards.
-4. Calendar view for recurring tasks.
-5. Starter location templates and a curated maintenance library.
-6. Custom user-defined statuses.
-7. Cost / budget tracking.
+3. Calendar view for recurring tasks.
+4. Starter location templates and a curated maintenance library.
+5. Custom user-defined statuses.
+6. Cost / budget tracking.
 
 ## Architecture Principles
 

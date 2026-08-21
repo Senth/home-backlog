@@ -1,11 +1,14 @@
 import "@/i18n";
 
 import { Slot } from "expo-router";
+import Head from "expo-router/head";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PaperProvider } from "react-native-paper";
 import { OfflineBar } from "@/components/ui/OfflineBar";
+import { PaperIcon } from "@/components/ui/PaperIcon";
 import { SplashScreen } from "@/components/ui/SplashScreen";
 import { UpdateBanner } from "@/components/ui/UpdateBanner";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -35,6 +38,7 @@ function AuthGate() {
 
 export default function RootLayout() {
 	const colorScheme = useColorScheme();
+	const { t } = useTranslation();
 
 	// The gesture root has to be the outermost view in the tree, above the
 	// portals Paper's dialogs and menus render into: a card dragged on a board
@@ -42,7 +46,21 @@ export default function RootLayout() {
 	// never recognised at all.
 	return (
 		<GestureHandlerRootView style={{ flex: 1 }}>
-			<PaperProvider theme={colorScheme === "dark" ? darkTheme : lightTheme}>
+			{/* Expo Router manages the document title through react-helmet, which
+			    renders an *empty* `<title>` when no screen sets one — so the page
+			    had no accessible name and a screen reader announced the URL. A
+			    static title in `+html.tsx` cannot fix it: helmet's element wins.
+			    Per-screen titles belong to the screens; this is the fallback. */}
+			<Head>
+				<title>{t("app.name")}</title>
+			</Head>
+			<PaperProvider
+				theme={colorScheme === "dark" ? darkTheme : lightTheme}
+				// Paper's icons are decorative glyphs that React Native Web exposes
+				// as unnamed `role="img"` elements. `PaperIcon` hides them, leaving
+				// the control's own label as the only thing announced.
+				settings={{ icon: PaperIcon }}
+			>
 				<AuthProvider>
 					<AuthGate />
 					<StatusBar style="auto" />

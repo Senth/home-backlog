@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Appbar, Menu } from "react-native-paper";
+import { touchTargetStyle } from "@/theme/tokens";
 
 interface BoardMenuProps {
 	showEveryone: boolean;
@@ -34,6 +35,7 @@ export function BoardMenu({ showEveryone, onShowEveryone }: BoardMenuProps) {
 			overlayAccessibilityLabel={t("common.closeMenu")}
 			anchor={
 				<Appbar.Action
+					style={touchTargetStyle}
 					icon="dots-vertical"
 					accessibilityLabel={t("board.boardActions")}
 					onPress={() => setOpen(true)}

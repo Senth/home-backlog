@@ -68,7 +68,13 @@ ALL_TS=()   # checks 4-5: every app-side file, theme included
 for f in "${TREE[@]}"; do
 	[[ "$f" =~ ^(functions|dist|node_modules)/ ]] && continue
 	ALL_TS+=("$f")
-	[[ "$f" =~ ^(theme|scripts)/ ]] && continue
+	# `e2e/` and `playwright.config.ts` are excluded from the *style* checks
+	# below, not from the alias check above. A viewport of 390x844 and a
+	# `minimum: 48` threshold are the numbers under test — the tokens are what
+	# they are asserted against, so a token here would be the test grading its
+	# own homework.
+	[[ "$f" =~ ^(theme|scripts|e2e)/ ]] && continue
+	[[ "$f" == "playwright.config.ts" ]] && continue
 	SRC+=("$f")
 done
 
@@ -322,6 +328,74 @@ if [[ -n "$hits" ]]; then
 		"utils/dev-console.ts is the only place a console method may be replaced."
 else
 	report 9 "one console filter" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 10. Every [test] acceptance claim has a matching e2e test
+#
+# A wip spec's Acceptance section numbers what the feature must do, and tags
+# each claim `[test]` (assertable in a browser) or `[eye]` (a judgement, left to
+# browser-review). A `[test]` claim is a promise that an `e2e/` spec asserts it,
+# and that promise is the only reason the review gate stopped walking acceptance
+# by hand — see .claude/skills/review/SKILL.md.
+#
+# The check is deliberately shallow: it matches the claim *number*, as
+# `test("<n>: ...")` or `test("<n> ...")`, not the wording. Whether the test
+# asserts the claim rather than something adjacent is a judgement, and that one
+# belongs to diff-review. This catches the claim nobody wrote a test for at all,
+# which is the failure that actually happens.
+#
+# Only wip specs are checked. `/ship` deletes the Acceptance section when it
+# folds a spec into docs/specs/, because by then the tests are the record.
+# ---------------------------------------------------------------------------
+wip_specs=$(git ls-files --cached --others --exclude-standard 'docs/specs/wip/*.md' \
+	| grep -v '/README\.md$' || true)
+missing=""
+for spec in $wip_specs; do
+	[[ -f "$spec" ]] || continue
+	# The Acceptance section: from its heading to the next heading.
+	claims=$(sed -n '/^##[[:space:]]*Acceptance/,/^##[[:space:]]/p' "$spec" \
+		| grep -oE '^[[:space:]]*([0-9]+)\.[[:space:]]*\[test\]' \
+		| grep -oE '[0-9]+' || true)
+	for n in $claims; do
+		if ! grep -rqE "test\(\s*[\"'\`]${n}[:.]?[[:space:]]" e2e/ 2>/dev/null; then
+			missing+="${spec}: claim ${n} is tagged [test] but no e2e test is named for it"$'\n'
+		fi
+	done
+done
+if [[ -n "$missing" ]]; then
+	report 10 "acceptance claims tested" FAIL "${missing%$'\n'}" \
+		"Name the e2e test after the claim number, e.g. test(\"3: a no-op drag writes nothing\"), or retag the claim [eye]."
+else
+	report 10 "acceptance claims tested" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 11. functions/SKILL.md declares the contract version functions/src/version.ts
+#     is running
+#
+# An agent decides whether its vendored copy of the contract is stale by
+# comparing the `api-version` in that copy's frontmatter against the
+# `X-Api-Version` header on any response. The served copy cannot drift, because
+# `skill.ts` stamps it from `version.ts` on the way out. The checked-in copy can,
+# and it is the one people read on GitHub and the one the next reader copies —
+# a frontmatter that names last quarter's version tells a stale reader they are
+# current, which is the one failure the whole scheme exists to prevent.
+# ---------------------------------------------------------------------------
+skill_version=$(sed -n '/^---$/,/^---$/p' functions/SKILL.md 2>/dev/null \
+	| sed -n 's/^api-version:[[:space:]]*//p' | head -1)
+code_version=$(sed -n 's/^export const apiVersion = "\(.*\)";$/\1/p' \
+	functions/src/version.ts 2>/dev/null | head -1)
+if [[ -z "$skill_version" || -z "$code_version" ]]; then
+	report 11 "skill.md version" FAIL \
+		"could not read api-version from functions/SKILL.md or apiVersion from functions/src/version.ts" \
+		"Keep the frontmatter key \`api-version:\` and the \`export const apiVersion = \"x.y.z\";\` line greppable."
+elif [[ "$skill_version" != "$code_version" ]]; then
+	report 11 "skill.md version" FAIL \
+		"functions/SKILL.md says api-version: $skill_version, functions/src/version.ts says $code_version" \
+		"Set the frontmatter api-version in functions/SKILL.md to $code_version."
+else
+	report 11 "skill.md version" ok
 fi
 
 # ---------------------------------------------------------------------------

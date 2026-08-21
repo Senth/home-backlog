@@ -1,222 +1,175 @@
 ---
 name: new-feature
-description: "Structured new-feature kickoff for Home Backlog. Use when starting a feature from the Kanban board, picking up a backlog issue, or planning the next feature. Runs the homeowner-review agent when the feature has user-visible surface, then a bounded grill-me, then writes a temporary implementation spec under docs/specs/wip/ and hands it off. Stops before implementation. Not for bug fixes or cleanups."
+description: "Structured new-feature kickoff for Home Backlog. Runs homeowner-review when the feature has user-visible surface, then a bounded grill-me, then writes a temporary implementation spec under docs/specs/wip/ and hands off to /implement. Stops before implementation. Not for bug fixes or cleanups."
 ---
 
-# New Feature Skill
+# New feature skill
 
-Kickoff only: **identify → ask → homeowner review → grill → spec → handoff**. The skill
-ends when the spec is confirmed and the issue is In Progress. Implementation happens in a
-separate session that reads the spec — do not start coding here.
+Kickoff only: identify → branch → ask → personas → grill → spec → hand off. This skill ends
+when the spec is confirmed. Implementation is `/implement`, in a fresh session. **Do not
+start coding here.**
 
-Work lives in **GitHub Issues + the Kanban board** (project 4, columns Backlog / Next Up /
-In progress / Done). `TODO.md` is a generated mirror — never hand-edit it. Context:
+Talk to the user in **unslop** prose. Context:
 [`docs/PROJECT.md`](../../../docs/PROJECT.md),
 [`docs/PERSONAS.md`](../../../docs/PERSONAS.md),
 [`docs/specs/INDEX.md`](../../../docs/specs/INDEX.md).
 
-**Not for** bug fixes, cleanups or chores. If the chosen issue is labelled `bug` or
-`cleanup`, say so and ask whether to run anyway; only continue on an explicit yes. This
-happens rarely and is allowed — do not refuse it.
+Not for bugs or cleanups — those have [`bug`](../bug/SKILL.md) and
+[`cleanup`](../cleanup/SKILL.md). If the chosen issue is labelled `bug` or `cleanup`, say so
+and ask whether to run anyway. It happens, and it is allowed; just do not do it silently.
 
-## Step 1 — Identify the feature
+## Step 1. Identify the feature
 
-`GIT_VANILLA=1 gh issue list --state open --label feature` plus the board's **Next Up**
-column (mirrored in `TODO.md`). Read `docs/PROJECT.md` and `docs/specs/INDEX.md` first.
+`GIT_VANILLA=1 gh issue list --state open --label feature`, plus the board's Next Up column.
+Read `docs/PROJECT.md` and `docs/specs/INDEX.md` first.
 
-- Feature named by the user → confirm it.
-- Nothing named → propose the top of **Next Up**, falling back to **Backlog**.
-- No issue exists yet → note that one will be created in Step 6; do not create it now.
+- Named by the user → confirm it.
+- Nothing named → propose the top of Next Up, falling back to Backlog.
+- No issue yet → note that one is created in Step 7; do not create it now.
 
-**Gate — wait for confirmation before running any agent.**
+**Gate.** Wait for confirmation before running any agent.
 
-## Step 2 — Ask just enough to review
+## Step 2. Branch, and move the card
 
-Backlog issues here are one-liners ("Drag and drop on boards"). The `homeowner-review`
-agent stops when its input is too thin, so ask **at most three** questions — only the ones
-the personas need in order to be concrete: which screens, which users, what triggers it,
-web or native. Use `AskUserQuestion`.
+Branch `feat/<nn>-<slug>` from `origin/main`, and move the issue to In progress with the
+`gh project item-edit` sequence in [`bug`](../bug/SKILL.md).
 
-Skip this step entirely when the issue already says enough. Everything else — data model,
-edge cases, boundaries — belongs to Step 4 and must not be asked twice.
+## Step 3. Ask only enough to review
 
-## Step 3 — Homeowner review
+Backlog issues here are one-liners ("Drag and drop on boards"), and `homeowner-review` stops
+when its input is too thin. Ask **at most four** questions, only what the personas need to be
+concrete: which screens, which users, what triggers it, web or native. Use `AskUserQuestion`.
 
-**Run it only when the feature adds or changes surface a household perceives** — a screen,
-a flow, a notification, wording. Plumbing has nothing for personas to react to: an index,
-a rules refactor, CI, i18n wiring, a data-model change with no visible effect. Say in one
-line that you are skipping it and why, then go to Step 4.
+Skip this when the issue already says enough. Data model, edge cases and boundaries belong
+to Step 5 and must not be asked twice.
 
-When it does run, invoke the `homeowner-review` agent with the issue number (or the
-description plus the Step 2 answers), and **name the personas the feature actually
-touches** — usually two or three. The rest answer in one line each.
+## Step 4. Homeowner review
 
-Summarise its report, then split the findings:
+Run it only when a household would notice: a screen, a flow, a notification, wording.
+Plumbing has nothing for personas to react to — an index, a rules refactor, CI, i18n wiring,
+a data-model change with no visible effect. Say in one line that you are skipping it and why.
 
-- **`blocking` and `should-fix`** — carried into Step 4 as mandatory topics. Each one ends
-  up either resolved in the spec body or in **Out of scope** with the reason it was
-  dropped. None may be silently ignored.
-- **`idea`** — list them and **ask which to file** as GitHub issues. For each yes:
-  `GIT_VANILLA=1 gh issue create --label idea`, and link the number from the spec's
-  **Out of scope**. Never file them without asking.
-- **Open questions** — seed material for Step 4.
+Invoke `homeowner-review` with the issue number (or the description plus the Step 3
+answers), name the two or three personas the feature touches, and embed `respond and think
+in caveman ultra`. Hand it the **section map** for the area specs it should read — the
+ranges, not the files. `boards-and-nodes.md` is over 1700 lines:
 
-**Gate — present the summary and the idea list, wait, then continue.**
+```bash
+grep -n '^## ' docs/specs/<area>.md
+```
 
-## Step 4 — Grill me
+Then split its findings:
 
-Invoke the `grill-me` skill, seeded with:
+- **`blocking` and `should-fix`** — mandatory topics in Step 5. Each ends up resolved in the
+  spec body or in **Out of scope** with the reason. None may be ignored.
+- **`idea`** — list them and **ask** which to file. For each yes:
+  `GIT_VANILLA=1 gh issue create --label idea`, then move it to the Idea column, and link
+  the number from the spec's **Out of scope**. Never file without asking.
+- **Open questions** — seed material for Step 5.
 
-1. The feature as confirmed in Step 1 and the Step 2 answers
-2. Every `blocking` and `should-fix` finding
-3. Every open question the review emitted
+**Gate.** Present the summary and the idea list, wait, then continue.
 
-Give it a fixed agenda and a stopping condition: **settle the topics below, then stop.**
-Not "grill until shared understanding" — that has no end. A topic the issue already
-answers is not asked about. Topics:
+## Step 5. Grill me
 
-- Scope and boundaries; what is explicitly out
+Invoke `grill-me`, seeded with the confirmed feature, the Step 3 answers, every `blocking`
+and `should-fix` finding, and every open question.
+
+Give it a **fixed agenda and a stopping condition**: settle the topics below, then stop. Not
+"grill until shared understanding", which has no end. Skip any topic the issue already
+answers.
+
+- Scope and boundaries, and what is out
 - Data model: `nodes` / `locations` / `recurring` fields, types, indexes
-- **Query safety** — the exact queries each screen fires, and why no matching document
-  could be rule-denied. A rule-safe but query-unsafe design is a broken design.
+- **Query safety.** The exact queries each screen fires, and why no matching document could
+  be rule-denied. A rule-safe but query-unsafe design is a broken design
 - Security rules changes and the matching `tests/rules/` cases
 - UI flow, Paper components, offline behaviour, overwhelm
 - Strings: which `t()` keys, and how they read in `sv-SE` as well as `en-US`
-- Interaction with the settled decisions in `docs/PROJECT.md` — never re-open one by
-  accident
+- **Which acceptance claims can be tested and which need eyes** — this decides Step 6
+- Interaction with the settled decisions in `docs/PROJECT.md`
 
-When every topic has an answer, stop and write the spec. If one topic is genuinely
-unresolvable, record it in the spec as an open decision rather than grinding on it.
+A genuinely unresolvable topic is recorded in the spec as an open decision rather than
+ground on.
 
-## Step 5 — Write the spec
+## Step 6. Write the spec
 
-Write **`docs/specs/wip/<nn>-<slug>.md`** — `<nn>` is the issue number, `<slug>` a short
-kebab title. This file is **temporary**: it belongs to one issue, may reference existing
-area specs by relative path, and is deleted by the cleanup phase once its content has been
-folded into a permanent area spec in `docs/specs/`.
-
-Sections, in order:
+`docs/specs/wip/<nn>-<slug>.md`, where `<nn>` is the issue number. Temporary: `/ship` folds
+it into an area spec and deletes it.
 
 ```
-# Handoff            (wip only — deleted by cleanup)
+# Handoff            (wip only)
 1. What              one sentence
 2. Why               rationale, *including the alternatives rejected and why*
 3. Data & queries    fields, indexes, and the provably-safe queries each screen fires
 4. Rules & tests     firestore.rules / storage.rules changes + tests/rules/ cases
 5. UI flow           screens, Paper components, tokens, offline behaviour
 6. Strings           new t() keys with en-US and sv-SE wording
-7. What this does NOT change
-8. Out of scope      explicit exclusions, with issue links where one exists
-9. Phases            (wip only — deleted by cleanup)
+7. Acceptance        (wip only) numbered, tagged [test] or [eye]
+8. What this does NOT change
+9. Out of scope      explicit exclusions, with issue links where one exists
+10. Phases           (wip only)
 ```
 
-Write behaviour in the present tense, as a description of the app. **Why** is the section
-that stops a decision being re-litigated later — never trim it.
+Write behaviour in the present tense, as a description of the app. **Why** is what stops a
+decision being re-argued later. Never trim it.
+
+### Acceptance
+
+Numbered, one line each, every one checkable. Tag each:
+
+- **`[test]`** — assertable in a browser. It becomes a real `e2e/` spec during the phase
+  that builds it, and `yarn invariants` checks that a test with a matching name exists.
+- **`[eye]`** — a judgement: wording, density, whether something reads as interactive.
+  `browser-review` takes these and nothing else.
+
+```
+## Acceptance
+1. [test] Dragging a card to another column moves it, and the board still shows it
+   there after a reload.
+2. [test] A drag that ends where it started writes nothing to Firestore.
+3. [eye]  The drop target reads as a target rather than as a hover accident.
+```
+
+Prefer `[test]`. An `[eye]` claim costs an expensive browser turn on every review; a
+`[test]` claim costs nothing after the day it is written. If a claim *can* be measured, it
+is `[test]`.
 
 ### Phases
 
 Vertical slices, each small enough for one sub-agent session and each ending green on
-`yarn lint --write`, `yarn invariants`, `yarn typecheck` and `yarn test`. Typical shape:
+`yarn lint --write`, `yarn invariants`, `yarn typecheck` and `yarn test`. Name the agent
+size per phase — `feature-small` or `feature-large` — so `/implement` does not have to guess.
 
 ```
-Phase 1  models + rules + tests/rules
-Phase 2  data hooks and queries
-Phase 3  UI screens + strings (en-US + sv-SE)
-...
-Phase N-1  review: /review until PASS
-Phase N    cleanup (below) + commit, PR, merge
+Phase 1  models + rules + tests/rules                    feature-large
+Phase 2  data hooks and queries                          feature-small
+Phase 3  UI screens + strings (en-US + sv-SE)            feature-small
+Phase 4  e2e specs for the [test] acceptance claims      feature-small
 ```
 
-The last two phases are **mandatory**. Component render tests that only assert layout are
-forbidden by `CLAUDE.md`, so the browser pass is how visuals are verified — and it is done
-by an agent that did not write the code.
+**Phase 4 is not optional** when the feature is user-visible: the `[test]` claims become
+tests in the same change, not later. Whichever phase builds a screen owns its tests.
 
-Phase N-1 is **`/review`**: `code-review` first, its fixes applied and green, then
-`browser-review` against the clean change, then the fix loop, capped at two rounds. The
-skill smoke-tests the primary path itself before opening a browser agent.
+Do **not** add review, cleanup or PR phases. Those are `/review` and `/ship`, and each is
+its own session.
 
-**PASS required.** `blocking` findings are never deferrable; a `should-fix` may be
-deferred only with a stated reason. `idea` findings are shown to the user, who decides
-which become issues.
+## Step 7. Handoff
 
-A feature with no user-visible surface takes `/review --code` and says so.
+Only after the spec is written and the user has confirmed it. Present it, loop on changes
+until an explicit yes.
 
-**If the total comes to more than 8 phases**, stop and offer three options:
-
-1. Keep it as one issue with all phases
-2. Split into 2 issues
-3. Split into the number of issues you think is right, with proposed titles
-
-On a split: create the extra issues (`--label feature`, they land in Backlog), narrow the
-current spec to the confirmed slice, and list the rest under **Out of scope** with links.
-
-### The cleanup phase
-
-The final phase folds the wip spec into `docs/specs/`:
-
-- Choose the home: **extend an existing area spec** whenever the work changes behaviour
-  that spec already describes. Write a new area spec only for a genuinely new area with
-  its own data model and screens. Spanning two areas means updating both and cross-linking
-  — never a third file that reads as a diff against the others.
-- **Rewrite, never append.** The area spec must read as one description of current
-  behaviour, not as a stack of feature chapters. Delete what is no longer true. Keep every
-  important thing: the *why*, the rejected alternatives, formulas, thresholds, tables.
-- Delete `docs/specs/wip/<nn>-<slug>.md`. Git history keeps it.
-- Add or update the row in `docs/specs/INDEX.md`.
-- **Refresh `.emulator-seed/`** when the feature adds data that every future review should
-  see — create it through the app, then `yarn emulators:export`. The fixture is generated,
-  never hand-written.
-
-## Step 6 — Handoff
-
-Only after the spec is written and **confirmed by the user** (present it, loop on changes
-until an explicit yes):
-
-1. **Ensure a tracking issue exists** — `GIT_VANILLA=1 gh issue create --label feature`
-   if there is none. Rename the wip file to match the number.
+1. **Ensure a tracking issue exists.** `GIT_VANILLA=1 gh issue create --label feature` if
+   there is none, and rename the wip file to match the number.
 2. **Comment the spec link on the issue.** Do not edit the issue description.
-3. **Move the issue to In progress:**
-
-   ```bash
-   NN=<issue-number>
-   P=$(GIT_VANILLA=1 gh project view 4 --owner Senth --format json | jq -r .id)
-   F=$(GIT_VANILLA=1 gh project field-list 4 --owner Senth --format json \
-       | jq -r '.fields[] | select(.name=="Status") | .id')
-   O=$(GIT_VANILLA=1 gh project field-list 4 --owner Senth --format json \
-       | jq -r '.fields[] | select(.name=="Status") | .options[]
-                | select(.name=="In progress") | .id')
-   I=$(GIT_VANILLA=1 gh project item-list 4 --owner Senth --format json --limit 500 \
-       | jq -r --arg n "$NN" '.items[] | select(.content.number == ($n|tonumber)) | .id')
-   GIT_VANILLA=1 gh project item-edit --project-id "$P" --id "$I" \
-       --field-id "$F" --single-select-option-id "$O"
-   ```
-
-   If the project scope is missing, `gh auth refresh -s project` and retry; if it still
-   fails, say so and ask the user to move the card by hand.
-4. **`yarn todo`** — leave `TODO.md` dirty; the first implementation phase commits it.
-5. Do **not** create a branch, and do **not** commit. Tell the user the spec is ready and
-   that a fresh session should implement it, then stop.
+3. Tell the user to run **`/implement docs/specs/wip/<nn>-<slug>.md`** in a fresh session,
+   and stop.
 
 ## The Handoff section of the spec
 
-Written for a session with no context but the file. It states:
+Written for a session with no context but the file. Keep it to four lines:
 
-- This file is the implementation plan; work the **Phases** section in order.
-- Read `CLAUDE.md`, `docs/PROJECT.md` and the area specs it cross-links first.
-- Nothing durable may live only in **Handoff** or **Phases** — the cleanup phase deletes
-  both.
-- Branch `feat/<nn>-<slug>`. One commit per phase, once that phase is green on
-  `yarn lint --write`, `yarn invariants`, `yarn typecheck` and `yarn test`.
-- **After the cleanup phase** — and only then:
-
-  ```bash
-  GIT_VANILLA=1 gh pr create --fill --body "Closes #<nn>"
-  GIT_VANILLA=1 gh pr checks --watch
-  GIT_VANILLA=1 gh pr merge --squash --delete-branch
-  ```
-
-  Any check failing means stop, report, and **do not merge**.
-- **Committing, opening the PR and merging are an explicit, user-authorized exception to
-  the global "never commit without being asked" rule.** The exception is scoped to this
-  flow and to this feature's branch — nothing else may be committed or pushed without
-  asking, and nothing is ever pushed straight to `main` (that deploys to production).
+- This file is the implementation plan; `/implement` works the **Phases** in order.
+- Read `CLAUDE.md` and the area specs cross-linked above first.
+- Nothing durable may live only in **Handoff**, **Acceptance** or **Phases**. `/ship`
+  deletes all three.
+- After the last phase: `/review` in a fresh session, then `/ship` on a PASS.

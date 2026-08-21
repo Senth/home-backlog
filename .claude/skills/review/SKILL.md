@@ -1,212 +1,178 @@
 ---
 name: review
-description: "Independent review gate for Home Backlog. Runs code-review first, applies its fixes, then hands the clean change to browser-review in a real browser, then fixes what that finds. Use after implementing a feature, a fix or a cleanup, before opening a PR. Not for planning or for reviewing someone else's PR."
+description: "Independent review gate for Home Backlog. Runs the mechanical gates, then diff-review, then — only if that says the change is user-visible — browser-review, fixing what each finds. Use after implementing a feature, a fix or a cleanup, before /ship. Not for planning or for reviewing someone else's PR."
 ---
 
-# Review Skill
+# Review skill
 
-The session that wrote the code does not get to sign it off. This skill hands the change
-to agents that did not write it, fixes what they find, and re-runs the narrowest thing
-that could still be wrong.
+The session that wrote the code does not sign it off. Run this in a **fresh session**: it
+starts nearly empty, reads only the diff, the findings and the files it must touch, so
+every fix round lands on a small context instead of on top of an entire implementation.
 
-**You are the fix loop.** The agents are read-only by design; you apply every fix
-yourself. Never give a reviewer write access, and never ask a reviewer to fix its own
-finding.
+**You are the fix loop.** The agents are read-only by design. Never give a reviewer write
+access, and never ask a reviewer to fix its own finding.
 
-## The shape, and why
+Talk to the user in **unslop** prose — plain, direct, no filler. Not caveman: this output
+is small and you read it every run, so clarity beats compression. The agents are the ones
+under caveman.
 
-Cheap first, expensive once.
+## The order, and why
+
+Free things first, then cheap things, then expensive things.
 
 ```
-code-review  →  fix + lint/typecheck/test  →  browser-review  →  fix  →  done
+invariants → lint → typecheck → test → e2e     (zero tokens; a shell command each)
+        ↓
+diff-review                                     (tokens; decides user-visible)
+        ↓
+browser-review                                  (most tokens; only if user-visible)
 ```
 
-`code-review` is static and cheap, and it catches the things that would otherwise show up
-as browser findings — missing `t()` calls, and everything `scripts/check-invariants.sh`
-reports when the agent runs `yarn invariants`: style literals, colour literals,
-`useAppTheme()`, `en-US`/`sv-SE` key drift. Running it **first** and fixing before the
-browser opens is what makes the browser pass run once instead of three times. Do not
-parallelise them; a code fix invalidates a browser pass by construction.
+Every mechanical gate runs before any agent is spawned. A failure one of them catches is a
+round of agent review you did not have to pay for, and `e2e/` now covers what used to come
+back as a browser finding: console noise, a lost offline write, a broken back button, a
+contrast failure, a clipped Swedish label, a raw `t()` key.
 
-Run `yarn invariants` yourself before spawning anything. It is a second of shell, it is
-the same gate CI applies, and a failure it catches is a round of `code-review` you did not
-have to spend.
+Do not parallelise. A code fix invalidates a browser pass.
 
-Flags: `/review` (auto-scope), `/review --all` (force both), `/review --code` (static
-only, no browser), `/review --quick` (`code-review` only, and you smoke-test the primary
-path by hand instead of opening a browser agent).
+Flags: `/review` (auto), `/review --code` (no browser pass, whatever `diff-review` says),
+`/review --quick` (mechanical gates plus `diff-review`, and you smoke-test the primary path
+by hand). No other flags. If you disagree with the auto scope, say so in the prompt.
 
-## Step 1 — Scope the run
+## Step 1. Scope
 
 ```bash
 GIT_VANILLA=1 git status --porcelain
 GIT_VANILLA=1 git diff --name-only main...HEAD
 ```
 
-Combine committed-on-branch and uncommitted paths, then classify:
+Only `docs/ .claude/ scripts/ .github/ README.md` changed → say so in two lines and stop.
+An empty diff stops the run. Everything else continues; `diff-review` decides whether the
+browser pass happens, not you and not a path table.
 
-| Diff | Run |
-|---|---|
-| changes what a user sees or does — new/changed screens, components, flows, strings | code + browser |
-| `auth/ models/ firestore.rules storage.rules tests/ config/ hooks/`, or a token/theme change with no visible surface change | code only |
-| only `docs/ .claude/ scripts/ .github/ README.md TODO.md` | nothing — say so in two lines and stop |
+## Step 2. The section map
 
-The browser pass is for **user-visible surface**, not for every file under `components/`.
-A string-only change, a token added to the scale, a refactor with identical output — those
-are `code` only. When genuinely unsure, ask the user rather than defaulting to the
-expensive run.
+The agents must not read whole area specs — `boards-and-nodes.md` alone is over 1700
+lines. Work out which sections this diff touches and hand over exact ranges:
 
-`--all`, `--code` and `--quick` override the table. An empty diff stops the run.
+```bash
+grep -n '^## ' docs/specs/<area>.md
+```
 
-State the scope you chose and why in one line before doing anything else.
+Pair each heading with the next heading's line number to get a range, pick the ones the
+diff actually touches, and pass them as `<file> <start>-<end> <heading>`. State the map in
+chat so it is auditable.
 
-## Step 2 — code-review
-
-Hand it: the issue number, the spec path, the **full diff**. Embed `respond in caveman
-full`. Never hand it your own account of what you built or why it is correct — that
-sentence is what turns a reviewer into a rubber stamp.
-
-Read `.tmp/review/code-review.md`. Apply every `blocking` and every `should-fix` you are
-not explicitly deferring, then:
+## Step 3. The mechanical gates
 
 ```bash
 yarn lint --write && yarn invariants && yarn typecheck && yarn test
+scripts/dev-stack.sh up && yarn e2e
 ```
 
-Green before going further. If `code-review` found `blocking` items, re-run it **scoped** —
-hand it the finding list and the new diff of just your fixes, and ask it to verify those,
-not to review again from scratch.
+All green before an agent is spawned. `dev-stack.sh up` is idempotent — it reuses a stack
+you already had running and reports whether the emulator is pristine or carrying whatever
+a previous session left in it. Say which in the final report.
 
-If the scope is `code` only, jump to Step 6.
+An `e2e` failure is a `blocking` finding you fix yourself, right here. It is also the
+cheapest signal in the whole run, so never skip it to save wall-clock time.
 
-## Step 3 — Bring the app up
+## Step 4. diff-review
 
-Probe first. **Never kill a process you did not start.**
+Hand it: the issue number, the spec path, the section map, and the **full diff**. Embed
+`respond and think in caveman ultra`. Never hand it your own account of what you built or
+why it is correct — that sentence is what turns a reviewer into a rubber stamp.
 
-```bash
-# there is no nc on this machine; /dev/tcp needs bash, not the default zsh
-timeout 1 bash -c '</dev/tcp/localhost/8062' 2>/dev/null && echo "emulators up"
-timeout 1 bash -c '</dev/tcp/localhost/8081' 2>/dev/null && echo "web up"
-```
+Read `.tmp/review/diff-review.md`. Apply every `blocking` and every `should-fix` you are
+not explicitly deferring, then re-run the mechanical gates. If it found `blocking` items,
+re-run it **scoped**: hand it the finding list and the diff of just your fixes, and ask it
+to verify those rather than review again from scratch.
 
-- **Port free** → start it in the background and remember you own it:
-  `yarn emulators:seed` (boots the suite with `--import .emulator-seed`), then `yarn web`.
-  Wait for both to answer before continuing.
-- **Port already listening** → reuse it untouched. Record in the report that the emulator
-  was **not pristine** — its data is whatever the user's session left there, not the
-  fixture.
+Its report carries **`User-visible: yes | no`**. That decides the next step. With `--code`
+or `--quick`, skip to Step 6 regardless and say so.
 
-Record the PID when you start something:
+## Step 5. browser-review
 
-```bash
-(yarn emulators:seed > .tmp/emu.log 2>&1 & echo $! > .tmp/emu.pid)
-(yarn web            > .tmp/web.log 2>&1 & echo $! > .tmp/web.pid)
-```
+Only when `diff-review` said yes.
 
-**Smoke-test yourself before spawning the agent.** Load the app, sign in, walk the
-feature's primary path. Spending a browser agent on a white screen is the expensive
-failure mode. This is a paragraph of work.
+Hand it: the issue number, the spec path, the section map, the list of **changed screens**,
+and the fact that the app is running at <http://localhost:8081>. Not the diff, and not your
+account of the change.
 
-Tear down exactly what you started, at the end of the run, including on failure. Two
-traps, both hit while building this:
+It judges what a test cannot: whether it looks right, whether the wording sounds like a
+person in both locales, whether an empty state is honest, whether the density overwhelms.
+It has a 15-turn budget. If it comes back having spent that on something `e2e/` already
+covers, that is a bug in the agent file, not a finding — say so.
 
-- **Never `pkill -f "firebase emulators:start"`** — the pattern matches the shell running
-  it, so the command kills itself before reaching the emulator.
-- `yarn` is a wrapper; killing its PID leaves the `firebase` child holding the ports.
-  Kill the **process group**:
+## Step 6. The fix loop
 
-  ```bash
-  PGID=$(ps -o pgid= -p "$(cat .tmp/emu.pid)" | tr -d ' ')
-  kill -TERM -"$PGID"
-  ```
+Read the reports. Print one severity-ordered table: severity, source, finding, fix.
 
-Verify afterwards, since a silent orphan poisons the next run:
-
-```bash
-ss -ltn | grep -E ':(8060|8061|8062|8063|8081)'   # empty = clean
-```
-
-Also close the browser session: `playwright-cli -s=review close`.
-
-## Step 4 — browser-review
-
-One agent, one browser session, one walk. It does acceptance and craft together on
-pristine fixture data, then the hostile checklist once it is free to mutate. There is no
-emulator restart mid-run — nothing screenshots after it.
-
-Hand it: the issue number, the spec path, `git diff --name-only`, and that the app is
-running at <http://localhost:8081>. Not the diff, and not your account of the change.
-
-**Note how many turns it took.** The agent runs on `sonnet` because this pass is dominated
-by *input* — screenshots, accessibility trees, and the transcript re-sent every turn —
-where Sonnet 5 is 1.67x cheaper per token than Opus 5 on an identical tokenizer. What
-Sonnet 5 does inflate is turn count, and every extra turn re-sends the accumulated
-screenshots. If a run visibly wanders — repeated snapshots of the same screen,
-re-verification nobody asked for, far more turns than the walk needs — flip `model:` to
-`opus` in `.claude/agents/browser-review.md`. Opus wins the moment Sonnet takes more than
-1.67x the tokens. Judge it on an observed run, never in advance.
-
-## Step 5 — The fix loop
-
-Read `.tmp/review/browser-review.md`. Print one severity-ordered table in chat, caveman
-full: severity, source, finding, fix.
-
-The bar:
-
-- **`blocking`** — must be fixed. Never deferrable, by anyone.
-- **`should-fix`** — fix it, or defer it by writing one line of reason into the merged
-  report. A silent skip is not a defer.
-- **`idea`** — never acted on here. List them all and **ask the user** which to file:
+- **`blocking`.** Must be fixed. Never deferrable, by anyone.
+- **`should-fix`.** Fix it, or defer it by writing one line of reason into the report. A
+  silent skip is not a defer.
+- **`idea`.** Never acted on here. List them and **ask** which to file with
   `GIT_VANILLA=1 gh issue create --label idea`. The rest are dropped. Never file one
-  without asking, never file them all by default.
+  without asking, and never file them all by default.
 
 While not PASS and rounds used **< 2**:
 
 1. Apply the fixes yourself.
-2. `yarn lint --write`, `yarn invariants`, `yarn typecheck`, `yarn test` — green.
-3. **Re-run scoped, not whole.** Hand `browser-review` the list of fixes and ask it to
-   verify exactly those, plus any checklist item they could have broken. Do not re-run the
-   full walk, and do not re-run `code-review` unless a fix changed logic rather than
+2. Re-run the mechanical gates. All green.
+3. **Re-run scoped, not whole.** Hand the agent the list of fixes and ask it to verify
+   exactly those. Do not re-run `diff-review` unless a fix changed logic rather than
    presentation.
 4. Count the round.
 
 **PASS** = zero `blocking` and zero outstanding `should-fix`.
 
-After two rounds without a PASS, **stop**. Print the outstanding findings, say which
-rounds were spent, and ask the user how to proceed. Do not keep grinding.
+After two rounds without a PASS, **stop**. Print what is outstanding, say which rounds were
+spent, ask how to proceed. Do not keep grinding.
 
-## Step 6 — Report
+## Step 7. Report, and tear down
 
 State plainly: PASS or NOT PASS, rounds used, what was fixed, what was deferred and why,
-which ideas were filed as issues, and whether the emulator was pristine. If the run was
-`--code`, `--quick` or auto-scoped to code only, say that no browser pass happened and
-what you smoke-tested by hand instead.
+which ideas were filed, and whether the emulator was pristine. If no browser pass happened,
+say why — `diff-review` said not user-visible, or a flag — and what you smoke-tested by hand
+instead.
 
-Reports and screenshots stay in `.tmp/review/` — gitignored, not committed, nothing
-posted to GitHub automatically.
+```bash
+scripts/dev-stack.sh down
+playwright-cli -s=review close
+```
+
+Only if you started the stack. `down` stops what it started and leaves anything else alone.
+
+Reports and screenshots stay in `.tmp/review/`. Gitignored, never committed, nothing posted
+to GitHub.
+
+On a PASS, tell the user to run **`/ship`** in a fresh session. Do not fold the spec, open a
+PR or merge from here.
 
 ## The seed fixture
 
-`.emulator-seed/` is committed and is produced **by the app**, never hand-written:
+`.emulator-seed/` is committed and produced **by the app**, never hand-written:
 
 ```bash
-yarn emulators:seed      # boot with --import .emulator-seed
+scripts/dev-stack.sh up      # boots with --import .emulator-seed
 # ...use the app to create the state worth keeping...
-yarn emulators:export    # overwrite .emulator-seed from the running suite
+yarn emulators:export        # overwrite .emulator-seed from the running suite
 ```
 
-It currently holds one Google-provider account, **Marcus / marcus@example.com**, which is
-what the Auth emulator's picker offers the browser agent so it never has to create an
-account. Firestore and Storage are still empty — nothing has shipped that writes to them.
+It holds two Google-provider accounts — **Marcus / marcus@example.com**, which the suite and
+the browser agent sign in as, and **Anna Maria Berg / anna@example.com** — two homes,
+**Huset** and **Stugan**, and sixteen nodes under Huset. `e2e/` depends on those names:
+`auth.setup.ts` signs in as Marcus and opens Huset, and the readiness markers in
+`e2e/support/app.ts` wait for seeded titles. **Regenerating the fixture means re-checking
+those.**
 
-Two things about it:
+Two traps:
 
-- `yarn emulators:seed` **fails outright** if `.emulator-seed/` is missing, because
-  `--import` will not create it. It is committed, so this only bites after someone deletes
-  it. Recover with plain `yarn emulators`, then `yarn emulators:export`.
-- `biome.json` excludes `.emulator-seed/**`. Without that, `yarn lint --write` pretty-prints
-  the export and the next `yarn emulators:export` minifies it back, forever.
+- `--import` will not create a missing directory, so `scripts/dev-stack.sh up` fails
+  outright if `.emulator-seed/` is gone. Recover with `up --fresh`, then
+  `yarn emulators:export`.
+- `biome.json` excludes `.emulator-seed/**`. Without that, `yarn lint --write`
+  pretty-prints the export and the next export minifies it back, forever.
 
-A feature's cleanup phase refreshes it when the feature adds data worth having in every
-future review. Stale fixture, or fixture that no longer matches the model, is a
-`blocking` finding on the feature that broke it.
+A feature's `/ship` refreshes it when the feature adds data worth having in every future
+review. A stale fixture is a `blocking` finding on the feature that broke it.
