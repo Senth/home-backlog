@@ -9,7 +9,9 @@
  *
  * Second, cleaning up. A spec that creates a card and leaves it there makes the
  * local fixture drift a little further from `.emulator-seed` on every run, until
- * one day a screenshot is full of "E2E offline 1738…" and nobody knows why.
+ * one day a screenshot is full of "E2E offline 1738…" and nobody knows why. Each
+ * spec deletes what it made, and `fixture.setup.ts` sweeps the board before the
+ * suite starts, for the run that was killed before its `finally` could.
  *
  * The emulator accepts `Authorization: Bearer owner` as a superuser, so these
  * calls bypass `firestore.rules` entirely. That is correct here — the rules have
@@ -71,14 +73,11 @@ export async function nodeTitles(): Promise<string[]> {
 }
 
 /**
- * Deletes every node with this title. Best-effort: a spec that failed before it
- * created anything still calls this, and finding nothing is a normal outcome.
+ * Deletes every node whose title begins with this prefix. Best-effort in that
+ * finding nothing is a normal outcome — a spec that failed before it created
+ * anything still calls this — but a delete that is refused is not: see
+ * `deleteNodesWhere`.
  */
-export async function deleteNodesByTitle(title: string): Promise<void> {
-	await deleteNodesWhere((stored) => stored === title);
-}
-
-/** The same, for a run that created a numbered batch under one prefix. */
 export async function deleteNodesByTitlePrefix(prefix: string): Promise<void> {
 	await deleteNodesWhere((stored) => stored.startsWith(prefix));
 }
@@ -93,10 +92,19 @@ async function deleteNodesWhere(
 	for (const document of documents) {
 		const title = document.fields?.title?.stringValue;
 		if (title === undefined || !matches(title)) continue;
-		await fetch(`http://localhost:8062/v1/${document.name}`, {
+		const response = await fetch(`http://localhost:8062/v1/${document.name}`, {
 			method: "DELETE",
 			headers: HEADERS,
 		});
+		// A delete that quietly fails is the worst outcome available here: the
+		// card stays on the board and the run that pays for it is a later spec in
+		// a different project, failing on a card count with nothing in its output
+		// to say where the extra card came from. Fail where the leak is instead.
+		if (!response.ok) {
+			throw new Error(
+				`emulator REST could not delete "${title}": ${response.status} ${response.statusText}`,
+			);
+		}
 	}
 }
 

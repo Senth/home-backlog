@@ -153,8 +153,14 @@ export function Board({
 	 * `space.xxl` that used to stand here was a guess that stopped clearing the
 	 * last card the moment either of those was true. `space.xxl` survives only as
 	 * the value for the single frame before the FAB has laid itself out.
+	 *
+	 * The FAB's own offset is the first term rather than a constant, because the
+	 * button rises while a snackbar is up. Reserving the resting clearance while
+	 * it is parked 56dp higher puts it back over the last card for exactly as
+	 * long as the undo is on screen — which is the defect this inset replaced.
 	 */
-	const fabInset = fabHeight > 0 ? fabHeight + space.md + space.md : space.xxl;
+	const fabBottom = notice === null ? space.md : space.xxl + space.lg;
+	const fabInset = fabHeight > 0 ? fabHeight + fabBottom + space.md : space.xxl;
 	// An extra column disappearing would otherwise leave the pane showing a
 	// column that is no longer there.
 	const column = Math.min(current, shown.length - 1);
@@ -472,7 +478,7 @@ export function Board({
 						// here — it is the way back from a gesture that can move a card
 						// somebody did not mean to move — and a FAB parked on top of it
 						// is the one control that must never be covered.
-						bottom: notice === null ? space.md : space.xxl + space.lg,
+						bottom: fabBottom,
 					}}
 				/>
 			) : null}

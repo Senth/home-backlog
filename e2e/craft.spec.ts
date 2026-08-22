@@ -235,11 +235,12 @@ test(`8: the last card in a full column is clear of the FAB, in this locale and 
 
 	// The fixture is a household's real board and none of its columns overflows a
 	// phone, so the column that this claim is about has to be made. Deleted in
-	// `finally`: a failure that leaves twelve cards behind would fail every later
-	// spec for a different reason than the one that actually broke.
-	await fillColumn("backlog", 12, FILLER);
-
+	// `finally`, and created inside the `try` so that a batch which throws on its
+	// seventh card is swept too: cards left behind would fail every later spec,
+	// in every later project, for a different reason than the one that broke.
 	try {
+		await fillColumn("backlog", 12, FILLER);
+
 		for (const viewport of [VIEWPORTS.phone, VIEWPORTS.phoneZoomed]) {
 			await page.setViewportSize(viewport);
 			await gotoAndSettle(page, BOARD);

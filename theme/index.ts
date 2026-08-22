@@ -95,7 +95,13 @@ const darkElevation = {
 const lightBoard = {
 	boardColumn: "#E4EEE6",
 	boardCard: "#F8FFFA",
-	boardCardBorder: "#9EA89F",
+	// Darker than its dark-scheme twin, and deliberately: the light card fill is
+	// within 1.01:1 of the light page, so below `compactBreakpoint` — where the
+	// column carries no fill — this border is the only thing separating a card
+	// from the page it sits on, and it has to clear 3:1 against that page to be
+	// an edge rather than a suggestion. Still far softer than the 4.44:1
+	// `outline` it replaces, which is the glare the issue called white.
+	boardCardBorder: "#889289",
 	onCardMuted: "#636C64",
 };
 

@@ -83,13 +83,16 @@ export default defineConfig({
 
 	projects: [
 		{
+			// Both setup files, and every other project depends on this one: the
+			// suite needs a signed-in browser and a board that matches the seed
+			// before its first assertion.
 			name: "setup",
-			testMatch: /auth\.setup\.ts/,
+			testMatch: /.*\.setup\.ts/,
 		},
 		{
 			name: "en-US",
 			dependencies: ["setup"],
-			testIgnore: /auth\.setup\.ts/,
+			testIgnore: /.*\.setup\.ts/,
 			use: {
 				...devices["Desktop Chrome"],
 				viewport: VIEWPORTS.phone,
@@ -119,7 +122,7 @@ export default defineConfig({
 			// a wider window; it is a second layout that nothing measured before.
 			name: "en-US-desktop",
 			dependencies: ["setup"],
-			testIgnore: /auth\.setup\.ts/,
+			testIgnore: /.*\.setup\.ts/,
 			use: {
 				...devices["Desktop Chrome"],
 				viewport: VIEWPORTS.desktop,
