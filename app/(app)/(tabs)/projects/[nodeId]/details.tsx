@@ -1,11 +1,18 @@
 import { useIsFocused } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, View } from "react-native";
-import { ActivityIndicator, Appbar, Snackbar, Text } from "react-native-paper";
+import {
+	ActivityIndicator,
+	Appbar,
+	Menu,
+	Snackbar,
+	Text,
+} from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { boardHref, goneHref } from "@/components/board/board-href";
+import { TitleDialog } from "@/components/board/TitleDialog";
 import { ChoiceField } from "@/components/node/ChoiceField";
 import { DueDateField } from "@/components/node/DueDateField";
 import { FlipDialog, useFlip } from "@/components/node/FlipDialog";
@@ -75,6 +82,12 @@ export default function NodeDetails() {
 	const flip = useFlip(homeId ?? "");
 
 	const [failed, setFailed] = useState(false);
+	const [menuOpen, setMenuOpen] = useState(false);
+	const [renaming, setRenaming] = useState(false);
+	const menuAnchor = useRef<View | null>(null);
+
+	// Stable so Paper keeps its Escape handler — see `components/board/CardMenu.tsx`.
+	const closeMenu = useCallback(() => setMenuOpen(false), []);
 
 	// Where "up" is once the card has stopped existing, remembered while it still
 	// does: a deleted card cannot say who its parent was.
@@ -125,8 +138,48 @@ export default function NodeDetails() {
 					}
 				/>
 				<Appbar.Content title={node?.title ?? ""} />
+				{node === null ? null : (
+					<Menu
+						visible={menuOpen}
+						onDismiss={closeMenu}
+						overlayAccessibilityLabel={t("common.closeMenu")}
+						anchor={
+							<View ref={menuAnchor}>
+								<Appbar.Action
+									style={touchTargetStyle}
+									icon="dots-vertical"
+									accessibilityLabel={t("board.actions")}
+									onPress={() => setMenuOpen(true)}
+								/>
+							</View>
+						}
+					>
+						<Menu.Item
+							leadingIcon="pencil-outline"
+							title={t("board.rename")}
+							onPress={() => {
+								closeMenu();
+								setRenaming(true);
+							}}
+						/>
+					</Menu>
+				)}
 				<AccountMenu />
 			</Appbar.Header>
+
+			{/* Mounted only while open — see `CardMenu`'s identical dialog. */}
+			{renaming && node !== null ? (
+				<TitleDialog
+					visible
+					onDismiss={() => setRenaming(false)}
+					heading={t("board.renameTitle")}
+					confirmLabel={t("board.rename")}
+					initialTitle={node.title}
+					onSubmit={(title) => save({ title })}
+					testID={`rename-details-${node.id}`}
+					returnFocusTo={menuAnchor}
+				/>
+			) : null}
 
 			{node === null ? (
 				<ActivityIndicator

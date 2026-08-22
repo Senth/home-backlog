@@ -64,6 +64,9 @@ export default function NodeBoard() {
 	// of one it is neither.
 	const members = Object.keys(activeHome?.members ?? {}).length;
 	const canFilter = filtered.hiddenCount > 0 || members > 1;
+	// The menu also carries Rename, which needs no filtering to have something
+	// to do — only a card to rename, and the root board has none.
+	const showMenu = node !== null || canFilter;
 
 	// Where "up" is once the card itself has stopped existing. Remembered while
 	// it still does, because a deleted card cannot say who its parent was.
@@ -138,8 +141,10 @@ export default function NodeBoard() {
 						) : null}
 					</View>
 				)}
-				{canFilter ? (
+				{showMenu ? (
 					<BoardMenu
+						homeId={homeId}
+						node={node}
 						showEveryone={filtered.showEveryone}
 						onShowEveryone={filtered.setShowEveryone}
 					/>

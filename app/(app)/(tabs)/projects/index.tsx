@@ -57,6 +57,8 @@ export default function Projects() {
 				<Appbar.Content title={activeHome?.name ?? ""} />
 				{canFilter ? (
 					<BoardMenu
+						homeId={homeId}
+						node={null}
 						showEveryone={board.showEveryone}
 						onShowEveryone={board.setShowEveryone}
 					/>
