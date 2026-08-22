@@ -15,7 +15,7 @@ import {
 } from "@/data/nodes";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { type Node, rankAtEnd, rankBetween, type Status } from "@/models/node";
-import { space, touchTarget } from "@/theme/tokens";
+import { icon, space, touchTarget } from "@/theme/tokens";
 
 /** A message the board says after an action, with the way back if there is one. */
 export interface Notice {
@@ -237,6 +237,10 @@ export function CardMenu({
 					<View ref={anchor}>
 						<IconButton
 							icon="dots-vertical"
+							// The glyph is small; the box around it is not. Shrinking the
+							// pressable with it would put a gloved tap on the card
+							// underneath and navigate off the board.
+							size={icon.sm}
 							accessibilityLabel={t("board.actions")}
 							// Without this the card underneath takes the tap as well and
 							// the menu opens on a board one level down.

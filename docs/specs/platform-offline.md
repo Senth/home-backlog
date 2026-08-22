@@ -207,6 +207,63 @@ One thing the menu still does not say: web sign-out does not invalidate an agent
 Keys exist now, and `account.signOut.body` promises only that you will need to sign in
 again.
 
+## The palette
+
+Green is the brand colour, deliberately unlike the sibling project's purple so the two
+apps are distinguishable in a tab strip or app switcher. It also leaves red and amber free
+to mean *overdue* and *waiting* on a board. `warning` and `success` are additions rather
+than MD3 roles, which is why `useAppTheme()` exists at all — Paper's own `useTheme()` does
+not carry their types.
+
+**The neutrals are re-hued off Material's default.** MD3's stock `neutral` and
+`neutralVariant` families lean violet: the outline everyone reads as white is
+`rgb(147,143,153)`, a violet grey. `primary` was overridden to green when the app was
+built and the neutrals never were, so every grey surface in the app quietly fought the
+brand.
+
+They are re-neutralised by **preserving each Material tone's exact relative luminance and
+changing only its hue** — chroma 0.016 at hue 150:
+
+| role | Material | here |
+|---|---|---|
+| `n10` — dark bg/surface, light `onSurface` | `rgb(28,27,31)` | `rgb(22,29,23)` |
+| `n20` — light `inverseSurface` | `rgb(49,48,51)` | `rgb(43,51,44)` |
+| `n90` — dark `onSurface` | `rgb(230,225,229)` | `rgb(219,230,221)` |
+| `n95` — light `inverseOnSurface` | `rgb(244,239,244)` | `rgb(233,244,235)` |
+| `n99` — light bg/surface | `rgb(255,251,254)` | `rgb(244,255,246)` |
+| `nv30` — light `onSurfaceVariant` | `rgb(73,69,79)` | `rgb(64,73,66)` |
+| `nv50` — light `outline` | `rgb(121,116,126)` | `rgb(111,120,113)` |
+| `nv60` — dark `outline` | `rgb(147,143,153)` | `rgb(138,148,139)` |
+| `nv80` — light `outlineVariant` | `rgb(202,196,208)` | `rgb(191,201,192)` |
+| `nv90` — light `surfaceVariant` | `rgb(231,224,236)` | `rgb(219,230,221)` |
+
+The largest luminance delta across the ramp is 6.5e-03, so **every contrast ratio in the
+app is unchanged by construction** and a repaint of every surface cannot regress an axe
+check anywhere. That is what makes an app-wide palette change safe to make at all, rather
+than a re-audit of every screen.
+
+These are tones, not roles. Both palettes assign them to the MD3 roles Paper already
+reads — `background`, `surface`, `surfaceVariant`, `onSurface`, `onSurfaceVariant`,
+`outline`, `outlineVariant`, `inverseSurface`, `inverseOnSurface` — so every Paper
+component follows without a call site changing. `surfaceDisabled`, `onSurfaceDisabled` and
+`backdrop` are alpha compositions of the same tones and are derived the same way.
+
+Paper's `elevation` levels are opaque colours rather than shadows on web, so they are part
+of the ramp too, and are re-hued with it:
+
+| level | Material light | here | Material dark | here |
+|---|---|---|---|---|
+| `level1` | `rgb(247,243,249)` | `rgb(237,247,239)` | `rgb(37,35,42)` | `rgb(30,38,32)` |
+| `level2` | `rgb(243,237,246)` | `rgb(231,242,233)` | `rgb(44,40,49)` | `rgb(36,43,37)` |
+| `level3` | `rgb(238,232,244)` | `rgb(226,237,228)` | `rgb(49,44,55)` | `rgb(40,48,41)` |
+
+Levels 4 and 5 are left as Paper ships them: `elevation` in `theme/tokens.ts` stops at
+`high: 3`, so nothing in this app can reach them.
+
+The board adds four named colours of its own on top of this ramp — a recessed column, a
+raised card, the card's border and the muted step count. They are the board's own surfaces
+and [`boards-and-nodes`](boards-and-nodes.md#the-boards-surfaces) records why they exist.
+
 ## The keyboard focus ring
 
 One CSS rule, app-wide, in `theme/focus-visible.ts` and injected by `app/+html.tsx` the

@@ -300,9 +300,9 @@ timing rather than authority. It constrains every board query, so an archived no
 every screen, and nothing in the app writes or reads the field yet: no archive list, no
 unarchive control, nothing that shows an archived card at all. A key that could set it could
 put a household's work somewhere only another API call could reach. It also moves no
-counters, so a project whose only step was archived would keep its chevron and open an empty
-board, which is what "a card is a board only once it has steps" exists to prevent. It becomes
-writable when there is a screen that can undo it.
+counters, so a project whose only step was archived would keep its steps glyph and open an
+empty board, which is what "a card is a board only once it has steps" exists to prevent. It
+becomes writable when there is a screen that can undo it.
 
 ### The body limit is enforced by the app, and one error is not the app's to give
 

@@ -232,16 +232,16 @@ see the board they did it to, and an agent cannot. See [`rest-api`](rest-api.md)
 
 ### Board-ness is derived, never flagged
 
-The card and the board were the same thing once: every card carried a chevron, and a tap
-opened it as a board, empty or not. That made two claims that are not true of a
+The card and the board were the same thing once: every card carried a mark saying so, and
+a tap opened it as a board, empty or not. That made two claims that are not true of a
 household's work: that "buy tile adhesive" is a board, and that finding out whether it
 has anything in it is not worth knowing.
 
 **Board-ness is derived from `childCount`**, through `hasSteps(node)` in `models/node.ts`
-so that no screen reads the field directly. No children means no chevron, and a tap opens
-the [details](#node-detail). One step means a chevron, and a tap drills in. There is no
-flag, no *convert to a board* action and no *undo the conversion*, because there is
-nothing to convert. A card becomes a board the moment it gets its first step, and stops
+so that no screen reads the field directly. No children means no steps glyph, and a tap
+opens the [details](#node-detail). One step means a glyph and a count, and a tap drills in.
+There is no flag, no *convert to a board* action and no *undo the conversion*, because
+there is nothing to convert. A card becomes a board the moment it gets its first step, and stops
 being one when the last step goes.
 
 That shape was chosen over the two alternatives for what it removes rather than what it
@@ -284,13 +284,13 @@ REST writer that forgets. It is asymmetric, and only one direction matters:
 
 | Drift | Effect |
 | ----- | ------ |
-| too high | a chevron on a childless card; you drill in and find an empty board |
-| too low | a card with children shows no chevron |
+| too high | a steps glyph and a count on a childless card; you drill in and find an empty board |
+| too low | a card with children shows neither |
 
 The second could hide work, so it is closed by construction rather than by care. **The
 detail screen's Steps section runs the real board queries**, `parentId ==` this node, the
 same two, the same index, and lists the true children whatever the counter says. A card
-that has lost its chevron still opens its details, and its steps are there, with *Open
+that has lost its glyph still opens its details, and its steps are there, with *Open
 board*. A card that exists is reachable somewhere, which is the same principle the
 visibility invariant is built on.
 
@@ -615,7 +615,7 @@ of `columns` are drawn from it and the two must never drift.
 The two counters are checked for their type and nothing else. No bounds, and no relation
 between them. See [the counters](#the-counters-are-a-display-convenience-never-an-invariant):
 `doneCount >= 0` would fail a *delete* on an ordinary offline race, and the clamp belongs
-on the read side where the worst a wrong value can do is draw a chevron.
+on the read side where the worst a wrong value can do is draw a steps glyph.
 
 `request.resource.data` is the full post-update document, so `validNode()` costs the same
 on an update as on a create and no partial-patch case can slip past. Reading a field that
@@ -930,10 +930,24 @@ renders the same component from that node's frozen `columns`.
   marked, and a tap switches to it. Two of the four panes are empty in a small household,
   and without the strip a board is navigated blind, because an empty pane is
   indistinguishable from a broken app. The strip is also the way back after a move, and the
-  way to Done without three swipes.
+  way to Done without three swipes. A chip's visible label is one string,
+  `board.columnChip`, rather than a name and a count joined in code, and it carries a
+  separate `board.columnChipA11y` so a screen reader hears "To do, 3 cards" rather than
+  the separating middle dot read aloud.
 - **At 720 and above.** Columns side by side, the board scrolling horizontally, each
-  column on its own `Surface`. The column headers say what the strip says, so the strip is
-  not rendered.
+  column a recessed panel of its own — see [the board's surfaces](#the-boards-surfaces).
+  The column headers say what the strip says, so the strip is not rendered.
+  **The columns divide the board rather than taking a fixed slice of it**: each is
+  `clamp(boardColumnMin, (boardWidth - space.md - space.md * n) / n, boardColumnMax)` wide
+  for `n` shown columns, with the bounds 300 and 400 in `theme/tokens.ts`. `boardWidth` is
+  already measured for the breakpoint, so this costs no second observer. Four columns
+  therefore fit a 1366 laptop without horizontal scrolling and a 1920 monitor is not half
+  empty; more columns than fit fall back to the minimum and the board scrolls, exactly as
+  it always did.
+
+  *Rejected:* a fixed, larger column — 375 px, "25% wider". Four of those need 1580 px, so
+  Done falls off a 1366 or 1440 laptop and every cross-column drag becomes a
+  drag-with-auto-scroll, a tax on the gesture this area is built around.
 - A board always opens on its first column, rather than restoring the last pane anyone
   was on.
 - Below the breakpoint every pane is mounted and one is shown. That is what lets a card
@@ -952,6 +966,60 @@ and Next up, alternately. That is the household-fills-a-board-on-a-Saturday-morn
 this feature exists for. Swiping between columns is tracked as
 [#78](https://github.com/Senth/home-backlog/issues/78) and needs a foundation where the
 gesture reports *to* that state rather than the state being read *from* a scroll offset.
+
+### The board's surfaces
+
+One rule, in both schemes: **column recessed, page in the middle, card raised.**
+
+It was inverted in dark before. A card was `surface` — `rgb(28,27,31)`, *the same colour
+as the page* — sitting on a column of `elevation.level1`, `rgb(37,35,42)`, so the board
+read dark → grey → dark with a card darker than the thing it sat on. Material's own
+convention is that elevation lifts toward light, and the light theme already obeyed it.
+Only dark was wrong, and it was wrong against its own light theme.
+
+Four colours carry the rule, named once in `theme/index.ts` and read everywhere they
+matter. They sit on top of the app-wide neutral ramp that
+[`platform-offline`](platform-offline.md#the-palette) describes:
+
+| token | dark | light |
+|---|---|---|
+| `boardColumn` | `rgb(8,15,10)` | `rgb(228,238,230)` |
+| `boardCard` | `rgb(40,48,42)` | `rgb(248,255,250)` |
+| `boardCardBorder` | `rgb(99,108,100)` | `rgb(136,146,137)` |
+| `onCardMuted` | `rgb(152,161,153)` | `rgb(99,108,100)` |
+
+Measured: title on card 10.12:1 dark / 16.19:1 light; the step count on card 5.10:1 dark /
+5.36:1 light; the border against the card 2.50:1 dark / 3.17:1 light, down from 5.41:1 and
+4.44:1 — the bright line that read as white.
+
+**`boardCard` is one token on purpose.** The card face, the drag overlay in `Board.tsx`
+and the drop landing zone in `BoardColumn.tsx` all read it, so a lifted card cannot be a
+different shade from the gap it left. Paper fills a `Surface` from its own elevation ramp,
+which is why the overlay's surface is painted explicitly rather than left to it.
+
+**The light border cannot go as soft as the rest.** `boardCard` is within 1.01:1 of the
+light page, and below `compactBreakpoint` the column carries no fill at all, so there the
+border is the only thing dividing a card from the page behind it. It is held at 3.14:1
+against that page for the same reason a control's boundary is held at 3:1 — a card is a
+button. The dark border already clears that against the dark page (3.16:1) at the softer
+tone.
+
+Above the breakpoint the column is a filled `View` — not a `Surface`, whose elevation ramp
+only lifts — with a `border.hairline` outline in `boardCardBorder` and `radius.md`, and a
+`titleMedium` bold header padded `space.md`. `titleSmall` at regular weight was the same
+size as a card title and lost the column it named. Below the breakpoint the pane carries
+no fill and no border: the strip above it already says which column you are on.
+
+**The step count gets its own colour rather than a lighter card.** It was
+`onSurfaceVariant` on `onSurface` — `rgb(202,196,208)` against `rgb(230,225,229)`, a
+1.38× gap, near enough to identical that both read as the same white. The gap is between
+two *text* colours and survives any fill change, so `onCardMuted` closes it directly:
+about 2× dimmer than the title in dark and 3× in light, with half a stop of headroom over
+the 4.5:1 floor `e2e/craft.spec.ts` enforces.
+
+*Rejected:* colour-coding cards by priority or lateness. See [the card](#the-card) — on a
+curated board that renders one member's judgement of another member's Saturday as an
+alarm.
 
 ### Whose projects a board shows
 
@@ -1008,9 +1076,8 @@ it before meeting the reason for it.
 ### The card
 
 A title, a mark when `blockedBy[]` is non-empty, and, only when the value is set, an
-outlined priority chip, an outlined effort chip and a due chip. On the right, `2/5` and the
-chevron when `hasSteps(node)`, and neither when not. A card with nothing set is a title and
-nothing else.
+outlined priority chip, an outlined effort chip and a due chip. A card with nothing set is
+a title and nothing else.
 
 Two of those marks answer the people questions, both only when set, the same rule the due
 chip follows:
@@ -1025,8 +1092,29 @@ Neither costs a read, since `memberProfiles` is already on `activeHome`. The *Hi
 stays a `MetaChip`, deliberately not a control, which is what keeps a screen reader from
 announcing every private card as "dimmed".
 
+**The face is two columns**: the content, and a narrow rail on the right carrying the
+overflow menu button with a steps glyph and `2/5` beneath it when `hasSteps(node)`, and
+nothing there when not. The rail never wraps, which is what makes the count
+position-stable at any text size — floated right on the chip row it is stranded below
+everything at 200% in Swedish. The count keeps its own accessibility label, so a screen
+reader still hears "3 of 5 steps done" rather than a fraction.
+
+**There is no chevron.** It appeared exactly when the count did, so the two said the same
+thing twice, and the mark that survives is the one that also carries information:
+`format-list-checks` beside `2/5`. *Rejected:* removing both. A board card and a plain
+card would then be identical, and a tap meant for the next job would open a five-step
+mountain — the exact thing the card face exists to warn about. *Rejected, again:* a
+progress bar in place of the count; see [reducing overwhelm](#reducing-overwhelm), a bar
+over nested work lies.
+
+The title is `bodyLarge` on a phone and `bodyMedium` above `compactBreakpoint`, where a
+column of cards is read as a list rather than one card at a time. The width comes down as
+a prop from the column — **the card does not measure itself**, because it is rendered once
+per row and again in the drag overlay, and a width listener on each of those is a resize
+observer per card for a fact the board already knows.
+
 **Tap opens the card as a board once it has a step in it, and as its
-[details](#node-detail) until then.** The chevron is what says which, so the gesture is
+[details](#node-detail) until then.** The steps glyph is what says which, so the gesture is
 never ambiguous. A card without steps has nothing to drill into, and an empty board reads
 as a bug rather than as an empty board. Everything else is on an overflow menu on the card,
 whose button stops the press reaching the card underneath.
@@ -1059,9 +1147,11 @@ already wrapped to three, on the person with the most scrolling to do.
 *Rejected:* a due date on the face whenever set. See above; a date that is always visible
 is a date nobody reads.
 
-*Rejected, and reversed:* the chevron on every card whether or not it has children, because
-finding out cost a query per card. `childCount` is what made it free: one number on a
-document the board already reads.
+*Rejected, and reversed, then removed:* the chevron on every card whether or not it has
+children, because finding out cost a query per card. `childCount` is what made it free:
+one number on a document the board already reads — and once the count was on the face, the
+chevron beside it was a second mark for the same fact. It went deliberately rather than
+being lost, which is worth knowing before anyone reverses it a third time.
 
 ### Creating a card
 
@@ -1070,6 +1160,19 @@ each column has its own add row, and below it one FAB naming its destination in 
 *Add to To do*. Status comes from that column, so a card typed one-handed in a greenhouse
 lands where the button said it would. `createNode` queues offline; the sheet closes
 immediately and never waits on the acknowledgement.
+
+**The pane reserves exactly the room the FAB takes, by measuring it.** The button's height
+comes from its own `onLayout`, and the pane's bottom padding is that height plus the FAB's
+current offset plus a gutter. Every constant tried here was wrong. The button is two lines
+tall in Swedish before it is in English, it grows again at 200% zoom, and it *rises* while
+a snackbar is up — so reserving its resting clearance parks it back over the last card for
+exactly as long as the undo is on screen. Its offset is therefore the first term of the
+inset rather than a number. `space.xxl` survives only as the value for the single frame
+before the FAB has laid itself out.
+
+*Rejected:* an icon-only or collapse-on-scroll FAB as the overlap fix. The button names
+its destination in words on purpose, and hiding the label exactly when the column is full
+inverts that.
 
 A board whose own node has not arrived yet renders no board at all. `parent` is what
 `createNode` receives, and a null parent is not "this board" but the root, so a card
@@ -1089,6 +1192,10 @@ added during that window would silently become a top-level project.
 The menu changes *page* rather than opening a submenu: Paper's `Menu` scrolls its own
 content, so a column of thirty cards is a list you scroll rather than a second overlay to
 dismiss.
+
+The button's glyph is `icon.sm` and **its pressable stays at `touchTarget`**. Shrinking
+the two together would put a gloved or one-thumbed tap on the card underneath and navigate
+away from the board; `e2e/craft.spec.ts` fails the build for it.
 
 **Move** stays on the pane you are on and raises a snackbar naming the destination, with
 Undo, which restores the status *and* the rank the card had, both of which are in hand.
@@ -1429,8 +1536,9 @@ veckor* are what a Swedish household actually says.
 The column strip with counts, a board that opens on its first column, a one-field add, and
 a card face that carries a title plus at most what is genuinely set. Never five metadata
 chips, never a due date that is not asking for anything yet, never a progress bar that
-lies. The four detail fields live one tap away rather than on the face, and the chevron and
-`2/5` say whether that tap opens a board or the details. Done grows without bound until
+lies. The four detail fields live one tap away rather than on the face, and the steps glyph
+with `2/5` says whether that tap opens a board or the details — one mark for that, not two.
+Done grows without bound until
 [#64](https://github.com/Senth/home-backlog/issues/64) archives it and
 [#76](https://github.com/Senth/home-backlog/issues/76) sorts it newest-first. Dragging adds
 nothing to any of it: the card face gains no handle and no grip, and the gesture is
@@ -1458,7 +1566,10 @@ Kept because each one is the kind of thing the next person reintroduces:
   `MetaChip`, an outlined pill with no ripple; the strip and the detail screen's choice
   chips keep Paper's `Chip`, where the ripple has a handler. And a chip's border is measured
   *inside* its own height, so `minHeight: touchTarget` leaves the pressable at 46, and
-  `outlinedTouchTarget` adds the two hairlines back.
+  `outlinedTouchTarget` adds the two hairlines back. That distinction is also why a
+  `MetaChip` takes no vertical padding at all — it is not a control, so its label's line
+  height sets its height, and the card stays short. **The rule stops there**: the strip's
+  chips are the primary way across a board on a phone and keep `outlinedTouchTarget`.
 - **`Checkbox.Item` is the same trap wearing a different label.** It is a `TouchableRipple`
   wrapping a *second* `Checkbox` that is handed no `onPress`, so the inner one carries
   `role="checkbox" aria-disabled="true"`, and Paper's `importantForAccessibility` guard
@@ -1494,6 +1605,15 @@ Kept because each one is the kind of thing the next person reintroduces:
   rather than being removed, and below the breakpoint every pane is mounted with one
   visible, so an edge hold that walks the board does not take the card's own element with
   it.
+- **`accessibilityHint` reaches a browser as nothing at all.** It is not in React Native
+  Web's `createDOMProps` map, so it becomes no `aria-describedby`, no `aria-description`,
+  nothing. A card's hint — `board.open` on a card with steps, `board.openDetails` on one
+  without — is therefore wired for iOS and Android and invisible on the platform this app
+  ships on. It is kept because it costs nothing and is correct where it works, but **it is
+  not the thing that tells a screen-reader user what a tap will do**: the count's own
+  label is, and that is a real `accessibilityLabel`. Making the hint real on web needs a
+  described-by node per card, which is its own change. Nothing in `e2e/` asserts a hint,
+  because there is nothing in a browser to assert.
 - **Paper names its own scrim, in English, and `Dialog` gives you no way to change it.**
   `Menu` takes `overlayAccessibilityLabel`; `Dialog` hard-codes its `Modal`'s to "Close
   modal". A Swedish screen-reader user got that mid-sentence on every dialog in the app.
@@ -1515,14 +1635,14 @@ that was being waited for.
 
 Three ways in, one screen:
 
-- **Tapping a card with no steps.** `hasSteps(node)` is false, so the card has no chevron
-  and the tap goes to the details rather than to an empty board.
+- **Tapping a card with no steps.** `hasSteps(node)` is false, so the card carries no
+  steps glyph and the tap goes to the details rather than to an empty board.
 - **`Details…` on any card's overflow menu.** The only way in for a card that *is* a board.
 - **An app-bar action on the board you are standing on**, showing its own node's details.
   It carries a dot when there is anything in them, which `hasDetails(node)` defines as a
   due date, a priority, an effort or a non-empty note, so opening it is a decision rather
-  than a lottery. Steps are not counted there; they have a chevron of their own. The root
-  board has no node and so no action.
+  than a lottery. Steps are not counted there; they have a mark of their own on the card.
+  The root board has no node and so no action.
 
 ### The screen
 

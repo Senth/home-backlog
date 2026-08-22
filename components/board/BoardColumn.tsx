@@ -39,6 +39,17 @@ interface BoardColumnProps {
 	 * and so does the stale assignee.
 	 */
 	hiddenCount?: number;
+	/**
+	 * How much room the pane keeps free at the bottom for the FAB floating over
+	 * it, measured by the board rather than guessed at.
+	 *
+	 * A constant is wrong twice over: the FAB names its destination in words, so
+	 * "Lägg till i Pågår" is taller than "Add to To do" before anyone touches the
+	 * text size, and at 200% it is taller again. `space.xxl` was that constant,
+	 * and Swedish is where it stopped clearing the last card. Only a pane has one
+	 * — above the breakpoint there is no FAB, the add control is in the column.
+	 */
+	bottomInset?: number;
 	onAdd: () => void;
 	onOpen: (node: Node) => void;
 	/** The card's overflow menu, which the board owns because the actions do. */
@@ -64,6 +75,7 @@ export function BoardColumn({
 	width,
 	wide,
 	hiddenCount = 0,
+	bottomInset = space.xxl,
 	onAdd,
 	onOpen,
 	renderMenu,
@@ -112,8 +124,14 @@ export function BoardColumn({
 				borderRadius: radius.md,
 				borderWidth: border.hairline,
 				borderStyle: "dashed",
+				// The shape of the card that is in the air: `boardCard`, the same
+				// fill the card face carries, so the hole in the column is the card
+				// missing from it rather than a third shade. Its idle edge is the
+				// card's edge too — `outlineVariant` was 1.4:1 against the recessed
+				// column and simply vanished there.
+				backgroundColor: theme.colors.boardCard,
 				borderColor:
-					gapAt === null ? theme.colors.outlineVariant : theme.colors.primary,
+					gapAt === null ? theme.colors.boardCardBorder : theme.colors.primary,
 			}}
 		>
 			<Text
@@ -133,6 +151,10 @@ export function BoardColumn({
 
 	return (
 		<View
+			// The column's own width is a craft claim now that it flexes, and a fill
+			// nothing else on the board carries: `e2e/` needs a handle on the box
+			// itself, which no visible string identifies.
+			testID={columnTestID(status)}
 			style={{
 				width,
 				// The one pane below the breakpoint fills what is left of the screen.
@@ -142,9 +164,17 @@ export function BoardColumn({
 				// Side by side, a column needs an edge or the board reads as one
 				// undifferentiated field of cards. A full-width pane does not: the
 				// strip above it already says which column you are on.
-				backgroundColor: wide ? theme.colors.elevation.level1 : undefined,
+				//
+				// Recessed rather than raised: the column is the darkest surface on
+				// the board, the page sits above it and a card above that. In dark
+				// this column was `elevation.level1` under a card that was the same
+				// colour as the page, so the board read dark → grey → dark with the
+				// card *below* the thing it sat on.
+				backgroundColor: wide ? theme.colors.boardColumn : undefined,
+				borderWidth: wide ? border.hairline : undefined,
+				borderColor: wide ? theme.colors.boardCardBorder : undefined,
 				borderRadius: wide ? radius.md : radius.none,
-				paddingTop: wide ? space.sm : space.none,
+				paddingTop: wide ? space.md : space.none,
 			}}
 		>
 			{wide ? (
@@ -154,11 +184,17 @@ export function BoardColumn({
 						alignItems: "center",
 						justifyContent: "space-between",
 						gap: space.sm,
-						paddingHorizontal: space.sm,
-						paddingBottom: space.sm,
+						// The same gutter the cards below it keep, so the heading sits
+						// over their left edge rather than beside it.
+						paddingHorizontal: space.md,
+						paddingBottom: space.md,
 					}}
 				>
-					<Text variant="titleSmall">{label}</Text>
+					{/* A heading, and read as one: `titleSmall` at regular weight was
+					    the same size as a card title and lost the column it named. */}
+					<Text variant="titleMedium" style={headingWeight}>
+						{label}
+					</Text>
 					<Text
 						variant="labelLarge"
 						style={{ color: theme.colors.onSurfaceVariant }}
@@ -180,11 +216,15 @@ export function BoardColumn({
 					style={{ flex: 1 }}
 					contentContainerStyle={{
 						gap: space.sm,
-						// A pane spans the screen below the breakpoint, so its cards need
-						// the margin the gap between side-by-side columns already gives.
-						paddingHorizontal: wide ? space.sm : space.md,
-						// Clear of the FAB, which floats over the bottom-right corner.
-						paddingBottom: space.xxl,
+						// One gutter in both layouts: a pane spans the screen and needs
+						// its own margin, and a column now has an edge for its cards to
+						// stand clear of.
+						paddingHorizontal: space.md,
+						// Clear of the FAB, which floats over the bottom-right corner of
+						// a pane. Above the breakpoint there is no FAB and the default
+						// stands: room under the add button rather than a card hard
+						// against the column's bottom edge.
+						paddingBottom: wide ? space.xxl : bottomInset,
 					}}
 				>
 					{slot === 0 && lifted === null ? (
@@ -192,7 +232,6 @@ export function BoardColumn({
 							variant="bodyMedium"
 							style={{
 								color: theme.colors.onSurfaceVariant,
-								paddingHorizontal: space.sm,
 								paddingVertical: space.sm,
 							}}
 						>
@@ -216,6 +255,7 @@ export function BoardColumn({
 										node={node}
 										onOpen={() => onOpen(node)}
 										menu={renderMenu?.(node)}
+										wide={wide}
 									/>
 								) : (
 									<DragArea {...drag.handlers(node)}>
@@ -223,6 +263,7 @@ export function BoardColumn({
 											node={node}
 											onOpen={() => onOpen(node)}
 											menu={renderMenu?.(node)}
+											wide={wide}
 										/>
 									</DragArea>
 								)}
@@ -246,7 +287,6 @@ export function BoardColumn({
 							variant="bodySmall"
 							style={{
 								color: theme.colors.onSurfaceVariant,
-								paddingHorizontal: space.sm,
 								paddingVertical: space.sm,
 							}}
 						>
@@ -271,3 +311,13 @@ export function BoardColumn({
 		</View>
 	);
 }
+
+/** One column's box, for the width and fill assertions in `e2e/`. */
+export const columnTestID = (status: Status) => `board-column-${status}`;
+
+/**
+ * The desktop column heading. `fontWeight` is not a spacing token and has no
+ * scale of its own; hoisted out of the render so the style object is not rebuilt
+ * per column per frame.
+ */
+const headingWeight = { fontWeight: "bold" } as const;

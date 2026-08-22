@@ -62,9 +62,15 @@ export function ColumnStrip({
 			{columns.map((status, index) => {
 				const count = nodes.filter((node) => node.status === status).length;
 				const marked = dropOn === status;
-				// The separator is punctuation rather than a translated string: both
-				// locales write a count after a label the same way.
-				const label = `${t(`status.${status}`)} · ${count}`;
+				const column = t(`status.${status}`);
+				// From a key rather than composed here: the separator is punctuation
+				// and both locales happen to write it the same way today, but a label
+				// assembled in code is a string no translator can reach.
+				const label = t("board.columnChip", { column, count });
+				// A middle dot is read aloud as "middle dot", or as nothing at all,
+				// depending on the screen reader — so the spoken chip says what it
+				// means: "To do, 3 cards".
+				const spoken = t("board.columnChipA11y", { column, count });
 
 				return (
 					// The frame a chip drop is measured against. A chip is the primary
@@ -101,6 +107,7 @@ export function ColumnStrip({
 							]}
 							selectedColor={marked ? theme.colors.onPrimary : undefined}
 							onPress={() => onSelect(index)}
+							accessibilityLabel={spoken}
 							accessibilityState={{ selected: index === current }}
 						>
 							{label}

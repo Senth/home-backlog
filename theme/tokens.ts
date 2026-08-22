@@ -71,12 +71,19 @@ export const size = {
 	avatarMd: 48,
 	brandMark: 96,
 	/**
-	 * One board column, side by side above `compactBreakpoint`. Wide enough for a
-	 * two-line title at a comfortable measure, narrow enough that three columns
-	 * and part of a fourth are on a laptop screen — a board that shows two
-	 * columns is a board you scroll to use.
+	 * The range a board column flexes between above `compactBreakpoint`, so the
+	 * columns divide the width they are given instead of taking a fixed slice.
+	 * `components/board/column-width.ts` does the dividing.
+	 *
+	 * `boardColumnMin` is the fixed width every column used to have: wide enough
+	 * for a two-line title at a comfortable measure, and below it that title
+	 * stops fitting — so a board with more columns than fit falls back here and
+	 * scrolls, exactly as it always did. `boardColumnMax` is where a wider column
+	 * stops helping: past 400 the title is one long line and the eye loses it,
+	 * the same reason `contentWidth.form` clamps.
 	 */
-	boardColumn: 300,
+	boardColumnMin: 300,
+	boardColumnMax: 400,
 	/**
 	 * The mark on an app-bar action that has something behind it. Small enough to
 	 * read as a mark rather than a badge, large enough to survive a dark theme.

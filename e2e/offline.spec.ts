@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { gotoAndSettle, ROUTES } from "@/e2e/support/app";
-import { deleteNodesByTitle, nodeTitles } from "@/e2e/support/firestore";
+import { deleteNodesByTitlePrefix, nodeTitles } from "@/e2e/support/firestore";
 
 /**
  * Offline is the whole point of the PWA, so this is the spec that matters most.
@@ -23,8 +23,13 @@ test.describe("offline writes", () => {
 	// A title unique per run, so a previous failure cannot make this one pass.
 	const title = `E2E offline ${Date.now()}`;
 
+	// By prefix rather than by this run's exact title. Each project loads this
+	// file afresh, so each gets its own timestamp — and a delete of one exact
+	// title cannot mop up a card the *previous* project left behind. The suite is
+	// serial and one worker deep, so there is never a second offline card in
+	// flight for this to take out from under another test.
 	test.afterEach(async () => {
-		await deleteNodesByTitle(title);
+		await deleteNodesByTitlePrefix("E2E offline");
 	});
 
 	test("a card created offline reaches Firestore once the connection returns", async ({
@@ -35,7 +40,15 @@ test.describe("offline writes", () => {
 
 		await context.setOffline(true);
 
-		await page.getByRole("button", { name: /^Add to /i }).click();
+		// `.first()` because the add affordance is per-column above
+		// `compactBreakpoint`: the phone has one FAB naming the pane on screen,
+		// desktop has an add row in each of the four columns. The first is the
+		// first column either way, so both widths add to the same place — and
+		// every assertion below is by title, not by column.
+		await page
+			.getByRole("button", { name: /^Add to /i })
+			.first()
+			.click();
 		await page.getByRole("textbox").first().fill(title);
 		await page.getByRole("button", { name: "Add", exact: true }).click();
 

@@ -9,7 +9,9 @@
  *
  * Second, cleaning up. A spec that creates a card and leaves it there makes the
  * local fixture drift a little further from `.emulator-seed` on every run, until
- * one day a screenshot is full of "E2E offline 1738…" and nobody knows why.
+ * one day a screenshot is full of "E2E offline 1738…" and nobody knows why. Each
+ * spec deletes what it made, and `fixture.setup.ts` sweeps the board before the
+ * suite starts, for the run that was killed before its `finally` could.
  *
  * The emulator accepts `Authorization: Bearer owner` as a superuser, so these
  * calls bypass `firestore.rules` entirely. That is correct here — the rules have
@@ -71,19 +73,103 @@ export async function nodeTitles(): Promise<string[]> {
 }
 
 /**
- * Deletes every node with this title. Best-effort: a spec that failed before it
- * created anything still calls this, and finding nothing is a normal outcome.
+ * Deletes every node whose title begins with this prefix. Best-effort in that
+ * finding nothing is a normal outcome — a spec that failed before it created
+ * anything still calls this — but a delete that is refused is not: see
+ * `deleteNodesWhere`.
  */
-export async function deleteNodesByTitle(title: string): Promise<void> {
+export async function deleteNodesByTitlePrefix(prefix: string): Promise<void> {
+	await deleteNodesWhere((stored) => stored.startsWith(prefix));
+}
+
+async function deleteNodesWhere(
+	matches: (title: string) => boolean,
+): Promise<void> {
 	const { documents = [] } = await get(
 		`/homes/${await homeId()}/nodes?pageSize=300`,
 	);
 
 	for (const document of documents) {
-		if (document.fields?.title?.stringValue !== title) continue;
-		await fetch(`http://localhost:8062/v1/${document.name}`, {
+		const title = document.fields?.title?.stringValue;
+		if (title === undefined || !matches(title)) continue;
+		const response = await fetch(`http://localhost:8062/v1/${document.name}`, {
 			method: "DELETE",
 			headers: HEADERS,
 		});
+		// A delete that quietly fails is the worst outcome available here: the
+		// card stays on the board and the run that pays for it is a later spec in
+		// a different project, failing on a card count with nothing in its output
+		// to say where the extra card came from. Fail where the leak is instead.
+		if (!response.ok) {
+			throw new Error(
+				`emulator REST could not delete "${title}": ${response.status} ${response.statusText}`,
+			);
+		}
 	}
+}
+
+/**
+ * Fills a root column with `count` throwaway cards, and answers with their
+ * titles in the order they will appear.
+ *
+ * A claim about *a column full enough to scroll* cannot be made against the
+ * fixture: the seeded home is a real household's board, six root cards across
+ * four columns, and none of its columns overflows a phone. Padding the fixture
+ * itself would push that noise into every other spec's screenshots and into
+ * `browser-review`, so the cards are made for the one test that needs them and
+ * deleted after it.
+ *
+ * Each card is a **copy of a stored node**, with only the title, rank, status
+ * and parentage changed. Hand-writing the document is how a fixture drifts from
+ * the schema: a field the app reads but this file never heard of would arrive as
+ * `undefined` and the board would render a card with no title rather than fail.
+ * The ranks sort after every seeded one, so the batch lands at the bottom of the
+ * column where a scroll has to reach it.
+ */
+export async function fillColumn(
+	status: string,
+	count: number,
+	titlePrefix: string,
+): Promise<string[]> {
+	const home = await homeId();
+	const { documents = [] } = await get(`/homes/${home}/nodes?pageSize=1`);
+	const template = documents[0];
+	if (template === undefined) {
+		throw new Error(
+			`no node in ${HOME_NAME} to copy — is the emulator running with --import .emulator-seed?`,
+		);
+	}
+
+	const titles: string[] = [];
+	for (let index = 0; index < count; index++) {
+		const title = `${titlePrefix} ${index + 1}`;
+		const fields = {
+			...(template.fields as Record<string, unknown>),
+			title: { stringValue: title },
+			// Lowercase, so it sorts after every fractional-index rank in the
+			// fixture — those start at a capital letter.
+			rank: { stringValue: `zz${String(index).padStart(3, "0")}` },
+			status: { stringValue: status },
+			parentId: { nullValue: null },
+			ancestorIds: { arrayValue: {} },
+			childCount: { integerValue: "0" },
+			doneCount: { integerValue: "0" },
+			completedAt: { nullValue: null },
+			visibility: { stringValue: "shared" },
+		};
+
+		const response = await fetch(`${BASE}/homes/${home}/nodes`, {
+			method: "POST",
+			headers: { ...HEADERS, "Content-Type": "application/json" },
+			body: JSON.stringify({ fields }),
+		});
+		if (!response.ok) {
+			throw new Error(
+				`emulator REST could not create ${title}: ${response.status} ${response.statusText}`,
+			);
+		}
+		titles.push(title);
+	}
+
+	return titles;
 }

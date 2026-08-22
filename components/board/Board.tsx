@@ -15,6 +15,7 @@ import { BoardColumn } from "@/components/board/BoardColumn";
 import { boardHref, detailsHref } from "@/components/board/board-href";
 import { CardMenu, type Notice } from "@/components/board/CardMenu";
 import { ColumnStrip } from "@/components/board/ColumnStrip";
+import { columnWidth } from "@/components/board/column-width";
 import { TitleDialog } from "@/components/board/TitleDialog";
 import {
 	boardKey,
@@ -36,7 +37,7 @@ import {
 	contentWidth,
 	drag as dragTokens,
 	elevation,
-	size,
+	radius,
 	space,
 	touchTarget,
 } from "@/theme/tokens";
@@ -112,6 +113,7 @@ export function Board({
 	const { user } = useAuth();
 
 	const [boardWidth, setBoardWidth] = useState(0);
+	const [fabHeight, setFabHeight] = useState(0);
 	const [current, setCurrent] = useState(0);
 	const [adding, setAdding] = useState<Status | null>(null);
 	const [notice, setNotice] = useState<Notice | null>(null);
@@ -135,6 +137,30 @@ export function Board({
 		[columns, nodes, hidden],
 	);
 	const compact = boardWidth > 0 && boardWidth < compactBreakpoint;
+	/**
+	 * How far the last card in a pane has to stop short of the FAB: the band the
+	 * FAB occupies — the height it actually measured, plus the `space.md` it
+	 * floats above the bottom edge — and then one `space.md` of daylight.
+	 *
+	 * The band alone leaves the last card's bottom edge *exactly* on the FAB's
+	 * top edge. Nothing overlaps, and it still reads as a button resting on a
+	 * card: there is no gap for a shadow, a focus ring or a half pixel of scroll
+	 * to live in. The third term is what makes the card clear of the FAB rather
+	 * than merely not under it.
+	 *
+	 * Measured rather than assumed. The FAB names its destination in words, so it
+	 * is taller in Swedish than in English and taller again at 200% text, and the
+	 * `space.xxl` that used to stand here was a guess that stopped clearing the
+	 * last card the moment either of those was true. `space.xxl` survives only as
+	 * the value for the single frame before the FAB has laid itself out.
+	 *
+	 * The FAB's own offset is the first term rather than a constant, because the
+	 * button rises while a snackbar is up. Reserving the resting clearance while
+	 * it is parked 56dp higher puts it back over the last card for exactly as
+	 * long as the undo is on screen — which is the defect this inset replaced.
+	 */
+	const fabBottom = notice === null ? space.md : space.xxl + space.lg;
+	const fabInset = fabHeight > 0 ? fabHeight + fabBottom + space.md : space.xxl;
 	// An extra column disappearing would otherwise leave the pane showing a
 	// column that is no longer there.
 	const column = Math.min(current, shown.length - 1);
@@ -329,6 +355,7 @@ export function Board({
 									nodes={visible || carrying ? cardsIn(status) : noCards}
 									width="100%"
 									wide={false}
+									bottomInset={fabInset}
 									hiddenCount={visible ? hiddenIn(status) : undefined}
 									onAdd={() => setAdding(status)}
 									onOpen={open}
@@ -354,7 +381,11 @@ export function Board({
 							key={status}
 							status={status}
 							nodes={cardsIn(status)}
-							width={size.boardColumn}
+							// The columns divide the board rather than taking a fixed
+							// slice of it, so four fit a laptop and a wide monitor is
+							// not half empty. More columns than fit keep the minimum
+							// and the board scrolls, as it always did.
+							width={columnWidth(boardWidth, shown.length)}
 							wide
 							hiddenCount={hiddenIn(status)}
 							onAdd={() => setAdding(status)}
@@ -411,8 +442,19 @@ export function Board({
 						],
 					}}
 				>
-					<Surface elevation={elevation.high}>
-						<BoardCard node={drag.node} onOpen={noop} />
+					{/* `boardCard` on the surface as well as on the card: Paper fills a
+					    `Surface` with an elevation tint, and it is the corners of the
+					    card that would show it — a lifted card must not be a different
+					    shade from the gap it left. `wide` matches the row underneath,
+					    or the title would resize as the card leaves the board. */}
+					<Surface
+						elevation={elevation.high}
+						style={{
+							backgroundColor: theme.colors.boardCard,
+							borderRadius: radius.md,
+						}}
+					>
+						<BoardCard node={drag.node} onOpen={noop} wide={!compact} />
 					</Surface>
 				</Animated.View>
 			) : null}
@@ -425,6 +467,10 @@ export function Board({
 					icon="plus"
 					label={t("board.addTo", { column: t(`status.${onScreen}`) })}
 					onPress={() => setAdding(onScreen)}
+					// What the pane above pads its bottom by. The label is a
+					// translated sentence at the reader's own text size, so nothing
+					// short of measuring it is right in both locales.
+					onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
 					style={{
 						position: "absolute",
 						right: space.md,
@@ -432,7 +478,7 @@ export function Board({
 						// here — it is the way back from a gesture that can move a card
 						// somebody did not mean to move — and a FAB parked on top of it
 						// is the one control that must never be covered.
-						bottom: notice === null ? space.md : space.xxl + space.lg,
+						bottom: fabBottom,
 					}}
 				/>
 			) : null}
