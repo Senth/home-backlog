@@ -31,6 +31,7 @@ import {
 	type Node,
 	type NodeData,
 	newNodeData,
+	rootIdOf,
 	type Status,
 	toNode,
 	type Visibility,
@@ -307,6 +308,15 @@ function movesACounter(fields: Record<string, unknown>): boolean {
 	return Object.keys(fields).length > 0;
 }
 
+/** The two shapes the rules refuse a create for: see `createNode` below. */
+function needsTheAuthor(data: NodeData, uid: string): boolean {
+	if (data.participantIds.includes(uid)) return false;
+	return (
+		data.visibility === "private" ||
+		(data.parentId === null && data.participantIds.length === 0)
+	);
+}
+
 /**
  * A new node, with its id available immediately.
  *
@@ -340,10 +350,14 @@ export function createNode(
 		// Writing yourself out of your own private node strands it where nobody
 		// can read or delete it, so the rules refuse it — and the caller of a
 		// private *root* card has no parent to inherit participants from.
-		participantIds:
-			data.visibility === "private" && !data.participantIds.includes(uid)
-				? [uid, ...data.participantIds]
-				: data.participantIds,
+		//
+		// A *root* with nobody on it is refused too, since #102: `[]` on one no
+		// longer means "everybody". A caller that knows the household passes it
+		// (a shared project is born with every member on it); this fallback is
+		// only so that no create can write a document the rules deny.
+		participantIds: needsTheAuthor(data, uid)
+			? [uid, ...data.participantIds]
+			: data.participantIds,
 		// A node created straight into Done is unusual by hand and ordinary
 		// over the REST API (#7). The rules require the two to agree.
 		completedAt: data.status === "done" ? serverTimestamp() : null,
@@ -561,6 +575,39 @@ export async function flipVisibility(
 }
 
 /**
+ * What a move does to `participantIds`, which is a question about a *project*
+ * and edited by a root-only control — so both ends of a move need an answer:
+ *
+ * - a shared root that **becomes a step** has them cleared. The board's
+ *   default-hide filter is uniform at every depth, so the step would otherwise
+ *   stay hidden from everyone not on it, with no control anywhere able to clear
+ *   it short of moving it back to the top;
+ * - a shared step that **becomes a root** takes the old project's list. Since
+ *   #102 the rules refuse a root with nobody on it, and whose project it came
+ *   out of is the only honest answer. It costs one `get()` of that root, which
+ *   is shared and therefore readable by every member.
+ *
+ * A private node needs neither: the rules already require every descendant to
+ * carry all of its parent's participants, so a promoted private step is already
+ * carrying the right list.
+ *
+ * A root the #102 backfill has not reached still holds `[]`, and promoting into
+ * it is then refused — the same refusal every *other* update to that root
+ * already gets. See `OPERATIONS.md` § One-off migrations.
+ */
+async function movedParticipants(
+	homeId: string,
+	node: Node,
+	parent: Node | null,
+): Promise<{ participantIds?: string[] }> {
+	if (node.visibility !== "shared") return {};
+	if (parent !== null) return { participantIds: [] };
+	if (node.parentId === null) return {};
+	const root = await getNode(homeId, rootIdOf(node));
+	return { participantIds: root?.participantIds ?? [] };
+}
+
+/**
  * Moving a node somewhere else in the project tree, with everything under it.
  *
  * One batch, so the tree is never half-rewritten. That is what the split in
@@ -594,6 +641,7 @@ export async function reparentNode(
 	}
 
 	const ancestorIds = childAncestorIds(parent);
+	const participants = await movedParticipants(homeId, node, parent);
 	const descendants = await subtreeOf(homeId, node, uid);
 
 	const batch = writeBatch(db);
@@ -601,16 +649,7 @@ export async function reparentNode(
 		parentId: parent?.id ?? null,
 		ancestorIds,
 		rank,
-		// Participants are a question about a *project*, and the control that
-		// edits them is root-only. A shared root that becomes a step keeps them
-		// otherwise, and the board's default-hide filter is uniform at every
-		// depth — so the step would stay hidden from everyone not on it, with no
-		// control anywhere able to clear it short of moving it back to the top.
-		// A private node must keep its list: the rules require every descendant
-		// to carry all of its parent's participants.
-		...(parent !== null && node.visibility === "shared"
-			? { participantIds: [] }
-			: {}),
+		...participants,
 		updatedAt: serverTimestamp(),
 	});
 	// The node leaves one board and arrives on another. Either end may be the

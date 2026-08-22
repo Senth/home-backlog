@@ -335,6 +335,30 @@ service cloud.firestore {
             && !(nodeId in data.ancestorIds);
         }
 
+        // A root names the people whose project it is — always, since #102.
+        //
+        // `[]` on a root used to mean "everybody in the home", which is a value
+        // no participant checkbox can draw honestly: a member saw their own
+        // name unticked on a project that was theirs, and a member who joined
+        // later was silently in on every project that predated them, with no
+        // way to have joined a household without joining all of its work. A
+        // stored list answers both, and this is what keeps the old meaning from
+        // coming back one write at a time.
+        //
+        // Uniform across both visibilities, because it costs nothing to say so:
+        // a private root already carries its creator — the read grant refuses
+        // one that does not — so the constraint only ever bites a shared root.
+        // Descendants are untouched: participants are a question about a
+        // *project*, so a shared step still carries `[]`.
+        //
+        // **Narrowing.** A stored root still holding `[]` has every update to
+        // it denied afterwards, including the childCount bump that adding a
+        // step to it performs, so the backfill runs before this deploys. See
+        // OPERATIONS.md § One-off migrations.
+        function rootHasParticipants(data) {
+          return data.parentId != null || data.participantIds.size() > 0;
+        }
+
         // The invariant that makes privacy *queryable*: a node's visibility
         // equals its parent's, and a private node carries all of its parent's
         // participants.
@@ -421,12 +445,14 @@ service cloud.firestore {
           && validNode(request.resource.data)
           && createdInApp(request.resource.data)
           && structure(request.resource.data)
+          && rootHasParticipants(request.resource.data)
           && inherits(request.resource.data);
         allow update: if isMember(homeId)
           && visibleToMe(resource.data)
           && visibleToMe(request.resource.data)
           && validNode(request.resource.data)
           && structure(request.resource.data)
+          && rootHasParticipants(request.resource.data)
           && immutable(request.resource.data, resource.data)
           && (privacyUnchanged(request.resource.data, resource.data)
               || inherits(request.resource.data));

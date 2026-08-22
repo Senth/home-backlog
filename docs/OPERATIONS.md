@@ -291,6 +291,7 @@ Written so far:
 | Script | What it did |
 | ------ | ----------- |
 | `migrate-99-statuses.mjs` | [#99](https://github.com/Senth/home-backlog/issues/99) — rewrote `status` `research` / `planning` / `review` to `execution`, and every `columns` array to the four that survived. |
+| `migrate-102-participants.mjs` | [#102](https://github.com/Senth/home-backlog/issues/102) — gave every shared **root** still holding `participantIds: []` the uids of its home's current members, so the empty list stops meaning "everybody, including whoever joins later". |
 
 ## Emulators
 

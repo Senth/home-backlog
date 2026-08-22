@@ -343,8 +343,12 @@ export interface Node {
 	 * the read rule consults. Never "who is doing this card": that is
 	 * `assigneeIds`, and the two are deliberately different lists.
 	 *
-	 * Empty means "everybody's", which is what a board's default-hide filter
-	 * goes by — see `hiddenByParticipants()`.
+	 * A **root** always names people: the rules refuse an empty list on one
+	 * (#102), because `[]` meaning "everybody, including whoever joins later"
+	 * is a fiction the participant checkboxes cannot draw honestly. A shared
+	 * descendant still carries `[]` — participants are a question about a
+	 * project — and `hiddenByParticipants()` still reads an empty list as
+	 * everybody's, which is what keeps a step visible.
 	 */
 	participantIds: string[];
 	/**
@@ -745,7 +749,13 @@ export interface NewNodeInput {
 	status?: Status;
 	/** Honoured only at the root; a child always takes its parent's. */
 	visibility?: Visibility;
-	/** Added to whatever the parent's privacy already requires. */
+	/**
+	 * Added to whatever the parent's privacy already requires. On a **root** the
+	 * rules refuse an empty list, so a caller creating one passes whose project
+	 * it is — every member, for a shared project made on the root board.
+	 * `createNode` falls back to the author rather than writing a list the rules
+	 * would refuse.
+	 */
 	participantIds?: readonly string[];
 	/** Who is doing it. Inherited from nothing — a step is not the project. */
 	assigneeIds?: readonly string[];
