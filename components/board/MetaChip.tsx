@@ -38,7 +38,10 @@ export function MetaChip({ children, source, color }: MetaChipProps) {
 				borderColor: theme.colors.outline,
 				borderRadius: radius.sm,
 				paddingHorizontal: space.sm,
-				paddingVertical: space.xs,
+				// The label's line height sets the height. A chip is a word about the
+				// card, not a control with a target to hit, and vertical padding on it
+				// only pushed the title's own row further apart.
+				paddingVertical: space.none,
 			}}
 		>
 			{source === undefined ? null : (

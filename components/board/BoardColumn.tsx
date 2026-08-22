@@ -216,6 +216,7 @@ export function BoardColumn({
 										node={node}
 										onOpen={() => onOpen(node)}
 										menu={renderMenu?.(node)}
+										wide={wide}
 									/>
 								) : (
 									<DragArea {...drag.handlers(node)}>
@@ -223,6 +224,7 @@ export function BoardColumn({
 											node={node}
 											onOpen={() => onOpen(node)}
 											menu={renderMenu?.(node)}
+											wide={wide}
 										/>
 									</DragArea>
 								)}

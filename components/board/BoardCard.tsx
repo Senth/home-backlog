@@ -20,18 +20,39 @@ interface BoardCardProps {
 	onOpen: () => void;
 	/** The overflow menu. Everything that is not "open" lives in there. */
 	menu?: ReactNode;
+	/**
+	 * Above `compactBreakpoint`, where the title drops to `bodyMedium` because a
+	 * column of desktop cards is read as a list rather than one card at a time.
+	 *
+	 * The column passes it down; **the card does not measure itself**. A card is
+	 * rendered once per row and dragged over a second time in an overlay, and a
+	 * width listener on each of those is a resize observer per card for a fact
+	 * the board already knows.
+	 */
+	wide?: boolean;
 }
 
 /**
  * One card: a title, what little metadata is worth carrying, and a mark when
  * something is blocking it.
  *
- * **The chevron says the card is a board**, and it is there only when the card
- * really has steps — `hasSteps`, from the stored `childCount`. That is the whole
- * shape of #49: a node is a board because it has children, so there is no flag,
- * no *convert to a board* action and no undo. A tap on a card without steps
- * opens its details instead, because "buy tile adhesive" is not a board and an
- * empty board reads as a bug rather than as an empty board.
+ * **The steps glyph says the card is a board**, and it is there only when the
+ * card really has steps — `hasSteps`, from the stored `childCount`. That is the
+ * whole shape of #49: a node is a board because it has children, so there is no
+ * flag, no *convert to a board* action and no undo. A tap on a card without
+ * steps opens its details instead, because "buy tile adhesive" is not a board
+ * and an empty board reads as a bug rather than as an empty board.
+ *
+ * The face is two columns: the content, and a narrow rail on the right carrying
+ * the menu button with the glyph and the count under it. The rail never wraps,
+ * so the count is position-stable at any text size — a count floated right on
+ * the chip row is stranded below everything at 200% in Swedish.
+ *
+ * **There is no chevron.** It appeared exactly when the count did, so the two
+ * said the same thing twice; the mark that survives is the one that also carries
+ * information, and `format-list-checks` beside `2/5` is that mark. Removing both
+ * was rejected: a board card and a plain card would then be identical, and a tap
+ * meant for the next job would open a five-step mountain.
  *
  * What the face gained, and what it did not:
  *
@@ -53,8 +74,8 @@ interface BoardCardProps {
  *   20 of 30 real jobs are done, and somebody reads that as broken once and then
  *   stops reading bars.
  *
- * A card with nothing set is exactly the card that shipped before, minus the
- * chevron.
+ * A card with nothing set is a title and, if it is a board, a count: nothing is
+ * added to make it look finished.
  *
  * Two more marks, both only when set, the same rule the due chip follows:
  *
@@ -67,7 +88,12 @@ interface BoardCardProps {
  *
  * Neither costs a read: `memberProfiles` is already on `activeHome`.
  */
-export function BoardCard({ node, onOpen, menu }: BoardCardProps) {
+export function BoardCard({
+	node,
+	onOpen,
+	menu,
+	wide = false,
+}: BoardCardProps) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
 	const { activeHome } = useHome();
@@ -92,7 +118,16 @@ export function BoardCard({ node, onOpen, menu }: BoardCardProps) {
 		<Card
 			mode="outlined"
 			onPress={onOpen}
-			accessibilityHint={steps ? t("board.open") : t("detail.title")}
+			accessibilityHint={steps ? t("board.open") : t("board.openDetails")}
+			// Raised out of its column: the fill is a board colour rather than
+			// `surface`, which in dark was the same colour as the page. Paper draws
+			// the outlined card's hairline itself, in whatever `borderColor` this
+			// style carries — a `borderWidth` here would put a second, coincident
+			// border on the surface underneath it and inset the content by a pixel.
+			style={{
+				backgroundColor: theme.colors.boardCard,
+				borderColor: theme.colors.boardCardBorder,
+			}}
 		>
 			<View
 				style={{
@@ -108,7 +143,10 @@ export function BoardCard({ node, onOpen, menu }: BoardCardProps) {
 				}}
 			>
 				<View style={{ flex: 1, gap: space.xs }}>
-					<Text variant="bodyLarge">{node.title}</Text>
+					{/* Smaller on desktop, where a column is read as a list of cards
+					    rather than one card filling the screen. `wide` comes from the
+					    column, not from a measurement taken here. */}
+					<Text variant={wide ? "bodyMedium" : "bodyLarge"}>{node.title}</Text>
 
 					{/* One label for the row rather than one per face: a screen reader
 					    reading "M W, N A" learns nothing, and the initials are a visual
@@ -208,29 +246,48 @@ export function BoardCard({ node, onOpen, menu }: BoardCardProps) {
 					) : null}
 				</View>
 
-				{steps ? (
-					<>
-						<Text
-							variant="labelMedium"
-							style={{ color: theme.colors.onSurfaceVariant }}
-							accessibilityLabel={t("detail.stepsDone", {
-								done: node.doneCount,
-								total: node.childCount,
-							})}
-						>
-							{t("board.steps", {
-								done: node.doneCount,
-								total: node.childCount,
-							})}
-						</Text>
-						<Icon
-							source="chevron-right"
-							size={icon.md}
-							color={theme.colors.onSurfaceVariant}
-						/>
-					</>
-				) : null}
-				{menu}
+				{/* The rail. The menu, and under it the mark that this card is a
+				    board. A column of its own so the count sits out of the title's
+				    way and cannot be pushed anywhere by what the content does. */}
+				{menu === undefined && !steps ? null : (
+					<View style={{ alignItems: "center", gap: space.xs }}>
+						{menu}
+						{steps ? (
+							<View
+								testID="card-steps"
+								style={{
+									flexDirection: "row",
+									// Never wraps: the glyph and its count are one mark, and
+									// half of it on the next line is not a smaller mark.
+									flexWrap: "nowrap",
+									alignItems: "center",
+									gap: space.xs,
+									paddingHorizontal: space.xs,
+								}}
+							>
+								<Icon
+									source="format-list-checks"
+									size={icon.sm}
+									color={theme.colors.onCardMuted}
+								/>
+								<Text
+									variant="labelMedium"
+									numberOfLines={1}
+									style={{ color: theme.colors.onCardMuted }}
+									accessibilityLabel={t("detail.stepsDone", {
+										done: node.doneCount,
+										total: node.childCount,
+									})}
+								>
+									{t("board.steps", {
+										done: node.doneCount,
+										total: node.childCount,
+									})}
+								</Text>
+							</View>
+						) : null}
+					</View>
+				)}
 			</View>
 		</Card>
 	);

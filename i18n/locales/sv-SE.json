@@ -162,6 +162,7 @@
 		"titleRequired": "Kortet behöver en titel",
 		"titleTooLong": "Titeln är för lång",
 		"open": "Öppna som tavla",
+		"openDetails": "Öppna detaljer",
 		"actions": "Kortåtgärder",
 		"blocked": "Väntar",
 		"moveTo": "Flytta till",

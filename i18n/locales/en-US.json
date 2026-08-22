@@ -162,6 +162,7 @@
 		"titleRequired": "A card needs a title",
 		"titleTooLong": "That title is too long",
 		"open": "Open as board",
+		"openDetails": "Open details",
 		"actions": "Card actions",
 		"blocked": "Waiting",
 		"moveTo": "Move to",
