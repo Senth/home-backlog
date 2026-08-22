@@ -423,6 +423,31 @@ describe("invites", () => {
 		);
 	});
 
+	it("takes addToAllProjects only as a bool", async () => {
+		// The invitee reads this field and writes every shared root from it, so a
+		// string here would be a truthy "yes" that nobody meant to tick.
+		await seedHome();
+		const fresh = "fresh@example.com";
+		const freshPath = `${homePath}/invites/${emailHash(fresh)}`;
+		const db = dbAs(env, OWNER);
+
+		await assertFails(
+			setDoc(doc(db, freshPath), {
+				...inviteDoc(fresh),
+				addToAllProjects: "yes",
+			}),
+		);
+		await assertSucceeds(
+			setDoc(doc(db, freshPath), {
+				...inviteDoc(fresh),
+				addToAllProjects: true,
+			}),
+		);
+		// Absent is how every invitation written before #102 looks, and it reads
+		// as off rather than as a document the owner can no longer edit.
+		await assertSucceeds(setDoc(doc(db, freshPath), inviteDoc(fresh)));
+	});
+
 	it("folds a non-ASCII address the same way the client does", async () => {
 		// The rules hash `request.auth.token.email.lower()` (CEL) and the client
 		// hashes `email.toLowerCase()` (JavaScript). Everything ASCII agrees; this

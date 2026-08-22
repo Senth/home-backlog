@@ -19,6 +19,7 @@ import {
 } from "firebase/firestore";
 import { displayLabel } from "@/auth/display-name";
 import { db } from "@/config/firebase";
+import { addToSharedRoots } from "@/data/nodes";
 import {
 	emailHash,
 	type Home,
@@ -81,6 +82,9 @@ export function toInvite(
 		emailHash: typeof data.emailHash === "string" ? data.emailHash : "",
 		email: typeof data.email === "string" ? data.email : "",
 		role: data.role === "owner" ? "owner" : "member",
+		// Absent on every invitation written before #102 — which is off, the same
+		// as the box the owner did not tick.
+		addToAllProjects: data.addToAllProjects === true,
 		homeName: typeof data.homeName === "string" ? data.homeName : "",
 		invitedByName:
 			typeof data.invitedByName === "string" ? data.invitedByName : "",
@@ -209,6 +213,7 @@ export function sendInvite(
 	inviter: User,
 	email: string,
 	role: Role,
+	addToAllProjects: boolean,
 ): Promise<void> {
 	// Folded once, here, so the stored plaintext, the document id and the field
 	// all describe the same address — and the one the provider will report.
@@ -220,6 +225,9 @@ export function sendInvite(
 		emailHash: emailHash(address),
 		email: address,
 		role,
+		// Read by the invitee on accept: they have no uid until then, so there is
+		// nothing the inviter could write into a participant list here.
+		addToAllProjects,
 		// Denormalized: the invitee can read neither the home nor its members.
 		homeName: home.name,
 		invitedByName: displayLabel(inviter),
@@ -249,17 +257,31 @@ export function revokeInvite(homeId: string, hash: string): Promise<void> {
  * while they are already a member of the home is the one wrong answer available.
  * A leftover invite is harmless: accepting it again is a no-op write of the
  * membership they already have.
+ *
+ * Resolves false when the invitation asked for every shared project and not
+ * every one of them could be shared — joined, with a thinner board.
  */
-export async function acceptInvite(user: User, invite: Invite): Promise<void> {
+export async function acceptInvite(
+	user: User,
+	invite: Invite,
+): Promise<boolean> {
 	await updateDoc(homeRef(invite.homeId), {
 		[`members.${user.uid}`]: invite.role,
 		[`memberProfiles.${user.uid}`]: profileOf(user),
 		[`memberEmailHashes.${user.uid}`]: emailHash(user.email ?? ""),
 	});
 
+	// Only now, and only if it was asked for: every write it makes is granted by
+	// being a member of this home, which is what the line above just became true.
+	const shared = invite.addToAllProjects
+		? await addToSharedRoots(invite.homeId, user.uid)
+		: true;
+
 	deleteDoc(inviteRef(invite.homeId, invite.emailHash)).catch((reason) => {
 		console.warn("Could not clear the consumed invitation:", reason);
 	});
+
+	return shared;
 }
 
 export function declineInvite(invite: Invite): Promise<void> {

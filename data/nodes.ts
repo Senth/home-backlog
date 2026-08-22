@@ -398,6 +398,54 @@ export function updateNode(
 }
 
 /**
+ * Puts a uid on every shared project — what a ticked *Add them to every shared
+ * project* does the moment its invitee becomes a member.
+ *
+ * It has to run *after* the membership write has landed, not before: every read
+ * and write here is granted by being a member, and the invitee is not one until
+ * then.
+ *
+ * Provably safe: the query returns only `visibility == 'shared'` documents,
+ * which is the read rule's first disjunct, so it cannot match a document the
+ * caller could be denied. Private roots are outside it deliberately — joining a
+ * household is not joining its private work.
+ *
+ * Best-effort and re-runnable. Each root is its own write, a root that refuses
+ * is reported rather than failing the join, and a rerun writes only the roots
+ * still missing the uid. A partial run leaves a member with a thinner board,
+ * which anyone can finish by hand on a project's details.
+ *
+ * Resolves false if any root could not be updated.
+ */
+export async function addToSharedRoots(
+	homeId: string,
+	uid: string,
+): Promise<boolean> {
+	const roots = await getDocs(sharedBoardQuery(homeId, null));
+	const results = await Promise.allSettled(
+		roots.docs
+			.map(toNode)
+			.filter((node) => !node.participantIds.includes(uid))
+			.map((node) =>
+				updateNode(homeId, node.id, {
+					participantIds: [...node.participantIds, uid],
+				}),
+			),
+	);
+
+	for (const result of results) {
+		if (result.status === "rejected") {
+			console.error(
+				"Could not share a project with a new member:",
+				result.reason,
+			);
+		}
+	}
+
+	return results.every((result) => result.status === "fulfilled");
+}
+
+/**
  * A card changing column, or moving within one.
  *
  * `rank` is ordered within its `(parentId, status)` column, so a card arriving

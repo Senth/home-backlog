@@ -167,9 +167,15 @@ service cloud.firestore {
         // The hash is stored as a field as well as the key so it can be found by
         // a collection-group query; requiring the two to agree is what stops an
         // owner poisoning that query with somebody else's hash.
+        // `addToAllProjects` is read by the invitee on accept and drives writes
+        // to every shared root, so its shape is checked here rather than trusted
+        // — and only when present, since every invite written before #102 lacks
+        // it and reads as off.
         allow create, update: if isOwner(homeId)
           && request.resource.data.role in ['owner', 'member']
-          && request.resource.data.emailHash == emailHashId;
+          && request.resource.data.emailHash == emailHashId
+          && (!('addToAllProjects' in request.resource.data)
+            || request.resource.data.addToAllProjects is bool);
         // An invitee may consume or decline their own invite.
         allow delete: if isOwner(homeId)
           || (hasEmail() && emailHashId == emailHash());

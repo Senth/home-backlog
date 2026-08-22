@@ -5,9 +5,11 @@ import { View } from "react-native";
 import {
 	Button,
 	HelperText,
+	Icon,
 	SegmentedButtons,
 	Text,
 	TextInput,
+	TouchableRipple,
 } from "react-native-paper";
 import { sendInvite } from "@/data/homes";
 import { useOnlineStatus } from "@/hooks/use-online-status";
@@ -18,7 +20,12 @@ import {
 	type Role,
 } from "@/models/home";
 import { useAppTheme } from "@/theme";
-import { segmentedLabelLineHeight, space, touchTarget } from "@/theme/tokens";
+import {
+	icon,
+	segmentedLabelLineHeight,
+	space,
+	touchTarget,
+} from "@/theme/tokens";
 
 interface InviteFormProps {
 	home: Home;
@@ -55,6 +62,9 @@ export function InviteForm({
 
 	const [email, setEmail] = useState("");
 	const [role, setRole] = useState<Role>("member");
+	// Off by default: joining a household is a decision about the household, and
+	// being handed every project on it is a second one, made deliberately.
+	const [addToAllProjects, setAddToAllProjects] = useState(false);
 	const [sending, setSending] = useState(false);
 	// "That does not look like an email address" is true of every address while
 	// it is half typed, so that one message waits until the field is left or the
@@ -77,12 +87,13 @@ export function InviteForm({
 
 		setSending(true);
 		try {
-			await sendInvite(home, inviter, email, role);
+			await sendInvite(home, inviter, email, role, addToAllProjects);
 			// The stored address is the folded one, so the confirmation must name
 			// that and not the casing that happened to be typed.
 			onSent(normalizeEmail(email));
 			setEmail("");
 			setRole("member");
+			setAddToAllProjects(false);
 			setSettled(false);
 		} catch (reason) {
 			console.error("Could not send the invitation:", reason);
@@ -140,6 +151,44 @@ export function InviteForm({
 					},
 				]}
 			/>
+
+			{/* Deliberately not Paper's `Checkbox.Item`, for the reason `PeopleField`
+			    writes down: its inner checkbox is handed no `onPress`, so React
+			    Native Web announces the row twice, the second time as dimmed. The
+			    mark is a plain `Icon` and the semantics live on the row. */}
+			<TouchableRipple
+				onPress={() => setAddToAllProjects(!addToAllProjects)}
+				accessibilityRole="checkbox"
+				// `aria-checked`, not `accessibilityState`: React Native Web 0.21
+				// dropped the object form entirely.
+				aria-checked={addToAllProjects}
+				accessibilityLabel={t("members.inviteAllProjects")}
+				style={{ minHeight: touchTarget, justifyContent: "center" }}
+			>
+				<View
+					style={{
+						flexDirection: "row",
+						alignItems: "center",
+						gap: space.md,
+						paddingVertical: space.sm,
+					}}
+				>
+					<Icon
+						source={
+							addToAllProjects ? "checkbox-marked" : "checkbox-blank-outline"
+						}
+						size={icon.md}
+						color={
+							addToAllProjects
+								? theme.colors.primary
+								: theme.colors.onSurfaceVariant
+						}
+					/>
+					<Text variant="bodyLarge" style={{ flexShrink: 1 }}>
+						{t("members.inviteAllProjects")}
+					</Text>
+				</View>
+			</TouchableRipple>
 
 			<Button
 				mode="contained"
