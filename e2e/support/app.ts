@@ -46,13 +46,41 @@ const EXPECTED_PREFIXES = [
  * during review and then never again.
  *
  * Named so a spec can say which width it needs, and so the next desktop change
- * has somewhere to hang its checks. `playwright.config.ts` reads both to build
- * the viewport axis that crosses the locale one.
+ * has somewhere to hang its checks. `playwright.config.ts` reads the first two
+ * to build the viewport axis that crosses the locale one; the other two are for
+ * a spec that sets its own width per test.
+ *
+ * `laptop` is where the flexed column is tightest — four columns and their five
+ * gutters divide 1366 into 321 each, against the 400 they clamp to on a wide
+ * monitor. A width check made only at `desktop` would pass on a clamp and prove
+ * nothing about the arithmetic.
+ *
+ * `phoneZoomed` is `phone` at 200% browser zoom. Zoom does not change what a CSS
+ * pixel is, it changes how many of them the window holds — so the layout at 200%
+ * on a 390x844 phone is exactly the layout in a 195x422 window, and this is how
+ * the suite reaches it. It is not the same thing as an OS text-size setting,
+ * which react-native-web cannot honour at all while it writes font sizes in px.
  */
 export const VIEWPORTS = {
 	phone: { width: 390, height: 844 },
 	desktop: { width: 1920, height: 1080 },
+	laptop: { width: 1366, height: 768 },
+	phoneZoomed: { width: 195, height: 422 },
 } as const;
+
+/**
+ * A board column's box, by the `data-testid` `BoardColumn` puts on it.
+ *
+ * The column is the one box on the board that no visible string identifies —
+ * its heading is not rendered below `compactBreakpoint`, and above it the
+ * heading is a child rather than the box itself. The format is
+ * `columnTestID(status)` in `components/board/BoardColumn.tsx`, written out here
+ * rather than imported: importing a component into a Node test process pulls in
+ * react-native, which is a build, not a test.
+ */
+export function columnSelector(status: string): string {
+	return `[data-testid="board-column-${status}"]`;
+}
 
 /** A route, plus the thing that proves its data has arrived. */
 export type Route = (typeof ROUTES)[number];

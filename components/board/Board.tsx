@@ -138,9 +138,15 @@ export function Board({
 	);
 	const compact = boardWidth > 0 && boardWidth < compactBreakpoint;
 	/**
-	 * How far the last card in a pane has to stop short of the FAB: the height
-	 * the FAB actually measured, plus the `space.md` it floats above the bottom
-	 * edge — the band it occupies, exactly.
+	 * How far the last card in a pane has to stop short of the FAB: the band the
+	 * FAB occupies — the height it actually measured, plus the `space.md` it
+	 * floats above the bottom edge — and then one `space.md` of daylight.
+	 *
+	 * The band alone leaves the last card's bottom edge *exactly* on the FAB's
+	 * top edge. Nothing overlaps, and it still reads as a button resting on a
+	 * card: there is no gap for a shadow, a focus ring or a half pixel of scroll
+	 * to live in. The third term is what makes the card clear of the FAB rather
+	 * than merely not under it.
 	 *
 	 * Measured rather than assumed. The FAB names its destination in words, so it
 	 * is taller in Swedish than in English and taller again at 200% text, and the
@@ -148,7 +154,7 @@ export function Board({
 	 * last card the moment either of those was true. `space.xxl` survives only as
 	 * the value for the single frame before the FAB has laid itself out.
 	 */
-	const fabInset = fabHeight > 0 ? fabHeight + space.md : space.xxl;
+	const fabInset = fabHeight > 0 ? fabHeight + space.md + space.md : space.xxl;
 	// An extra column disappearing would otherwise leave the pane showing a
 	// column that is no longer there.
 	const column = Math.min(current, shown.length - 1);

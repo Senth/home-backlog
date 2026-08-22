@@ -268,8 +268,17 @@ the detail screen's own label, so neither locale loses a string.
    neither, and both still open what they opened before — details without steps, its own
    board with them.
 2. [test] No card renders a chevron.
-3. [test] A stepless card's accessibility hint is `board.openDetails`, and a card with
-   steps still hints `board.open`, in both locales.
+3. [eye]  A stepless card's accessibility hint is `board.openDetails`, and a card with
+   steps still hints `board.open`, in both locales. **Retagged from `[test]` during
+   Phase 5, and the reason is a finding rather than a technicality:**
+   `accessibilityHint` is a prop react-native-web does not implement — it is not in
+   `createDOMProps`' map and never becomes `aria-describedby`, `aria-description` or
+   anything else — so on the platform this app ships on, *neither hint reaches the
+   accessibility tree at all*. There is nothing in a browser to assert, and a test
+   that measured anything else would be measuring something else. What a tap actually
+   does is claim 1, which is tested; that the hint is wired for iOS and Android is a
+   source read. Making the hint real on web needs a described-by node per card, which
+   is its own change.
 4. [test] The step count is still announced as "3 of 5 steps done".
 5. [test] Every route still passes axe `wcag2aa` at 390px in both locales and both
    schemes — the repaint regresses no contrast anywhere in the app.

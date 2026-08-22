@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { gotoAndSettle, ROUTES, translationKeys } from "@/e2e/support/app";
+import {
+	gotoAndSettle,
+	ROUTES,
+	translationKeys,
+	VIEWPORTS,
+} from "@/e2e/support/app";
 import enUS from "@/i18n/locales/en-US.json";
 import svSE from "@/i18n/locales/sv-SE.json";
 
@@ -56,3 +61,63 @@ for (const route of ROUTES) {
 		expect(onScreen, `raw t() keys visible on ${route.path}`).toEqual([]);
 	});
 }
+
+/**
+ * The column strip, whose label stopped being composed in code.
+ *
+ * The sweep above proves no key reaches the screen; it cannot prove a label is
+ * *built from* one. `"To do" + " · " + count` in a component renders exactly as
+ * `board.columnChip` does and reads exactly as right — and is a string no
+ * translator can reach, in the one control that is the primary way across a
+ * board on a phone. So the separator and the order are asserted against the key,
+ * in whichever locale the project runs.
+ *
+ * The counts are the committed fixture's, the same way the board specs name its
+ * cards. Reading them off the chip and then comparing them with themselves would
+ * be a check that cannot fail.
+ */
+const STRIP = [
+	{ status: "backlog", count: 1 },
+	{ status: "next_up", count: 2 },
+	{ status: "execution", count: 2 },
+	{ status: "done", count: 1 },
+] as const;
+
+test("9: every column chip is composed from board.columnChip, and spoken from board.columnChipA11y", async ({
+	page,
+}, testInfo) => {
+	test.skip(
+		page.viewportSize()?.width !== VIEWPORTS.phone.width,
+		"above compactBreakpoint the column headers say this and the strip is not rendered",
+	);
+
+	const strings = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
+	const fill = (template: string, column: string, count: number) =>
+		template.replace("{{column}}", column).replace("{{count}}", String(count));
+
+	await gotoAndSettle(page, ROUTES[1]);
+
+	const chips = page.getByTestId("chip");
+	await expect(chips).toHaveCount(STRIP.length);
+
+	for (const [index, { status, count }] of STRIP.entries()) {
+		const column = strings.status[status];
+		const chip = chips.nth(index);
+
+		await expect(chip).toHaveText(
+			fill(strings.board.columnChip, column, count),
+		);
+		// And what a screen reader hears instead, because a middle dot is read
+		// aloud as "middle dot" or as nothing at all.
+		await expect(chip).toHaveAttribute(
+			"aria-label",
+			fill(
+				count === 1
+					? strings.board.columnChipA11y_one
+					: strings.board.columnChipA11y_other,
+				column,
+				count,
+			),
+		);
+	}
+});
