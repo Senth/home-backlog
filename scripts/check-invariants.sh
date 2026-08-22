@@ -354,8 +354,8 @@ missing=""
 for spec in $wip_specs; do
 	[[ -f "$spec" ]] || continue
 	# The Acceptance section: from its heading to the next heading.
-	claims=$(sed -n '/^##[[:space:]]*Acceptance/,/^##[[:space:]]/p' "$spec" \
-		| grep -oE '^[[:space:]]*([0-9]+)\.[[:space:]]*\[test\]' \
+	claims=$(sed -n '/^##[[:space:]].*Acceptance/,/^##[[:space:]]/p' "$spec" \
+		| grep -oE '^[[:space:]]*([0-9]+)\.[[:space:]]*`?\[test\]`?' \
 		| grep -oE '[0-9]+' || true)
 	for n in $claims; do
 		if ! grep -rqE "test\(\s*[\"'\`]${n}[:.]?[[:space:]]" e2e/ 2>/dev/null; then
