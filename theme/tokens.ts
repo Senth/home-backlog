@@ -78,6 +78,18 @@ export const size = {
 	 */
 	boardColumn: 300,
 	/**
+	 * The range a board column flexes between above `compactBreakpoint`, so the
+	 * columns divide the width they are given instead of taking a fixed slice.
+	 *
+	 * `boardColumnMin` is `boardColumn` under another name: below it a two-line
+	 * title stops fitting, so a board with more columns than fit falls back here
+	 * and scrolls. `boardColumnMax` is where a wider column stops helping — past
+	 * 400 the title is one long line and the eye loses it, the same reason
+	 * `contentWidth.form` clamps.
+	 */
+	boardColumnMin: 300,
+	boardColumnMax: 400,
+	/**
 	 * The mark on an app-bar action that has something behind it. Small enough to
 	 * read as a mark rather than a badge, large enough to survive a dark theme.
 	 */

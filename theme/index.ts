@@ -17,6 +17,95 @@ import {
  * Paper does not know about them.
  */
 
+/**
+ * The neutral ramp, re-hued off Material's default.
+ *
+ * MD3's stock `neutral` / `neutralVariant` families lean violet — the outline
+ * everyone reads as white is `rgb(147,143,153)` — so every grey surface in the
+ * app quietly fought the green brand. `primary` was overridden when the app was
+ * built; the neutrals never were.
+ *
+ * Each tone below is its Material counterpart with **the exact relative
+ * luminance preserved and only the hue changed**: chroma 0.016 at hue 150.
+ * Largest luminance delta across the ramp is 6.5e-03, so every contrast ratio
+ * in the app is unchanged by construction and a repaint of every surface cannot
+ * regress an axe check anywhere.
+ *
+ * These are tones, not roles. The two palettes below assign them to the MD3
+ * roles Paper already reads — `background`, `surface`, `onSurface`, `outline`,
+ * `elevation.level1–3` and the rest — which is why no call site changes.
+ */
+const neutral = {
+	/** Dark `background` / `surface`, and light `onSurface`. */
+	n10: "#161D17",
+	/** Light `inverseSurface`, dark `inverseOnSurface`. */
+	n20: "#2B332C",
+	/** Dark `onSurface`, dark `inverseSurface`. */
+	n90: "#DBE6DD",
+	/** Light `inverseOnSurface`. */
+	n95: "#E9F4EB",
+	/** Light `background` / `surface`. */
+	n99: "#F4FFF6",
+	/** Light `onSurfaceVariant`, dark `surfaceVariant` / `outlineVariant`. */
+	nv30: "#404942",
+	/** Light `outline`. */
+	nv50: "#6F7871",
+	/** Dark `outline`. */
+	nv60: "#8A948B",
+	/** Light `outlineVariant`. */
+	nv80: "#BFC9C0",
+	/** Light `surfaceVariant`. */
+	nv90: "#DBE6DD",
+} as const;
+
+/**
+ * Paper's elevation levels are opaque colours rather than shadows on web, so
+ * they are part of the ramp too. Levels 4 and 5 are left as Paper ships them:
+ * `elevation` in `tokens.ts` stops at `high: 3`, so nothing in this app can
+ * reach them.
+ */
+const lightElevation = {
+	...MD3LightTheme.colors.elevation,
+	level1: "#EDF7EF",
+	level2: "#E7F2E9",
+	level3: "#E2EDE4",
+};
+
+const darkElevation = {
+	...MD3DarkTheme.colors.elevation,
+	level1: "#1E2620",
+	level2: "#242B25",
+	level3: "#283029",
+};
+
+/**
+ * The board's own surfaces, named once and read everywhere they matter.
+ *
+ * The rule they encode is **column recessed, page in the middle, card raised**,
+ * in both schemes. Before this, a dark card was `surface` — the same colour as
+ * the page — on a column of `elevation.level1`, so the board read dark → grey →
+ * dark with the card darker than the thing it sat on.
+ *
+ * `boardCard` is read by the card face, by the drag overlay and by the drop
+ * landing zone, so a lifted card cannot be a different shade from the gap it
+ * left. `onCardMuted` is the step count: about 2× dimmer than the title in dark
+ * and 3× in light, and still 5.10:1 / 5.36:1 against the card — half a stop of
+ * headroom over the 4.5:1 floor `e2e/craft.spec.ts` enforces.
+ */
+const lightBoard = {
+	boardColumn: "#E4EEE6",
+	boardCard: "#F8FFFA",
+	boardCardBorder: "#9EA89F",
+	onCardMuted: "#636C64",
+};
+
+const darkBoard = {
+	boardColumn: "#080F0A",
+	boardCard: "#28302A",
+	boardCardBorder: "#636C64",
+	onCardMuted: "#98A199",
+};
+
 const lightColors = {
 	...MD3LightTheme.colors,
 	primary: "#2E7D32",
@@ -39,6 +128,25 @@ const lightColors = {
 	onSuccess: "#FFFFFF",
 	successContainer: "#D1FAE5",
 	onSuccessContainer: "#064E3B",
+	background: neutral.n99,
+	onBackground: neutral.n10,
+	surface: neutral.n99,
+	onSurface: neutral.n10,
+	surfaceVariant: neutral.nv90,
+	onSurfaceVariant: neutral.nv30,
+	outline: neutral.nv50,
+	outlineVariant: neutral.nv80,
+	inverseSurface: neutral.n20,
+	inverseOnSurface: neutral.n95,
+	// The three alpha compositions MD3 derives rather than names, re-derived on
+	// the new tones at the opacities Paper uses: `onSurface` at 12 % and 38 %,
+	// and the re-hued neutralVariant20 — `rgb(42,50,44)` — at 40 % for the
+	// scrim behind a dialog.
+	surfaceDisabled: "rgba(22, 29, 23, 0.12)",
+	onSurfaceDisabled: "rgba(22, 29, 23, 0.38)",
+	backdrop: "rgba(42, 50, 44, 0.4)",
+	elevation: lightElevation,
+	...lightBoard,
 };
 
 const darkColors = {
@@ -63,6 +171,21 @@ const darkColors = {
 	onSuccess: "#064E3B",
 	successContainer: "#065F46",
 	onSuccessContainer: "#D1FAE5",
+	background: neutral.n10,
+	onBackground: neutral.n90,
+	surface: neutral.n10,
+	onSurface: neutral.n90,
+	surfaceVariant: neutral.nv30,
+	onSurfaceVariant: neutral.nv80,
+	outline: neutral.nv60,
+	outlineVariant: neutral.nv30,
+	inverseSurface: neutral.n90,
+	inverseOnSurface: neutral.n20,
+	surfaceDisabled: "rgba(219, 230, 221, 0.12)",
+	onSurfaceDisabled: "rgba(219, 230, 221, 0.38)",
+	backdrop: "rgba(42, 50, 44, 0.4)",
+	elevation: darkElevation,
+	...darkBoard,
 };
 
 export const lightTheme = {
