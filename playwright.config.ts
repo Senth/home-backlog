@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { VIEWPORTS } from "@/e2e/support/app";
 
 /**
  * The end-to-end suite: the checks that used to be a browser agent's checklist.
@@ -27,10 +28,19 @@ const WEB = "http://localhost:8081";
 export const AUTH_STATE = ".tmp/e2e/auth.json";
 
 /**
- * The phone. This app is used on one, and every craft assertion is made at this
- * width because that is where a Swedish label runs out of room first.
+ * Two axes, crossed: viewport × locale. Nothing else.
+ *
+ * The locale axis exists because Swedish words are longer. The viewport axis
+ * exists for the same reason the locale one does — what is not measured drifts,
+ * and until this was added every craft assertion in the suite was made at
+ * 390 px, so every style that only appears above `compactBreakpoint` shipped
+ * behind no gate at all.
+ *
+ * A desktop project mirrors its phone twin exactly, down to which specs it
+ * runs, so the rule stays "viewport × locale" with nothing new to learn.
+ * `VIEWPORTS` lives in `e2e/support/app.ts` so a spec that needs a specific
+ * width names it rather than repeating a literal.
  */
-const PHONE = { width: 390, height: 844 };
 
 export default defineConfig({
 	testDir: "e2e",
@@ -63,7 +73,7 @@ export default defineConfig({
 
 	use: {
 		baseURL: WEB,
-		viewport: PHONE,
+		viewport: VIEWPORTS.phone,
 		// Kept only for failures. Traces are large, and a green run does not need
 		// evidence — the assertion was the evidence.
 		trace: "retain-on-failure",
@@ -82,7 +92,7 @@ export default defineConfig({
 			testIgnore: /auth\.setup\.ts/,
 			use: {
 				...devices["Desktop Chrome"],
-				viewport: PHONE,
+				viewport: VIEWPORTS.phone,
 				locale: "en-US",
 				storageState: AUTH_STATE,
 			},
@@ -97,7 +107,36 @@ export default defineConfig({
 			testMatch: /(craft|i18n)\.spec\.ts/,
 			use: {
 				...devices["Desktop Chrome"],
-				viewport: PHONE,
+				viewport: VIEWPORTS.phone,
+				locale: "sv-SE",
+				storageState: AUTH_STATE,
+			},
+		},
+		{
+			// The same specs as `en-US`, one axis over. The board is a different
+			// layout above `compactBreakpoint` — every column on screen at once,
+			// each with its own add row — so this is not the phone pass repeated at
+			// a wider window; it is a second layout that nothing measured before.
+			name: "en-US-desktop",
+			dependencies: ["setup"],
+			testIgnore: /auth\.setup\.ts/,
+			use: {
+				...devices["Desktop Chrome"],
+				viewport: VIEWPORTS.desktop,
+				locale: "en-US",
+				storageState: AUTH_STATE,
+			},
+		},
+		{
+			// Swedish on desktop, and the pairing is not redundant: the desktop
+			// column header and add button are the widest translated strings the app
+			// renders, in the layout that gives them the least room per column.
+			name: "sv-SE-desktop",
+			dependencies: ["setup"],
+			testMatch: /(craft|i18n)\.spec\.ts/,
+			use: {
+				...devices["Desktop Chrome"],
+				viewport: VIEWPORTS.desktop,
 				locale: "sv-SE",
 				storageState: AUTH_STATE,
 			},

@@ -35,7 +35,15 @@ test.describe("offline writes", () => {
 
 		await context.setOffline(true);
 
-		await page.getByRole("button", { name: /^Add to /i }).click();
+		// `.first()` because the add affordance is per-column above
+		// `compactBreakpoint`: the phone has one FAB naming the pane on screen,
+		// desktop has an add row in each of the four columns. The first is the
+		// first column either way, so both widths add to the same place — and
+		// every assertion below is by title, not by column.
+		await page
+			.getByRole("button", { name: /^Add to /i })
+			.first()
+			.click();
 		await page.getByRole("textbox").first().fill(title);
 		await page.getByRole("button", { name: "Add", exact: true }).click();
 

@@ -36,6 +36,24 @@ const EXPECTED_PREFIXES = [
 	"[dev-console] Filtering known react-native-web warnings",
 ];
 
+/**
+ * The viewports the suite runs at, named rather than repeated as a literal.
+ *
+ * `phone` is the default and the device this app is used on. `desktop` exists
+ * because everything above `compactBreakpoint` — the column border, the heading
+ * weight and padding, the flexed column width, the smaller card title — has no
+ * other gate: a style that only appears on a wide screen is judged once by eye
+ * during review and then never again.
+ *
+ * Named so a spec can say which width it needs, and so the next desktop change
+ * has somewhere to hang its checks. `playwright.config.ts` reads both to build
+ * the viewport axis that crosses the locale one.
+ */
+export const VIEWPORTS = {
+	phone: { width: 390, height: 844 },
+	desktop: { width: 1920, height: 1080 },
+} as const;
+
 /** A route, plus the thing that proves its data has arrived. */
 export type Route = (typeof ROUTES)[number];
 

@@ -21,9 +21,16 @@ import svSE from "@/i18n/locales/sv-SE.json";
 
 const KEYS = translationKeys();
 
-/** The locale each Playwright project runs under, from its name. */
+/**
+ * The locale each Playwright project runs under, from its name.
+ *
+ * A prefix rather than an equality, because the project name carries two axes
+ * now: `sv-SE` and `sv-SE-desktop` are the same locale at two widths. An
+ * equality here would have asked the desktop Swedish project for an English
+ * heading and failed on the app's behalf.
+ */
 function expectedTitle(projectName: string): string {
-	return projectName === "sv-SE" ? svSE.homes.title : enUS.homes.title;
+	return projectName.startsWith("sv-SE") ? svSE.homes.title : enUS.homes.title;
 }
 
 test("the project's locale is actually in effect", async ({

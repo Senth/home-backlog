@@ -16,9 +16,21 @@ import { touchTarget } from "@/theme/tokens";
  * measurement — whether the Swedish reads like a person wrote it, whether an
  * empty state is honest, whether the density overwhelms.
  *
- * Everything here runs at 390 px, in both locales and both colour schemes,
- * because Swedish words are longer and dark mode is a different palette rather
- * than an inversion.
+ * Everything here runs in both locales and both colour schemes, and at both
+ * viewports — Swedish words are longer, dark mode is a different palette rather
+ * than an inversion, and above `compactBreakpoint` the board is a different
+ * layout rather than a wider one.
+ *
+ * The suite used to run at 390 px only, "because that is where a Swedish label
+ * runs out of room first". That reasoning is still exactly right for
+ * **clipping**: a label that fits at 390 px fits at 1920 px, so the phone width
+ * is where the clipped-label check earns its keep. It says nothing at all,
+ * though, about the styles that only exist above the breakpoint — the column
+ * fill and border, the heading weight and padding, the flexed column width, the
+ * smaller card title. None of those is reachable at 390 px, so none of them had
+ * a gate until `playwright.config.ts` grew a viewport axis. The checks below are
+ * width-independent and simply run again at the wider one; that they need no
+ * change to do so is the point.
  */
 
 /**
@@ -74,6 +86,15 @@ for (const scheme of ["light", "dark"] as const) {
 
 				// A page that scrolls sideways on a phone is the single most common
 				// way a fixed width or an un-wrapped row escapes review.
+				//
+				// At 1920 px it asserts something sharper, because the board
+				// deliberately scrolls sideways above the breakpoint: more columns
+				// than fit is a scroll, by design. That scroll lives inside a
+				// `ScrollView`, which translates its own inner element and never
+				// moves `document.documentElement` — so measuring the document is
+				// what lets this check tell the intended scroll from the accidental
+				// one. What it still fails on is a column that overflows its
+				// container and drags the whole document wider than the window.
 				const overflow = await page.evaluate(() => ({
 					scrollWidth: document.documentElement.scrollWidth,
 					clientWidth: document.documentElement.clientWidth,
