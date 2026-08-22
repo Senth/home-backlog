@@ -23,6 +23,7 @@ import {
 	useBoardDrag,
 } from "@/components/board/use-board-drag";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHome } from "@/contexts/HomeContext";
 import { createNode } from "@/data/nodes";
 import {
 	hasSteps,
@@ -111,6 +112,9 @@ export function Board({
 	const theme = useAppTheme();
 	const router = useRouter();
 	const { user } = useAuth();
+	// The household, for a new project's participants. Already on screen: no
+	// listener and no read, the same source both people-controls are built from.
+	const { activeHome } = useHome();
 
 	const [boardWidth, setBoardWidth] = useState(0);
 	const [fabHeight, setFabHeight] = useState(0);
@@ -211,6 +215,14 @@ export function Board({
 			rank: rankAtEnd(last),
 			parent,
 			status: adding,
+			// A shared project is born with the whole household on it, so the
+			// participant checkboxes say something true the first time somebody
+			// opens them — and so that a member who joins later is a decision the
+			// inviter makes rather than a silent addition to everything. A card
+			// created on any other board is a step, and a step is never a root:
+			// it keeps `[]`, which is still what `[]` means below the root.
+			participantIds:
+				parent === null ? Object.keys(activeHome?.members ?? {}) : undefined,
 		});
 	};
 

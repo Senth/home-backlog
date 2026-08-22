@@ -1,19 +1,17 @@
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { Button, Text } from "react-native-paper";
+import { Button, Divider, List, Text } from "react-native-paper";
 import { detailsHref } from "@/components/board/board-href";
 import type { FlipState } from "@/components/node/FlipDialog";
 import { PeopleField } from "@/components/node/PeopleField";
 import { useAuth } from "@/contexts/AuthContext";
-import { boardOnce, type NodeChanges, reparentNode } from "@/data/nodes";
+import type { NodeChanges } from "@/data/nodes";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import type { Member } from "@/models/home";
 import {
 	assignableMembers,
-	effectiveParticipants,
 	type Node,
-	rankAtEnd,
 	rootIdOf,
 	staleAssignees,
 } from "@/models/node";
@@ -21,7 +19,6 @@ import { useAppTheme } from "@/theme";
 import { space, touchTarget } from "@/theme/tokens";
 
 interface PeopleSectionProps {
-	homeId: string;
 	node: Node;
 	/**
 	 * The root of this node's subtree — the node itself when it is one, and
@@ -30,7 +27,6 @@ interface PeopleSectionProps {
 	root: Node | null;
 	members: readonly Member[];
 	onSave: (changes: NodeChanges) => void;
-	onError: () => void;
 	/** Shared with the visibility control: one subtree write runs at a time. */
 	flip: FlipState;
 }
@@ -46,25 +42,27 @@ interface PeopleSectionProps {
  * involve) and assignees (only her) are clutter on the screen she uses to write
  * down what the chimney sweep said, at 200 % text.
  *
+ * **Nothing renders until the root has arrived either.** `assignableMembers`
+ * reads an unresolved root as "no participants stored" and hands back the whole
+ * household, so on a narrowed project the assignee control would appear for one
+ * tick with the wrong people in it and then shrink under a thumb already
+ * reaching for it.
+ *
  * **Participants are root-only, and so is privacy.** Both answer a question
  * about a *project* rather than about a step inside one, so a household that
  * learns the rule once has learned it for both — and neither ever needs a
- * greyed-out inherited row on a descendant. A descendant carries one sentence
- * and the action that unblocks it, in the same place and the same shape for
- * both.
+ * greyed-out inherited row on a descendant. What a descendant needs explaining
+ * is explained once, in the disclosure below, rather than in a grey sentence per
+ * control on a screen somebody opened to write down a date.
  */
 export function PeopleSection({
-	homeId,
 	node,
 	root,
 	members,
 	onSave,
-	onError,
 	flip,
 }: PeopleSectionProps) {
 	const { t } = useTranslation();
-	const theme = useAppTheme();
-	const router = useRouter();
 	const { user } = useAuth();
 	const online = useOnlineStatus();
 
@@ -74,9 +72,6 @@ export function PeopleSection({
 	const rootTitle = root?.title ?? "";
 	const assignable = assignableMembers(root, members);
 	const stale = staleAssignees(node, assignable);
-	// Only worth saying where the list has actually been shortened, and only
-	// where the control that would explain it is not right above.
-	const narrowed = !isRoot && effectiveParticipants(root).length > 0;
 
 	const nameOf = (memberUid: string) =>
 		members.find((member) => member.uid === memberUid)?.displayName ||
@@ -129,31 +124,27 @@ export function PeopleSection({
 		);
 	};
 
+	if (members.length < 2 || root === null) return null;
+
+	// Who's doing it, over a list of one, is not a choice — but this is the only
+	// place in the app that *removes* an assignee, so the control comes back the
+	// moment anybody is on the card, stale ones included.
+	const showAssignees = assignable.length > 1 || node.assigneeIds.length > 0;
+
 	/**
-	 * A step that has to be a project before it can be kept to anyone — the same
-	 * call `Move under… › Top level` in `CardMenu` already makes, reading the root
-	 * board once for the neighbours the new rank is computed against.
+	 * The one row that cannot be unticked, and why.
+	 *
+	 * Both cases are a write the rules would refuse: yours on a private project,
+	 * because `allow update` requires `visibleToMe(request.resource.data)`; and
+	 * the last one on any root, because a root with nobody on it stopped being
+	 * legal with #102. A checkbox that silently refuses is the failure this whole
+	 * control was rebuilt to avoid.
 	 */
-	const moveToTop = async () => {
-		if (uid === null) return;
-
-		try {
-			const board = await boardOnce(homeId, null, uid);
-			const last = board.filter((card) => card.status === node.status).at(-1);
-			await reparentNode(
-				homeId,
-				node,
-				null,
-				rankAtEnd(last?.rank ?? null),
-				uid,
-			);
-		} catch (reason) {
-			console.error("Could not move the card to the top level:", reason);
-			onError();
-		}
-	};
-
-	if (members.length < 2) return null;
+	const lockedUid = isPrivate
+		? (uid ?? undefined)
+		: node.participantIds.length === 1
+			? node.participantIds[0]
+			: undefined;
 
 	return (
 		<>
@@ -166,12 +157,12 @@ export function PeopleSection({
 					value={node.participantIds}
 					onChange={saveParticipants}
 					unknownLabel={t("members.unknown")}
-					// On a private project you are the one person who cannot come off
-					// it: `allow update` requires `visibleToMe(request.resource.data)`,
-					// so the write is refused, and a checkbox that silently refuses is
-					// the failure this whole control was rebuilt to avoid.
-					lockedUid={isPrivate ? (uid ?? undefined) : undefined}
-					lockedHint={t("detail.participantsYouStay")}
+					lockedUid={lockedUid}
+					lockedHint={t(
+						isPrivate
+							? "detail.participantsYouStay"
+							: "detail.participantsLast",
+					)}
 					// Only the private path needs a connection — it is n
 					// server-checked writes. The shared one queues like any edit.
 					disabled={isPrivate && !online}
@@ -179,88 +170,114 @@ export function PeopleSection({
 				/>
 			) : null}
 
-			<View style={{ gap: space.sm }}>
-				<PeopleField
-					label={t("detail.assignees")}
-					members={assignable}
-					value={node.assigneeIds}
-					onChange={(assigneeIds) => onSave({ assigneeIds })}
-					unknownLabel={t("members.unknown")}
-				/>
+			{showAssignees ? (
+				<View style={{ gap: space.sm }}>
+					<PeopleField
+						label={t("detail.assignees")}
+						members={assignable}
+						value={node.assigneeIds}
+						onChange={(assigneeIds) => onSave({ assigneeIds })}
+						unknownLabel={t("members.unknown")}
+					/>
 
-				{/* Why the list is shorter than the household. With the default-hide
-				    filter shipping here, assigning somebody a step inside a project
-				    they are not a participant of would hand them work that is hidden
-				    from their board and reachable from nowhere — so adding them to the
-				    project is what makes the task findable, and this is the way there. */}
-				{narrowed ? (
-					<>
-						<Hint>{t("detail.assigneesNarrowed", { project: rootTitle })}</Hint>
-						<Action
-							icon="account-multiple-outline"
-							onPress={() => router.push(detailsHref(rootIdOf(node)))}
-						>
-							{t("detail.assigneesChange", { project: rootTitle })}
-						</Action>
-					</>
-				) : null}
-
-				{/* Somebody assigned who has *since* been dropped from the project, or
-				    who has left the home. A real state, and deliberately shown rather
-				    than hidden: it is information, and drawing it as an orphaned checked
-				    box outside its own list is what would make it read as a bug. */}
-				{stale.map((memberUid) => (
-					<View key={memberUid} style={{ gap: space.xs }}>
-						<Hint>
-							{t("detail.assigneeStale", {
-								name: nameOf(memberUid),
-								project: rootTitle,
-							})}
-						</Hint>
-						<Action
-							icon="account-remove-outline"
-							onPress={() =>
-								onSave({
-									assigneeIds: node.assigneeIds.filter(
-										(current) => current !== memberUid,
-									),
-								})
-							}
-						>
-							{t("detail.assigneeStaleClear", { name: nameOf(memberUid) })}
-						</Action>
-					</View>
-				))}
-			</View>
-
-			{/* Where the visibility control is on a descendant, and what to do about
-			    it. One sentence and the action that unblocks it, rather than a dimmed
-			    control with nothing to say about where its value came from. */}
-			{isRoot ? null : (
-				<View style={{ gap: space.xs }}>
-					<Hint>{t("detail.privateOnlyProjects")}</Hint>
-					<Action
-						icon="arrow-up-bold-outline"
-						onPress={moveToTop}
-						// It reads the subtree from the server on purpose — "no children
-						// in the cache" is not "no children" — so the hint says what it
-						// needs rather than letting the tap fail after the fact.
-						disabled={!online}
-					>
-						{t("detail.privateMoveUp", { title: node.title })}
-					</Action>
-					{online ? null : (
-						<Text
-							variant="bodySmall"
-							style={{ color: theme.colors.onSurfaceVariant }}
-						>
-							{t("board.offlineHint")}
-						</Text>
-					)}
+					{/* Somebody assigned who has *since* been dropped from the project,
+					    or who has left the home. A real state, and deliberately shown
+					    rather than hidden: it is information, and drawing it as an
+					    orphaned checked box outside its own list is what would make it
+					    read as a bug. */}
+					{stale.map((memberUid) => (
+						<View key={memberUid} style={{ gap: space.xs }}>
+							<Hint>
+								{t("detail.assigneeStale", {
+									name: nameOf(memberUid),
+									project: rootTitle,
+								})}
+							</Hint>
+							<Action
+								icon="account-remove-outline"
+								onPress={() =>
+									onSave({
+										assigneeIds: node.assigneeIds.filter(
+											(current) => current !== memberUid,
+										),
+									})
+								}
+							>
+								{t("detail.assigneeStaleClear", { name: nameOf(memberUid) })}
+							</Action>
+						</View>
+					))}
 				</View>
-			)}
+			) : null}
 		</>
 	);
+}
+
+/**
+ * The two rules about people, folded away until somebody wants them.
+ *
+ * The screen used to explain itself in grey sentences under the controls, on
+ * every card at every depth, whether or not anything was confusing. They are
+ * one disclosure instead, titled with the question the confused person is
+ * actually asking — *Who can see what?* rather than "Looking for something
+ * else?", which in Swedish reads as a shop's search box and gives nobody a
+ * reason to open it.
+ *
+ * It carries the *Change who's in on…* action that used to sit permanently under
+ * the assignee list: on a step, that is the way to the project's own screen, and
+ * inside the section that just explained why you would want to go there.
+ */
+export function WhoSeesWhat({
+	node,
+	project,
+}: {
+	node: Node;
+	/** The root's title — what the action names. */
+	project: string;
+}) {
+	const { t } = useTranslation();
+	const router = useRouter();
+
+	return (
+		<List.Accordion
+			title={t("detail.whoSeesWhat")}
+			titleNumberOfLines={2}
+			style={{ minHeight: touchTarget }}
+		>
+			<View style={{ gap: space.md }}>
+				<View style={{ gap: space.xs }}>
+					<Header>{t("detail.whoSeesProject")}</Header>
+					<Hint>{t("detail.whoSeesProjectBody")}</Hint>
+				</View>
+
+				<Divider />
+
+				<View style={{ gap: space.xs }}>
+					<Header>{t("detail.whoSeesStep")}</Header>
+					<Hint>{t("detail.whoSeesStepBody")}</Hint>
+				</View>
+
+				{/* The way to the project's own screen, from the section that just
+				    explained why you would want it. Not on the project itself: that
+				    is a push to the screen you are standing on, which stacks a second
+				    identical details screen behind the back arrow — and the control
+				    it would take you to is one scroll up. */}
+				{rootIdOf(node) === node.id ? null : (
+					<Action
+						icon="account-multiple-outline"
+						onPress={() => router.push(detailsHref(rootIdOf(node)))}
+					>
+						{t("detail.assigneesChange", { project })}
+					</Action>
+				)}
+			</View>
+		</List.Accordion>
+	);
+}
+
+/** A section heading inside the disclosure, so the two are not one paragraph. */
+function Header({ children }: { children: string }) {
+	return <Text variant="titleMedium">{children}</Text>;
 }
 
 /** A sentence that explains a control, in the same voice everywhere. */
