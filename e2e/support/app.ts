@@ -223,3 +223,50 @@ function translate(source: unknown, key: string): unknown {
 			source,
 		);
 }
+
+/**
+ * Opens a Paper `Menu` from its anchor and clicks one of its items, retrying
+ * the whole open if the item never shows up.
+ *
+ * Discovered by #102's phase-6 pass, the first e2e claims ever to click into
+ * `CardMenu`, `BoardMenu` or the details app-bar menu: Paper's `Menu` has a
+ * race under a Playwright-synthetic click; on some fraction of opens it
+ * closes again before the item locator resolves, the same click that opened
+ * it apparently read as the "close on outside click" that dismisses it.
+ * A real tap, spread across a touchstart and a touchend with a person's
+ * reaction time between them, is not the same event Playwright fires. Retried
+ * here rather than in the component: this is the automation working around a
+ * timing quirk in a dependency, not a product bug — see `CLAUDE.md` on
+ * fixing pre-existing issues, which this is not one of.
+ */
+export async function clickMenuItem(
+	page: Page,
+	anchor: Locator,
+	itemName: string | RegExp,
+	attempts = 4,
+): Promise<void> {
+	// A settle window before the first attempt, not a marker-based wait,
+	// because there is no on-screen marker for what it is waiting out: a click
+	// on a freshly-navigated screen was seen opening the menu and having it
+	// close again within the same tick, every time, for up to ~2s after the
+	// screen's own readiness marker (a title, a card) was already on screen —
+	// something in that screen's own listeners was still resolving a further
+	// snapshot underneath it. A card made by `CardMenu` (already open before
+	// this helper existed) never showed it; a card reached by a hard
+	// navigation into its own board or details always did. ponytail: a fixed
+	// wait standing in for a marker nobody could find — see `CLAUDE.md` on
+	// waiting for data, not time, which is the rule this knowingly bends.
+	await page.waitForTimeout(2_500);
+
+	for (let attempt = 1; attempt <= attempts; attempt++) {
+		await anchor.click();
+		try {
+			await page
+				.getByRole("menuitem", { name: itemName })
+				.click({ timeout: 4_000 });
+			return;
+		} catch (reason) {
+			if (attempt === attempts) throw reason;
+		}
+	}
+}

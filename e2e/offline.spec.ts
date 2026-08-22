@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { gotoAndSettle, ROUTES } from "@/e2e/support/app";
+import { clickMenuItem, gotoAndSettle, ROUTES } from "@/e2e/support/app";
 import { deleteNodesByTitlePrefix, nodeTitles } from "@/e2e/support/firestore";
 
 /**
@@ -67,5 +67,50 @@ test.describe("offline writes", () => {
 				message: `"${title}" never reached Firestore — the write was queued and lost`,
 			})
 			.toContain(title);
+	});
+
+	test("17: a rename made offline appears immediately and lands on reconnect", async ({
+		page,
+		context,
+	}) => {
+		const original = `E2E offline rename ${Date.now()}`;
+		const renamed = `${original} renamed`;
+
+		await gotoAndSettle(page, BOARD);
+
+		// Created online, so this test is only about the rename queuing — the
+		// other test already covers a queued create.
+		await page
+			.getByRole("button", { name: /^Add to /i })
+			.first()
+			.click();
+		await page.getByRole("textbox").first().fill(original);
+		await page.getByRole("button", { name: "Add", exact: true }).click();
+		await expect(page.getByText(original)).toBeVisible();
+		await expect.poll(nodeTitles, { timeout: 30_000 }).toContain(original);
+
+		await context.setOffline(true);
+
+		const anchor = page
+			.locator('[data-testid="card-container"]', { hasText: original })
+			.getByRole("button", { name: "Card actions" });
+		await clickMenuItem(page, anchor, "Rename");
+		await page.getByRole("textbox").fill(renamed);
+		await page.getByRole("button", { name: "Rename", exact: true }).click();
+
+		// Optimistic, the same as a create.
+		await expect(page.getByText(renamed)).toBeVisible();
+
+		await context.setOffline(false);
+		await page.reload();
+
+		await expect(page.getByText(renamed)).toBeVisible();
+
+		await expect
+			.poll(nodeTitles, {
+				timeout: 30_000,
+				message: `"${renamed}" never reached Firestore — the rename was queued and lost`,
+			})
+			.toContain(renamed);
 	});
 });
