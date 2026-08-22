@@ -35,6 +35,9 @@ import {
  *   change who can see a household's work, and on a private node
  *   `participantIds` *is* the access list. Both are also top-down resumable
  *   writes rather than single ones, which is why the flip stays in the app.
+ *   `participantIds` **is** taken on a create, where it sets the initial list
+ *   rather than changing one — a shared root left unset takes every current
+ *   member, since #102 (see `createNode`).
  *
  * `assigneeIds` is deliberately unrestricted. No rule reads it, so assigning
  * somebody is not a permission change — which is exactly what lets a key assign
@@ -54,6 +57,13 @@ export interface NodeBody {
 	parentId?: string | null;
 	/** Honoured on a create at the root, and refused everywhere else. */
 	visibility?: Visibility;
+	/**
+	 * Honoured only on create. Absent on a shared root, it defaults to every
+	 * current member rather than `[]` — #102 refuses an empty one. Refused on
+	 * every update, for the same reason `visibility` is: an API key must not be
+	 * able to change who can see a household's work.
+	 */
+	participantIds?: string[];
 }
 
 /** Fields a caller may send when creating a node. */
@@ -69,6 +79,7 @@ const createFields = [
 	"checklist",
 	"parentId",
 	"visibility",
+	"participantIds",
 ] as const;
 
 /**
@@ -189,9 +200,7 @@ export function parseNodeBody(
 		if (field === "participantIds") {
 			refuse(
 				"participants_immutable",
-				mode === "create"
-					? "A private node is created with the key's owner as its participant, or inherits its parent's. Add anyone else in the app."
-					: "An API key cannot change participantIds. On a private node it is the access list, and editing it is the same top-down write as a visibility flip.",
+				"An API key cannot change participantIds. On a private node it is the access list, and editing it is the same top-down write as a visibility flip.",
 				field,
 			);
 		}
@@ -242,6 +251,9 @@ export function parseNodeBody(
 	}
 	if ("visibility" in raw) {
 		parsed.visibility = asEnum(raw.visibility, visibilities, "visibility");
+	}
+	if ("participantIds" in raw) {
+		parsed.participantIds = asStringList(raw.participantIds, "participantIds");
 	}
 
 	return parsed;

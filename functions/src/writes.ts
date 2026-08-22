@@ -229,6 +229,35 @@ function counterFields(childCount: number, doneCount: number) {
 	return fields;
 }
 
+/** Every current member's uid, for a shared root created with none named. */
+async function homeMemberUids(homeId: string): Promise<string[]> {
+	const snapshot = await db.collection(homesCollection).doc(homeId).get();
+	const members = snapshot.get("members");
+	return members !== null && typeof members === "object"
+		? Object.keys(members as Record<string, unknown>)
+		: [];
+}
+
+/**
+ * The rules' `rootHasParticipants()`, mirrored: the Admin SDK bypasses
+ * `firestore.rules` entirely, so a shared root with nobody on it is refused
+ * here or it is refused nowhere. Fires on a create that names an empty list
+ * outright, and on a promotion out of a root the #102 backfill has not reached
+ * — the same refusal every *other* update to such a root already gets.
+ */
+export function refuseEmptyRootParticipants(
+	visibility: Visibility,
+	isRoot: boolean,
+	participantIds: readonly string[],
+): void {
+	if (!isRoot || visibility !== "shared" || participantIds.length > 0) return;
+	throw new ApiError(
+		400,
+		"participants_required",
+		"A shared root needs at least one participant. Omit participantIds to include every member, or send at least one uid.",
+	);
+}
+
 async function createNode(request: Request, response: Response): Promise<void> {
 	const me: ApiCaller = caller(response);
 	const homeId = param(request, "homeId");
@@ -257,7 +286,9 @@ async function createNode(request: Request, response: Response): Promise<void> {
 	// A private root gets its creator, and only its creator. Writing yourself out
 	// of your own private node strands it where nobody can read or delete it; a
 	// private *child* carries its parent's list, which is what makes "I am a
-	// participant of every descendant I can read" true.
+	// participant of every descendant I can read" true. A shared root left
+	// unset takes every current member rather than `[]` — #102 refuses an empty
+	// one, and the household is the only honest default for "who is this on".
 	const participantIds =
 		parent !== null
 			? parent.visibility === "private"
@@ -265,7 +296,8 @@ async function createNode(request: Request, response: Response): Promise<void> {
 				: []
 			: visibility === "private"
 				? [me.uid]
-				: [];
+				: (body.participantIds ?? (await homeMemberUids(homeId)));
+	refuseEmptyRootParticipants(visibility, parent === null, participantIds);
 
 	const status: Status = body.status ?? "backlog";
 	const ancestorIds = childAncestorIds(parent);
@@ -374,6 +406,23 @@ async function patchNode(request: Request, response: Response): Promise<void> {
 		? childAncestorIds(parent)
 		: ((current.ancestorIds ?? []) as string[]);
 
+	// The identical asymmetry `data/nodes.ts`'s `reparentNode` has, and the
+	// identical fix (#102): a shared step promoted to a root takes the old
+	// root's participants, since a root can no longer hold `[]`. It costs one
+	// `get()` of that root, which — being shared — is readable by every member.
+	const promoting = moved && parent === null && current.visibility === "shared";
+	let promotedParticipants: string[] = [];
+	if (promoting) {
+		const oldAncestorIds = (current.ancestorIds ?? []) as string[];
+		const rootId = oldAncestorIds[0] ?? nodeId;
+		const rootSnapshot = await homeNodes(homeId).doc(rootId).get();
+		const rootParticipants = rootSnapshot.get("participantIds");
+		promotedParticipants = Array.isArray(rootParticipants)
+			? (rootParticipants as string[])
+			: [];
+		refuseEmptyRootParticipants("shared", true, promotedParticipants);
+	}
+
 	const changes: Record<string, unknown> = {
 		...(body.title !== undefined ? { title: body.title.trim() } : {}),
 		...(body.notes !== undefined ? { notes: body.notes } : {}),
@@ -403,6 +452,7 @@ async function patchNode(request: Request, response: Response): Promise<void> {
 					...(parent !== null && current.visibility === "shared"
 						? { participantIds: [] }
 						: {}),
+					...(promoting ? { participantIds: promotedParticipants } : {}),
 				}
 			: {}),
 		updatedAt: FieldValue.serverTimestamp(),

@@ -455,6 +455,27 @@ with the document it sits on and displayed. That is the same argument that let `
 arrive late. `toNode` reads an absent value as `'app'`, which is true of every node written
 before the API existed.
 
+### `participantIds` on a create
+
+Since [#102](https://github.com/Senth/home-backlog/issues/102), `[]` is no longer a legal
+root: the rules refuse a shared root with nobody on it. `POST /nodes` accepts
+`participantIds` for exactly that reason — a body that omits it on a shared root takes
+every current member, not `[]`, and a body that sends `participantIds: [me]` narrows it at
+creation instead of in a second `PATCH` the caller cannot make anyway. A private root is
+unaffected: it always takes the key's owner, alone.
+
+The Admin SDK bypasses `firestore.rules` entirely, so `createNode` and the promotion arm of
+`PATCH` (below) each refuse an explicit empty list on a shared root themselves,
+`400 participants_required` — the one guard standing between an agent-written root and one
+nobody can see.
+
+`PATCH /nodes/:id` still refuses `participantIds` by name, `participants_immutable`, for the
+reason it always has: on a private node it is the access list, and it is a top-down
+resumable write rather than a single one. Reparenting a shared step to `parentId: null`
+carries the old root's participants along, the same asymmetry `reparentNode` fixes in the
+app — a promotion into a root the #102 backfill has not reached still fails, which is the
+same failure every other update to that root already gets.
+
 ### Queries
 
 The app fires two new ones, both trivially safe:

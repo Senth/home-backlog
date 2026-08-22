@@ -26,6 +26,7 @@ describe("what a caller may send", () => {
 					checklist: [{ id: "c1", text: "Buy brackets", done: false }],
 					parentId: "project",
 					visibility: "private",
+					participantIds: ["uidMarcus"],
 				},
 				"create",
 			),
@@ -41,6 +42,7 @@ describe("what a caller may send", () => {
 			checklist: [{ id: "c1", text: "Buy brackets", done: false }],
 			parentId: "project",
 			visibility: "private",
+			participantIds: ["uidMarcus"],
 		});
 	});
 
@@ -139,10 +141,16 @@ describe("visibility and participants", () => {
 		});
 	});
 
-	it("refuses participantIds either way, with a different reason each time", () => {
-		expect(
-			refusal({ participantIds: ["uidMarcus"] }, "create").message,
-		).toContain("key's owner");
+	it("takes participantIds on a create, where it sets the initial list", () => {
+		expect(parseNodeBody({ participantIds: ["uidMarcus"] }, "create")).toEqual({
+			participantIds: ["uidMarcus"],
+		});
+	});
+
+	it("refuses participantIds on an update — it is not a change, ever", () => {
+		expect(refusal({ participantIds: ["uidMarcus"] }, "update").code).toBe(
+			"participants_immutable",
+		);
 		expect(
 			refusal({ participantIds: ["uidMarcus"] }, "update").message,
 		).toContain("access list");
