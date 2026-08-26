@@ -44,11 +44,18 @@ export const AUTH_STATE = ".tmp/e2e/auth.json";
 
 export default defineConfig({
 	testDir: "e2e",
-	// The emulator is one shared mutable backend, so specs that write cannot run
-	// beside each other. Serial is also what makes a failure reproducible by
-	// hand, which matters more here than wall-clock time on a suite this size.
+	// The unit of parallelism is the **file** by default, and `fullyParallel` is
+	// raised to the test on the read-only projects below. What makes any of it
+	// safe is the `writes` project: the emulator is one shared mutable backend,
+	// so every spec that writes to it is penned into that one project, it runs a
+	// single worker, and it runs *after* everything else. Nothing ever executes
+	// beside a writer.
 	fullyParallel: false,
-	workers: 1,
+	// Two on CI because a private-repo `ubuntu-latest` runner is 2 vCPU, and the
+	// emulators and the Expo dev server are already on it. Four locally, which is
+	// where the single Expo bundler stops being the bottleneck rather than the
+	// core count.
+	workers: process.env.CI ? 2 : 4,
 	// Well above the default 30s, for two reasons. The readiness waits in
 	// `e2e/support/app.ts` are themselves 30s, so at the default a test would die
 	// before its own wait could report which marker never appeared — the useful
@@ -90,9 +97,15 @@ export default defineConfig({
 			testMatch: /.*\.setup\.ts/,
 		},
 		{
+			// The read-only English phone pass, and the only project that runs
+			// `navigation`, `i18n` and `board-desktop`. The router is the same
+			// router at every width, a raw translation key is raw at every width,
+			// and `board-desktop.spec.ts` sets its own two viewports per test — so
+			// a second run of any of them at another width measures nothing new.
 			name: "en-US",
 			dependencies: ["setup"],
-			testIgnore: /.*\.setup\.ts/,
+			fullyParallel: true,
+			testMatch: /(craft|console|navigation|i18n|board-desktop)\.spec\.ts/,
 			use: {
 				...devices["Desktop Chrome"],
 				viewport: VIEWPORTS.phone,
@@ -101,32 +114,39 @@ export default defineConfig({
 			},
 		},
 		{
-			// Swedish runs the craft and i18n specs only. A second full pass would
-			// re-assert behaviour that has nothing to do with locale; what Swedish
-			// actually risks is longer words — a clipped label, a wrapped button, a
-			// key that was never translated.
-			name: "sv-SE",
-			dependencies: ["setup"],
-			testMatch: /(craft|i18n)\.spec\.ts/,
-			use: {
-				...devices["Desktop Chrome"],
-				viewport: VIEWPORTS.phone,
-				locale: "sv-SE",
-				storageState: AUTH_STATE,
-			},
-		},
-		{
-			// The same specs as `en-US`, one axis over. The board is a different
-			// layout above `compactBreakpoint` — every column on screen at once,
-			// each with its own add row — so this is not the phone pass repeated at
-			// a wider window; it is a second layout that nothing measured before.
+			// The board is a different layout above `compactBreakpoint` — every
+			// column on screen at once, each with its own add row — so this is not
+			// the phone pass repeated at a wider window. Only the two specs whose
+			// answer can differ come along: `craft` measures that layout, and
+			// `console` renders it, and a warning from a component that only exists
+			// up here would have no other gate.
 			name: "en-US-desktop",
 			dependencies: ["setup"],
-			testIgnore: /.*\.setup\.ts/,
+			fullyParallel: true,
+			testMatch: /(craft|console)\.spec\.ts/,
 			use: {
 				...devices["Desktop Chrome"],
 				viewport: VIEWPORTS.desktop,
 				locale: "en-US",
+				storageState: AUTH_STATE,
+			},
+		},
+		{
+			// Swedish runs the craft and i18n specs only, and never in the dark. A
+			// second full pass would re-assert behaviour that has nothing to do with
+			// locale; what Swedish actually risks is longer words — a clipped label,
+			// a wrapped button, a key that was never translated — and a word is the
+			// same length in either scheme. `@dark` is the tag `craft.spec.ts` puts
+			// on its contrast pass, which English already makes.
+			name: "sv-SE",
+			dependencies: ["setup"],
+			fullyParallel: true,
+			testMatch: /(craft|i18n)\.spec\.ts/,
+			grepInvert: /@dark/,
+			use: {
+				...devices["Desktop Chrome"],
+				viewport: VIEWPORTS.phone,
+				locale: "sv-SE",
 				storageState: AUTH_STATE,
 			},
 		},
@@ -136,11 +156,36 @@ export default defineConfig({
 			// renders, in the layout that gives them the least room per column.
 			name: "sv-SE-desktop",
 			dependencies: ["setup"],
+			fullyParallel: true,
 			testMatch: /(craft|i18n)\.spec\.ts/,
+			grepInvert: /@dark/,
 			use: {
 				...devices["Desktop Chrome"],
 				viewport: VIEWPORTS.desktop,
 				locale: "sv-SE",
+				storageState: AUTH_STATE,
+			},
+		},
+		{
+			// Everything that writes to the emulator. One worker, so the writers
+			// never collide with each other, and *last*, so they never collide with
+			// anyone else — read-only specs assert numbers the fixture fixes
+			// (`i18n.spec.ts`'s column chips), and those are wrong the moment a
+			// foreign card exists. That ordering is also why such a reader does
+			// *not* belong here: it is already safe. Phases rather than a
+			// contamination graph is what keeps the rule statable.
+			//
+			// `fab.spec.ts` brings its own locale axis: it is a craft claim that
+			// happens to need a full column built first, so it lives here rather
+			// than in the Swedish projects.
+			name: "writes",
+			dependencies: ["en-US", "en-US-desktop", "sv-SE", "sv-SE-desktop"],
+			workers: 1,
+			testMatch: /(board|details|fab|invite|offline|rest-api)\.spec\.ts/,
+			use: {
+				...devices["Desktop Chrome"],
+				viewport: VIEWPORTS.phone,
+				locale: "en-US",
 				storageState: AUTH_STATE,
 			},
 		},
