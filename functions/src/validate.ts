@@ -1,3 +1,4 @@
+import { ApiError } from "./errors.js";
 import {
 	defaultColumns,
 	dueDatePattern,
@@ -464,4 +465,60 @@ export function isMember(
 	if (members === null || typeof members !== "object") return false;
 	const role = (members as Record<string, unknown>)[uid];
 	return role === "owner" || role === "member";
+}
+
+/**
+ * `participantIds` is honoured on a shared root and nowhere else — a child takes
+ * its parent's list by the inheritance rule and a private root takes its
+ * creator. A body that names one anywhere else is refused rather than silently
+ * dropped, the same way a mismatched `visibility` is.
+ *
+ * A named uid that is not a member is a typo or a stale id, and storing it means
+ * a participant list naming somebody who can never see the project — a row on
+ * the details screen that no member can untick and no member matches.
+ */
+export function refuseUnusableParticipants(
+	participantIds: readonly string[] | undefined,
+	isRoot: boolean,
+	visibility: Visibility,
+	memberUids: readonly string[],
+): void {
+	if (participantIds === undefined) return;
+	if (!isRoot || visibility === "private") {
+		throw new ApiError(
+			400,
+			"participants_immutable",
+			isRoot
+				? "A private root is on its creator. Omit participantIds."
+				: "A child takes its parent's participants. Omit participantIds.",
+		);
+	}
+	const strangers = participantIds.filter((uid) => !memberUids.includes(uid));
+	if (strangers.length > 0) {
+		throw new ApiError(
+			400,
+			"participants_invalid",
+			`Not a member of this home: ${strangers.join(", ")}.`,
+		);
+	}
+}
+
+/**
+ * The rules' `rootHasParticipants()`, mirrored: the Admin SDK bypasses
+ * `firestore.rules` entirely, so a shared root with nobody on it is refused
+ * here or it is refused nowhere. Fires on a create that names an empty list
+ * outright, and on a promotion out of a root the #102 backfill has not reached
+ * — the same refusal every *other* update to such a root already gets.
+ */
+export function refuseEmptyRootParticipants(
+	visibility: Visibility,
+	isRoot: boolean,
+	participantIds: readonly string[],
+): void {
+	if (!isRoot || visibility !== "shared" || participantIds.length > 0) return;
+	throw new ApiError(
+		400,
+		"participants_required",
+		"A shared root needs at least one participant. Omit participantIds to include every member, or send at least one uid.",
+	);
 }

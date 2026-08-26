@@ -2,26 +2,21 @@ import { useIsFocused } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { ActivityIndicator, Appbar, Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
 import { BoardMenu } from "@/components/board/BoardMenu";
 import { Breadcrumbs } from "@/components/board/Breadcrumbs";
-import {
-	boardHref,
-	detailsHref,
-	goneHref,
-} from "@/components/board/board-href";
+import { boardHref, goneHref } from "@/components/board/board-href";
 import { useHome } from "@/contexts/HomeContext";
 import { useAncestors } from "@/hooks/use-ancestors";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useNode } from "@/hooks/use-node";
 import { useNodes } from "@/hooks/use-nodes";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
-import { hasDetails } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { radius, size, space, touchTargetStyle } from "@/theme/tokens";
+import { appBarStackBreakpoint, space, touchTargetStyle } from "@/theme/tokens";
 
 const noAncestors: string[] = [];
 
@@ -63,7 +58,11 @@ export default function NodeBoard() {
 	// drill-down board the menu is offered rather than needed, and in a household
 	// of one it is neither.
 	const members = Object.keys(activeHome?.members ?? {}).length;
+	const { width } = useWindowDimensions();
 	const canFilter = filtered.hiddenCount > 0 || members > 1;
+	// The menu also carries Rename, which needs no filtering to have something
+	// to do — only a card to rename, and the root board has none.
+	const showMenu = node !== null || canFilter;
 
 	// Where "up" is once the card itself has stopped existing. Remembered while
 	// it still does, because a deleted card cannot say who its parent was.
@@ -91,7 +90,11 @@ export default function NodeBoard() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header>
+			<Appbar.Header
+				// Three 48dp targets and the bar's padding leave a narrow screen no
+				// room for a title — see `appBarStackBreakpoint`.
+				mode={width < appBarStackBreakpoint ? "medium" : "small"}
+			>
 				{/* Up to the parent board, never `router.back()`. This screen is
 				    reachable with no in-app history — a reload, a bookmark, a shared
 				    link — and there `back()` is a no-op that logs "GO_BACK was not
@@ -107,39 +110,10 @@ export default function NodeBoard() {
 				    home's name lives on the root board's app bar and one crumb away
 				    — the first crumb goes there. */}
 				<Appbar.Content title={node?.title ?? ""} />
-				{/* This board's *own* details — the four fields belong to the card you
-				    are standing on, and there is no card on screen to tap. The root
-				    board has no node, so it has no action. The mark says there is
-				    something in there, which makes opening it a decision rather than a
-				    lottery. */}
-				{node === null ? null : (
-					<View>
-						<Appbar.Action
-							style={touchTargetStyle}
-							icon="information-outline"
-							accessibilityLabel={t("detail.title")}
-							onPress={() => router.push(detailsHref(node.id))}
-						/>
-						{hasDetails(node) ? (
-							<View
-								style={{
-									// The style prop, not `pointerEvents`: React Native Web
-									// deprecated the prop and warns on every render.
-									pointerEvents: "none",
-									position: "absolute",
-									top: space.sm,
-									right: space.sm,
-									width: size.dot,
-									height: size.dot,
-									borderRadius: radius.full,
-									backgroundColor: theme.colors.primary,
-								}}
-							/>
-						) : null}
-					</View>
-				)}
-				{canFilter ? (
+				{showMenu ? (
 					<BoardMenu
+						homeId={homeId}
+						node={node}
 						showEveryone={filtered.showEveryone}
 						onShowEveryone={filtered.setShowEveryone}
 					/>

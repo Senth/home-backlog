@@ -455,6 +455,48 @@ with the document it sits on and displayed. That is the same argument that let `
 arrive late. `toNode` reads an absent value as `'app'`, which is true of every node written
 before the API existed.
 
+### `participantIds` on a create
+
+Since [#102](https://github.com/Senth/home-backlog/issues/102), `[]` is no longer a legal
+root: the rules refuse a shared root with nobody on it. `POST /nodes` accepts
+`participantIds` for exactly that reason — a body that omits it on a shared root takes
+every current member, not `[]`, and a body that sends `participantIds: [me]` narrows it at
+creation instead of in a second `PATCH` the caller cannot make anyway. A private root is
+unaffected: it always takes the key's owner, alone.
+
+The Admin SDK bypasses `firestore.rules` entirely, so `createNode` and the promotion arm of
+`PATCH` (below) each refuse an explicit empty list on a shared root themselves,
+`400 participants_required` — the one guard standing between an agent-written root and one
+nobody can see.
+
+A shared root is the *only* place the field is honoured, so a body naming one anywhere else
+is refused rather than parsed and dropped — `400 participants_immutable`, the same contract
+`visibility_mismatch` has one field over. On a child, because it takes its parent's list by
+the inheritance rule; on a private root, because it takes its creator.
+
+`POST /nodes:bulk` runs the same two guards, re-pointed at the offending node's index the way
+every other bulk refusal is: only the payload's root may name participants, and only when it
+becomes a real root — a payload attached under an existing parent has no root in it, so every
+node in it inherits. Under a shared parent that means `[]`, like any other shared descendant;
+under a private one, every node carries the parent's list, which is what makes "I am a
+participant of every descendant I can read" true. A shared root that names none takes
+every current member, for the same reason `POST /nodes` does, and with a sharper consequence
+if it did not: `rootHasParticipants()` sits on `allow update` as well as `allow create`, so a
+bulk-written root holding `[]` would be frozen against every later write from every client —
+including the `childCount` bump that adding a step performs.
+
+A named uid that is not a member of the home is `400 participants_invalid`, which names the
+strangers rather than the whole list. A uid that is not a member is a typo or a stale id, and
+storing it means a participant list naming somebody who can never see the project — a row on
+the details screen that no member can untick and no member matches.
+
+`PATCH /nodes/:id` still refuses `participantIds` by name, `participants_immutable`, for the
+reason it always has: on a private node it is the access list, and it is a top-down
+resumable write rather than a single one. Reparenting a shared step to `parentId: null`
+carries the old root's participants along, the same asymmetry `reparentNode` fixes in the
+app — a promotion into a root the #102 backfill has not reached still fails, which is the
+same failure every other update to that root already gets.
+
 ### Queries
 
 The app fires two new ones, both trivially safe:

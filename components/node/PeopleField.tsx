@@ -1,8 +1,9 @@
 import { View } from "react-native";
-import { Icon, Text, TouchableRipple } from "react-native-paper";
+import { Text } from "react-native-paper";
+import { CheckRow } from "@/components/ui/CheckRow";
 import type { Member } from "@/models/home";
 import { useAppTheme } from "@/theme";
-import { icon, space, touchTarget } from "@/theme/tokens";
+import { space } from "@/theme/tokens";
 
 interface PeopleFieldProps {
 	label: string;
@@ -82,60 +83,16 @@ export function PeopleField({
 			</Text>
 			<View>
 				{members.map((member) => {
-					const checked = value.includes(member.uid);
-					const name = member.displayName || unknownLabel;
 					const locked = member.uid === lockedUid;
 
 					return (
-						<TouchableRipple
+						<CheckRow
 							key={member.uid}
+							label={member.displayName || unknownLabel}
+							checked={value.includes(member.uid)}
 							onPress={() => toggle(member.uid)}
 							disabled={disabled || locked}
-							accessibilityRole="checkbox"
-							// `aria-checked`, not `accessibilityState`. React Native Web
-							// 0.21 dropped the object form — it is not in its forwarded
-							// props at all, so it reaches the DOM as nothing and the row
-							// announces as an unchecked checkbox for ever. React Native
-							// itself accepts the ARIA prop too, so this is not web-only.
-							aria-checked={checked}
-							accessibilityLabel={name}
-							style={{ minHeight: touchTarget, justifyContent: "center" }}
-						>
-							<View
-								style={{
-									flexDirection: "row",
-									alignItems: "center",
-									gap: space.md,
-									paddingVertical: space.sm,
-								}}
-							>
-								<Icon
-									source={
-										checked ? "checkbox-marked" : "checkbox-blank-outline"
-									}
-									size={icon.md}
-									color={
-										disabled || locked
-											? theme.colors.onSurfaceDisabled
-											: checked
-												? theme.colors.primary
-												: theme.colors.onSurfaceVariant
-									}
-								/>
-								<Text
-									variant="bodyLarge"
-									style={{
-										flexShrink: 1,
-										color:
-											disabled || locked
-												? theme.colors.onSurfaceDisabled
-												: theme.colors.onSurface,
-									}}
-								>
-									{name}
-								</Text>
-							</View>
-						</TouchableRipple>
+						/>
 					);
 				})}
 			</View>

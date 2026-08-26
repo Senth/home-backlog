@@ -25,7 +25,12 @@ import {
 	type Status,
 	type Visibility,
 } from "./node.js";
-import { type ParentFacts, validateNode } from "./validate.js";
+import {
+	type ParentFacts,
+	refuseEmptyRootParticipants,
+	refuseUnusableParticipants,
+	validateNode,
+} from "./validate.js";
 
 /**
  * Creating, changing and deleting one node.
@@ -257,7 +262,15 @@ async function createNode(request: Request, response: Response): Promise<void> {
 	// A private root gets its creator, and only its creator. Writing yourself out
 	// of your own private node strands it where nobody can read or delete it; a
 	// private *child* carries its parent's list, which is what makes "I am a
-	// participant of every descendant I can read" true.
+	// participant of every descendant I can read" true. A shared root left
+	// unset takes every current member rather than `[]` — #102 refuses an empty
+	// one, and the household is the only honest default for "who is this on".
+	refuseUnusableParticipants(
+		body.participantIds,
+		parent === null,
+		visibility,
+		home.memberUids,
+	);
 	const participantIds =
 		parent !== null
 			? parent.visibility === "private"
@@ -265,7 +278,8 @@ async function createNode(request: Request, response: Response): Promise<void> {
 				: []
 			: visibility === "private"
 				? [me.uid]
-				: [];
+				: (body.participantIds ?? home.memberUids);
+	refuseEmptyRootParticipants(visibility, parent === null, participantIds);
 
 	const status: Status = body.status ?? "backlog";
 	const ancestorIds = childAncestorIds(parent);
@@ -374,6 +388,23 @@ async function patchNode(request: Request, response: Response): Promise<void> {
 		? childAncestorIds(parent)
 		: ((current.ancestorIds ?? []) as string[]);
 
+	// The identical asymmetry `data/nodes.ts`'s `reparentNode` has, and the
+	// identical fix (#102): a shared step promoted to a root takes the old
+	// root's participants, since a root can no longer hold `[]`. It costs one
+	// `get()` of that root, which — being shared — is readable by every member.
+	const promoting = moved && parent === null && current.visibility === "shared";
+	let promotedParticipants: string[] = [];
+	if (promoting) {
+		const oldAncestorIds = (current.ancestorIds ?? []) as string[];
+		const rootId = oldAncestorIds[0] ?? nodeId;
+		const rootSnapshot = await homeNodes(homeId).doc(rootId).get();
+		const rootParticipants = rootSnapshot.get("participantIds");
+		promotedParticipants = Array.isArray(rootParticipants)
+			? (rootParticipants as string[])
+			: [];
+		refuseEmptyRootParticipants("shared", true, promotedParticipants);
+	}
+
 	const changes: Record<string, unknown> = {
 		...(body.title !== undefined ? { title: body.title.trim() } : {}),
 		...(body.notes !== undefined ? { notes: body.notes } : {}),
@@ -403,6 +434,7 @@ async function patchNode(request: Request, response: Response): Promise<void> {
 					...(parent !== null && current.visibility === "shared"
 						? { participantIds: [] }
 						: {}),
+					...(promoting ? { participantIds: promotedParticipants } : {}),
 				}
 			: {}),
 		updatedAt: FieldValue.serverTimestamp(),

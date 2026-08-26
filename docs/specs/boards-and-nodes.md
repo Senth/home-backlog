@@ -43,7 +43,7 @@ Every field is written on create, with the default below.
 | `ancestorIds` | `string[]` | `[]` | root → parent; the last element equals `parentId` |
 | `locationId` | `string \| null` | parent's | inherited unless overridden |
 | `locationAncestorIds` | `string[]` | parent's | denormalized location path |
-| `participantIds` | `string[]` | `[]` | whose project this is: set on a root; on a private node, the access list |
+| `participantIds` | `string[]` | every member on a shared root, the creator on a private one, `[]` on a shared descendant | whose project this is, and never empty on a root; on a private node, also the access list |
 | `assigneeIds` | `string[]` | `[]` | who is doing this node: per node, inherited by nothing, read by no rule |
 | `visibility` | `'shared' \| 'private'` | parent's, else `'shared'` | equals the parent's, always; only a root sets it |
 | `dueDate` | `string \| null` | `null` | `'YYYY-MM-DD'` |
@@ -109,6 +109,49 @@ than an oversight. The absent-field trap bites a field a query must match *negat
 `array-contains` clause matches neither an absent field nor an empty array, and a document
 written before the field existed has no assignees. `toNode` reads it as `[]` and that is
 the whole migration.
+
+### A root always names the people whose project it is
+
+`participantIds: []` on a root used to mean "everyone in the home", and nothing on screen
+said so. A member opened a shared project, saw their own name unticked under *Who's in on
+this?*, and concluded the project was not theirs. The list is drawn from the same data
+whether it means *everyone* or *these two*.
+
+So a root stores the real list, and [the rules refuse one without it](#rules). The display
+is then honest with no fiction: you are ticked because you are in on it. It also makes a
+question answerable that the implicit form cannot express — **what happens when somebody
+new joins.** With `[]`, a new member was silently in on every project that predated them,
+with no way to have joined a household without joining all of its work. With a stored list
+that becomes a decision the inviter makes, once, with the consequence in front of them:
+see [the invite flag](home-and-members.md#joining-every-shared-project-or-none-of-them).
+
+A new shared root therefore takes every current member, whether it is typed on the root
+board or posted to [`POST /nodes`](rest-api.md#participantids-on-a-create); a private one
+takes its creator; and the last ticked person on a root cannot be unticked, because a
+write of `[]` would be refused. **Descendants are untouched** — a shared step still carries
+`[]`, and a private one still carries the root's list.
+
+`hiddenByParticipants` did not change and did not need to. `[]` and `[…me…]` both return
+`false` for a member, so the board filtered identically on the day the backfill ran, and
+the two forms diverge only when somebody new joins.
+
+*Rejected:* drawing an empty list as all-ticked. The cheap version of the same fix, and it
+puts a lie on screen: the first untick then has to write *everyone except this person*, and
+the row's `aria-checked` says something the stored document does not. It also leaves the
+new-member question unanswered, which is the half of the problem with no other fix.
+
+*Rejected:* materialising the value on every node, not just roots. Participants are a
+question about a *project*, as the section above settles. A stored inherited value turns
+every participant edit into a top-down cascade over the subtree, the same *n*-write
+machinery as a visibility flip, and would make `hiddenByParticipants` start biting on
+individual steps.
+
+*Rejected:* leaving `[]` as a legacy value. Two regimes reading one field, forever: old
+roots meaning *everyone including future members*, new ones meaning *exactly these*. One
+backfill — `functions/scripts/migrate-102-participants.mjs` — removed the branch instead of
+enshrining it. The rule is a **narrowing** one, so that script ran against production
+before this deployed, and again after; see
+[`OPERATIONS.md`](../OPERATIONS.md#one-off-migrations).
 
 ### A field that is absent can never be queried
 
@@ -586,6 +629,9 @@ structure(data)
                         && ancestorIds[ancestorIds.size() - 1] == parentId
   !(nodeId in ancestorIds)
 
+rootHasParticipants(data)          // on create and on update, both visibilities
+  parentId != null || participantIds.size() > 0
+
 inherits(data)            // one get() on the parent; skipped when parentId == null
   data.visibility == parent.visibility
   data.visibility == 'private'
@@ -813,7 +859,14 @@ against "14 d", for the same fact on the same chip.
   control that edits them is root-only and the default-hide filter bites at every depth, so
   a demoted project would otherwise stay hidden from everyone not on it with nothing
   anywhere able to clear the flag. A private node keeps its list, because the rules require
-  every descendant to carry all of its parent's.
+  every descendant to carry all of its parent's. It carries the **other** arm too: a shared
+  step that *becomes* a root takes the old project's list, since a root with nobody on it is
+  refused and whose project it came out of is the only honest answer. That costs one `get()`
+  of the old root, which is shared and so readable by every member. `visibility` needs no
+  copying at all — uniform visibility is an invariant, so a step already carries its root's
+  value across the move. A root the backfill has not reached still holds `[]`, and promoting
+  into it is then refused, which is the refusal every *other* update to that root already
+  gets.
 - **`deleteNode`** deletes the subtree and the node in one batch. A node whose parent is
   gone is unreachable from every board and every breadcrumb.
 - **`flipVisibility`** makes a project private or shared again, and is the only write here
@@ -967,6 +1020,23 @@ this feature exists for. Swiping between columns is tracked as
 [#78](https://github.com/Senth/home-backlog/issues/78) and needs a foundation where the
 gesture reports *to* that state rather than the state being read *from* a scroll offset.
 
+### The app bar has no room
+
+Both these bars — the board's and the [detail screen's](#node-detail) — carry a back arrow,
+an overflow and the account menu. Three 48 dp targets and the bar's own padding claim about
+192 px of the row whatever the text size, so in the 195 px window a 390 px phone becomes at
+200 % text, the title measured **3 px** on the details screen and **0 px** on the board,
+which had a fourth icon. The screen lost its name. Two changes, both of which the board
+needed anyway:
+
+- **The board's info action lives in `BoardMenu`**, as a *Details…* item, carrying the mark
+  that says there is something behind it onto the menu's own anchor. Three icons became two,
+  and the board's bar stopped overflowing its row.
+- **Below `appBarStackBreakpoint` (360) both bars use Paper's `mode="medium"`**, Material's
+  top app bar for a title that needs the room: the title takes a line of its own under the
+  icons. Measured after: 175 px in that 195 px window, against 3 px before, and a 390 px
+  phone keeps the compact bar at 198 px.
+
 ### The board's surfaces
 
 One rule, in both schemes: **column recessed, page in the middle, card raised.**
@@ -1039,10 +1109,21 @@ include me or I could not have read it.
 The toggle lives in the board's app-bar overflow, because it is rarely touched and a board
 is already carrying a column strip. It is board-level UI state, defaulting to off and not
 persisted. A board always opens in the hiding state, the same way it always opens on its
-first column. The overflow appears only where it could do something: a household of one has
-nobody else's projects to hide, and `hiddenCount` covers the case where a card with
-participants arrives from the REST API into one anyway, where hiding with no way back would
-be a trap.
+first column.
+
+That overflow is `BoardMenu`, and it holds three things: **Details…** and **Rename**, which
+act on the card you are standing inside, then a `Divider`, then the toggle, which changes
+what the board shows. The rule is not decoration. Flat, the three read as one list, and on a
+project's own board "Show everyone's projects" was heard as *show everyone who is in on
+this* — precisely the question [the disclosure](#who-can-see-what) teaches somebody to ask.
+So the toggle names the filter instead: *Show projects hidden from my board* / *Visa projekt
+som är dolda på min tavla*, and `board.allHidden` quotes the new wording.
+
+The menu appears wherever it could do something. Rename needs only a card, so every
+drill-down board has it; the root board has no card, and falls back to the older test of
+whether there is anything to filter. A household of one has nobody else's projects to hide,
+and `hiddenCount` covers the card with participants that arrives from the REST API into one
+anyway, where hiding with no way back would be a trap.
 
 **A board that is hiding something says so**, rather than drawing as though the cards were
 not there: whole-board when every card is held back, and per column, which is what a
@@ -1160,6 +1241,11 @@ each column has its own add row, and below it one FAB naming its destination in 
 *Add to To do*. Status comes from that column, so a card typed one-handed in a greenhouse
 lands where the button said it would. `createNode` queues offline; the sheet closes
 immediately and never waits on the acknowledgement.
+
+**A card typed on the root board is a shared root, so it is created carrying every current
+member.** The rules refuse a root with nobody on it, and the household is the only honest
+answer to "whose project is this" for a card added to the board everybody shares. Adding a
+step is untouched: a step is never a root.
 
 **The pane reserves exactly the room the FAB takes, by measuring it.** The button's height
 comes from its own `onLayout`, and the pane's bottom padding is that height plus the FAB's
@@ -1478,6 +1564,11 @@ from, and a word Ingrid has never used.
 | `board.dueSoon` | {{elapsed}} | {{elapsed}} |
 | `board.details` | Details… | Detaljer… |
 
+Rename on both app bars adds no key. It reuses `board.rename` (*Rename* / *Byt namn*) and
+`board.renameTitle` (*Rename card* / *Byt namn på kortet*) from the card menu, because the
+thing being renamed is a card at every depth, whether you are reading its details or
+standing inside it as a board.
+
 The people strings are question-shaped and plain, the precedent that produced *Att
 göra*, *Klart senast* and *Tidsåtgång*.
 
@@ -1491,21 +1582,24 @@ is `PERSONAS.md`'s stated quit line rendered as UI.
 | `detail.participants` | Who's in on this? | Vilka är med? |
 | `detail.participantsPrivate` | Who can see this? | Vilka ser det här? |
 | `detail.participantsYouStay` | You cannot take yourself off a private project — you would lose it. | Du kan inte ta bort dig själv från ett privat projekt — då förlorar du det. |
+| `detail.participantsLast` | At least one person has to be in on a project. | Minst en person måste vara med i ett projekt. |
 | `detail.assignees` | Who's doing it? | Vem gör det? |
 | `detail.visibility` | Who can see this project? | Vilka kan se projektet? |
 | `detail.visibilityShared` | Everyone in the home | Alla i hemmet |
 | `detail.visibilityPrivate` | Only the people I choose | Bara de jag väljer |
-| `detail.assigneesNarrowed` | Only people in {{project}} are shown. | Bara de som är med i {{project}} visas. |
 | `detail.assigneesChange` | Change who's in on {{project}} | Ändra vilka som är med i {{project}} |
 | `detail.assigneeStale` | {{name}} is doing this but is no longer in {{project}}. | {{name}} gör det här men är inte med i {{project}} längre. |
 | `detail.assigneeStaleClear` | Remove {{name}} | Ta bort {{name}} |
-| `detail.privateOnlyProjects` | Only a whole project can be kept to yourself, not a step inside one. | Bara ett helt projekt kan hållas för sig, inte ett steg inuti ett. |
-| `detail.privateMoveUp` | Move {{title}} to the top level | Flytta {{title}} högst upp |
+| `detail.whoSeesWhat` | Who can see what? | Vem ser vad? |
+| `detail.whoSeesProject` | Who's in on a project | Vilka är med i ett projekt |
+| `detail.whoSeesProjectBody` | Only the people ticked here see the project on their board. Everyone else in the home can still open it if you send it to them — it just stays off their list. | Bara de som är ikryssade här ser projektet på sin tavla. Alla andra i hemmet kan fortfarande öppna det om du skickar det till dem — det ligger bara inte i deras lista. |
+| `detail.whoSeesStep` | Who's doing a step | Vem gör ett steg |
+| `detail.whoSeesStepBody` | A step can only be given to someone who is in on the project. Add them to the project first, and they will show up here. | Ett steg kan bara ges till någon som är med i projektet. Lägg till hen i projektet först, så dyker hen upp här. |
 | `board.hidden` | Hidden | Dold |
 | `board.assignedTo` | {{names}} is / are doing this | {{names}} gör det här |
-| `board.showEveryone` | Show everyone's projects | Visa allas projekt |
+| `board.showEveryone` | Show projects hidden from my board | Visa projekt som är dolda på min tavla |
 | `board.boardActions` | Board actions | Tavlans åtgärder |
-| `board.allHidden` | Everything here is somebody's own project. Turn on "Show everyone's projects" to see them. | Allt här är någons eget projekt. Slå på ”Visa allas projekt” för att se dem. |
+| `board.allHidden` | Everything here is somebody's own project. Turn on "Show projects hidden from my board" to see them. | Allt här är någons eget projekt. Slå på ”Visa projekt som är dolda på min tavla” för att se dem. |
 | `board.loadFailed` | Could not load this board. Check your connection. | Kunde inte ladda den här tavlan. Kontrollera din anslutning. |
 | `board.hiddenHere` | {{count}} more here are somebody's own projects. Turn on "{{action}}" to see them. | {{count}} till här är någons egna projekt. Slå på ”{{action}}” för att se dem. |
 | `visibility.confirmPrivateTitle` | Keep this to yourself? | Hålla det här för dig själv? |
@@ -1574,12 +1668,22 @@ Kept because each one is the kind of thing the next person reintroduces:
   wrapping a *second* `Checkbox` that is handed no `onPress`, so the inner one carries
   `role="checkbox" aria-disabled="true"`, and Paper's `importantForAccessibility` guard
   does not become `aria-hidden` on React Native Web, so every person in a list was
-  announced twice, the second time as dimmed. `PeopleField` builds the row itself: a plain
-  `Icon` for the mark, the semantics on the row.
+  announced twice, the second time as dimmed. `components/ui/CheckRow.tsx` builds the row
+  instead: a plain `Icon` for the mark, the semantics on the row. `PeopleField` and the
+  invite form's *Add them to every shared project* both render through it, so the
+  workaround exists once rather than twice.
 - **`accessibilityState` reaches the DOM as nothing.** React Native Web 0.21 does not
   forward the object form at all, so a selected priority chip carried no `aria-pressed` and
   a ticked person no `aria-checked`. The ARIA props (`aria-pressed`, `aria-checked`) are
   what work, and React Native accepts them too, so this is not a web-only spelling.
+- **`List.Accordion` announces as a button that never says whether it is open.** It
+  hard-codes `accessibilityState={{ expanded }}` on its own row and forwards no override,
+  and by the entry above that reaches the DOM as nothing: `aria-expanded` was absent both
+  collapsed and expanded, measured in the browser. That is the third Paper compound
+  component here to do this, after `Checkbox.Item` and `MetaChip`, and the fix is the same
+  one — the row carries the semantics. The detail screen's
+  [disclosure](#who-can-see-what) is a `TouchableRipple` with `accessibilityRole="button"`,
+  `aria-expanded` and a chevron, and `e2e/details.spec.ts` asserts the attribute flips.
 - **A browser decides whether a touch belongs to a scroll as the finger lands, and never
   looks again.** So a card cannot ask for the touch back when a long press completes:
   `preventDefault()` on the first move is already too late, holding the scrolling ancestors
@@ -1638,11 +1742,13 @@ Three ways in, one screen:
 - **Tapping a card with no steps.** `hasSteps(node)` is false, so the card carries no
   steps glyph and the tap goes to the details rather than to an empty board.
 - **`Details…` on any card's overflow menu.** The only way in for a card that *is* a board.
-- **An app-bar action on the board you are standing on**, showing its own node's details.
-  It carries a dot when there is anything in them, which `hasDetails(node)` defines as a
-  due date, a priority, an effort or a non-empty note, so opening it is a decision rather
-  than a lottery. Steps are not counted there; they have a mark of their own on the card.
-  The root board has no node and so no action.
+- **`Details…` on the app-bar overflow of the board you are standing on**, showing that
+  board's own node. The overflow's anchor carries a dot when there is anything in them,
+  which `hasDetails(node)` defines as a due date, a priority, an effort or a non-empty note,
+  so opening it is a decision rather than a lottery. Steps are not counted there; they have
+  a mark of their own on the card. The root board has no node and so no item. This was an
+  app-bar action of its own until the bar ran out of room — see
+  [the app bar](#the-app-bar-has-no-room).
 
 ### The screen
 
@@ -1650,8 +1756,20 @@ Three ways in, one screen:
 the parent board. Neither half is optional. `router.back()` alone is a no-op on a screen
 reached by reload or a shared link, which logs `GO_BACK was not handled by any navigator`
 and leaves the arrow dead, the same trap the board hit. And the parent board alone pops
-the board you were standing on when you reached the details from *its* app-bar action,
-landing you a level above where you started.
+the board you were standing on when you reached the details from *its* overflow, landing
+you a level above where you started.
+
+The bar also carries **an overflow holding one item, Rename**, so the card whose details
+you are reading can be renamed from the screen that is about it; `BoardMenu` carries the
+same item, first, so the card you are standing *inside* as a board can be too. Both open
+the `TitleDialog` a board card's menu already opens, mounted only while open and returning
+focus to the menu anchor, and both write through `updateNode`, which queues offline exactly
+as `CardMenu`'s rename does. No online gate and no hint: a rename that refused in a garage
+with no signal would be the only write on these screens that did.
+
+An overflow item, not a pencil beside the title and not a tappable title. At 200 % text the
+app-bar corner is the one a thumb uses to leave the screen, and an accidental rename on a
+shared project is a household's "I tapped something and cannot find my way back".
 
 Fields, in this order, each a Paper component on a surface, spaced from `space`. The screen
 is the same at every width, laid out with `contentWidth` the way the other non-board
@@ -1664,8 +1782,9 @@ screens are.
 | Effort | the same control, five values |
 | Notes | multiline `TextInput`, `maxLength` 10 000, with the `Saved hh:mm` line beneath |
 | Who's in on this? | checkbox rows of the home's members; **root only** |
-| Who's doing it? | the same control, over the assignable members |
+| Who's doing it? | the same control, over the assignable members; absent when there is nothing to choose |
 | Who can see this project? | two chips, *Everyone in the home* / *Only the people I choose*; **root only** |
+| Who can see what? | a disclosure, closed, explaining the two controls above |
 
 Then **Steps**: a count line, the children as plain rows in board order, an *Add step*
 button, and *Open board* once there is at least one. With no steps it reads *No steps yet*
@@ -1719,11 +1838,28 @@ as a state machine. A search-and-add picker above four members is
 that exists today.
 
 **The assignee checkboxes offer the effective participants**: the root's `participantIds`,
-or every member of the home when that is empty, which is the common case and has no
-friction at all. It is not a stylistic restriction. With the default-hide filter, assigning
-somebody a step inside a project they are not a participant of hands them work that is
-*hidden from their board and reachable from nowhere*. Adding them to the project is what
-makes the task findable, and the hint under the control says so and takes you there.
+falling back to every member of the home on the rare node whose root still carries none. It
+is not a stylistic restriction. With the default-hide filter, assigning somebody a step
+inside a project they are not a participant of hands them work that is *hidden from their
+board and reachable from nowhere*. Adding them to the project is what makes the task
+findable, and [the disclosure](#who-can-see-what) says so and takes you there.
+
+**The assignee control hides when there is nothing to choose.** One assignable person is
+not a choice, so *Who's doing it?* renders only when there are two or more — **or** when
+somebody is already assigned. That second clause is what keeps every assignment removable:
+`PeopleSection` is the only place in the app that writes `assigneeIds`, the REST API being
+the only other writer anywhere, so a stale assignee dropped from the project after the fact
+has to stay takeable off. `PROJECT.md` makes *unassigned* the state that feeds the planned
+"my tasks" filter, so an empty assignee list is never drawn as anything but empty.
+
+**Nothing in this section renders until the root has arrived.** `assignableMembers` with no
+root returns the whole household, so on a narrowed project the assignee control used to
+appear for one tick and then vanish under a thumb already reaching for it.
+
+**The last person on a root cannot be unticked**, for the same reason the one person on a
+private project cannot: the rules would deny a write of `[]`. The row is locked through the
+same `lockedUid` / `lockedHint` mechanism, with *At least one person has to be in on a
+project.* under the list.
 
 The reverse, somebody assigned who has *since* been removed from the project or who has
 left the home, is a real state and is deliberately shown rather than hidden: a named
@@ -1734,14 +1870,17 @@ member who has left renders through the existing `members.unknown`, as *Someone*
 The root a descendant reads its participants from is its own single-document listener,
 not the breadcrumb memo. `useAncestors` never invalidates within a session, which is right
 for a crumb title and wrong for an ACL: participants edited on the project would otherwise
-leave a step's assignee list narrowed to the old set, with the "Only people in X are shown"
-and stale-assignee sentences saying something untrue until a reload. A node that is itself a
-root subscribes to nothing extra.
+leave a step's assignee list narrowed to the old set, with the stale-assignee sentence
+saying something untrue until a reload. A node that is itself a root subscribes to nothing
+extra.
 
-**On a descendant there is no participants control and no visibility control**, just one
-sentence each, and only when it has something to say. *Change who's in on…* navigates to
-the root's detail screen; *Move … to the top level* makes the same `reparentNode` call
-`Move under… › Top level` does, and needs a connection for the same reason.
+**On a descendant there is no participants control and no visibility control.** There used
+to be a grey sentence apiece explaining the absence, and a *Move … to the top level* action
+that restructured the family board from a screen you land on by accident. All three are
+gone: the explanations moved into [the disclosure](#who-can-see-what), where somebody is
+actually looking for one, and promoting a step stays on `CardMenu › Move under… › Top
+level`, which is the same `reparentNode` call made from a place where the destinations are
+visible.
 
 **On a private project you are the one person who cannot come off it.** That row is locked
 with the reason written under the list rather than left as a checkbox that silently
@@ -1761,6 +1900,36 @@ three tasks with six steps each would promise "its 3 steps" and then count to 22
 privacy confirmation understating its own reach. Going shared it adds that the
 project stays off other people's boards while its participants are set, because the
 permission really does change and the observable outcome does not.
+
+#### Who can see what?
+
+Four grey sentences used to explain this screen to itself, at every depth, on the screen
+somebody opens to write down what the chimney sweep said, at 200 % text, one-handed. Two of
+them explained an absence, one was redundant with a list visibly shorter than the household,
+and one offered a destructive move. In their place is **one closed disclosure**, below the
+people controls and above Steps, rendered exactly where those controls are.
+
+It is named after what is inside it — *Who can see what?* / *Vem ser vad?* — because the
+person who needs it is the person who was confused, and a label asking about their
+intentions ("Looking for something else?") gives them no reason to open it. In Swedish that
+phrasing reads as a shop's search box. Inside are two headed sections separated by a
+`Divider`, one on who is in on a project and one on who can be given a step, and then
+*Change who's in on ‹project›*, the same left-aligned text button the section used to show
+unconditionally, pointing at the root's details. On a root itself the button is not offered:
+it would push the screen you are standing on, and the control it goes to is one scroll up.
+
+**Not `List.Accordion`, and not a tinted header over a full-bleed body.** Both were built
+and both were wrong. The first is [a trap](#paper-and-react-native-web-traps-this-area-hit).
+The second is a layout one: opened, the body landed on the page under a hairline of the same
+weight as the Steps section right below it, so the explainer read as the top of Steps rather
+than as something that had just opened. Header and body sit in one tinted `surfaceVariant`
+panel.
+
+Nothing in it writes, so nothing about it is gated offline.
+
+*Rejected:* a non-interactive example checkbox row inside it. Two sentences and a real
+control one scroll above are enough, and a fake control that looks tappable trades an old
+confusion for a new one.
 
 ### Saving has four triggers because one of them always fails
 
@@ -1788,13 +1957,13 @@ server acknowledgement.
 
 ### Offline on the detail screen
 
-Most writes on this screen queue: the four fields and both people-fields go through
-`updateNode`, and `Add step` through `createNode`.
+Most writes on this screen queue: the four fields, both people-fields and the app bar's
+Rename go through `updateNode`, and `Add step` through `createNode`.
 
 The exceptions are the ones that read a subtree from the server first, and they are
-disabled with a hint rather than left to fail after the fact: the visibility flip,
-participants on an *already private* project, and *Move … to the top level*. `Move under…`
-and `Delete` on the board are the same case.
+disabled with a hint rather than left to fail after the fact: the visibility flip, and
+participants on an *already private* project. `Move under…` and `Delete` on the board are
+the same case.
 
 ### One dependency
 

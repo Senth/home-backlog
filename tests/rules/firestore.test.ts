@@ -423,6 +423,31 @@ describe("invites", () => {
 		);
 	});
 
+	it("takes addToAllProjects only as a bool", async () => {
+		// The invitee reads this field and writes every shared root from it, so a
+		// string here would be a truthy "yes" that nobody meant to tick.
+		await seedHome();
+		const fresh = "fresh@example.com";
+		const freshPath = `${homePath}/invites/${emailHash(fresh)}`;
+		const db = dbAs(env, OWNER);
+
+		await assertFails(
+			setDoc(doc(db, freshPath), {
+				...inviteDoc(fresh),
+				addToAllProjects: "yes",
+			}),
+		);
+		await assertSucceeds(
+			setDoc(doc(db, freshPath), {
+				...inviteDoc(fresh),
+				addToAllProjects: true,
+			}),
+		);
+		// Absent is how every invitation written before #102 looks, and it reads
+		// as off rather than as a document the owner can no longer edit.
+		await assertSucceeds(setDoc(doc(db, freshPath), inviteDoc(fresh)));
+	});
+
 	it("folds a non-ASCII address the same way the client does", async () => {
 		// The rules hash `request.auth.token.email.lower()` (CEL) and the client
 		// hashes `email.toLowerCase()` (JavaScript). Everything ASCII agrees; this
@@ -1476,6 +1501,85 @@ describe("homes/{homeId}/nodes", () => {
 			);
 		});
 
+		/**
+		 * `[]` on a root used to mean "everybody in the home", a value no
+		 * checkbox can draw honestly and one that silently put a new member on
+		 * every project that predated them. A root names its people now (#102),
+		 * and a descendant is untouched — participants are a question about a
+		 * *project*.
+		 */
+		describe("a root names its people", () => {
+			beforeEach(seedHome);
+
+			it("refuses a shared root created with nobody on it", async () => {
+				await assertFails(
+					create(dbAs(env, MEMBER), "nobodys", { participantIds: [] }),
+				);
+			});
+
+			it("accepts one that names somebody", async () => {
+				await assertSucceeds(
+					create(dbAs(env, MEMBER), "ours", {
+						participantIds: [OWNER.uid, MEMBER.uid],
+					}),
+				);
+			});
+
+			it("refuses emptying a shared root's list", async () => {
+				await seed(env, async (db) => {
+					await setDoc(doc(db, nodesPath, "gutter"), nodeDoc());
+				});
+
+				await assertFails(
+					updateDoc(doc(dbAs(env, MEMBER), nodesPath, "gutter"), {
+						participantIds: [],
+					}),
+				);
+			});
+
+			it("lets a member add themselves to one, which is what accepting an invite does", async () => {
+				await seed(env, async (db) => {
+					await setDoc(doc(db, nodesPath, "gutter"), nodeDoc());
+				});
+
+				await assertSucceeds(
+					updateDoc(doc(dbAs(env, MEMBER), nodesPath, "gutter"), {
+						participantIds: [OWNER.uid, MEMBER.uid],
+					}),
+				);
+			});
+
+			it("leaves a shared step carrying an empty list, creating and updating alike", async () => {
+				await seed(env, async (db) => {
+					await setDoc(doc(db, nodesPath, "gutter"), nodeDoc());
+				});
+				const db = dbAs(env, MEMBER);
+				const step = {
+					parentId: "gutter",
+					ancestorIds: ["gutter"],
+					participantIds: [],
+				};
+
+				await assertSucceeds(create(db, "ladder", step));
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "ladder"), { participantIds: [] }),
+				);
+			});
+
+			it("does not bite a private root, which always carries its creator", async () => {
+				const db = dbAs(env, MEMBER);
+				await assertSucceeds(
+					create(db, "mine", {
+						visibility: "private",
+						participantIds: [MEMBER.uid],
+					}),
+				);
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "mine"), { title: "Still mine" }),
+				);
+			});
+		});
+
 		it("lets a shared project name participants that leave the writer out", async () => {
 			// On a shared node participantIds is read by no rule — the read grant's
 			// first disjunct alone lets every member in — so setting participants
@@ -1698,7 +1802,13 @@ describe("homes/{homeId}/nodes", () => {
 				),
 			);
 
-			expect(result.docs.map((snapshot) => snapshot.id)).toEqual(["surprise"]);
+			// Both, since #102: a shared project names its participants, so the
+			// owner is on the shared root as well as in the private one — which is
+			// exactly the overlap the client's dedupe exists for.
+			expect(result.docs.map((snapshot) => snapshot.id)).toEqual([
+				"project",
+				"surprise",
+			]);
 		});
 
 		it("refuses an unconstrained list of the collection", async () => {

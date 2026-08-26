@@ -133,6 +133,7 @@ async function bulkCreate(request: Request, response: Response): Promise<void> {
 		parent,
 		rootRank,
 		createdBy: me.uid,
+		memberUids: home.memberUids,
 		now: FieldValue.serverTimestamp(),
 	});
 

@@ -1,16 +1,23 @@
 import { useIsFocused } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, View } from "react-native";
-import { ActivityIndicator, Appbar, Snackbar, Text } from "react-native-paper";
+import { ScrollView, useWindowDimensions, View } from "react-native";
+import {
+	ActivityIndicator,
+	Appbar,
+	Menu,
+	Snackbar,
+	Text,
+} from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { boardHref, goneHref } from "@/components/board/board-href";
+import { TitleDialog } from "@/components/board/TitleDialog";
 import { ChoiceField } from "@/components/node/ChoiceField";
 import { DueDateField } from "@/components/node/DueDateField";
 import { FlipDialog, useFlip } from "@/components/node/FlipDialog";
 import { NotesField } from "@/components/node/NotesField";
-import { PeopleSection } from "@/components/node/PeopleSection";
+import { PeopleSection, WhoSeesWhat } from "@/components/node/PeopleSection";
 import { StepsSection } from "@/components/node/StepsSection";
 import { VisibilityField } from "@/components/node/VisibilityField";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,7 +27,12 @@ import { useNode } from "@/hooks/use-node";
 import { membersOf } from "@/models/home";
 import { efforts, priorities, rootIdOf } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { contentWidth, space, touchTargetStyle } from "@/theme/tokens";
+import {
+	appBarStackBreakpoint,
+	contentWidth,
+	space,
+	touchTargetStyle,
+} from "@/theme/tokens";
 
 /**
  * Everything about one card that is not its title: its due date, priority,
@@ -39,6 +51,7 @@ import { contentWidth, space, touchTargetStyle } from "@/theme/tokens";
 export default function NodeDetails() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
+	const { width } = useWindowDimensions();
 	const { nodeId } = useLocalSearchParams<{ nodeId: string }>();
 	const { activeHome } = useHome();
 	const { user } = useAuth();
@@ -59,9 +72,8 @@ export default function NodeDetails() {
 	 * crumb *titles* and never invalidates within a session, which is exactly what
 	 * a title wants and exactly wrong here: participants edited on the project
 	 * would leave a step's assignee list narrowed to the old set, and the
-	 * "Only people in X are shown" and stale-assignee sentences saying something
-	 * untrue until a reload. One more single-document listener, constrained and
-	 * torn down with the screen.
+	 * stale-assignee sentence saying something untrue until a reload. One more
+	 * single-document listener, constrained and torn down with the screen.
 	 *
 	 * A node that is itself a root subscribes to nothing — `useNode` already
 	 * holds that document, and pointing a second listener at it would pay twice
@@ -76,6 +88,12 @@ export default function NodeDetails() {
 	const flip = useFlip(homeId ?? "");
 
 	const [failed, setFailed] = useState(false);
+	const [menuOpen, setMenuOpen] = useState(false);
+	const [renaming, setRenaming] = useState(false);
+	const menuAnchor = useRef<View | null>(null);
+
+	// Stable so Paper keeps its Escape handler — see `components/board/CardMenu.tsx`.
+	const closeMenu = useCallback(() => setMenuOpen(false), []);
 
 	// Where "up" is once the card has stopped existing, remembered while it still
 	// does: a deleted card cannot say who its parent was.
@@ -105,7 +123,11 @@ export default function NodeDetails() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header>
+			<Appbar.Header
+				// Three 48dp targets and the bar's padding leave a narrow screen no
+				// room for a title — see `appBarStackBreakpoint`.
+				mode={width < appBarStackBreakpoint ? "medium" : "small"}
+			>
 				{/* Wherever you came from, and never a dead arrow.
 				    `router.back()` alone is the trap the board hit: on a screen
 				    reached by a reload, a bookmark or a shared link there is no
@@ -126,8 +148,48 @@ export default function NodeDetails() {
 					}
 				/>
 				<Appbar.Content title={node?.title ?? ""} />
+				{node === null ? null : (
+					<Menu
+						visible={menuOpen}
+						onDismiss={closeMenu}
+						overlayAccessibilityLabel={t("common.closeMenu")}
+						anchor={
+							<View ref={menuAnchor}>
+								<Appbar.Action
+									style={touchTargetStyle}
+									icon="dots-vertical"
+									accessibilityLabel={t("board.actions")}
+									onPress={() => setMenuOpen(true)}
+								/>
+							</View>
+						}
+					>
+						<Menu.Item
+							leadingIcon="pencil-outline"
+							title={t("board.rename")}
+							onPress={() => {
+								closeMenu();
+								setRenaming(true);
+							}}
+						/>
+					</Menu>
+				)}
 				<AccountMenu />
 			</Appbar.Header>
+
+			{/* Mounted only while open — see `CardMenu`'s identical dialog. */}
+			{renaming && node !== null ? (
+				<TitleDialog
+					visible
+					onDismiss={() => setRenaming(false)}
+					heading={t("board.renameTitle")}
+					confirmLabel={t("board.rename")}
+					initialTitle={node.title}
+					onSubmit={(title) => save({ title })}
+					testID={`rename-details-${node.id}`}
+					returnFocusTo={menuAnchor}
+				/>
+			) : null}
 
 			{node === null ? (
 				<ActivityIndicator
@@ -213,12 +275,10 @@ export default function NodeDetails() {
 					{homeId === null || user === null ? null : (
 						<>
 							<PeopleSection
-								homeId={homeId}
 								node={node}
 								root={root}
 								members={members}
 								onSave={save}
-								onError={() => setFailed(true)}
 								flip={flip}
 							/>
 
@@ -230,6 +290,15 @@ export default function NodeDetails() {
 									uid={user.uid}
 									flip={flip}
 								/>
+							) : null}
+
+							{/* The two rules about people, once, folded away — rather
+							    than a grey sentence under every control on a screen
+							    somebody opened to write down a date. It sits below all
+							    three controls because it explains all three, and only
+							    where they render at all. */}
+							{members.length > 1 && root !== null ? (
+								<WhoSeesWhat node={node} project={root.title} />
 							) : null}
 
 							{/* One dialog for both controls: a private project's

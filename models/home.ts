@@ -64,6 +64,15 @@ export interface Invite {
 	/** Plaintext, readable only by this home's owners, so a typo is visible and fixable. */
 	email: string;
 	role: Role;
+	/**
+	 * Whether accepting also puts the new member on every shared project.
+	 *
+	 * It lives on the invite rather than being applied by the inviter because
+	 * invites are keyed by email hash and the invitee has **no uid until they
+	 * accept** — there is nothing to write into a participant list at invite
+	 * time. Absent on every invitation written before #102, which reads as off.
+	 */
+	addToAllProjects: boolean;
 	homeName: string;
 	invitedByName: string;
 	createdAt: Timestamp | null;

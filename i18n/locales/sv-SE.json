@@ -121,7 +121,8 @@
 		"removeTitle": "Ta bort {{name}}?",
 		"removeBody": "Hen förlorar åtkomst till hemmet. Sådant som bara hen kunde se — hens privata uppgifter — försvinner för alla.",
 		"lastAdmin": "Gör någon annan till administratör först.",
-		"manage": "Hantera {{name}}"
+		"manage": "Hantera {{name}}",
+		"inviteAllProjects": "Lägg till hen i alla delade projekt"
 	},
 	"manageHome": {
 		"title": "Hantera hem",
@@ -151,7 +152,7 @@
 		"up": "En nivå upp",
 		"empty": "Inget här ännu. Lägg till första kortet.",
 		"loadFailed": "Kunde inte ladda den här tavlan. Kontrollera din anslutning.",
-		"allHidden": "Allt här är någons eget projekt. Slå på ”Visa allas projekt” för att se dem.",
+		"allHidden": "Allt här är någons eget projekt. Slå på ”Visa projekt som är dolda på min tavla” för att se dem.",
 		"hiddenHere_one": "1 till här är någons eget projekt. Slå på ”{{action}}” för att se det.",
 		"hiddenHere_other": "{{count}} till här är någons egna projekt. Slå på ”{{action}}” för att se dem.",
 		"columnEmpty": "Inget här",
@@ -197,7 +198,7 @@
 		"assignedTo_one": "{{names}} gör det här",
 		"assignedTo_other": "{{names}} gör det här",
 		"boardActions": "Tavlans åtgärder",
-		"showEveryone": "Visa allas projekt"
+		"showEveryone": "Visa projekt som är dolda på min tavla"
 	},
 	"visibility": {
 		"you": "du",
@@ -219,16 +220,19 @@
 		"participants": "Vilka är med?",
 		"participantsPrivate": "Vilka ser det här?",
 		"participantsYouStay": "Du kan inte ta bort dig själv från ett privat projekt — då förlorar du det.",
+		"participantsLast": "Minst en person måste vara med i ett projekt.",
 		"assignees": "Vem gör det?",
 		"visibility": "Vilka kan se projektet?",
 		"visibilityShared": "Alla i hemmet",
 		"visibilityPrivate": "Bara de jag väljer",
-		"assigneesNarrowed": "Bara de som är med i {{project}} visas.",
 		"assigneesChange": "Ändra vilka som är med i {{project}}",
 		"assigneeStale": "{{name}} gör det här men är inte med i {{project}} längre.",
 		"assigneeStaleClear": "Ta bort {{name}}",
-		"privateOnlyProjects": "Bara ett helt projekt kan hållas för sig, inte ett steg inuti ett.",
-		"privateMoveUp": "Flytta {{title}} högst upp",
+		"whoSeesWhat": "Vem ser vad?",
+		"whoSeesProject": "Vilka är med i ett projekt",
+		"whoSeesProjectBody": "Bara de som är ikryssade här ser projektet på sin tavla. Alla andra i hemmet kan fortfarande öppna det om du skickar det till dem — det ligger bara inte i deras lista.",
+		"whoSeesStep": "Vem gör ett steg",
+		"whoSeesStepBody": "Ett steg kan bara ges till någon som är med i projektet. Lägg till hen i projektet först, så dyker hen upp här.",
 		"dueDate": "Klart senast",
 		"addDate": "Lägg till datum",
 		"priority": "Prioritet",

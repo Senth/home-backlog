@@ -41,6 +41,7 @@ the honest limit of the feature.
 | `role` | `'owner' \| 'member'` | what accepting grants |
 | `homeName` | `string` | denormalized, because the invitee cannot read the home doc |
 | `invitedByName` | `string` | denormalized, because the invitee cannot read `memberProfiles` |
+| `addToAllProjects` | `boolean` | optional; written by the owner, read by the invitee on accept |
 | `createdAt` | `Timestamp` | orders the owner's pending list |
 
 ### `members` keeps its shape; profiles sit beside it
@@ -212,6 +213,45 @@ landing is what joining means; telling somebody "could not join" while they are 
 member is the one wrong answer available. A leftover invite is harmless. Accepting it
 again is a no-op write of membership they already have.
 
+### Joining every shared project, or none of them
+
+`participantIds` on a root [names the household's real
+list](boards-and-nodes.md#a-root-always-names-the-people-whose-project-it-is) rather than
+standing for "everyone", which raises a question the implicit form could not even express:
+what a new member is in on. Nothing, by default. The invitation carries the answer.
+
+`addToAllProjects` is a checkbox under the role selector on the invite form, **off** by
+default, stored on the invite document and read by the invitee on accept. It has to live
+there rather than being applied by the inviter: invites are keyed by an email hash and the
+invitee **has no uid until they accept**, so there is nothing to write into a participant
+list at invite time.
+
+`acceptInvite` fires one query, once, only when the flag is set and only after the
+membership write has landed:
+
+```
+homes/{homeId}/nodes
+  where archived == false
+  where parentId == null
+  where visibility == 'shared'
+```
+
+Provably safe: every shared node is readable by every member, and the actor is a member by
+the time it runs, so the query cannot return a deniable document and cannot be rejected
+wholesale. Private roots are excluded by the `visibility` clause — joining a household is
+not joining its private work. Each root is then updated individually with the new uid
+appended, and no index is needed: `nodes (archived, parentId, visibility, rank)` already
+exists and its equality prefix serves this exactly.
+
+**A failure here goes to the console and nowhere else**, which is a deliberate choice
+rather than a gap. Membership has already landed, so the person in front of the screen
+*is* a member; navigation into the home fires on that membership reaching the homes
+listener, a round trip before these writes settle, so a notice would arrive after its
+Snackbar had unmounted. And it would arrive in front of the *invitee*, who never ticked the
+box and has never seen the boards it is about. The person who can act on it is the inviter,
+who is not there. A partial run leaves the new member with a thinner board, which anybody
+can finish by hand from a project's details.
+
 ## Rules
 
 Beyond membership, three invariants live in `firestore.rules` rather than in a component,
@@ -235,6 +275,10 @@ hash on themselves and be mistaken for them by the "already a member?" check.
 
 A member may write their own `memberProfiles` and `memberEmailHashes` entries and nobody
 else's. An owner may write anyone's, because removing a member has to remove theirs too.
+
+`addToAllProjects` is checked for shape alongside them: it must be a bool when present.
+It drives writes the invitee makes to other people's projects, so "the client says so" is
+not enough on its own.
 
 ### Leaving, and a deliberately narrow delete
 
@@ -348,7 +392,8 @@ arrow dead. The destination is the same either way, so it is named.
 - **Members.** A row per person with their avatar, a role chip, "You" on your own row,
   and for an owner an overflow menu with Make admin / Make member / Remove. Actions that
   would leave no admin are disabled with "Make someone else an admin first."
-- **Invite someone** (owners only). A field for the address, Member / Admin, and Send.
+- **Invite someone** (owners only). A field for the address, Member / Admin, a tickbox
+  reading *Add them to every shared project*, and Send.
 - **Pending invitations** (owners only). A row per invite showing the plaintext address
   and its age, with a withdraw button.
 - **Danger zone.** Leave this home, and Delete this home when you are its sole member,

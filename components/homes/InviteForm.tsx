@@ -9,6 +9,7 @@ import {
 	Text,
 	TextInput,
 } from "react-native-paper";
+import { CheckRow } from "@/components/ui/CheckRow";
 import { sendInvite } from "@/data/homes";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import {
@@ -55,6 +56,9 @@ export function InviteForm({
 
 	const [email, setEmail] = useState("");
 	const [role, setRole] = useState<Role>("member");
+	// Off by default: joining a household is a decision about the household, and
+	// being handed every project on it is a second one, made deliberately.
+	const [addToAllProjects, setAddToAllProjects] = useState(false);
 	const [sending, setSending] = useState(false);
 	// "That does not look like an email address" is true of every address while
 	// it is half typed, so that one message waits until the field is left or the
@@ -77,12 +81,13 @@ export function InviteForm({
 
 		setSending(true);
 		try {
-			await sendInvite(home, inviter, email, role);
+			await sendInvite(home, inviter, email, role, addToAllProjects);
 			// The stored address is the folded one, so the confirmation must name
 			// that and not the casing that happened to be typed.
 			onSent(normalizeEmail(email));
 			setEmail("");
 			setRole("member");
+			setAddToAllProjects(false);
 			setSettled(false);
 		} catch (reason) {
 			console.error("Could not send the invitation:", reason);
@@ -139,6 +144,12 @@ export function InviteForm({
 						labelStyle: { lineHeight: segmentedLabelLineHeight },
 					},
 				]}
+			/>
+
+			<CheckRow
+				label={t("members.inviteAllProjects")}
+				checked={addToAllProjects}
+				onPress={() => setAddToAllProjects(!addToAllProjects)}
 			/>
 
 			<Button

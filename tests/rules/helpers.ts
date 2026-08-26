@@ -143,7 +143,11 @@ export function nodeDoc(
 		ancestorIds: [],
 		locationId: null,
 		locationAncestorIds: [],
-		participantIds: [],
+		// A root names the people whose project it is, since #102: the rules
+		// refuse an empty list on one, so the default here is a root somebody is
+		// on. A test about a *descendant* overrides it with `[]`, which is what a
+		// shared step carries.
+		participantIds: [OWNER.uid],
 		assigneeIds: [],
 		visibility: "shared",
 		columns: ["backlog", "next_up", "execution", "done"],

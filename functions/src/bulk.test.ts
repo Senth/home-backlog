@@ -8,6 +8,7 @@ import type { ApiError } from "./errors.js";
 import type { ParentFacts } from "./validate.js";
 
 const ME = "uidMarcus";
+const MEMBERS = ["uidMarcus", "uidAnna"];
 const now = new Date("2026-01-01T00:00:00Z");
 
 function refusal(run: () => unknown): ApiError {
@@ -32,7 +33,11 @@ function parentFacts(overrides: Partial<ParentFacts> = {}): ParentFacts {
 
 function plan(
 	body: unknown,
-	options: { parent?: ParentFacts | null; rootRank?: string } = {},
+	options: {
+		parent?: ParentFacts | null;
+		rootRank?: string;
+		memberUids?: readonly string[];
+	} = {},
 ) {
 	const payload = parseBulkBody(body);
 	const context: BulkContext = {
@@ -43,6 +48,7 @@ function plan(
 		parent: options.parent ?? null,
 		rootRank: options.rootRank ?? "a0",
 		createdBy: ME,
+		memberUids: options.memberUids ?? MEMBERS,
 		now,
 	};
 	return planBulk(context);
@@ -256,10 +262,88 @@ describe("privacy", () => {
 		}
 	});
 
-	it("leaves a shared subtree's participants empty", () => {
-		for (const item of plan(tree).items) {
+	it("gives a shared root every member, and leaves the subtree under it empty", () => {
+		// `[]` on a root is refused by the rules since #102, and a bulk-written
+		// one would be frozen against every later update. Descendants keep `[]`:
+		// the hide filter is uniform at every depth.
+		const result = plan(tree);
+		expect(itemFor(result, "root").participantIds).toEqual(MEMBERS);
+		for (const item of result.items.filter(
+			(candidate) => candidate.ref !== "root",
+		)) {
 			expect(item.data.participantIds).toEqual([]);
 		}
+	});
+
+	it("leaves every participant list empty when the subtree attaches under a shared parent", () => {
+		// Then the payload's root is a child, not a root, and takes `[]` like any
+		// other shared descendant.
+		for (const item of plan(tree, { parent: parentFacts({}) }).items) {
+			expect(item.data.participantIds).toEqual([]);
+		}
+	});
+
+	it("takes the uids the root names, when it names some", () => {
+		expect(
+			itemFor(
+				plan({
+					nodes: [{ ref: "root", title: "Root", participantIds: ["uidAnna"] }],
+				}),
+				"root",
+			).participantIds,
+		).toEqual(["uidAnna"]);
+	});
+
+	it("refuses a root naming somebody who is not a member", () => {
+		const error = refusal(() =>
+			plan({
+				nodes: [
+					{ ref: "root", title: "Root", participantIds: ["uidStranger"] },
+				],
+			}),
+		);
+		expect(error?.details?.[0].code).toBe("participants_invalid");
+	});
+
+	it("refuses a payload root naming participants when it attaches under a private parent", () => {
+		// Then it is a child, and a child takes its parent's list whatever it says.
+		const error = refusal(() =>
+			plan(
+				{
+					nodes: [{ ref: "root", title: "Root", participantIds: ["uidAnna"] }],
+				},
+				{ parent: parentFacts({ visibility: "private" }) },
+			),
+		);
+		expect(error?.details?.[0].code).toBe("participants_immutable");
+		expect(error?.details?.[0].index).toBe(0);
+	});
+
+	it("refuses an empty list on a payload root, at that root's index", () => {
+		// `asStringList` accepts `[]`, so this parses and has to be caught here —
+		// and it is refused the way every other bulk refusal is, with an index.
+		const error = refusal(() =>
+			plan({ nodes: [{ ref: "root", title: "Root", participantIds: [] }] }),
+		);
+		expect(error?.details?.[0].code).toBe("participants_required");
+		expect(error?.details?.[0].index).toBe(0);
+	});
+
+	it("refuses a node below the root naming participants of its own", () => {
+		const error = refusal(() =>
+			plan({
+				nodes: [
+					{ ref: "root", title: "Root" },
+					{
+						ref: "step",
+						parentRef: "root",
+						title: "Step",
+						participantIds: ["uidAnna"],
+					},
+				],
+			}),
+		);
+		expect(error?.details?.[0].code).toBe("participants_immutable");
 	});
 
 	it("refuses a node below the root declaring its own visibility", () => {

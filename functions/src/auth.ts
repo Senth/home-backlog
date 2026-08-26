@@ -40,6 +40,8 @@ export interface HomeAccess {
 	homeId: string;
 	/** The caller's display name in this home, or their uid if they have none. */
 	callerName: string;
+	/** Every current member's uid. Read from the same snapshot as the rest. */
+	memberUids: string[];
 }
 
 /**
@@ -142,7 +144,8 @@ export async function homeAccess(
 		`No home ${homeId}, or you are not a member of it.`,
 	);
 	if (!snapshot.exists) throw notFound;
-	if (!isMember(snapshot.get("members"), caller.uid)) throw notFound;
+	const members = snapshot.get("members");
+	if (!isMember(members, caller.uid)) throw notFound;
 
 	const profile = snapshot.get(`memberProfiles.${caller.uid}`) as
 		| { displayName?: unknown }
@@ -152,7 +155,12 @@ export async function homeAccess(
 			? profile.displayName
 			: caller.uid;
 
-	return { homeId, callerName };
+	const memberUids =
+		members !== null && typeof members === "object"
+			? Object.keys(members as Record<string, unknown>)
+			: [];
+
+	return { homeId, callerName, memberUids };
 }
 
 /**

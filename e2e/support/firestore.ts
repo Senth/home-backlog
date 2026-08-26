@@ -173,3 +173,267 @@ export async function fillColumn(
 
 	return titles;
 }
+
+/**
+ * Firestore's REST document values, and the plain JSON a fixture actually
+ * wants to write or read — see #102's e2e phase.
+ *
+ * The REST API wraps every value in a type tag (`{ stringValue: "x" }`), which
+ * is exactly right for a wire format and exactly wrong for a fixture to write
+ * or a test to assert against. These two functions are the one place that
+ * boundary is crossed, so every other helper in this file — and every spec —
+ * reads and writes plain values.
+ */
+type Json =
+	| string
+	| number
+	| boolean
+	| null
+	| readonly Json[]
+	| { readonly [key: string]: Json };
+
+function encodeValue(value: Json): Record<string, unknown> {
+	if (value === null) return { nullValue: null };
+	if (typeof value === "boolean") return { booleanValue: value };
+	if (typeof value === "string") return { stringValue: value };
+	if (typeof value === "number") {
+		return Number.isInteger(value)
+			? { integerValue: String(value) }
+			: { doubleValue: value };
+	}
+	if (Array.isArray(value)) {
+		return { arrayValue: { values: value.map(encodeValue) } };
+	}
+	return { mapValue: { fields: encodeFields(value as Record<string, Json>) } };
+}
+
+function encodeFields(fields: Record<string, Json>): Record<string, unknown> {
+	return Object.fromEntries(
+		Object.entries(fields).map(([key, value]) => [key, encodeValue(value)]),
+	);
+}
+
+function decodeValue(value: unknown): unknown {
+	if (value === null || typeof value !== "object") return undefined;
+	const tagged = value as Record<string, unknown>;
+	if ("nullValue" in tagged) return null;
+	if ("booleanValue" in tagged) return tagged.booleanValue;
+	if ("stringValue" in tagged) return tagged.stringValue;
+	if ("integerValue" in tagged) return Number(tagged.integerValue);
+	if ("doubleValue" in tagged) return tagged.doubleValue;
+	if ("timestampValue" in tagged) return tagged.timestampValue;
+	if ("arrayValue" in tagged) {
+		const values =
+			(tagged.arrayValue as { values?: unknown[] } | undefined)?.values ?? [];
+		return values.map(decodeValue);
+	}
+	if ("mapValue" in tagged) {
+		const inner =
+			(tagged.mapValue as { fields?: Record<string, unknown> } | undefined)
+				?.fields ?? {};
+		return decodeFields(inner);
+	}
+	return undefined;
+}
+
+function decodeFields(
+	fields: Record<string, unknown>,
+): Record<string, unknown> {
+	return Object.fromEntries(
+		Object.entries(fields).map(([key, value]) => [key, decodeValue(value)]),
+	);
+}
+
+/** The id at the end of a REST resource name, e.g. `homes/{home}/nodes/{id}`. */
+function idOf(name: string): string {
+	const id = name.split("/").pop();
+	if (!id) throw new Error(`could not read an id from ${name}`);
+	return id;
+}
+
+/** One node's fields, decoded to plain JSON — for asserting what a write did. */
+export async function nodeFields(
+	nodeId: string,
+): Promise<Record<string, unknown>> {
+	const home = await homeId();
+	const response = await fetch(`${BASE}/homes/${home}/nodes/${nodeId}`, {
+		headers: HEADERS,
+	});
+	if (!response.ok) {
+		throw new Error(
+			`emulator REST could not read node ${nodeId}: ${response.status} ${response.statusText}`,
+		);
+	}
+	const document = (await response.json()) as {
+		fields?: Record<string, unknown>;
+	};
+	return decodeFields(document.fields ?? {});
+}
+
+/**
+ * Recomputes a node's `childCount` / `doneCount` from its real children and
+ * writes them back.
+ *
+ * Only claim 12 needs this: demoting a node under a real, seeded project (the
+ * claim is about a *real* project, not a throwaway one) and then sweeping the
+ * demoted node away by title prefix — a raw Firestore delete, the same one
+ * `deleteNodesByTitlePrefix` always does — does not run the app's own
+ * counter bookkeeping, so the seeded project would otherwise end this file's
+ * run one `childCount` too high, forever, for every spec that reads it.
+ */
+export async function recountChildren(nodeId: string): Promise<void> {
+	const home = await homeId();
+	const { documents = [] } = await get(`/homes/${home}/nodes?pageSize=300`);
+
+	let childCount = 0;
+	let doneCount = 0;
+	for (const document of documents) {
+		if (document.fields?.parentId?.stringValue !== nodeId) continue;
+		childCount += 1;
+		if (document.fields?.status?.stringValue === "done") doneCount += 1;
+	}
+
+	const response = await fetch(
+		`${BASE}/homes/${home}/nodes/${nodeId}?updateMask.fieldPaths=childCount&updateMask.fieldPaths=doneCount`,
+		{
+			method: "PATCH",
+			headers: { ...HEADERS, "Content-Type": "application/json" },
+			body: JSON.stringify({
+				fields: {
+					childCount: { integerValue: String(childCount) },
+					doneCount: { integerValue: String(doneCount) },
+				},
+			}),
+		},
+	);
+	if (!response.ok) {
+		throw new Error(
+			`emulator REST could not recount ${nodeId}: ${response.status} ${response.statusText}`,
+		);
+	}
+}
+
+/** A node's id, resolved by its title — for a node created through the UI. */
+export async function nodeIdByTitle(title: string): Promise<string> {
+	const home = await homeId();
+	const { documents = [] } = await get(`/homes/${home}/nodes?pageSize=300`);
+	const match = documents.find(
+		(document) => document.fields?.title?.stringValue === title,
+	);
+	if (!match) {
+		throw new Error(`no node titled "${title}" in ${HOME_NAME}`);
+	}
+	return idOf(match.name);
+}
+
+/**
+ * A node's id, resolved by its title once the write reaches the backend.
+ *
+ * A card made through the UI is visible on screen — optimistically — the
+ * instant Firestore applies it locally, which can be well before the emulator
+ * this file reads through can see it. `nodeIdByTitle` throwing on "not found
+ * yet" makes it a poor fit inside `expect.poll`, whose callback Playwright
+ * treats a throw from as an immediate failure rather than something to retry
+ * — so this is the version that waits instead.
+ */
+export async function waitForNodeIdByTitle(
+	title: string,
+	timeoutMs = 30_000,
+): Promise<string> {
+	const deadline = Date.now() + timeoutMs;
+	for (;;) {
+		try {
+			return await nodeIdByTitle(title);
+		} catch (reason) {
+			if (Date.now() > deadline) throw reason;
+			await new Promise((resolve) => setTimeout(resolve, 300));
+		}
+	}
+}
+
+/**
+ * One node, built from a copy of a stored one with the given fields
+ * overridden.
+ *
+ * The same reasoning `fillColumn` above writes down: hand-writing a whole
+ * document is how a fixture drifts from the schema a field the app never
+ * heard of arrives as `undefined` rather than failing. Unlike `fillColumn`
+ * this can place a node anywhere in the tree — a root, or a step under one —
+ * which is what the participants claims need: a project with a stored
+ * participant list, or a step whose stale assignee is not on it.
+ */
+export async function createFixtureNode(
+	overrides: Record<string, Json>,
+): Promise<string> {
+	const home = await homeId();
+	const { documents = [] } = await get(`/homes/${home}/nodes?pageSize=1`);
+	const template = documents[0];
+	if (template === undefined) {
+		throw new Error(
+			`no node in ${HOME_NAME} to copy — is the emulator running with --import .emulator-seed?`,
+		);
+	}
+
+	const fields = {
+		...(template.fields as Record<string, unknown>),
+		...encodeFields(overrides),
+	};
+
+	const response = await fetch(`${BASE}/homes/${home}/nodes`, {
+		method: "POST",
+		headers: { ...HEADERS, "Content-Type": "application/json" },
+		body: JSON.stringify({ fields }),
+	});
+	if (!response.ok) {
+		throw new Error(
+			`emulator REST could not create a fixture node: ${response.status} ${response.statusText}`,
+		);
+	}
+	const created = (await response.json()) as { name: string };
+	return idOf(created.name);
+}
+
+/** Every current member's uid, from the seeded home's `members` map. */
+export async function homeMemberUids(): Promise<string[]> {
+	const home = await homeId();
+	const response = await fetch(`${BASE}/homes/${home}`, { headers: HEADERS });
+	if (!response.ok) {
+		throw new Error(
+			`emulator REST could not read home ${home}: ${response.status} ${response.statusText}`,
+		);
+	}
+	const document = (await response.json()) as {
+		fields?: Record<string, unknown>;
+	};
+	const members = decodeFields(document.fields ?? {}).members;
+	return Object.keys((members ?? {}) as Record<string, unknown>);
+}
+
+/**
+ * A member's uid, by the display name their seeded Google account carries —
+ * `Marcus` or `Anna Maria Berg`. Resolved rather than hardcoded, the same
+ * reason `homeId()` resolves by name: a reseed changes ids, never the names
+ * this file was written against.
+ */
+export async function memberUid(displayName: string): Promise<string> {
+	const home = await homeId();
+	const response = await fetch(`${BASE}/homes/${home}`, { headers: HEADERS });
+	if (!response.ok) {
+		throw new Error(
+			`emulator REST could not read home ${home}: ${response.status} ${response.statusText}`,
+		);
+	}
+	const document = (await response.json()) as {
+		fields?: Record<string, unknown>;
+	};
+	const profiles = decodeFields(document.fields ?? {}).memberProfiles as
+		| Record<string, { displayName?: string }>
+		| undefined;
+	const match = Object.entries(profiles ?? {}).find(
+		([, profile]) => profile.displayName === displayName,
+	);
+	if (!match) {
+		throw new Error(`no member named "${displayName}" in ${HOME_NAME}`);
+	}
+	return match[0];
+}
