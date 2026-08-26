@@ -23,11 +23,11 @@ test.describe("offline writes", () => {
 	// A title unique per run, so a previous failure cannot make this one pass.
 	const title = `E2E offline ${Date.now()}`;
 
-	// By prefix rather than by this run's exact title. Each project loads this
-	// file afresh, so each gets its own timestamp — and a delete of one exact
-	// title cannot mop up a card the *previous* project left behind. The suite is
-	// serial and one worker deep, so there is never a second offline card in
-	// flight for this to take out from under another test.
+	// By prefix rather than by this run's exact title, so a delete cannot miss
+	// the card a *previous* run crashed out of cleaning up. This spec lives in
+	// the `writes` project, which is one worker deep and runs alone, so there is
+	// never a second offline card in flight for this to take out from under
+	// another test.
 	test.afterEach(async () => {
 		await deleteNodesByTitlePrefix("E2E offline");
 	});

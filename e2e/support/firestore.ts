@@ -75,23 +75,16 @@ export async function nodeTitles(): Promise<string[]> {
 /**
  * Deletes every node whose title begins with this prefix. Best-effort in that
  * finding nothing is a normal outcome — a spec that failed before it created
- * anything still calls this — but a delete that is refused is not: see
- * `deleteNodesWhere`.
+ * anything still calls this — but a delete that is refused is not.
  */
 export async function deleteNodesByTitlePrefix(prefix: string): Promise<void> {
-	await deleteNodesWhere((stored) => stored.startsWith(prefix));
-}
-
-async function deleteNodesWhere(
-	matches: (title: string) => boolean,
-): Promise<void> {
 	const { documents = [] } = await get(
 		`/homes/${await homeId()}/nodes?pageSize=300`,
 	);
 
 	for (const document of documents) {
 		const title = document.fields?.title?.stringValue;
-		if (title === undefined || !matches(title)) continue;
+		if (title === undefined || !title.startsWith(prefix)) continue;
 		const response = await fetch(`http://localhost:8062/v1/${document.name}`, {
 			method: "DELETE",
 			headers: HEADERS,

@@ -22,7 +22,7 @@ import { deleteNodesByTitlePrefix } from "@/e2e/support/firestore";
  */
 
 /** What every spec-created node's title begins with. */
-export const FIXTURE_PREFIX = "E2E ";
+const FIXTURE_PREFIX = "E2E ";
 
 setup("clear cards left behind by an earlier run", async () => {
 	await deleteNodesByTitlePrefix(FIXTURE_PREFIX);

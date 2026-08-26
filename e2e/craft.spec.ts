@@ -6,7 +6,6 @@ import {
 	ROUTES,
 	VIEWPORTS,
 } from "@/e2e/support/app";
-import { deleteNodesByTitlePrefix, fillColumn } from "@/e2e/support/firestore";
 import enUS from "@/i18n/locales/en-US.json";
 import svSE from "@/i18n/locales/sv-SE.json";
 import { touchTarget } from "@/theme/tokens";
@@ -24,10 +23,11 @@ import { touchTarget } from "@/theme/tokens";
  * measurement — whether the Swedish reads like a person wrote it, whether an
  * empty state is honest, whether the density overwhelms.
  *
- * Everything here runs in both locales and both colour schemes, and at both
- * viewports — Swedish words are longer, dark mode is a different palette rather
- * than an inversion, and above `compactBreakpoint` the board is a different
- * layout rather than a wider one.
+ * Everything here runs in both locales and at both viewports — Swedish words
+ * are longer, and above `compactBreakpoint` the board is a different layout
+ * rather than a wider one. The colour-scheme axis is narrower on purpose: only
+ * the contrast check runs in the dark, because that is the only measurement in
+ * this file a palette can change.
  *
  * The suite used to run at 390 px only, "because that is where a Swedish label
  * runs out of room first". That reasoning is still exactly right for
@@ -54,10 +54,11 @@ import { touchTarget } from "@/theme/tokens";
  * | no clipped control label | the original check | claim 12, second half |
  * | does not scroll horizontally | the original check | claim 13 (named) |
  *
- * The two claims that are *not* a width-independent sweep get a test of their
- * own below: the FAB clearance, which only exists below the breakpoint, and the
- * desktop column's own strings, which are not inside an interactive element and
- * so are invisible to the clipped-label sweep.
+ * The claims that are *not* a width-independent sweep get a test of their own:
+ * the desktop column's own strings below, which are not inside an interactive
+ * element and so are invisible to the clipped-label sweep, and the FAB
+ * clearance in `fab.spec.ts`, which fills a column and so belongs with the
+ * specs that write.
  */
 
 /**
@@ -85,8 +86,21 @@ function axe(page: Parameters<typeof gotoAndSettle>[0]) {
 const INTERACTIVE =
 	'button, [role="button"], [role="link"], [role="tab"], [role="switch"], [role="checkbox"], a[href], input, select, textarea';
 
+/**
+ * The scheme axis, and the one check that is about colour.
+ *
+ * Only the palette changes with the scheme — `theme/tokens.ts` is where every
+ * colour lives and nothing in it is a size — so contrast is the only
+ * measurement below that can come out differently in the dark. The three
+ * geometry checks used to run in both schemes too, which was 15 tests per
+ * project asserting the same boxes twice.
+ *
+ * Dark is tagged so the Swedish projects can drop it: a contrast ratio is the
+ * same ratio whatever the words say, so a Swedish dark pass re-measures the
+ * English one.
+ */
 for (const scheme of ["light", "dark"] as const) {
-	test.describe(`${scheme} scheme`, () => {
+	test.describe(`${scheme} scheme`, { tag: `@${scheme}` }, () => {
 		test.use({ colorScheme: scheme });
 
 		for (const route of ROUTES) {
@@ -107,206 +121,126 @@ for (const scheme of ["light", "dark"] as const) {
 					[],
 				);
 			});
-
-			test(`13: ${route.path} does not scroll the document horizontally`, async ({
-				page,
-			}) => {
-				await gotoAndSettle(page, route);
-
-				// A page that scrolls sideways on a phone is the single most common
-				// way a fixed width or an un-wrapped row escapes review.
-				//
-				// At 1920 px it asserts something sharper, because the board
-				// deliberately scrolls sideways above the breakpoint: more columns
-				// than fit is a scroll, by design. That scroll lives inside a
-				// `ScrollView`, which translates its own inner element and never
-				// moves `document.documentElement` — so measuring the document is
-				// what lets this check tell the intended scroll from the accidental
-				// one. What it still fails on is a column that overflows its
-				// container and drags the whole document wider than the window.
-				const overflow = await page.evaluate(() => ({
-					scrollWidth: document.documentElement.scrollWidth,
-					clientWidth: document.documentElement.clientWidth,
-				}));
-
-				expect(
-					overflow.scrollWidth,
-					`horizontal overflow on ${route.path} (${scheme})`,
-				).toBeLessThanOrEqual(overflow.clientWidth);
-			});
-
-			test(`12: ${route.path} has no touch target under ${touchTarget}dp`, async ({
-				page,
-			}) => {
-				await gotoAndSettle(page, route);
-
-				const undersized = await page.evaluate(
-					({ selector, minimum }) => {
-						const offenders: string[] = [];
-						for (const element of Array.from(
-							document.querySelectorAll(selector),
-						)) {
-							const box = element.getBoundingClientRect();
-							// Zero-sized elements are not rendered — a collapsed menu, a
-							// tab in an inactive stack. They are not touch targets.
-							if (box.width === 0 || box.height === 0) continue;
-							// An element whose own box is small but which sits inside a
-							// larger interactive ancestor is fine: the ancestor is what the
-							// thumb hits.
-							if (element.parentElement?.closest(selector) !== null) continue;
-							if (box.width < minimum || box.height < minimum) {
-								const label =
-									element.getAttribute("aria-label") ||
-									element.textContent?.trim().slice(0, 40) ||
-									element.className;
-								offenders.push(
-									`${Math.round(box.width)}x${Math.round(box.height)} "${label}"`,
-								);
-							}
-						}
-						return offenders;
-					},
-					{ selector: INTERACTIVE, minimum: touchTarget },
-				);
-
-				expect(
-					undersized,
-					`touch targets under ${touchTarget}dp on ${route.path} (${scheme})`,
-				).toEqual([]);
-			});
-
-			test(`${route.path} has no clipped control label`, async ({ page }) => {
-				await gotoAndSettle(page, route);
-
-				// Paper hardcodes `numberOfLines={1}` on button labels, which becomes
-				// an ellipsis rather than a wrap. That is how the login button once
-				// read "C…" at 200% zoom, and it is the failure Swedish is most
-				// likely to reproduce — longer words, same box.
-				const clipped = await page.evaluate((selector) => {
-					const offenders: string[] = [];
-					for (const element of Array.from(
-						document.querySelectorAll(selector),
-					)) {
-						for (const node of Array.from(
-							element.querySelectorAll<HTMLElement>("*"),
-						)) {
-							const style = window.getComputedStyle(node);
-							if (style.textOverflow !== "ellipsis") continue;
-							if (node.scrollWidth > node.clientWidth + 1) {
-								offenders.push(
-									`"${node.textContent?.trim().slice(0, 40)}" (${node.scrollWidth}px in ${node.clientWidth}px)`,
-								);
-							}
-						}
-					}
-					return offenders;
-				}, INTERACTIVE);
-
-				expect(
-					clipped,
-					`clipped control labels on ${route.path} (${scheme})`,
-				).toEqual([]);
-			});
 		}
 	});
 }
 
 /**
- * The two board claims that are not a width-independent sweep.
+ * Geometry, measured once per project.
  *
- * Both live here rather than in `board.spec.ts` because both are claims about
- * *both locales*, and the Swedish projects run this file and `i18n.spec.ts` and
- * nothing else. Each is pinned to the one width it is about and skips in the
- * projects at the other, so neither costs a second run of the same measurement.
+ * A box is the same box in the dark, so these take whatever scheme Playwright
+ * defaults to. What they do vary over is the two axes that change a box: the
+ * locale, because a Swedish word is longer, and the viewport, because above
+ * `compactBreakpoint` the board is a different layout rather than a wider one.
+ */
+for (const route of ROUTES) {
+	test(`13: ${route.path} does not scroll the document horizontally`, async ({
+		page,
+	}) => {
+		await gotoAndSettle(page, route);
+
+		// A page that scrolls sideways on a phone is the single most common
+		// way a fixed width or an un-wrapped row escapes review.
+		//
+		// At 1920 px it asserts something sharper, because the board
+		// deliberately scrolls sideways above the breakpoint: more columns
+		// than fit is a scroll, by design. That scroll lives inside a
+		// `ScrollView`, which translates its own inner element and never
+		// moves `document.documentElement` — so measuring the document is
+		// what lets this check tell the intended scroll from the accidental
+		// one. What it still fails on is a column that overflows its
+		// container and drags the whole document wider than the window.
+		const overflow = await page.evaluate(() => ({
+			scrollWidth: document.documentElement.scrollWidth,
+			clientWidth: document.documentElement.clientWidth,
+		}));
+
+		expect(
+			overflow.scrollWidth,
+			`horizontal overflow on ${route.path}`,
+		).toBeLessThanOrEqual(overflow.clientWidth);
+	});
+
+	test(`12: ${route.path} has no touch target under ${touchTarget}dp`, async ({
+		page,
+	}) => {
+		await gotoAndSettle(page, route);
+
+		const undersized = await page.evaluate(
+			({ selector, minimum }) => {
+				const offenders: string[] = [];
+				for (const element of Array.from(document.querySelectorAll(selector))) {
+					const box = element.getBoundingClientRect();
+					// Zero-sized elements are not rendered — a collapsed menu, a
+					// tab in an inactive stack. They are not touch targets.
+					if (box.width === 0 || box.height === 0) continue;
+					// An element whose own box is small but which sits inside a
+					// larger interactive ancestor is fine: the ancestor is what the
+					// thumb hits.
+					if (element.parentElement?.closest(selector) !== null) continue;
+					if (box.width < minimum || box.height < minimum) {
+						const label =
+							element.getAttribute("aria-label") ||
+							element.textContent?.trim().slice(0, 40) ||
+							element.className;
+						offenders.push(
+							`${Math.round(box.width)}x${Math.round(box.height)} "${label}"`,
+						);
+					}
+				}
+				return offenders;
+			},
+			{ selector: INTERACTIVE, minimum: touchTarget },
+		);
+
+		expect(
+			undersized,
+			`touch targets under ${touchTarget}dp on ${route.path}`,
+		).toEqual([]);
+	});
+
+	test(`${route.path} has no clipped control label`, async ({ page }) => {
+		await gotoAndSettle(page, route);
+
+		// Paper hardcodes `numberOfLines={1}` on button labels, which becomes
+		// an ellipsis rather than a wrap. That is how the login button once
+		// read "C…" at 200% zoom, and it is the failure Swedish is most
+		// likely to reproduce — longer words, same box.
+		const clipped = await page.evaluate((selector) => {
+			const offenders: string[] = [];
+			for (const element of Array.from(document.querySelectorAll(selector))) {
+				for (const node of Array.from(
+					element.querySelectorAll<HTMLElement>("*"),
+				)) {
+					const style = window.getComputedStyle(node);
+					if (style.textOverflow !== "ellipsis") continue;
+					if (node.scrollWidth > node.clientWidth + 1) {
+						offenders.push(
+							`"${node.textContent?.trim().slice(0, 40)}" (${node.scrollWidth}px in ${node.clientWidth}px)`,
+						);
+					}
+				}
+			}
+			return offenders;
+		}, INTERACTIVE);
+
+		expect(clipped, `clipped control labels on ${route.path}`).toEqual([]);
+	});
+}
+
+/**
+ * The two claims that are not a width-independent sweep.
+ *
+ * Both are claims about *both locales*, and the Swedish projects run this file
+ * and `i18n.spec.ts` and nothing else. Each is pinned to the one width it is
+ * about — the desktop column, and a 200% phone — so neither costs a second run
+ * of the same measurement in the project at the other width.
  */
 
 const BOARD = ROUTES[1];
 
 /** A card the fixture always has, whose title names the screen you open it as. */
 const SEEDED_PROJECT = "Renovera badrummet";
-
-/** The cards the FAB claim makes for itself, and then deletes. */
-const FILLER = "E2E fab clearance";
-
-test(`8: the last card in a full column is clear of the FAB, in this locale and at 200%`, async ({
-	page,
-}) => {
-	test.skip(
-		page.viewportSize()?.width !== VIEWPORTS.phone.width,
-		"there is no FAB above compactBreakpoint — the add control is in the column",
-	);
-
-	// The fixture is a household's real board and none of its columns overflows a
-	// phone, so the column that this claim is about has to be made. Deleted in
-	// `finally`, and created inside the `try` so that a batch which throws on its
-	// seventh card is swept too: cards left behind would fail every later spec,
-	// in every later project, for a different reason than the one that broke.
-	try {
-		await fillColumn("backlog", 12, FILLER);
-
-		for (const viewport of [VIEWPORTS.phone, VIEWPORTS.phoneZoomed]) {
-			await page.setViewportSize(viewport);
-			await gotoAndSettle(page, BOARD);
-
-			const measured = await page.evaluate(
-				({ selector, fab }) => {
-					const column = document.querySelector(selector);
-					if (column === null) return { error: `no ${selector}` } as const;
-
-					// The column's own scroller, which is where the bottom padding that
-					// holds the last card clear of the FAB is spent.
-					const scroller = Array.from(
-						column.querySelectorAll<HTMLElement>("*"),
-					).find(
-						(node) =>
-							node.scrollHeight > node.clientHeight + 1 &&
-							window.getComputedStyle(node).overflowY !== "visible",
-					);
-					if (scroller === undefined) {
-						return { error: "the column does not scroll" } as const;
-					}
-
-					// A user reads the bottom of a column by scrolling to the end of
-					// it, and the end is the only place the padding is load-bearing.
-					// Scrolling *just enough to see* the last card would park it
-					// against the scrollport edge, under the FAB, and prove nothing.
-					scroller.scrollTop = scroller.scrollHeight;
-
-					const cards = column.querySelectorAll(
-						'[data-testid="card-container"]',
-					);
-					const last = cards[cards.length - 1];
-					const button = document.querySelector(fab);
-					if (last === undefined || button === null) {
-						return { error: "no last card, or no FAB" } as const;
-					}
-
-					return {
-						gap:
-							button.getBoundingClientRect().top -
-							last.getBoundingClientRect().bottom,
-					} as const;
-				},
-				{ selector: columnSelector("backlog"), fab: '[data-testid="fab"]' },
-			);
-
-			expect(
-				"error" in measured ? measured.error : null,
-				"a column full enough to scroll, with a FAB over it",
-			).toBeNull();
-			// Strictly clear, not merely not-overlapping. A last card whose bottom
-			// edge is exactly the FAB's top edge is a card with a button sitting on
-			// it as soon as anything rounds the other way — a shadow, a focus ring,
-			// a half-pixel of a scroll — and it reads as touching long before that.
-			expect(
-				"gap" in measured ? measured.gap : 0,
-				`gap between the last card and the FAB at ${viewport.width}x${viewport.height}`,
-			).toBeGreaterThan(0);
-		}
-	} finally {
-		await deleteNodesByTitlePrefix(FILLER);
-	}
-});
 
 test("14: the desktop column header, card title and add button are unclipped", async ({
 	page,

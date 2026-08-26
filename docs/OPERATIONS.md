@@ -336,10 +336,12 @@ which cost it again while writing this:
 the yarn script rather than `npx playwright test`, which assumes the stack is
 already running: Playwright's own `webServer` block expects a command that stays
 in the foreground, and `dev-stack.sh up` deliberately returns once the ports
-answer. It covers what a browser
-agent used to walk by hand: the console, an offline write surviving a reload,
-reload and back, deep links, contrast in both colour schemes, touch-target size,
-horizontal overflow, clipped control labels, and untranslated `sv-SE` strings.
+answer. It covers what a browser agent used to walk by hand: the console, an
+offline write surviving a reload, reload and back, deep links, contrast in both
+colour schemes, touch-target size, horizontal overflow, clipped control labels,
+and untranslated `sv-SE` strings.
+Which of those is measured in which project is not a free choice — see [where a
+new spec goes](#where-a-new-spec-goes) below.
 
 Two things it depends on, both easy to break by regenerating the fixture:
 
@@ -350,3 +352,37 @@ Two things it depends on, both easy to break by regenerating the fixture:
   such as `Renovera badrummet`. `networkidle` is not enough: Firestore's
   WebChannel never goes quiet, so the page is "idle" while the board still shows
   its empty state.
+
+#### Where a new spec goes
+
+The suite is projects crossed over two axes and one exception, and putting a new
+spec in the wrong one costs a duplicate pass — the same measurement made twice,
+paid for on every PR forever. Four questions, in order:
+
+**Does it write to the emulator?** Then it goes in the `writes` project,
+whatever else is true of it. That project runs one worker and runs last, after
+every read-only project has finished, because the emulator is one shared backend
+and there is no other way to keep a write out of somebody else's assertion. The
+same answer applies to a spec that only *reads* a number the fixture fixes — a
+column chip's count, a card's step count — since a foreign card makes it wrong.
+Everything else runs in parallel.
+
+**Does its claim depend on the width?** If it pins its own viewport with
+`test.use({ viewport })` or `page.setViewportSize`, it belongs to exactly one
+project: the axis cannot tell it anything it has not already decided for itself.
+Only a spec that takes the project's viewport earns a run at both.
+
+**Does its claim depend on the locale?** Swedish exists in this suite for one
+reason — longer words — so the Swedish projects run `craft` and `i18n` and
+nothing else. Behaviour is behaviour in every language.
+
+**Does its claim depend on the colour scheme?** Almost nothing does. Only the
+palette changes with the scheme, so contrast is the only measurement in the app
+a scheme can move; a box is the same box in the dark. A test that is genuinely
+about colour goes in `craft.spec.ts`'s scheme loop, which tags the dark half
+`@dark` so the Swedish projects can `grepInvert` it — a contrast ratio is the
+same ratio whatever the words say.
+
+Prefer light and `en-US` when a run has to be dropped, and when two answers seem
+equally defensible, drop the run: a claim asserted twice is a claim asserted
+once, plus a bill.
