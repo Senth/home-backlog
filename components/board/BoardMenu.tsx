@@ -1,11 +1,14 @@
+import { useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { Appbar, Menu } from "react-native-paper";
+import { Appbar, Divider, Menu } from "react-native-paper";
+import { detailsHref } from "@/components/board/board-href";
 import { TitleDialog } from "@/components/board/TitleDialog";
 import { updateNode } from "@/data/nodes";
-import type { Node } from "@/models/node";
-import { touchTargetStyle } from "@/theme/tokens";
+import { hasDetails, type Node } from "@/models/node";
+import { useAppTheme } from "@/theme";
+import { radius, size, space, touchTargetStyle } from "@/theme/tokens";
 
 interface BoardMenuProps {
 	homeId: string | null;
@@ -31,6 +34,8 @@ export function BoardMenu({
 	onShowEveryone,
 }: BoardMenuProps) {
 	const { t } = useTranslation();
+	const router = useRouter();
+	const theme = useAppTheme();
 	const [open, setOpen] = useState(false);
 	const [renaming, setRenaming] = useState(false);
 	const anchor = useRef<View | null>(null);
@@ -67,9 +72,39 @@ export function BoardMenu({
 							accessibilityLabel={t("board.boardActions")}
 							onPress={() => setOpen(true)}
 						/>
+						{/* The mark that used to sit on the info action, which now lives
+						    in this menu: it says there is something behind the dots,
+						    which makes opening them a decision rather than a lottery. */}
+						{node !== null && hasDetails(node) ? (
+							<View
+								testID="board-details-mark"
+								style={{
+									// The style prop, not `pointerEvents`: React Native Web
+									// deprecated the prop and warns on every render.
+									pointerEvents: "none",
+									position: "absolute",
+									top: space.sm,
+									right: space.sm,
+									width: size.dot,
+									height: size.dot,
+									borderRadius: radius.full,
+									backgroundColor: theme.colors.primary,
+								}}
+							/>
+						) : null}
 					</View>
 				}
 			>
+				{node === null ? null : (
+					<Menu.Item
+						leadingIcon="information-outline"
+						title={t("detail.title")}
+						onPress={() => {
+							close();
+							router.push(detailsHref(node.id));
+						}}
+					/>
+				)}
 				{node === null ? null : (
 					<Menu.Item
 						leadingIcon="pencil-outline"
@@ -80,6 +115,11 @@ export function BoardMenu({
 						}}
 					/>
 				)}
+				{/* The two above act on this card; this one changes what the board
+				    shows. Without the rule they read as one list, and on a project's
+				    own board a bare "show everyone" is heard as "show everyone who is
+				    in on this" — the question the details screen just taught. */}
+				{node === null ? null : <Divider />}
 				<Menu.Item
 					leadingIcon="account-group-outline"
 					// A check rather than a switch: Paper's menu row is one tappable

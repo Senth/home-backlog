@@ -198,6 +198,18 @@ export const focusRing = {
 export const compactBreakpoint = 720;
 
 /**
+ * Below this, an app bar puts its title on its own line.
+ *
+ * A back arrow, an overflow and the account menu are three 48dp targets, and
+ * with the bar's own padding they claim ~192px of the row whatever the text
+ * size. A 390px phone at 200% text is a 195px viewport, so a single-line bar
+ * has three pixels left for the title and the screen loses its name. Material's
+ * medium top app bar is the component for a title that needs the room, so
+ * narrow screens get it and roomy ones keep the compact bar.
+ */
+export const appBarStackBreakpoint = 360;
+
+/**
  * Width below which comfortable padding costs more than it is worth, and the
  * controls get the room instead. Reached by a phone at 150–200 % browser zoom,
  * which is exactly when a label most needs somewhere to wrap into.

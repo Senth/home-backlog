@@ -7,7 +7,12 @@ import {
 	type Status,
 	type Visibility,
 } from "./node.js";
-import { type ParentFacts, validateNode } from "./validate.js";
+import {
+	type ParentFacts,
+	refuseEmptyRootParticipants,
+	refuseUnusableParticipants,
+	validateNode,
+} from "./validate.js";
 
 /**
  * A whole subtree, planned before a single document is written.
@@ -84,6 +89,8 @@ export interface BulkContext {
 	/** The rank the new root takes in its column at the attach point. */
 	rootRank: string;
 	createdBy: string;
+	/** Every current member's uid, for a shared root that names none. */
+	memberUids: readonly string[];
 	/** A server timestamp sentinel, or a real date in a test. */
 	now: unknown;
 }
@@ -220,7 +227,8 @@ interface PlannedFacts extends ParentFacts {
  * the handler read once.
  */
 export function planBulk(context: BulkContext): BulkPlan {
-	const { payload, idFor, parent, rootRank, createdBy, now } = context;
+	const { payload, idFor, parent, rootRank, createdBy, memberUids, now } =
+		context;
 	const { nodes } = payload;
 
 	const details: ApiErrorDetail[] = [];
@@ -256,6 +264,15 @@ export function planBulk(context: BulkContext): BulkPlan {
 				code: "visibility_mismatch",
 				message:
 					"Only the root of a payload sets visibility; every node under it inherits.",
+			});
+		}
+		if (node.parentRef !== null && node.participantIds !== undefined) {
+			details.push({
+				index: node.index,
+				field: "participantIds",
+				code: "participants_immutable",
+				message:
+					"Only the root of a payload sets participants; every node under it inherits.",
 			});
 		}
 	}
@@ -298,6 +315,13 @@ export function planBulk(context: BulkContext): BulkPlan {
 	// every board and every breadcrumb, the exact failure atomicity is for.
 	const rootVisibility: Visibility =
 		parent?.visibility ?? root.visibility ?? "shared";
+	// The same two guards `createNode` runs, re-pointed at the root's index. The
+	// payload's root is a real root only when nothing was named to attach it
+	// under; otherwise it is a child and takes its parent's list like any other.
+	// A shared root left unset takes every current member — `[]` on a root is
+	// refused by the rules since #102, and a bulk-written one would be frozen
+	// against every later update, including the `childCount` bump a new step
+	// makes.
 	const rootParticipants =
 		parent !== null
 			? parent.visibility === "private"
@@ -305,7 +329,30 @@ export function planBulk(context: BulkContext): BulkPlan {
 				: []
 			: rootVisibility === "private"
 				? [createdBy]
-				: [];
+				: (root.participantIds ?? [...memberUids]);
+	try {
+		refuseUnusableParticipants(
+			root.participantIds,
+			parent === null,
+			rootVisibility,
+			memberUids,
+		);
+		refuseEmptyRootParticipants(
+			rootVisibility,
+			parent === null,
+			rootParticipants,
+		);
+	} catch (error) {
+		if (!(error instanceof ApiError)) throw error;
+		fail([
+			{
+				index: root.index,
+				field: "participantIds",
+				code: error.code,
+				message: error.message,
+			},
+		]);
+	}
 	const rootDepth = parent === null ? 0 : parent.ancestorIds.length + 1;
 
 	const items: BulkPlanItem[] = [];

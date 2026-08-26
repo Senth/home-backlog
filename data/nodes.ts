@@ -415,13 +415,24 @@ export function updateNode(
  * still missing the uid. A partial run leaves a member with a thinner board,
  * which anyone can finish by hand on a project's details.
  *
- * Resolves false if any root could not be updated.
+ * Never throws, and reports nothing to the screen. The membership write has
+ * already landed by the time this runs, so a failure here cannot be told to the
+ * person in front of it: they *are* a member, and they are the invitee, who
+ * never asked for this and has never seen the board it would be about. The
+ * person who ticked the box is the inviter, who is not here. Console, then.
  */
 export async function addToSharedRoots(
 	homeId: string,
 	uid: string,
-): Promise<boolean> {
-	const roots = await getDocs(sharedBoardQuery(homeId, null));
+): Promise<void> {
+	const roots = await getDocs(sharedBoardQuery(homeId, null)).catch(
+		(reason) => {
+			console.error("Could not list a new member's shared projects:", reason);
+			return null;
+		},
+	);
+	if (roots === null) return;
+
 	const results = await Promise.allSettled(
 		roots.docs
 			.map(toNode)
@@ -441,8 +452,6 @@ export async function addToSharedRoots(
 			);
 		}
 	}
-
-	return results.every((result) => result.status === "fulfilled");
 }
 
 /**

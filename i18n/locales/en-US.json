@@ -122,8 +122,7 @@
 		"removeBody": "They lose access to this home. Anything only they could see — their private tasks — stops being visible to anyone.",
 		"lastAdmin": "Make someone else an admin first.",
 		"manage": "Manage {{name}}",
-		"inviteAllProjects": "Add them to every shared project",
-		"inviteAllProjectsFailed": "Joined, but not every project could be shared. Someone can add them from a project's details."
+		"inviteAllProjects": "Add them to every shared project"
 	},
 	"manageHome": {
 		"title": "Manage home",
@@ -153,7 +152,7 @@
 		"up": "Up one level",
 		"empty": "Nothing here yet. Add the first card.",
 		"loadFailed": "Could not load this board. Check your connection.",
-		"allHidden": "Everything here is somebody's own project. Turn on \"Show everyone's projects\" to see them.",
+		"allHidden": "Everything here is somebody's own project. Turn on \"Show projects hidden from my board\" to see them.",
 		"hiddenHere_one": "1 more here is somebody's own project. Turn on \"{{action}}\" to see it.",
 		"hiddenHere_other": "{{count}} more here are somebody's own projects. Turn on \"{{action}}\" to see them.",
 		"columnEmpty": "Nothing here",
@@ -199,7 +198,7 @@
 		"assignedTo_one": "{{names}} is doing this",
 		"assignedTo_other": "{{names}} are doing this",
 		"boardActions": "Board actions",
-		"showEveryone": "Show everyone's projects"
+		"showEveryone": "Show projects hidden from my board"
 	},
 	"visibility": {
 		"you": "you",

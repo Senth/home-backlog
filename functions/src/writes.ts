@@ -25,7 +25,12 @@ import {
 	type Status,
 	type Visibility,
 } from "./node.js";
-import { type ParentFacts, validateNode } from "./validate.js";
+import {
+	type ParentFacts,
+	refuseEmptyRootParticipants,
+	refuseUnusableParticipants,
+	validateNode,
+} from "./validate.js";
 
 /**
  * Creating, changing and deleting one node.
@@ -229,35 +234,6 @@ function counterFields(childCount: number, doneCount: number) {
 	return fields;
 }
 
-/** Every current member's uid, for a shared root created with none named. */
-async function homeMemberUids(homeId: string): Promise<string[]> {
-	const snapshot = await db.collection(homesCollection).doc(homeId).get();
-	const members = snapshot.get("members");
-	return members !== null && typeof members === "object"
-		? Object.keys(members as Record<string, unknown>)
-		: [];
-}
-
-/**
- * The rules' `rootHasParticipants()`, mirrored: the Admin SDK bypasses
- * `firestore.rules` entirely, so a shared root with nobody on it is refused
- * here or it is refused nowhere. Fires on a create that names an empty list
- * outright, and on a promotion out of a root the #102 backfill has not reached
- * — the same refusal every *other* update to such a root already gets.
- */
-export function refuseEmptyRootParticipants(
-	visibility: Visibility,
-	isRoot: boolean,
-	participantIds: readonly string[],
-): void {
-	if (!isRoot || visibility !== "shared" || participantIds.length > 0) return;
-	throw new ApiError(
-		400,
-		"participants_required",
-		"A shared root needs at least one participant. Omit participantIds to include every member, or send at least one uid.",
-	);
-}
-
 async function createNode(request: Request, response: Response): Promise<void> {
 	const me: ApiCaller = caller(response);
 	const homeId = param(request, "homeId");
@@ -289,6 +265,12 @@ async function createNode(request: Request, response: Response): Promise<void> {
 	// participant of every descendant I can read" true. A shared root left
 	// unset takes every current member rather than `[]` — #102 refuses an empty
 	// one, and the household is the only honest default for "who is this on".
+	refuseUnusableParticipants(
+		body.participantIds,
+		parent === null,
+		visibility,
+		home.memberUids,
+	);
 	const participantIds =
 		parent !== null
 			? parent.visibility === "private"
@@ -296,7 +278,7 @@ async function createNode(request: Request, response: Response): Promise<void> {
 				: []
 			: visibility === "private"
 				? [me.uid]
-				: (body.participantIds ?? (await homeMemberUids(homeId)));
+				: (body.participantIds ?? home.memberUids);
 	refuseEmptyRootParticipants(visibility, parent === null, participantIds);
 
 	const status: Status = body.status ?? "backlog";

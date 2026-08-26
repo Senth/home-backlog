@@ -1,7 +1,10 @@
+import type { ApiError } from "./errors.js";
 import {
 	isMember,
 	type NodeContext,
 	type ParentFacts,
+	refuseEmptyRootParticipants,
+	refuseUnusableParticipants,
 	validateNode,
 } from "./validate.js";
 
@@ -464,5 +467,101 @@ describe("membership", () => {
 		expect(isMember(undefined, "uid-owner")).toBe(false);
 		expect(isMember(null, "uid-owner")).toBe(false);
 		expect(isMember("uid-owner", "uid-owner")).toBe(false);
+	});
+});
+
+function refusal(
+	visibility: "shared" | "private",
+	isRoot: boolean,
+	participantIds: readonly string[],
+): ApiError | null {
+	try {
+		refuseEmptyRootParticipants(visibility, isRoot, participantIds);
+	} catch (error) {
+		return error as ApiError;
+	}
+	return null;
+}
+
+/**
+ * The rules' `rootHasParticipants()`, mirrored: the Admin SDK bypasses
+ * `firestore.rules` entirely, so this is the only thing standing between an
+ * agent-written or agent-promoted root and one nobody can see (#102).
+ */
+describe("a shared root cannot be created or promoted with nobody on it", () => {
+	it("refuses a shared root with an empty list", () => {
+		expect(refusal("shared", true, [])?.code).toBe("participants_required");
+	});
+
+	it("allows a shared root with at least one participant", () => {
+		expect(refusal("shared", true, ["uidMarcus"])).toBeNull();
+	});
+
+	it("allows a shared descendant with an empty list — it always carries []", () => {
+		expect(refusal("shared", false, [])).toBeNull();
+	});
+
+	it("allows a private root with an empty list — private always carries its creator", () => {
+		expect(refusal("private", true, [])).toBeNull();
+	});
+});
+
+function unusable(
+	participantIds: readonly string[] | undefined,
+	isRoot: boolean,
+	visibility: "shared" | "private",
+	memberUids: readonly string[] = ["uidMarcus", "uidAnna"],
+): ApiError | null {
+	try {
+		refuseUnusableParticipants(participantIds, isRoot, visibility, memberUids);
+	} catch (error) {
+		return error as ApiError;
+	}
+	return null;
+}
+
+/**
+ * A body that disagrees is refused rather than silently overridden — the same
+ * contract `visibility_mismatch` already has one field over.
+ */
+describe("participantIds is honoured on a shared root and nowhere else", () => {
+	it("allows a named list on a shared root", () => {
+		expect(unusable(["uidAnna"], true, "shared")).toBeNull();
+	});
+
+	it("allows the field to be omitted anywhere", () => {
+		expect(unusable(undefined, false, "shared")).toBeNull();
+		expect(unusable(undefined, true, "private")).toBeNull();
+	});
+
+	it("refuses a list on a child, which takes its parent's", () => {
+		expect(unusable(["uidAnna"], false, "shared")?.code).toBe(
+			"participants_immutable",
+		);
+	});
+
+	it("refuses a list on a private root, which takes its creator", () => {
+		expect(unusable(["uidAnna"], true, "private")?.code).toBe(
+			"participants_immutable",
+		);
+	});
+
+	it("refuses a uid that is not a member of this home", () => {
+		// Otherwise `hiddenByParticipants` hides the new root from every board —
+		// the outcome `participants_required` exists to prevent, by another value.
+		expect(unusable(["uidAnna", "uidStranger"], true, "shared")?.code).toBe(
+			"participants_invalid",
+		);
+	});
+
+	it("names the strangers, not the whole list", () => {
+		expect(unusable(["uidAnna", "uidStranger"], true, "shared")?.message).toBe(
+			"Not a member of this home: uidStranger.",
+		);
+	});
+
+	it("leaves an empty list on a shared root to refuseEmptyRootParticipants", () => {
+		expect(unusable([], true, "shared")).toBeNull();
+		expect(refusal("shared", true, [])?.code).toBe("participants_required");
 	});
 });

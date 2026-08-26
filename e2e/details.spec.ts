@@ -446,7 +446,13 @@ test("14: Who can see what? opens two headed sections and a link to the project'
 
 	await openDetails(page, stepId, "Mät upp rummet");
 
-	await page.getByText("Who can see what?").click();
+	// Paper's `List.Accordion` announced this as a button that never said whether
+	// it was open — the third compound component in this codebase to do it — so
+	// the row carries the semantics itself and the browser has to agree.
+	const disclosure = page.getByRole("button", { name: "Who can see what?" });
+	await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+	await disclosure.click();
+	await expect(disclosure).toHaveAttribute("aria-expanded", "true");
 	await expect(page.getByText("Who's in on a project")).toBeVisible();
 	await expect(page.getByText("Who's doing a step")).toBeVisible();
 
@@ -541,3 +547,20 @@ async function withSecondAccount(
 		await browser.close();
 	}
 }
+
+test("23: the board's overflow carries a mark when the card behind it has details", async ({
+	page,
+}) => {
+	// The mark used to sit on a dedicated info action, which #102 folded into the
+	// overflow to give the title room at 200%. It is the only thing that says
+	// there is something in that menu, so it moved with the action rather than
+	// being dropped.
+	const withDetails = await nodeIdByTitle("Byt badrumsfläkten");
+	const without = await nodeIdByTitle("Renovera badrummet");
+
+	await openBoard(page, withDetails, "Byt badrumsfläkten");
+	await expect(page.getByTestId("board-details-mark")).toBeVisible();
+
+	await openBoard(page, without, "Renovera badrummet");
+	await expect(page.getByTestId("board-details-mark")).toHaveCount(0);
+});

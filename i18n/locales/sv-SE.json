@@ -122,8 +122,7 @@
 		"removeBody": "Hen förlorar åtkomst till hemmet. Sådant som bara hen kunde se — hens privata uppgifter — försvinner för alla.",
 		"lastAdmin": "Gör någon annan till administratör först.",
 		"manage": "Hantera {{name}}",
-		"inviteAllProjects": "Lägg till hen i alla delade projekt",
-		"inviteAllProjectsFailed": "Med i hemmet, men alla projekt kunde inte delas. Någon kan lägga till hen från ett projekts detaljer."
+		"inviteAllProjects": "Lägg till hen i alla delade projekt"
 	},
 	"manageHome": {
 		"title": "Hantera hem",
@@ -153,7 +152,7 @@
 		"up": "En nivå upp",
 		"empty": "Inget här ännu. Lägg till första kortet.",
 		"loadFailed": "Kunde inte ladda den här tavlan. Kontrollera din anslutning.",
-		"allHidden": "Allt här är någons eget projekt. Slå på ”Visa allas projekt” för att se dem.",
+		"allHidden": "Allt här är någons eget projekt. Slå på ”Visa projekt som är dolda på min tavla” för att se dem.",
 		"hiddenHere_one": "1 till här är någons eget projekt. Slå på ”{{action}}” för att se det.",
 		"hiddenHere_other": "{{count}} till här är någons egna projekt. Slå på ”{{action}}” för att se dem.",
 		"columnEmpty": "Inget här",
@@ -199,7 +198,7 @@
 		"assignedTo_one": "{{names}} gör det här",
 		"assignedTo_other": "{{names}} gör det här",
 		"boardActions": "Tavlans åtgärder",
-		"showEveryone": "Visa allas projekt"
+		"showEveryone": "Visa projekt som är dolda på min tavla"
 	},
 	"visibility": {
 		"you": "du",

@@ -2,7 +2,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, View } from "react-native";
+import { ScrollView, useWindowDimensions, View } from "react-native";
 import {
 	ActivityIndicator,
 	Appbar,
@@ -27,7 +27,12 @@ import { useNode } from "@/hooks/use-node";
 import { membersOf } from "@/models/home";
 import { efforts, priorities, rootIdOf } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { contentWidth, space, touchTargetStyle } from "@/theme/tokens";
+import {
+	appBarStackBreakpoint,
+	contentWidth,
+	space,
+	touchTargetStyle,
+} from "@/theme/tokens";
 
 /**
  * Everything about one card that is not its title: its due date, priority,
@@ -46,6 +51,7 @@ import { contentWidth, space, touchTargetStyle } from "@/theme/tokens";
 export default function NodeDetails() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
+	const { width } = useWindowDimensions();
 	const { nodeId } = useLocalSearchParams<{ nodeId: string }>();
 	const { activeHome } = useHome();
 	const { user } = useAuth();
@@ -117,7 +123,11 @@ export default function NodeDetails() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header>
+			<Appbar.Header
+				// Three 48dp targets and the bar's padding leave a narrow screen no
+				// room for a title — see `appBarStackBreakpoint`.
+				mode={width < appBarStackBreakpoint ? "medium" : "small"}
+			>
 				{/* Wherever you came from, and never a dead arrow.
 				    `router.back()` alone is the trap the board hit: on a screen
 				    reached by a reload, a bookmark or a shared link there is no

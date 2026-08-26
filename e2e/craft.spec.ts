@@ -222,6 +222,9 @@ for (const scheme of ["light", "dark"] as const) {
 
 const BOARD = ROUTES[1];
 
+/** A card the fixture always has, whose title names the screen you open it as. */
+const SEEDED_PROJECT = "Renovera badrummet";
+
 /** The cards the FAB claim makes for itself, and then deletes. */
 const FILLER = "E2E fab clearance";
 
@@ -383,4 +386,43 @@ test("14: the desktop column header, card title and add button are unclipped", a
 		offenders,
 		`clipped desktop strings (${testInfo.project.name})`,
 	).toEqual([]);
+});
+
+test("21: the app bar still shows the screen's name at 200%, in this locale", async ({
+	page,
+}, testInfo) => {
+	// Three 48dp targets and the bar's padding claim ~192px of the row whatever
+	// the text size, and `phoneZoomed` is a 195px window — so a single-line bar
+	// had three pixels left for the title and the screen lost its name. Below
+	// `appBarStackBreakpoint` the title takes a line of its own instead.
+	await page.setViewportSize(VIEWPORTS.phoneZoomed);
+	await gotoAndSettle(page, BOARD);
+	await page.getByText(SEEDED_PROJECT).first().click();
+	await page.waitForURL(/\/projects\/[^/]+$/);
+	const id = new URL(page.url()).pathname.split("/")[2] as string;
+
+	const titleWidth = async (): Promise<number> =>
+		page.evaluate((title) => {
+			const inBar = Array.from(document.querySelectorAll("*"))
+				.filter((node) => node.textContent === title)
+				.map((node) => node.getBoundingClientRect())
+				.filter((box) => box.top < 200)
+				.map((box) => Math.round(box.width));
+			return Math.max(0, ...inBar);
+		}, SEEDED_PROJECT);
+
+	await page.getByText(SEEDED_PROJECT).first().waitFor();
+	const onBoard = await titleWidth();
+
+	await page.goto(`/projects/${id}/details`);
+	await page.getByText(SEEDED_PROJECT).first().waitFor();
+	const onDetails = await titleWidth();
+
+	// Room for the name, not merely a non-zero box: an ellipsis on its own is
+	// the failure this claim is about.
+	const where = `at 200% (${testInfo.project.name})`;
+	expect(onBoard, `board app bar title width ${where}`).toBeGreaterThan(120);
+	expect(onDetails, `details app bar title width ${where}`).toBeGreaterThan(
+		120,
+	);
 });

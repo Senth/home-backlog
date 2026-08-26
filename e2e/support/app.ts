@@ -245,17 +245,23 @@ export async function clickMenuItem(
 	itemName: string | RegExp,
 	attempts = 4,
 ): Promise<void> {
-	// A settle window before the first attempt, not a marker-based wait,
-	// because there is no on-screen marker for what it is waiting out: a click
-	// on a freshly-navigated screen was seen opening the menu and having it
-	// close again within the same tick, every time, for up to ~2s after the
-	// screen's own readiness marker (a title, a card) was already on screen —
-	// something in that screen's own listeners was still resolving a further
-	// snapshot underneath it. A card made by `CardMenu` (already open before
-	// this helper existed) never showed it; a card reached by a hard
-	// navigation into its own board or details always did. ponytail: a fixed
-	// wait standing in for a marker nobody could find — see `CLAUDE.md` on
-	// waiting for data, not time, which is the rule this knowingly bends.
+	// A settle window before the first attempt, not a marker-based wait, because
+	// there is no on-screen marker for what it is waiting out: a click on a
+	// freshly-navigated screen was seen opening the menu and having it close
+	// again within the same tick, every time, for up to ~2s after the screen's
+	// own readiness marker (a title, a card) was already on screen — something in
+	// that screen's own listeners was still resolving a further snapshot
+	// underneath it. A card made by `CardMenu` (already open before this helper
+	// existed) never showed it; a card reached by a hard navigation into its own
+	// board or details always did.
+	//
+	// The retry loop below does *not* subsume this. Removing the wait and leaving
+	// the retries was tried: 12 tests failed across `details`, `invite` and
+	// `offline`, and because the projects share one emulator, the half-finished
+	// state they left behind failed tests that had nothing to do with menus.
+	//
+	// ponytail: a fixed wait standing in for a marker nobody could find. Replace
+	// it the day a screen exposes one for "my listeners have stopped arriving".
 	await page.waitForTimeout(2_500);
 
 	for (let attempt = 1; attempt <= attempts; attempt++) {

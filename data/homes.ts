@@ -257,14 +257,8 @@ export function revokeInvite(homeId: string, hash: string): Promise<void> {
  * while they are already a member of the home is the one wrong answer available.
  * A leftover invite is harmless: accepting it again is a no-op write of the
  * membership they already have.
- *
- * Resolves false when the invitation asked for every shared project and not
- * every one of them could be shared — joined, with a thinner board.
  */
-export async function acceptInvite(
-	user: User,
-	invite: Invite,
-): Promise<boolean> {
+export async function acceptInvite(user: User, invite: Invite): Promise<void> {
 	await updateDoc(homeRef(invite.homeId), {
 		[`members.${user.uid}`]: invite.role,
 		[`memberProfiles.${user.uid}`]: profileOf(user),
@@ -273,15 +267,13 @@ export async function acceptInvite(
 
 	// Only now, and only if it was asked for: every write it makes is granted by
 	// being a member of this home, which is what the line above just became true.
-	const shared = invite.addToAllProjects
-		? await addToSharedRoots(invite.homeId, user.uid)
-		: true;
+	if (invite.addToAllProjects) {
+		await addToSharedRoots(invite.homeId, user.uid);
+	}
 
 	deleteDoc(inviteRef(invite.homeId, invite.emailHash)).catch((reason) => {
 		console.warn("Could not clear the consumed invitation:", reason);
 	});
-
-	return shared;
 }
 
 export function declineInvite(invite: Invite): Promise<void> {

@@ -1,7 +1,14 @@
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { Button, Divider, List, Text } from "react-native-paper";
+import {
+	Button,
+	Divider,
+	Icon,
+	Text,
+	TouchableRipple,
+} from "react-native-paper";
 import { detailsHref } from "@/components/board/board-href";
 import type { FlipState } from "@/components/node/FlipDialog";
 import { PeopleField } from "@/components/node/PeopleField";
@@ -16,7 +23,7 @@ import {
 	staleAssignees,
 } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { space, touchTarget } from "@/theme/tokens";
+import { icon as iconSize, radius, space, touchTarget } from "@/theme/tokens";
 
 interface PeopleSectionProps {
 	node: Node;
@@ -237,41 +244,98 @@ export function WhoSeesWhat({
 }) {
 	const { t } = useTranslation();
 	const router = useRouter();
+	const theme = useAppTheme();
+	const [expanded, setExpanded] = useState(false);
 
 	return (
-		<List.Accordion
-			title={t("detail.whoSeesWhat")}
-			titleNumberOfLines={2}
-			style={{ minHeight: touchTarget }}
+		// One tinted panel, header and body together. Opened, the body used to sit
+		// full-bleed on the page under a hairline — the same weight and the same
+		// rule as the `Steps` section right below it — so the explainer read as the
+		// top of `Steps` rather than as something that had just opened.
+		<View
+			style={{
+				backgroundColor: theme.colors.surfaceVariant,
+				borderRadius: radius.sm,
+				overflow: "hidden",
+			}}
 		>
-			<View style={{ gap: space.md }}>
-				<View style={{ gap: space.xs }}>
-					<Header>{t("detail.whoSeesProject")}</Header>
-					<Hint>{t("detail.whoSeesProjectBody")}</Hint>
+			{/* Not `List.Accordion`, for the third time in this codebase after
+			    `Checkbox.Item` and `MetaChip`: it hard-codes
+			    `accessibilityState={{ expanded }}` on its own row and forwards no
+			    override, and React Native Web 0.21 dropped the object form of that
+			    prop — so the header announces as a plain button that never says
+			    whether it is open. Verified in the browser: `aria-expanded` was
+			    absent both collapsed and expanded. The row carries the semantics
+			    here, the way `CheckRow` does. */}
+			<TouchableRipple
+				onPress={() => setExpanded(!expanded)}
+				accessibilityRole="button"
+				aria-expanded={expanded}
+				accessibilityLabel={t("detail.whoSeesWhat")}
+				style={{
+					minHeight: touchTarget,
+					justifyContent: "center",
+					paddingHorizontal: space.md,
+				}}
+			>
+				<View
+					style={{
+						flexDirection: "row",
+						alignItems: "center",
+						gap: space.md,
+						paddingVertical: space.sm,
+					}}
+				>
+					<Text
+						variant="bodyLarge"
+						style={{ flex: 1, color: theme.colors.onSurfaceVariant }}
+					>
+						{t("detail.whoSeesWhat")}
+					</Text>
+					<Icon
+						source={expanded ? "chevron-up" : "chevron-down"}
+						size={iconSize.md}
+						color={theme.colors.onSurfaceVariant}
+					/>
 				</View>
+			</TouchableRipple>
 
-				<Divider />
+			{expanded ? (
+				<View
+					style={{
+						gap: space.md,
+						paddingHorizontal: space.md,
+						paddingBottom: space.md,
+					}}
+				>
+					<View style={{ gap: space.xs }}>
+						<Header>{t("detail.whoSeesProject")}</Header>
+						<Hint>{t("detail.whoSeesProjectBody")}</Hint>
+					</View>
 
-				<View style={{ gap: space.xs }}>
-					<Header>{t("detail.whoSeesStep")}</Header>
-					<Hint>{t("detail.whoSeesStepBody")}</Hint>
-				</View>
+					<Divider />
 
-				{/* The way to the project's own screen, from the section that just
+					<View style={{ gap: space.xs }}>
+						<Header>{t("detail.whoSeesStep")}</Header>
+						<Hint>{t("detail.whoSeesStepBody")}</Hint>
+					</View>
+
+					{/* The way to the project's own screen, from the section that just
 				    explained why you would want it. Not on the project itself: that
 				    is a push to the screen you are standing on, which stacks a second
 				    identical details screen behind the back arrow — and the control
 				    it would take you to is one scroll up. */}
-				{rootIdOf(node) === node.id ? null : (
-					<Action
-						icon="account-multiple-outline"
-						onPress={() => router.push(detailsHref(rootIdOf(node)))}
-					>
-						{t("detail.assigneesChange", { project })}
-					</Action>
-				)}
-			</View>
-		</List.Accordion>
+					{rootIdOf(node) === node.id ? null : (
+						<Action
+							icon="account-multiple-outline"
+							onPress={() => router.push(detailsHref(rootIdOf(node)))}
+						>
+							{t("detail.assigneesChange", { project })}
+						</Action>
+					)}
+				</View>
+			) : null}
+		</View>
 	);
 }
 
@@ -296,19 +360,16 @@ function Action({
 	children,
 	icon,
 	onPress,
-	disabled,
 }: {
 	children: string;
 	icon: string;
 	onPress: () => void;
-	disabled?: boolean;
 }) {
 	return (
 		<Button
 			mode="text"
 			icon={icon}
 			onPress={onPress}
-			disabled={disabled}
 			style={{ alignSelf: "flex-start" }}
 			contentStyle={{ minHeight: touchTarget }}
 		>

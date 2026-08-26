@@ -167,3 +167,68 @@ test("18: POST /nodes without participantIds carries every member, participantId
 		expect(patchedBody.error.code).toBe("participants_immutable");
 	});
 });
+
+test("22: POST /nodes:bulk gives its new root every member, and refuses participants below it", async ({
+	page,
+}) => {
+	const members = await homeMemberUids();
+	const home = await homeId();
+
+	await withApiKey(page, async (token) => {
+		const headers = {
+			Authorization: `Bearer ${token}`,
+			"Content-Type": "application/json",
+		};
+
+		const created = await fetch(`${FUNCTIONS_BASE}/homes/${home}/nodes:bulk`, {
+			method: "POST",
+			headers,
+			body: JSON.stringify({
+				nodes: [
+					{ ref: "root", title: `${PREFIX}bulk root` },
+					{ ref: "step", parentRef: "root", title: `${PREFIX}bulk step` },
+				],
+			}),
+		});
+		expect(created.status, await created.clone().text()).toBe(201);
+		const createdBody = (await created.json()) as {
+			rootId: string;
+			ids: Record<string, string>;
+		};
+
+		const participantsOf = async (id: string): Promise<string[]> => {
+			const got = await fetch(`${FUNCTIONS_BASE}/homes/${home}/nodes/${id}`, {
+				headers,
+			});
+			expect(got.status, await got.clone().text()).toBe(200);
+			return ((await got.json()) as { participantIds: string[] })
+				.participantIds;
+		};
+
+		// `[]` on a root is refused by the rules, so a bulk-written one holding it
+		// would be frozen against every later update.
+		expect([...(await participantsOf(createdBody.rootId))].sort()).toEqual(
+			[...members].sort(),
+		);
+		expect(await participantsOf(createdBody.ids.step)).toEqual([]);
+
+		const below = await fetch(`${FUNCTIONS_BASE}/homes/${home}/nodes:bulk`, {
+			method: "POST",
+			headers,
+			body: JSON.stringify({
+				nodes: [
+					{ ref: "root", title: `${PREFIX}bulk refused` },
+					{
+						ref: "step",
+						parentRef: "root",
+						title: `${PREFIX}bulk refused step`,
+						participantIds: members,
+					},
+				],
+			}),
+		});
+		expect(below.status).toBe(400);
+		const belowBody = (await below.json()) as { error: { code: string } };
+		expect(belowBody.error.code).toBe("participants_immutable");
+	});
+});

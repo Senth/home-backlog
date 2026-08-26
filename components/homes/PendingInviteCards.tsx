@@ -75,13 +75,7 @@ export function PendingInviteCards({
 	const join = async (invite: Invite) => {
 		onJoining(invite.homeId);
 		try {
-			// Membership is what joining means, so a project that could not be
-			// shared is a notice and not a failure: the screen carries on into the
-			// home, with a board that somebody can finish filling from a project's
-			// details.
-			if (!(await acceptInvite(user, invite))) {
-				onError("members.inviteAllProjectsFailed");
-			}
+			await acceptInvite(user, invite);
 		} catch (reason) {
 			console.error("Could not join the home:", reason);
 			onJoining(null);
