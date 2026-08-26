@@ -169,10 +169,11 @@ export default defineConfig({
 		{
 			// Everything that writes to the emulator. One worker, so the writers
 			// never collide with each other, and *last*, so they never collide with
-			// anyone else — several read-only specs assert a number the fixture
-			// fixes (`i18n.spec.ts`'s column chips, `board.spec.ts`'s step count),
-			// and those are wrong the moment a foreign card exists. Phases rather
-			// than a contamination graph is what keeps the rule statable.
+			// anyone else — read-only specs assert numbers the fixture fixes
+			// (`i18n.spec.ts`'s column chips), and those are wrong the moment a
+			// foreign card exists. That ordering is also why such a reader does
+			// *not* belong here: it is already safe. Phases rather than a
+			// contamination graph is what keeps the rule statable.
 			//
 			// `fab.spec.ts` brings its own locale axis: it is a craft claim that
 			// happens to need a full column built first, so it lives here rather

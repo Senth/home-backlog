@@ -362,10 +362,15 @@ paid for on every PR forever. Four questions, in order:
 **Does it write to the emulator?** Then it goes in the `writes` project,
 whatever else is true of it. That project runs one worker and runs last, after
 every read-only project has finished, because the emulator is one shared backend
-and there is no other way to keep a write out of somebody else's assertion. The
-same answer applies to a spec that only *reads* a number the fixture fixes — a
-column chip's count, a card's step count — since a foreign card makes it wrong.
+and there is no other way to keep a write out of somebody else's assertion.
 Everything else runs in parallel.
+
+Only a spec that *writes* belongs there. A read-only spec that asserts a number
+the fixture fixes — a column chip's count, a card's step count — is safe exactly
+because of that ordering: every reader has finished before the first writer
+starts, so no foreign card exists yet to make it wrong. `i18n.spec.ts` counts
+column chips and stays read-only for that reason. Moving a reader into `writes`
+to protect it buys nothing and costs it the projects it was running in.
 
 **Does its claim depend on the width?** If it pins its own viewport with
 `test.use({ viewport })` or `page.setViewportSize`, it belongs to exactly one

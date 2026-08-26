@@ -325,6 +325,11 @@ test("14: the desktop column header, card title and add button are unclipped", a
 test("21: the app bar still shows the screen's name at 200%, in this locale", async ({
 	page,
 }, testInfo) => {
+	test.skip(
+		page.viewportSize()?.width !== VIEWPORTS.phone.width,
+		"the 200% claim pins a 195px window; the desktop project would re-measure it identically",
+	);
+
 	// Three 48dp targets and the bar's padding claim ~192px of the row whatever
 	// the text size, and `phoneZoomed` is a 195px window — so a single-line bar
 	// had three pixels left for the title and the screen lost its name. Below
