@@ -343,6 +343,11 @@ question rather than a guess.
 The persisted id lives in `AsyncStorage`. Being removed from the active home, or deleting
 it, lands in the first case with an id that no longer matches and drops back to `/homes`.
 
+Once a home is resolved, the app opens on **Overview** — the first tab, and the route
+`app/index.tsx` and the signed-in redirect both land on. Picking a home on `/homes` goes
+there too. Projects, Locations and Maintenance follow it in the tab bar. Why the summary
+rather than a board is [`overview`](overview.md)'s to say.
+
 `app/(app)/(tabs)/_layout.tsx` returns `<Redirect href="/homes" />` when there is no active
 home, so the tab routes never mount. It is the same declarative, during-render pattern
 `app/(app)/_layout.tsx` already uses for auth. `/homes` lives outside `(tabs)`, so there is
@@ -408,7 +413,9 @@ A home you are alone in shows no members section and no pending section, just on
 
 A back action up to `/homes`, the home's name as the title, and the existing account
 menu on the right. The bottom tab bar already names the screen, so `screen.*.title` is
-retired as an app-bar title; the empty-state strings stay.
+retired as an app-bar title; the empty-state strings stay. [`overview`](overview.md) copies
+this app bar exactly, and for the sharper version of the same reason: it is the screen the
+app opens on, and it has no breadcrumb to lean on.
 
 ## Component notes
 
