@@ -26,6 +26,15 @@ const dayInMs = 24 * 60 * 60 * 1000;
 export const overviewLimit = 20;
 
 /**
+ * Rows a section shows before it offers the rest behind `+N more`.
+ *
+ * Lives here rather than in the screen because `comingUp` needs it: what
+ * Ongoing projects *renders* is what makes a Coming up row a duplicate, and
+ * what it merely *holds* is not.
+ */
+export const rowsPerSection = 5;
+
+/**
  * Coming up's upper bound, as the calendar day the query compares against.
  *
  * `soonInDays` is the constant that already decides whether a card face shows a
@@ -95,6 +104,26 @@ export function ongoingProjects(roots: readonly Node[], uid: string): Node[] {
  * No lower bound on how far back late reaches. A card overdue by 400 days is
  * still overdue, and the honest answer to it is archiving it, not hiding it
  * from the one screen that would say so.
+ *
+ * **Never a row Ongoing projects is already showing.** An in-progress root that
+ * is overdue otherwise appears twice on a screen that holds fifteen rows at its
+ * cap, with the same title and the same *26 days late* chip — one project
+ * taking two of the five rows a section has, and the one thing in the house
+ * that is late said twice in a single glance. That is the guilt this screen
+ * refuses to carry in colour arriving through repetition instead.
+ *
+ * **Showing, not holding.** The comparison is against Ongoing projects' first
+ * `rowsPerSection` rows, in the `rank` order the household chose — not against
+ * everything it holds. A sixth in-progress project that is overdue is behind
+ * `+N more`, so deduping it against the whole list would take it off the screen
+ * entirely: not visible in Ongoing, and dropped from the one section that sorts
+ * late-first and would have put it at the top. "Is anything on fire" is the
+ * question this screen exists to answer, and that is the answer disappearing.
+ *
+ * Expanding Ongoing projects past five can therefore show a row that is also in
+ * Coming up. That is the right trade: it takes a deliberate tap, the two rows
+ * are a section apart, and the alternative is losing the row while it is
+ * collapsed — which is the state the screen is almost always in.
  */
 export function comingUp(
 	nodes: readonly Node[],
@@ -102,12 +131,19 @@ export function comingUp(
 	uid: string,
 	now: Date,
 ): Node[] {
+	const shownAsOngoing = new Set(
+		ongoingProjects(roots, uid)
+			.slice(0, rowsPerSection)
+			.map((root) => root.id),
+	);
+
 	return nodes
 		.filter((node) => {
 			const state = dueState(node.dueDate, now);
 			return (
 				(state === "late" || state === "soon") &&
 				node.completedAt === null &&
+				!shownAsOngoing.has(node.id) &&
 				!hiddenByRoot(node, roots, uid)
 			);
 		})

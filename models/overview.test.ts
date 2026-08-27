@@ -283,6 +283,67 @@ describe("comingUp", () => {
 
 		expect(comingUp([step], roots, me, now)).toEqual([]);
 	});
+
+	/**
+	 * The same overdue project said twice in one glance — once under Ongoing
+	 * projects with its *26 days late* chip, once here with the same title and
+	 * the same chip — is the repetition that turns a summary into a scolding.
+	 */
+	it("drops a root that Ongoing projects is already showing", () => {
+		const running = node({
+			id: "running",
+			status: "execution",
+			participantIds: [me],
+			dueDate: "2026-08-01",
+		});
+
+		expect(comingUp([running], [running], me, now)).toEqual([]);
+	});
+
+	/**
+	 * The dedupe compares against what Ongoing projects *shows*, not what it
+	 * holds. A sixth in-progress project is behind `+N more`, so dropping it here
+	 * too would take an overdue project off the screen entirely — invisible in
+	 * Ongoing, and gone from the one section that sorts late-first and would have
+	 * put it at the top.
+	 */
+	it("keeps an overdue project that Ongoing projects has behind +N more", () => {
+		const running = (index: number) =>
+			node({
+				id: `running-${index}`,
+				status: "execution",
+				participantIds: [me],
+				rank: `a${index}`,
+				dueDate: "2026-08-01",
+			});
+		const six = [0, 1, 2, 3, 4, 5].map(running);
+
+		// The first five are on screen under Ongoing projects, so they are
+		// duplicates. The sixth is not, so it is the one row Coming up must keep.
+		expect(comingUp(six, six, me, now).map((each) => each.id)).toEqual([
+			"running-5",
+		]);
+	});
+
+	/**
+	 * Only the root itself is the duplicate. Its dated *step* is a different row
+	 * saying a different thing, and Ongoing projects never shows steps.
+	 */
+	it("keeps a dated step of a project that is in progress", () => {
+		const running = node({
+			id: "running",
+			status: "execution",
+			participantIds: [me],
+		});
+		const step = dated("step", "2026-08-16", {
+			parentId: "running",
+			ancestorIds: ["running"],
+		});
+
+		expect(comingUp([step], [running], me, now).map((each) => each.id)).toEqual(
+			["step"],
+		);
+	});
 });
 
 describe("recentlyDone", () => {

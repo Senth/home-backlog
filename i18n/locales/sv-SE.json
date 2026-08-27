@@ -211,7 +211,7 @@
 			"empty": "Inget på gång."
 		},
 		"done": {
-			"title": "Senaste gjorda"
+			"title": "Nyligen klart"
 		},
 		"more": "+{{count}} till",
 		"less": "Visa färre",

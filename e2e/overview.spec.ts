@@ -18,7 +18,7 @@ import { soonInDays, toCalendarDay } from "@/models/due-date";
 import { doneWithinDays } from "@/models/overview";
 
 /**
- * `#54`'s claims 1–12 — Overview's own behaviour, over Ongoing projects,
+ * `#54`'s claims 1–12 and 17 — Overview's own behaviour, over Ongoing projects,
  * Coming up and Recently done. Claims 13–16 are `[eye]` and live in
  * `/review`'s browser pass instead.
  *
@@ -390,6 +390,36 @@ test("11: a home with no nodes shows the first-run line, and no section headings
 	await expect(page.getByText(enUS.overview.ongoing.title)).toHaveCount(0);
 	await expect(page.getByText(enUS.overview.due.title)).toHaveCount(0);
 	await expect(page.getByText(enUS.overview.done.title)).toHaveCount(0);
+
+	await deleteThrowawayHome(page, homeName);
+});
+
+test("17: a home whose projects are all in To do still shows the sections, not the first-run line", async ({
+	page,
+}) => {
+	// The state the first-run line is most often wrong about, and the reason it
+	// is gated on the root count rather than on the three sections: everything
+	// in To do, undated, nothing finished this month empties all three while the
+	// house is full. A "nothing here yet" on a home with a project in it is the
+	// lie `boards-and-nodes.md` says people stop trusting a screen for.
+	const homeName = `${PREFIX}claim 17 throwaway ${Date.now()}`;
+	const projectTitle = `${PREFIX}untouched project`;
+
+	await createThrowawayHome(page, homeName);
+
+	await page.getByRole("button", { name: enUS.overview.add }).click();
+	await page.getByRole("textbox").first().fill(projectTitle);
+	await page.getByRole("button", { name: enUS.board.add, exact: true }).click();
+
+	// Left exactly where the FAB put it: To do, no due date, not done.
+	await gotoOverview(page);
+
+	await expect(page.getByText(enUS.overview.ongoing.title)).toBeVisible({
+		timeout: 30_000,
+	});
+	await expect(page.getByText(enUS.overview.ongoing.empty)).toBeVisible();
+	await expect(page.getByText(enUS.overview.due.empty)).toBeVisible();
+	await expect(page.getByText(enUS.overview.empty)).toHaveCount(0);
 
 	await deleteThrowawayHome(page, homeName);
 });

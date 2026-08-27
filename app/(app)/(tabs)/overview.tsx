@@ -12,14 +12,17 @@ import {
 } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { boardHref, detailsHref } from "@/components/board/board-href";
+import { DueChip } from "@/components/board/DueChip";
 import { MetaChip } from "@/components/board/MetaChip";
 import { TitleDialog } from "@/components/board/TitleDialog";
+import { InstallCard } from "@/components/ui/InstallCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { createNode } from "@/data/nodes";
 import { type OverviewSection, useOverview } from "@/hooks/use-overview";
-import { dueState, formatDueElapsed } from "@/models/due-date";
+import { dueState } from "@/models/due-date";
 import { hasSteps, type Node, rankAtEnd } from "@/models/node";
+import { rowsPerSection } from "@/models/overview";
 import { useAppTheme } from "@/theme";
 import { space, touchTarget, touchTargetStyle } from "@/theme/tokens";
 
@@ -57,11 +60,22 @@ export default function Overview() {
 	const loading = ongoing.loading || due.loading || done.loading;
 	// Not while anything failed: "add the first project" and "could not load" are
 	// contradictory instructions, and only one of them is true.
+	//
+	// And not while the home holds a root at all. Three empty sections are not the
+	// same claim as an empty house: every project sitting in To do, undated and
+	// with nothing finished this month empties all three, and so does being on
+	// none of the household's roots. `boards-and-nodes.md` settled that a
+	// "nothing here yet" a household can disprove is the kind of lie people stop
+	// trusting a screen for, and Overview has no filter control to disprove it
+	// with. `roots` is every unarchived root the pair returned — before the hide
+	// predicate, which is what makes the second case say "nothing in progress"
+	// rather than "add the first project".
 	const nothingAtAll =
 		!loading &&
 		!ongoing.failed &&
 		!due.failed &&
 		!done.failed &&
+		roots.length === 0 &&
 		ongoing.nodes.length === 0 &&
 		due.nodes.length === 0 &&
 		done.nodes.length === 0;
@@ -108,6 +122,14 @@ export default function Overview() {
 			</Appbar.Header>
 
 			<ScrollView contentContainerStyle={{ paddingBottom: fabInset }}>
+				{/* The install offer belongs on whatever the app opens on, and that is
+				    now this screen — behind a tab tap it is never seen by the member
+				    who never opens Projects. Inside the scroller rather than pinned
+				    under the app bar: it renders only when the browser says an install
+				    is possible, and when it does it should scroll away rather than
+				    hold a phone's worth of height for a one-time offer. */}
+				<InstallCard />
+
 				{loading ? (
 					<ActivityIndicator
 						accessibilityLabel={t("common.loading")}
@@ -126,6 +148,13 @@ export default function Overview() {
 					>
 						{t("overview.empty")}
 					</Text>
+				) : ongoing.failed ? (
+					/* The roots pair is the one every section depends on — Ongoing
+					   projects *is* it, and the other two need it for the hide scope —
+					   so when it fails, all three fail with it. Said once, with one Try
+					   again: three copies of the same sentence over three buttons that
+					   all retry the same listener is one failure reported as three. */
+					<LoadFailed onRetry={ongoing.retry} />
 				) : (
 					<>
 						<Section
@@ -177,9 +206,6 @@ export default function Overview() {
 
 const newProjectDialogTestID = "new-project-dialog";
 
-/** Rows a section shows before it offers the rest. */
-const rowsPerSection = 5;
-
 interface SectionProps {
 	title: string;
 	/**
@@ -221,25 +247,10 @@ function Section({ title, empty, section, onOpen, testID }: SectionProps) {
 
 			{/* Said rather than drawn as an empty section: a section is two
 			    listeners and only one of them has to fail, and "nothing coming up"
-			    is the wrong answer to "I could not ask". */}
+			    is the wrong answer to "I could not ask". Only this section's own
+			    pair reaches here — a failed roots pair is reported once, above. */}
 			{section.failed ? (
-				<View style={{ gap: space.sm, paddingHorizontal: space.md }}>
-					<Text
-						variant="bodyMedium"
-						style={{ color: theme.colors.onSurfaceVariant }}
-					>
-						{t("overview.loadFailed")}
-					</Text>
-					<Button
-						mode="contained-tonal"
-						icon="refresh"
-						onPress={section.retry}
-						contentStyle={{ minHeight: touchTarget }}
-						style={{ alignSelf: "flex-start" }}
-					>
-						{t("common.retry")}
-					</Button>
-				</View>
+				<LoadFailed onRetry={section.retry} />
 			) : section.nodes.length === 0 ? (
 				<Text
 					variant="bodyMedium"
@@ -280,36 +291,54 @@ function Section({ title, empty, section, onOpen, testID }: SectionProps) {
 }
 
 /**
- * The meta a row carries, which is the card face's own: the steps glyph on a
- * project that has children, and the due chip on one that is late or due soon.
+ * What a spent retry ladder looks like: what happened, and the way back.
  *
- * **Overdue is words, never colour** — *3 days late* — for the reason the card
- * face settled it: nothing in the app acts on a due date yet, so a red row is
- * pure guilt for a deadline nothing will remind anyone about, and words survive
- * 200% text and colour blindness.
+ * One component for both scopes — the whole screen when the roots pair failed,
+ * one section when only that section's own pair did — because the sentence and
+ * the button are the same; all that differs is what `onRetry` reopens.
  */
-function RowMeta({ node }: { node: Node }) {
-	const { t, i18n } = useTranslation();
+function LoadFailed({ onRetry }: { onRetry: () => void }) {
+	const { t } = useTranslation();
 	const theme = useAppTheme();
 
+	return (
+		<View style={{ gap: space.sm, padding: space.md }}>
+			<Text
+				variant="bodyMedium"
+				style={{ color: theme.colors.onSurfaceVariant }}
+			>
+				{t("overview.loadFailed")}
+			</Text>
+			<Button
+				mode="contained-tonal"
+				icon="refresh"
+				onPress={onRetry}
+				contentStyle={{ minHeight: touchTarget }}
+				style={{ alignSelf: "flex-start" }}
+			>
+				{t("common.retry")}
+			</Button>
+		</View>
+	);
+}
+
+/**
+ * The meta a row carries, which is the card face's own: the steps glyph on a
+ * project that has children, and `DueChip` on one that is late or due soon —
+ * the card's own component, so the two surfaces cannot disagree about what a
+ * due date says or about the rule that says it in words rather than in colour.
+ */
+function RowMeta({ node }: { node: Node }) {
+	const { t } = useTranslation();
+
 	const due = dueState(node.dueDate, new Date());
-	const late = due === "late";
-	const showDue = node.dueDate !== null && (late || due === "soon");
+	const showDue = node.dueDate !== null && (due === "late" || due === "soon");
 
 	if (!hasSteps(node) && !showDue) return null;
 
 	return (
 		<View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
-			{showDue && node.dueDate !== null ? (
-				<MetaChip
-					source="calendar"
-					color={late ? theme.colors.warning : undefined}
-				>
-					{t(late ? "board.dueLate" : "board.dueSoon", {
-						elapsed: formatDueElapsed(node.dueDate, new Date(), i18n.language),
-					})}
-				</MetaChip>
-			) : null}
+			<DueChip node={node} />
 			{hasSteps(node) ? (
 				<MetaChip
 					source="format-list-checks"

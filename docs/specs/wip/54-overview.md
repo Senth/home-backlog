@@ -36,7 +36,26 @@ screen that shows which home you are in is the one place the app cannot afford i
 - **Ongoing projects** — root nodes with `status === 'execution'`. Roots, not every node
   in progress at any depth: "ongoing project" is a question about projects, and a list
   that mixes *Renovate bathroom* with *order tiles* answers neither.
-- **Coming up** — anything with a due date that is late or within `soonInDays`.
+- **Coming up** — anything with a due date that is late or within `soonInDays`, except a
+  root **Ongoing projects is already showing**. An in-progress project that is overdue
+  otherwise fills a row in both, with the same title and the same *26 days late* chip, on
+  a screen that holds fifteen rows at its cap — one project taking two of the five rows a
+  section has, and the single thing in the house that is late said twice in one glance.
+  That is the guilt this screen refuses to carry in colour arriving through repetition
+  instead.
+
+  **Showing, not holding.** The comparison is against Ongoing projects' first five rows —
+  the ones on screen, in the `rank` order the household chose — not against everything the
+  section holds. A sixth in-progress project that is overdue sits behind `+N more`, so
+  deduping it against the whole list would take it off the screen altogether: not visible
+  in Ongoing, and dropped from the one section that sorts late-first and would have put it
+  at the top. *Is anything on fire* is the question this screen exists to answer, and that
+  is the answer disappearing. Expanding Ongoing past five can therefore surface a row that
+  is also in Coming up; that costs a deliberate tap and puts the two a section apart,
+  which is the better half of the trade.
+
+  Only the root is ever a duplicate — its dated *step* is a different row saying a
+  different thing, and Ongoing projects never shows steps.
 - **Recently done** — anything completed in the last 30 days.
 
 Recurring maintenance ([#57](https://github.com/Senth/home-backlog/issues/57)) does not
@@ -144,12 +163,16 @@ Q4  archived == false && completedAt == null && participantIds array-contains me
 
 Three things in that shape are load-bearing:
 
-- **`dueDate >= ''` is what excludes undated nodes.** Firestore orders values by type
-  before value — `Null < Boolean < Number < Timestamp < String` — so `null` sorts below
-  every string, and `dueDate <= <cutoff>` **on its own matches every node in the home that
-  has no due date at all**. The empty string is the smallest string, so the lower bound
-  costs nothing and removes the entire null class. This is the single easiest way to turn
-  this screen into an unbounded listener, and claim 3 exists to keep it fixed.
+- **`dueDate >= ''` is a belt beside a brace, not the brace.** Firestore orders values by
+  type before value — `Null < Boolean < Number < Timestamp < String` — which is the reason
+  to fear that `dueDate <= <cutoff>` alone returns every node in the home with no due date
+  at all. Asked of the emulator, it does not: an inequality filter is already scoped to
+  its own type, so the upper bound excludes the null class by itself and this lower bound
+  is a no-op today. It is kept because the empty string is the smallest string, so it
+  costs nothing and no index, and because "every undated card in the house" is what this
+  listener degrades to if that type-scoping ever stops holding. `tests/rules/` asserts the
+  exclusion **both with and without the bound**, against the real thing rather than
+  against either reading — that pair of cases is what would notice the day it changes.
 - **`completedAt == null` is how "not done" is spelled.** `firestore.rules` enforces
   `(data.status == 'done') == (data.completedAt != null)`, so the two say the same thing —
   and this one keeps saying it when custom statuses
@@ -260,9 +283,12 @@ more`, which expands the section in place from data already held; expanded, it r
 to land on, and inventing one is a different issue.
 
 Ongoing projects' count is exact, because its query is unlimited. Coming up and Recently
-done count against their `limit(20)`, so a section holding more than twenty says `+15
-more` and expands to twenty. That ceiling is deliberate: twenty rows is already past what
-a summary can be, and lifting it trades a bounded listener for rows nobody reads.
+done count against their `limit(20)` — **per half**, so a section is capped at forty in
+the worst case and at twenty whenever the two halves overlap completely, which is what a
+household with nothing private looks like. The count is always exact for what the section
+actually holds; what is bounded is what can arrive. That ceiling is deliberate: twenty
+rows is already past what a summary can be, and lifting it trades a bounded listener for
+rows nobody reads.
 
 ### Empty, and the first run
 
@@ -275,9 +301,29 @@ behaves by what its emptiness *means*:
 - **Recently done** is **absent**. "Nothing completed" is the report card, and a household
   that has finished nothing does not need a box saying so.
 
-When all three are answered and empty, the whole screen is replaced by one line —
-`Nothing here yet. Add the first project.` — rather than three boxes each explaining that
-the household has nothing.
+When all three are answered and empty **and the home holds no root at all**, the whole
+screen is replaced by one line — `Nothing here yet. Add the first project.` — rather than
+three boxes each explaining that the household has nothing.
+
+The root count is what keeps that line honest, and it is not redundant with the three
+empty sections. Two ordinary states empty all three while the house is full: every
+project sitting in To do or Next up, undated, with nothing finished this month; and a
+member who is on none of the household's roots, where root-scoped hiding empties the
+screen by design. `boards-and-nodes.md` settled that a "nothing here yet" the household
+can disprove is the kind of lie people stop trusting a screen for — and unlike the board,
+Overview carries no filter control to disprove it with. In both states the sections say
+what is true instead: *Nothing in progress.* and *Nothing coming up.*
+
+### When a listener fails
+
+A section that has spent its retry ladder says so — `overview.loadFailed` over a
+`common.retry` button — rather than rendering as empty. "Nothing coming up" is the wrong
+answer to "I could not ask", and a section is two listeners of which only one has to fail.
+
+The roots pair is the exception, and it is reported **once, for the whole screen**.
+Ongoing projects *is* that pair, and the other two sections need it for the hide scope, so
+a roots failure fails all three — and three copies of one sentence over three buttons that
+all reopen the same listener is one failure reported as three.
 
 ### Adding
 
@@ -309,20 +355,32 @@ gutters.
 | `overview.ongoing.empty` | Nothing in progress. | Inget pågår. |
 | `overview.due.title` | Coming up | Kommande |
 | `overview.due.empty` | Nothing coming up. | Inget på gång. |
-| `overview.done.title` | Recently done | Senaste gjorda |
+| `overview.done.title` | Recently done | Nyligen klart |
 | `overview.more` | +{{count}} more | +{{count}} till |
 | `overview.less` | Show less | Visa färre |
 | `overview.empty` | Nothing here yet. Add the first project. | Inget här ännu. Lägg till första projektet. |
 | `overview.add` | Add a project | Lägg till projekt |
+| `overview.loadFailed` | Could not load this. Check your connection. | Kunde inte ladda det här. Kontrollera din anslutning. |
 
 `overview.empty` deliberately mirrors `board.empty` — "Nothing here yet. Add the first
 card." — because it is the same sentence about a different thing.
 
-Reused unchanged: `board.steps`, `board.dueLate`, `board.dueSoon`, `homes.title` for the
-back action, and everything `TitleDialog` already owns.
+`overview.loadFailed` names neither the section nor the query. It is rendered at two
+scopes — one section, or the whole screen when the roots pair went — and a sentence that
+named which would have to be two sentences to stay true at both.
+
+Reused unchanged: `board.steps`, `board.dueLate`, `board.dueSoon`, `common.retry` on the
+failure button, `homes.title` for the back action, `install.*` on the install card this
+screen inherits from Projects, and everything `TitleDialog` already owns.
 
 **Recently done** names no window, in either language, so the heading can never disagree
 with the query the way "the last 30 days" would.
+
+Its `sv-SE` heading is `Nyligen klart`, not `Senaste gjorda`. The first draft was the one
+heading of the three that read as a translation: an adjectival noun with its head noun cut
+off, the register of a column label rather than of a person, beside `Pågående projekt` and
+`Kommande` which are both plain Swedish. *Nyligen klart* is what somebody in the house
+would actually say.
 
 ## 7. Acceptance
 
@@ -349,14 +407,22 @@ with the query the way "the last 30 days" would.
 14. `[eye]` The `sv-SE` headings read as a household rather than as an administrator.
 15. `[eye]` Three sections on a phone read as a summary rather than as a wall.
 16. `[eye]` The overdue rows in Coming up land as information rather than as guilt.
+17. `[test]` A home whose projects are all in To do — undated, nothing completed — shows
+    the sections rather than the first-run line. Ongoing projects and Coming up each say
+    they are empty; Recently done is absent, as it always is when it holds nothing.
 
 ## 8. What this does NOT change
 
 - `firestore.rules`, `storage.rules`, and every existing `tests/rules/` case.
 - The `Node` shape. No new field, no migration, nothing for the REST API to learn.
 - The board, the card, the card menu, drag, the detail screen, and every existing query.
-- Projects, Locations and Maintenance keep their screens and their content. Only their
-  position in the tab bar moves.
+- Projects, Locations and Maintenance keep their screens. Their position in the tab bar
+  moves, and Projects hands over one thing with the landing route: `InstallCard`. The PWA
+  install offer belongs on whatever the app opens on — left on Projects it is behind a tab
+  tap, and the member who never opens Projects is never asked. It renders only when the
+  browser says an install is possible, and it sits inside Overview's scroller rather than
+  pinned under the app bar, so it scrolls away instead of holding a phone's worth of
+  height for a one-time offer.
 - `soonInDays`. Overview reuses the constant that already decides whether a card face
   shows a due chip, so "soon" means one thing in the app.
 

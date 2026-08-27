@@ -160,7 +160,7 @@ export function participatingBoardQuery(
  *
  * Three clauses here are load-bearing:
  *
- * - **`dueDate >= ''` pins the undated nodes out.** Firestore orders values by
+ * - **`dueDate >= ''` is a belt beside a brace, not the brace.** Firestore orders values by
  *   *type* before value — `Null < Boolean < Number < Timestamp < String` — and
  *   `orderBy('dueDate')` alone really does return every undated node in the
  *   home, sorted first. The emulator says an inequality filter is already

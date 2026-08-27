@@ -17,6 +17,9 @@ export const ROUTES = [
 	{ path: "/locations", ready: { key: "screen.locations.empty" } },
 	{ path: "/maintenance", ready: { key: "screen.maintenance.empty" } },
 	{ path: "/automations", ready: { text: "research agent" } },
+	// Appended, never inserted: `ROUTES[0]` and `ROUTES[1]` are read as `/homes`
+	// and the board by the specs that need those two by name.
+	{ path: "/overview", ready: { key: "overview.ongoing.title" } },
 ] as const;
 
 /**

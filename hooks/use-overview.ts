@@ -1,12 +1,5 @@
-import {
-	type DocumentData,
-	onSnapshot,
-	type Query,
-	type QuerySnapshot,
-} from "firebase/firestore";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { isQueryAnswer, subscribeWithRetry } from "@/data/live-query";
 import {
 	participatingDoneQuery,
 	participatingDueQuery,
@@ -14,8 +7,8 @@ import {
 	sharedDueQuery,
 } from "@/data/nodes";
 import { useNodes } from "@/hooks/use-nodes";
-import { isOnline } from "@/hooks/use-online-status";
-import { mergeNodeResults, type Node, toNode } from "@/models/node";
+import { type QueryPair, usePairedListener } from "@/hooks/use-paired-listener";
+import type { Node } from "@/models/node";
 import { comingUp, ongoingProjects, recentlyDone } from "@/models/overview";
 
 /** What one section of Overview holds, and how to recover from a failure. */
@@ -54,17 +47,19 @@ export function useOverview(homeId: string | null): {
 	const uid = user?.uid ?? null;
 
 	const roots = useNodes(homeId, null);
-	const due = usePairedQuery(
-		homeId,
-		uid,
-		sharedDueQuery,
-		participatingDueQuery,
-	);
-	const done = usePairedQuery(
+	const due = useDatedPair(homeId, uid, sharedDueQuery, participatingDueQuery, {
+		shared: "Could not load what is coming up",
+		participating: "Could not load your own cards coming up",
+	});
+	const done = useDatedPair(
 		homeId,
 		uid,
 		sharedDoneQuery,
 		participatingDoneQuery,
+		{
+			shared: "Could not load what was recently done",
+			participating: "Could not load your own recently done cards",
+		},
 	);
 
 	// Fresh every render, like a card face's own due chip — the point is the
@@ -110,136 +105,38 @@ export function useOverview(homeId: string | null): {
 }
 
 /**
- * One query pair, merged — the same shape as `useNodes`, parameterized by
- * query builders instead of a `parentId`.
+ * One of Overview's two dated pairs, as `usePairedListener` holds every pair.
  *
- * Not `useNodes` itself: Q3–Q6 are built from `now` rather than a board's
- * `parentId`, and `now` is captured once per subscribe rather than tracked as
- * a dependency — a listener stays open for hours, and rebuilding the query on
- * every tick would tear it down and reopen it just as often. `now` is instead
- * whatever it was when this pair last (re)subscribed, which is exactly what
- * the docstring on `useOverview` re-filters against.
+ * The only thing a dated pair does differently from a board's is *when* its
+ * queries are built: Q3–Q6 close over a `now`, and it is taken at subscribe
+ * rather than tracked as a dependency. A listener stays open for hours, and
+ * rebuilding the query on every tick would tear it down and reopen it just as
+ * often — so `now` is whatever it was when this pair last (re)subscribed, which
+ * is exactly what `useOverview` re-filters against on every render.
  */
-function usePairedQuery(
+function useDatedPair(
 	homeId: string | null,
 	uid: string | null,
-	sharedQuery: (homeId: string, now: Date) => Query<DocumentData>,
+	sharedQuery: (homeId: string, now: Date) => ReturnType<typeof sharedDueQuery>,
 	participatingQuery: (
 		homeId: string,
 		now: Date,
 		uid: string,
-	) => Query<DocumentData>,
-): { nodes: Node[]; loading: boolean; failed: boolean; retry: () => void } {
-	const [shared, setShared] = useState<Node[]>([]);
-	const [participating, setParticipating] = useState<Node[]>([]);
-	const [sharedLoaded, setSharedLoaded] = useState(false);
-	const [participatingLoaded, setParticipatingLoaded] = useState(false);
-	const [sharedFailed, setSharedFailed] = useState(false);
-	const [participatingFailed, setParticipatingFailed] = useState(false);
-	const [attempt, setAttempt] = useState(0);
-
-	// Same NUL-joined key as `useNodes` — NUL as an *escape*, never a raw byte,
-	// or git stores this file as binary and every review of it arrives with no
-	// diff to read. Cleared during render rather than in an
-	// effect, and for the same reason: a fresh home or user must not paint the
-	// previous one's rows with `loading` already false.
-	const key = `${homeId ?? ""}\u0000${uid ?? ""}`;
-	const [rendered, setRendered] = useState(key);
-	if (rendered !== key) {
-		setRendered(key);
-		setShared([]);
-		setParticipating([]);
-		setSharedLoaded(false);
-		setParticipatingLoaded(false);
-		setSharedFailed(false);
-		setParticipatingFailed(false);
-		setAttempt(0);
-	}
-
-	useEffect(() => {
-		if (homeId === null || uid === null) {
-			setShared([]);
-			setParticipating([]);
-			setSharedLoaded(true);
-			setParticipatingLoaded(true);
-			return;
-		}
-
-		setSharedLoaded(false);
-		setParticipatingLoaded(false);
-		setSharedFailed(false);
-		setParticipatingFailed(false);
+	) => ReturnType<typeof participatingDueQuery>,
+	labels: { shared: string; participating: string },
+) {
+	const build = useCallback((): QueryPair => {
+		if (homeId === null || uid === null) return null;
 
 		const now = new Date();
-		const isAnswer = (snapshot: QuerySnapshot<DocumentData>) =>
-			isQueryAnswer(snapshot, isOnline());
-
-		const unsubscribeShared = subscribeWithRetry<QuerySnapshot<DocumentData>>(
-			(next, error) =>
-				onSnapshot(
-					sharedQuery(homeId, now),
-					{ includeMetadataChanges: true },
-					next,
-					error,
-				),
-			(snapshot) => {
-				setShared(snapshot.docs.map(toNode));
-				setSharedFailed(false);
-				setSharedLoaded(true);
-			},
-			(reason) => {
-				console.error(
-					`Could not load Overview, attempt ${attempt + 1}:`,
-					reason,
-				);
-				setShared([]);
-				setSharedFailed(true);
-				setSharedLoaded(true);
-			},
-			{ isAnswer },
-		);
-
-		const unsubscribeParticipating = subscribeWithRetry<
-			QuerySnapshot<DocumentData>
-		>(
-			(next, error) =>
-				onSnapshot(
-					participatingQuery(homeId, now, uid),
-					{ includeMetadataChanges: true },
-					next,
-					error,
-				),
-			(snapshot) => {
-				setParticipating(snapshot.docs.map(toNode));
-				setParticipatingFailed(false);
-				setParticipatingLoaded(true);
-			},
-			(reason) => {
-				console.error(
-					`Could not load Overview, attempt ${attempt + 1}:`,
-					reason,
-				);
-				setParticipating([]);
-				setParticipatingFailed(true);
-				setParticipatingLoaded(true);
-			},
-			{ isAnswer },
-		);
-
-		return () => {
-			unsubscribeShared();
-			unsubscribeParticipating();
+		return {
+			shared: sharedQuery(homeId, now),
+			participating: participatingQuery(homeId, now, uid),
 		};
-	}, [homeId, uid, attempt, sharedQuery, participatingQuery]);
+	}, [homeId, uid, sharedQuery, participatingQuery]);
 
-	const nodes = mergeNodeResults(shared, participating);
-	const retry = useCallback(() => setAttempt((count) => count + 1), []);
-	const loading = !sharedLoaded || !participatingLoaded;
-
-	return {
-		nodes,
-		loading,
-		failed: !loading && (sharedFailed || participatingFailed),
-		retry,
-	};
+	// Same NUL-as-an-escape rule as `useNodes`, and for the same reason: a raw
+	// byte here makes git store this file as binary, and every review of it then
+	// arrives with no diff to read.
+	return usePairedListener(`${homeId ?? ""}\u0000${uid ?? ""}`, build, labels);
 }

@@ -1987,6 +1987,39 @@ describe("homes/{homeId}/nodes", () => {
 			expect(ids(result)).toEqual(["done-shared", "done-private"]);
 		});
 
+		/**
+		 * What `dueDate >= ""` is actually worth, asked of the real thing rather
+		 * than of either reading of the docs.
+		 *
+		 * Firestore orders values by *type* before value — `Null < Boolean <
+		 * Number < Timestamp < String` — which is the reason to fear that
+		 * `dueDate <= cutoff` alone returns every undated node in the home. This
+		 * is the only place that fear can be settled, and the answer it gives is
+		 * what the comment on `sharedDueQuery` is allowed to claim.
+		 *
+		 * The bound stays either way: the empty string is the smallest string, so
+		 * it costs nothing and no index, and "every undated card in the house" is
+		 * what this listener degrades to if the type-scoping below ever stops
+		 * holding. This test is what would notice.
+		 */
+		it("excludes the undated node with or without the lower bound", async () => {
+			const withoutBound = await assertSucceeds(
+				getDocs(
+					query(
+						nodes(dbAs(env, MEMBER)),
+						where("archived", "==", false),
+						where("completedAt", "==", null),
+						where("visibility", "==", "shared"),
+						where("dueDate", "<=", until),
+						orderBy("dueDate"),
+						limit(20),
+					),
+				),
+			);
+
+			expect(ids(withoutBound)).toEqual(["due-shared"]);
+		});
+
 		it("refuses Coming up as one query", async () => {
 			// What makes the pair necessary rather than stylistic: without the
 			// visibility clause this matches a private node the member cannot read,

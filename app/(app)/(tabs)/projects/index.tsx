@@ -5,7 +5,6 @@ import { Appbar, Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
 import { BoardMenu } from "@/components/board/BoardMenu";
-import { InstallCard } from "@/components/ui/InstallCard";
 import { useHome } from "@/contexts/HomeContext";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useNodes } from "@/hooks/use-nodes";
@@ -65,8 +64,6 @@ export default function Projects() {
 				) : null}
 				<AccountMenu />
 			</Appbar.Header>
-
-			<InstallCard />
 
 			{homeId ? (
 				<Board

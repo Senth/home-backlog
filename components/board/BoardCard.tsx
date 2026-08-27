@@ -2,11 +2,12 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Card, Icon, Text } from "react-native-paper";
+import { DueChip } from "@/components/board/DueChip";
 import { MetaChip } from "@/components/board/MetaChip";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useHome } from "@/contexts/HomeContext";
 import { formatList } from "@/i18n/format-list";
-import { dueState, formatDueElapsed } from "@/models/due-date";
+import { dueState } from "@/models/due-date";
 import { hasSteps, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { icon, size, space, touchTarget } from "@/theme/tokens";
@@ -100,8 +101,9 @@ export function BoardCard({
 
 	const steps = hasSteps(node);
 	const due = dueState(node.dueDate, new Date());
-	const late = due === "late";
-	const showDue = node.dueDate !== null && (late || due === "soon");
+	// Only to decide whether the chip row exists at all — the chip itself, and
+	// the warning colour on it, are `DueChip`'s.
+	const showDue = node.dueDate !== null && (due === "late" || due === "soon");
 	const isPrivate = node.visibility === "private";
 
 	// A member who has left the home has no profile left, and is still assigned:
@@ -202,20 +204,7 @@ export function BoardCard({
 							{node.effort === null ? null : (
 								<MetaChip>{t(`effort.${node.effort}`)}</MetaChip>
 							)}
-							{showDue && node.dueDate !== null ? (
-								<MetaChip
-									source="calendar"
-									color={late ? theme.colors.warning : undefined}
-								>
-									{t(late ? "board.dueLate" : "board.dueSoon", {
-										elapsed: formatDueElapsed(
-											node.dueDate,
-											new Date(),
-											i18n.language,
-										),
-									})}
-								</MetaChip>
-							) : null}
+							<DueChip node={node} />
 						</View>
 					) : null}
 
