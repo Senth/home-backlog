@@ -80,7 +80,7 @@ export default function Homes() {
 
 	const openHome = (homeId: string) => {
 		setActiveHome(homeId);
-		router.replace("/(app)/(tabs)/projects");
+		router.replace("/(app)/(tabs)/overview");
 	};
 
 	const submitCreate = async () => {

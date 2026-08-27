@@ -133,12 +133,14 @@ export default function Overview() {
 							empty={t("overview.ongoing.empty")}
 							section={ongoing}
 							onOpen={open}
+							testID="overview-section-ongoing"
 						/>
 						<Section
 							title={t("overview.due.title")}
 							empty={t("overview.due.empty")}
 							section={due}
 							onOpen={open}
+							testID="overview-section-due"
 						/>
 						{/* No empty line. "Nothing completed" is the report card, and a
 						    household that has finished nothing does not need a box
@@ -147,6 +149,7 @@ export default function Overview() {
 							title={t("overview.done.title")}
 							section={done}
 							onOpen={open}
+							testID="overview-section-done"
 						/>
 					</>
 				)}
@@ -186,6 +189,8 @@ interface SectionProps {
 	empty?: string;
 	section: OverviewSection;
 	onOpen: (node: Node) => void;
+	/** Scopes a claim to its own section — three headings share every row's words. */
+	testID: string;
 }
 
 /**
@@ -195,7 +200,7 @@ interface SectionProps {
  * gap: a heading with nothing under it is indistinguishable from an empty
  * section, and this screen has three of them.
  */
-function Section({ title, empty, section, onOpen }: SectionProps) {
+function Section({ title, empty, section, onOpen, testID }: SectionProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const [expanded, setExpanded] = useState(false);
@@ -211,7 +216,7 @@ function Section({ title, empty, section, onOpen }: SectionProps) {
 	const more = section.nodes.length - shown.length;
 
 	return (
-		<List.Section>
+		<List.Section testID={testID}>
 			<List.Subheader>{title}</List.Subheader>
 
 			{/* Said rather than drawn as an empty section: a section is two
