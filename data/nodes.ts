@@ -7,6 +7,7 @@ import {
 	getDocs,
 	getDocsFromServer,
 	increment,
+	limit,
 	orderBy,
 	type Query,
 	type QueryDocumentSnapshot,
@@ -36,6 +37,7 @@ import {
 	toNode,
 	type Visibility,
 } from "@/models/node";
+import { comingUpUntil, doneSince, overviewLimit } from "@/models/overview";
 
 /**
  * Every Firestore read and write that touches a node.
@@ -137,6 +139,113 @@ export function participatingBoardQuery(
 		where("parentId", "==", parentId),
 		where("participantIds", "array-contains", uid),
 		orderBy("rank"),
+	);
+}
+
+/*
+ * Overview's four dated queries — Q3 to Q6. Each pair is one section, for the
+ * same reason a board is a pair: the read rule has two disjuncts and a query
+ * may only constrain one of them.
+ *
+ * Q4 and Q6 spend their one permitted `array-contains` on `participantIds`,
+ * which is what makes them safe. Q3 and Q5 keep theirs free, for
+ * `locationAncestorIds` when the location tree gives Overview a place filter.
+ *
+ * Every one of them is capped. `CLAUDE.md` names listener breadth the cost risk
+ * in this app, and these run on the screen it opens on.
+ */
+
+/**
+ * Q3 — everything shared that is late or due within `soonInDays`.
+ *
+ * Three clauses here are load-bearing:
+ *
+ * - **`dueDate >= ''` pins the undated nodes out.** Firestore orders values by
+ *   *type* before value — `Null < Boolean < Number < Timestamp < String` — and
+ *   `orderBy('dueDate')` alone really does return every undated node in the
+ *   home, sorted first. The emulator says an inequality filter is already
+ *   scoped to its own type, so `dueDate <= cutoff` excludes them by itself and
+ *   this bound is a no-op today. It is kept because the empty string is the
+ *   smallest string, so it costs nothing and no index, and because "every
+ *   undated card in the house" is what this listener degrades to if that
+ *   type-scoping ever stops holding. `tests/rules/` asserts the exclusion
+ *   against the real thing rather than against either reading.
+ * - **`completedAt == null` is how "not done" is spelled.** The rules enforce
+ *   `(status == 'done') == (completedAt != null)`, so the two say the same
+ *   thing — and this one keeps saying it when custom statuses (#69) arrive,
+ *   which `status in [...]` would not.
+ * - **Ascending order is late-first**, which is the order the section wants. No
+ *   second query and no client sort. A home with more than `overviewLimit`
+ *   items in the window sees the oldest of them, which is the right ones.
+ *
+ * There is deliberately no lower bound on how far back late reaches: a card
+ * overdue by 400 days is still overdue, and archiving it is the honest answer.
+ * The `limit` is what bounds the listener.
+ */
+export function sharedDueQuery(homeId: string, now: Date): Query<DocumentData> {
+	return query(
+		nodesRef(homeId),
+		where("archived", "==", false),
+		where("completedAt", "==", null),
+		where("visibility", "==", "shared"),
+		where("dueDate", ">=", ""),
+		where("dueDate", "<=", comingUpUntil(now)),
+		orderBy("dueDate"),
+		limit(overviewLimit),
+	);
+}
+
+/** Q4 — the same window, through the read rule's second disjunct. */
+export function participatingDueQuery(
+	homeId: string,
+	now: Date,
+	uid: string,
+): Query<DocumentData> {
+	return query(
+		nodesRef(homeId),
+		where("archived", "==", false),
+		where("completedAt", "==", null),
+		where("participantIds", "array-contains", uid),
+		where("dueDate", ">=", ""),
+		where("dueDate", "<=", comingUpUntil(now)),
+		orderBy("dueDate"),
+		limit(overviewLimit),
+	);
+}
+
+/**
+ * Q5 — everything shared that was completed inside the recent window.
+ *
+ * `completedAt` needs no lower-bound trick of its own: `null` sorts below every
+ * timestamp, so the range excludes not-done nodes by itself.
+ */
+export function sharedDoneQuery(
+	homeId: string,
+	now: Date,
+): Query<DocumentData> {
+	return query(
+		nodesRef(homeId),
+		where("archived", "==", false),
+		where("visibility", "==", "shared"),
+		where("completedAt", ">=", doneSince(now)),
+		orderBy("completedAt", "desc"),
+		limit(overviewLimit),
+	);
+}
+
+/** Q6 — the same window, through the read rule's second disjunct. */
+export function participatingDoneQuery(
+	homeId: string,
+	now: Date,
+	uid: string,
+): Query<DocumentData> {
+	return query(
+		nodesRef(homeId),
+		where("archived", "==", false),
+		where("participantIds", "array-contains", uid),
+		where("completedAt", ">=", doneSince(now)),
+		orderBy("completedAt", "desc"),
+		limit(overviewLimit),
 	);
 }
 

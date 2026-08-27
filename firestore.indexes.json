@@ -24,6 +24,44 @@
 			"collectionGroup": "nodes",
 			"queryScope": "COLLECTION",
 			"fields": [
+				{ "fieldPath": "archived", "order": "ASCENDING" },
+				{ "fieldPath": "completedAt", "order": "ASCENDING" },
+				{ "fieldPath": "visibility", "order": "ASCENDING" },
+				{ "fieldPath": "dueDate", "order": "ASCENDING" }
+			]
+		},
+		{
+			"collectionGroup": "nodes",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{ "fieldPath": "archived", "order": "ASCENDING" },
+				{ "fieldPath": "completedAt", "order": "ASCENDING" },
+				{ "fieldPath": "participantIds", "arrayConfig": "CONTAINS" },
+				{ "fieldPath": "dueDate", "order": "ASCENDING" }
+			]
+		},
+		{
+			"collectionGroup": "nodes",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{ "fieldPath": "archived", "order": "ASCENDING" },
+				{ "fieldPath": "visibility", "order": "ASCENDING" },
+				{ "fieldPath": "completedAt", "order": "DESCENDING" }
+			]
+		},
+		{
+			"collectionGroup": "nodes",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{ "fieldPath": "archived", "order": "ASCENDING" },
+				{ "fieldPath": "participantIds", "arrayConfig": "CONTAINS" },
+				{ "fieldPath": "completedAt", "order": "DESCENDING" }
+			]
+		},
+		{
+			"collectionGroup": "nodes",
+			"queryScope": "COLLECTION",
+			"fields": [
 				{ "fieldPath": "visibility", "order": "ASCENDING" },
 				{ "fieldPath": "ancestorIds", "arrayConfig": "CONTAINS" }
 			]
