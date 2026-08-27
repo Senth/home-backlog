@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function AuthLayout() {
 	const { user } = useAuth();
 
-	if (user) return <Redirect href="/(app)/(tabs)/projects" />;
+	if (user) return <Redirect href="/(app)/(tabs)/overview" />;
 
 	return <Stack screenOptions={{ headerShown: false }} />;
 }

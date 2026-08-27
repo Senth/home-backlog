@@ -48,6 +48,7 @@ export function useOverview(homeId: string | null): {
 	ongoing: OverviewSection;
 	due: OverviewSection;
 	done: OverviewSection;
+	roots: Node[];
 } {
 	const { user } = useAuth();
 	const uid = user?.uid ?? null;
@@ -81,6 +82,11 @@ export function useOverview(homeId: string | null): {
 	}, [roots, done]);
 
 	return {
+		// Every unarchived root, in the board's own order — what the FAB ranks a
+		// new project against. Overview shows no column, so "the end" can only
+		// mean after every root there is, which is where the board's own create
+		// would have put it too.
+		roots: roots.nodes,
 		ongoing: {
 			nodes: uid === null ? [] : ongoingProjects(roots.nodes, uid),
 			loading: roots.loading,
