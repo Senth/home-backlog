@@ -132,10 +132,12 @@ function usePairedQuery(
 	const [participatingFailed, setParticipatingFailed] = useState(false);
 	const [attempt, setAttempt] = useState(0);
 
-	// Same NUL-joined key as `useNodes`, cleared during render rather than in an
+	// Same NUL-joined key as `useNodes` — NUL as an *escape*, never a raw byte,
+	// or git stores this file as binary and every review of it arrives with no
+	// diff to read. Cleared during render rather than in an
 	// effect, and for the same reason: a fresh home or user must not paint the
 	// previous one's rows with `loading` already false.
-	const key = `${homeId ?? ""} ${uid ?? ""}`;
+	const key = `${homeId ?? ""}\u0000${uid ?? ""}`;
 	const [rendered, setRendered] = useState(key);
 	if (rendered !== key) {
 		setRendered(key);
