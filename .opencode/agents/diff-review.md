@@ -1,14 +1,13 @@
 ---
 # DO NOT EDIT — generated from .claude/agents/diff-review.md by aic agents build
-description: "Reviews a Home Backlog diff for correctness bugs, query safety, over-engineering, and the CLAUDE.md invariants no linter enforces. Also decides whether the change is user-visible, which gates the browser pass. Read-only, project-aware. Use after implementing a feature, a fix or a cleanup, normally through the /review skill. Not for browser QA."
-role: work
+description: "Use to review a Home Backlog diff for correctness, query safety and the CLAUDE.md invariants, and to decide whether the change is user-visible. Not for browser QA and not for writing code."
+role: review
 mode: all
 model: openrouter/z-ai/glm-5.3-flash
 tools:
   edit: false
   list: false
   patch: false
-  skill: false
   task: false
   webfetch: false
   write: false
@@ -84,19 +83,26 @@ Then the ones it cannot decide. **State the result of each. A pass is reported a
 | A | Every user-facing string goes through `t()` | read changed JSX for bare text in `<Text>`, `label=`, `title=`, `placeholder=`, `accessibilityLabel=`. A grep cannot tell a user-facing string from a test id |
 | B | Platform splits are `.web.tsx` / `.native.tsx`, not `Platform.OS` in a shared file where a split is cleaner | judgement about whether a branch earns a file |
 | C | A new module with logic of its own outside `models/` and `utils/` has a test | the script covers those two outright; `auth/`, `hooks/`, `data/`, `i18n/` need you to decide domain module vs one-line SDK wrapper |
-| D | **Source craft.** Spacing, radii and elevation off the `theme/tokens.ts` scale; a colour role used for the wrong meaning; a hand-rolled control where a Paper component exists; a Paper component used against its own semantics | this is yours, not the browser's. These are facts about the source. The browser agent reports what a literal *looks like*; you report that it exists |
+| D | **Source craft.** Spacing, radii and elevation off the `theme/tokens.ts` scale; a colour role used for the wrong meaning; a hand-rolled control where a Paper component exists; a Paper component used against its own semantics; anything `docs/DESIGN.md` states as a rule | this is yours, not the browser's. These are facts about the source, and every finding cites the rule in `docs/DESIGN.md` it breaks. `browser-review` judges how a screen reads; `e2e/craft.spec.ts` measures what it renders; you report what the source says |
 | E | **Acceptance claims have tests.** Every claim tagged `[test]` in the spec's Acceptance section has an `e2e/` test, and that test asserts *the claim* rather than something adjacent | `yarn invariants` checks the name mapping; you judge whether the assertion is honest |
+
+**You never edit `docs/DESIGN.md`.** If a rule is wrong, or the diff makes a case for a new
+one, that goes in the report as a proposed change for the human — never as an edit, and never
+as a widened rule that happens to let this diff pass.
 
 Reject on sight: a snapshot test, or a component render test that only asserts layout.
 An `e2e/` spec is neither — it drives a real browser, and that is the sanctioned way to
 assert layout here.
 
-## Step 3: over-engineering
+## Step 3: complexity that is also a risk
 
-Invoke the `ponytail` skill in `full` mode and apply it to the diff. What can just die:
-a speculative abstraction, an option nobody passes, a dependency where the platform
-already does it, a wrapper that only forwards, fifty lines where one would do. Findings
-are `should-fix` unless the complexity is also a correctness risk.
+`ponytail-review` runs beside you, in parallel, and the general hunt for over-engineering
+is its job. Do not duplicate it: a speculative abstraction, an option nobody passes, a
+wrapper that only forwards — leave those to it.
+
+What stays yours is complexity that is also a **correctness** risk, because that is a bug
+and it is ranked as one: a second code path that has to be kept in sync by hand, a cache
+with no invalidation, an abstraction that hides which listener is actually subscribed.
 
 Never propose a redesign the spec did not ask for. Out-of-scope improvements are `idea`.
 
