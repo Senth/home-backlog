@@ -86,13 +86,28 @@ never two writing processes against this working tree.
 2. **Dispatch.** `GLM` is the routing hint on almost every phase:
 
    ```bash
-   oc-task implement ~/git/home-backlog .tmp/prompts/phase-<n>.md
+   oc-task implement ~/git/home-backlog .tmp/prompts/phase-<n>.md \
+     --label <issue>-phase-<n>
    ```
+
+   **Run it in the background** and watch
+   `.tmp/dispatch/<issue>-phase-<n>/progress.log`. A phase here is fifteen to forty
+   minutes — `yarn e2e` alone is about twelve — so a foreground dispatch cannot finish
+   inside the Bash tool's ten-minute cap, and every attempt to run one has been killed
+   mid-flight. Give the user the log path when you announce the dispatch.
 
    A phase hinted `Opus` goes to an Opus subagent inside Claude Code instead, with the same
    prompt. The spec says which; if it does not, take GLM and say so.
 
 3. **Re-run the gates yourself.** Red or blocked → the escalation ladder in `glm-dispatch`.
+
+   `yarn invariants` rule 10 is the exception, and it has already cost a session. It wants
+   an `e2e` test literally named `test("NN: …")` for every Acceptance claim tagged
+   `[test]`, so it stays red for the claims later phases have not written yet. Read which
+   claims it names before you treat it as this phase's problem: claims a later phase owns
+   are the spec's phasing, and you carry them in the checkpoint as `red: invariants, owed by
+   phase n`. A claim **this** phase owns is yours now, because nothing downstream is coming
+   for it. Say which of the two when you report.
 
 4. **Confirm the commit.** The stage commits its own phase. Check the tree is clean and HEAD
    moved. A phase that is not committed is not done, whatever the report says.
@@ -128,8 +143,10 @@ you fix right here, and it is the cheapest signal in the run.
 They touch nothing, so they run together:
 
 ```bash
-oc-task diff-review ~/git/home-backlog .tmp/prompts/diff-review.md &
-oc-task review      ~/git/home-backlog .tmp/prompts/ponytail-review.md &
+oc-task diff-review ~/git/home-backlog .tmp/prompts/diff-review.md \
+  --label <issue>-diff-review &
+oc-task review      ~/git/home-backlog .tmp/prompts/ponytail-review.md \
+  --label <issue>-ponytail-review &
 wait
 ```
 
@@ -176,7 +193,8 @@ It is the expensive stage, and a browser pass on a change nobody can see is pure
 
 ```bash
 scripts/dev-stack.sh up          # prints the web URL; today that is http://localhost:8081
-oc-task browser-review ~/git/home-backlog .tmp/prompts/browser-review.md
+oc-task browser-review ~/git/home-backlog .tmp/prompts/browser-review.md \
+  --label <issue>-browser-review
 ```
 
 Take the URL from what `up` prints, never from memory — `dev-stack.sh status` lists the
