@@ -36,6 +36,9 @@ async function inviteAndJoin(page: Page, ticked: boolean): Promise<void> {
 	});
 
 	// One shared root, so there is something to check the invitee's board for.
+	// A fresh home opens on Overview (#54), not the board, so the board needs
+	// its own stop.
+	await page.goto("/projects");
 	await page.waitForLoadState("networkidle");
 	await page
 		.getByRole("button", { name: /^Add to /i })
@@ -79,7 +82,13 @@ async function inviteAndJoin(page: Page, ticked: boolean): Promise<void> {
 			.getByText(new RegExp(`invited you to ${homeName}`))
 			.waitFor({ state: "visible", timeout: 30_000 });
 		await annaPage.getByRole("button", { name: "Join" }).click();
-		await annaPage.waitForURL("**/projects", { timeout: 60_000 });
+		// Overview, not Projects — picking a home is the app opening into it (#54).
+		await annaPage.waitForURL("**/overview", { timeout: 60_000 });
+		await annaPage.waitForLoadState("networkidle");
+
+		// The claim is about the board this invite put her on, which Overview
+		// does not render — go look at it directly.
+		await annaPage.goto("/projects");
 		await annaPage.waitForLoadState("networkidle");
 
 		if (ticked) {

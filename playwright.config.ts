@@ -177,11 +177,14 @@ export default defineConfig({
 			//
 			// `fab.spec.ts` brings its own locale axis: it is a craft claim that
 			// happens to need a full column built first, so it lives here rather
-			// than in the Swedish projects.
+			// than in the Swedish projects. `overview.spec.ts` joins it for the
+			// same reason `details.spec.ts` does — its claims need fixture nodes
+			// `createFixtureNode` writes straight past the UI.
 			name: "writes",
 			dependencies: ["en-US", "en-US-desktop", "sv-SE", "sv-SE-desktop"],
 			workers: 1,
-			testMatch: /(board|details|fab|invite|offline|rest-api)\.spec\.ts/,
+			testMatch:
+				/(board|details|fab|invite|offline|overview|rest-api)\.spec\.ts/,
 			use: {
 				...devices["Desktop Chrome"],
 				viewport: VIEWPORTS.phone,

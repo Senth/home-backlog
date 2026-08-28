@@ -69,7 +69,7 @@ export function PendingInviteCards({
 
 		setActiveHome(joining);
 		onJoining(null);
-		router.replace("/(app)/(tabs)/projects");
+		router.replace("/(app)/(tabs)/overview");
 	}, [joining, homes, setActiveHome, onJoining, router]);
 
 	const join = async (invite: Invite) => {

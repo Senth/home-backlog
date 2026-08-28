@@ -367,6 +367,11 @@ makes sense, instead of leaving it to the browser's mini-infobar. Safari and Fir
 never fire the event, so the card simply does not render there and those users install
 through the browser menu.
 
+It renders on [`overview`](overview.md), the route the app opens on, and inside that
+screen's scroller rather than pinned under the app bar. Behind a tab tap, the member who
+never opens Projects is never asked; pinned, a one-time offer holds a phone's worth of
+height on every visit.
+
 `public/sw.js` is a hand-rolled runtime-caching service worker. No Workbox, no precache
 manifest, no build step. Assets are cached the first time they are used, which is enough
 because the app cannot be used before signing in online once. Its routing table lives in

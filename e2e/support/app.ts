@@ -17,6 +17,9 @@ export const ROUTES = [
 	{ path: "/locations", ready: { key: "screen.locations.empty" } },
 	{ path: "/maintenance", ready: { key: "screen.maintenance.empty" } },
 	{ path: "/automations", ready: { text: "research agent" } },
+	// Appended, never inserted: `ROUTES[0]` and `ROUTES[1]` are read as `/homes`
+	// and the board by the specs that need those two by name.
+	{ path: "/overview", ready: { key: "overview.ongoing.title" } },
 ] as const;
 
 /**
@@ -174,6 +177,17 @@ export async function gotoAndSettle(page: Page, route: Route): Promise<void> {
 		state: "visible",
 		timeout: 30_000,
 	});
+
+	// Icon glyphs are the last thing to arrive, and they arrive silently.
+	//
+	// Paper draws every icon as a character in an icon font, so until that font
+	// resolves there is no glyph in the tree to measure or to judge — which is
+	// how an unnamed `role="img"` on the app bar's back arrow passed the axe
+	// sweep on one route and failed it on the next, in the same run, for months.
+	// A sweep that races the font reports whichever half of the app happened to
+	// be finished, and a gate that can pass while the thing it guards is broken
+	// is worse than no gate.
+	await page.evaluate(() => document.fonts.ready);
 
 	// Assert we are still where we asked to be.
 	//

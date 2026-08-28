@@ -22,7 +22,7 @@ export const SECOND_ACCOUNT = "anna@example.com";
  *
  * Stops once the app has left `/login`, wherever it lands — `HomeContext`
  * auto-picks a home when none is stored, so an account with exactly one home
- * (Anna, in `Huset`) goes straight to `/projects` and never shows `/homes` at
+ * (Anna, in `Huset`) goes straight to `/overview` and never shows `/homes` at
  * all. An account with none, or more than one and nothing chosen yet, lands
  * on `/homes` instead. Both callers navigate from here to wherever they
  * actually need.

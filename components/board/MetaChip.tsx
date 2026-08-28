@@ -10,6 +10,12 @@ interface MetaChipProps {
 	source?: string;
 	/** Overrides the label colour — the warning colour, on an overdue card. */
 	color?: string;
+	/**
+	 * What a screen reader hears instead of the label. For a chip whose text is
+	 * a glyph-shaped shorthand — `3/8` is read out as two numbers and a slash —
+	 * the way the card face's own steps mark already does it.
+	 */
+	accessibilityLabel?: string;
 }
 
 /**
@@ -25,7 +31,12 @@ interface MetaChipProps {
  * Chips that really are tappable — the column strip — keep Paper's `Chip`,
  * where the ripple has a handler and none of this applies.
  */
-export function MetaChip({ children, source, color }: MetaChipProps) {
+export function MetaChip({
+	children,
+	source,
+	color,
+	accessibilityLabel,
+}: MetaChipProps) {
 	const theme = useAppTheme();
 
 	return (
@@ -53,6 +64,7 @@ export function MetaChip({ children, source, color }: MetaChipProps) {
 			)}
 			<Text
 				variant="labelMedium"
+				accessibilityLabel={accessibilityLabel}
 				style={{ color: color ?? theme.colors.onSurfaceVariant }}
 			>
 				{children}

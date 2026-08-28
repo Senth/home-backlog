@@ -182,11 +182,17 @@ type Json =
 	| number
 	| boolean
 	| null
+	| Date
 	| readonly Json[]
 	| { readonly [key: string]: Json };
 
 function encodeValue(value: Json): Record<string, unknown> {
 	if (value === null) return { nullValue: null };
+	// A `Date` is the one field `createFixtureNode` cannot write as a calendar
+	// string: `completedAt` is a `Timestamp`, and `moveNode` only ever writes it
+	// as *now* — Overview's 40-day-old and yesterday fixtures (#54 claim 6) have
+	// no other way to exist.
+	if (value instanceof Date) return { timestampValue: value.toISOString() };
 	if (typeof value === "boolean") return { booleanValue: value };
 	if (typeof value === "string") return { stringValue: value };
 	if (typeof value === "number") {

@@ -354,6 +354,9 @@ An honest bar needs whole-subtree counts: `descendantCount` incremented across e
 in `ancestorIds` on create, delete and reparent. That puts a fan-out write on exactly
 the three paths that already carry the delicate invariants. That is its own issue.
 
+[`overview`](overview.md) reuses the same glyph for the same reason, at higher volume to
+more people.
+
 The count never drives the parent's status. `PROJECT.md` settled that: derived status
 makes it impossible to say a project is parked while its tasks look active. The counts may
 inform the [#65](https://github.com/Senth/home-backlog/issues/65) nudge later; they never
@@ -1104,7 +1107,9 @@ client-side, so this is a predicate over a list the screen already holds
 (`hiddenByParticipants` in `models/node.ts`, applied in `hooks/use-participant-filter.ts`).
 The predicate is uniform at every depth and *bites* only where participants exist, which is
 roots. A shared descendant carries `[]`, and a private one carries the root's, which
-include me or I could not have read it.
+include me or I could not have read it. That is also why [`overview`](overview.md), which
+mixes roots and their steps in one list, has to apply this predicate to a row's *root*
+rather than to the row.
 
 The toggle lives in the board's app-bar overflow, because it is rarely touched and a board
 is already carrying a column strip. It is board-level UI state, defaulting to off and not

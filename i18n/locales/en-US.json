@@ -50,6 +50,7 @@
 		"offlineHint": "You need a connection to create or revoke a key."
 	},
 	"tab": {
+		"overview": "Overview",
 		"projects": "Projects",
 		"locations": "Locations",
 		"maintenance": "Maintenance"
@@ -199,6 +200,24 @@
 		"assignedTo_other": "{{names}} are doing this",
 		"boardActions": "Board actions",
 		"showEveryone": "Show projects hidden from my board"
+	},
+	"overview": {
+		"ongoing": {
+			"title": "Ongoing projects",
+			"empty": "Nothing in progress."
+		},
+		"due": {
+			"title": "Coming up",
+			"empty": "Nothing coming up."
+		},
+		"done": {
+			"title": "Recently done"
+		},
+		"more": "+{{count}} more",
+		"less": "Show less",
+		"empty": "Nothing here yet. Add the first project.",
+		"add": "Add a project",
+		"loadFailed": "Could not load this. Check your connection."
 	},
 	"visibility": {
 		"you": "you",

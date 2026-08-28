@@ -5,14 +5,13 @@ import { Appbar, Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
 import { BoardMenu } from "@/components/board/BoardMenu";
-import { InstallCard } from "@/components/ui/InstallCard";
+import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useNodes } from "@/hooks/use-nodes";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
 import { defaultColumns } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { touchTargetStyle } from "@/theme/tokens";
 
 /**
  * The board you land on: every root-level card.
@@ -49,8 +48,7 @@ export default function Projects() {
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
 			<Appbar.Header>
-				<Appbar.BackAction
-					style={touchTargetStyle}
+				<BackAction
 					accessibilityLabel={t("homes.title")}
 					onPress={() => router.push("/homes")}
 				/>
@@ -65,8 +63,6 @@ export default function Projects() {
 				) : null}
 				<AccountMenu />
 			</Appbar.Header>
-
-			<InstallCard />
 
 			{homeId ? (
 				<Board

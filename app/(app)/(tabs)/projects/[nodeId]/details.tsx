@@ -20,6 +20,7 @@ import { NotesField } from "@/components/node/NotesField";
 import { PeopleSection, WhoSeesWhat } from "@/components/node/PeopleSection";
 import { StepsSection } from "@/components/node/StepsSection";
 import { VisibilityField } from "@/components/node/VisibilityField";
+import { BackAction } from "@/components/ui/BackAction";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { type NodeChanges, updateNode } from "@/data/nodes";
@@ -138,8 +139,7 @@ export default function NodeDetails() {
 				    [parent, board X, details X] — so dismissing to the parent pops
 				    board X as well, and tapping the mark then back lands you a level
 				    above where you started, with the board you were on gone. */}
-				<Appbar.BackAction
-					style={touchTargetStyle}
+				<BackAction
 					accessibilityLabel={t("board.up")}
 					onPress={() =>
 						router.canGoBack()

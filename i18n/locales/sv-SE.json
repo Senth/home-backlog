@@ -50,6 +50,7 @@
 		"offlineHint": "Du behöver anslutning för att skapa eller återkalla en nyckel."
 	},
 	"tab": {
+		"overview": "Översikt",
 		"projects": "Projekt",
 		"locations": "Platser",
 		"maintenance": "Underhåll"
@@ -199,6 +200,24 @@
 		"assignedTo_other": "{{names}} gör det här",
 		"boardActions": "Tavlans åtgärder",
 		"showEveryone": "Visa projekt som är dolda på min tavla"
+	},
+	"overview": {
+		"ongoing": {
+			"title": "Pågående projekt",
+			"empty": "Inget pågår."
+		},
+		"due": {
+			"title": "Kommande",
+			"empty": "Inget på gång."
+		},
+		"done": {
+			"title": "Nyligen klart"
+		},
+		"more": "+{{count}} till",
+		"less": "Visa färre",
+		"empty": "Inget här ännu. Lägg till första projektet.",
+		"add": "Lägg till projekt",
+		"loadFailed": "Kunde inte ladda det här. Kontrollera din anslutning."
 	},
 	"visibility": {
 		"you": "du",

@@ -343,6 +343,11 @@ question rather than a guess.
 The persisted id lives in `AsyncStorage`. Being removed from the active home, or deleting
 it, lands in the first case with an id that no longer matches and drops back to `/homes`.
 
+Once a home is resolved, the app opens on **Overview** — the first tab, and the route
+`app/index.tsx` and the signed-in redirect both land on. Picking a home on `/homes` goes
+there too. Projects, Locations and Maintenance follow it in the tab bar. Why the summary
+rather than a board is [`overview`](overview.md)'s to say.
+
 `app/(app)/(tabs)/_layout.tsx` returns `<Redirect href="/homes" />` when there is no active
 home, so the tab routes never mount. It is the same declarative, during-render pattern
 `app/(app)/_layout.tsx` already uses for auth. `/homes` lives outside `(tabs)`, so there is
@@ -408,11 +413,13 @@ A home you are alone in shows no members section and no pending section, just on
 
 A back action up to `/homes`, the home's name as the title, and the existing account
 menu on the right. The bottom tab bar already names the screen, so `screen.*.title` is
-retired as an app-bar title; the empty-state strings stay.
+retired as an app-bar title; the empty-state strings stay. [`overview`](overview.md) copies
+this app bar exactly, and for the sharper version of the same reason: it is the screen the
+app opens on, and it has no breadcrumb to lean on.
 
 ## Component notes
 
-Five Paper behaviours are worked around in shared components, because each is easy to
+Six Paper behaviours are worked around in shared components, because each is easy to
 reintroduce by accident.
 
 **`AppDialog` takes its actions as an array, never a fragment.** `Dialog.Actions` clones
@@ -440,6 +447,17 @@ outer `Surface` and keeps the pressable on a private `touchableRef`, so a ref to
 `Button` points at a plain `div` with no tabindex; focusing it drops focus on `<body>`,
 which is the failure the prop exists to prevent. `useModalFocus` therefore focuses the
 first focusable *inside* the referenced node, falling back to the node itself.
+
+**The back arrow is `BackAction`, never `Appbar.BackAction`.** Paper renders that arrow
+through `AppbarBackIcon`, which imports `MaterialCommunityIcon` directly rather than going
+through `Icon` — so it is the one glyph in the app that never reaches `settings.icon`, and
+`PaperIcon` never gets to hide it. React Native Web exposes it as `role="img"` with no
+accessible name, which is a WCAG 1.1.1 failure and what axe reports as `role-img-alt`.
+`components/ui/BackAction.tsx` is the same arrow built from `Appbar.Action`, whose icon is
+a *string* and therefore does go through `settings.icon`. It failed as a flake before it
+failed as a build: the glyph only enters the DOM once the icon font has loaded, so a sweep
+that ran early saw a clean tree and one that ran a moment later did not.
+`scripts/check-invariants.sh` keeps it from coming back.
 
 **One anchor ref per row, never one beside a `.map()`.** A single ref shared across a list
 holds whichever row rendered last, so a dialog opened from the first row would return

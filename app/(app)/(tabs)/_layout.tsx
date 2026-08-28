@@ -28,6 +28,21 @@ export default function TabsLayout() {
 				tabBarStyle: { backgroundColor: theme.colors.surface },
 			}}
 		>
+			{/* First, and the route the app opens on: a summary you have to
+			    navigate to is a summary nobody reads. */}
+			<Tabs.Screen
+				name="overview"
+				options={{
+					title: t("tab.overview"),
+					tabBarIcon: ({ color, size }) => (
+						<MaterialCommunityIcons
+							name="view-dashboard-outline"
+							color={color}
+							size={size}
+						/>
+					),
+				}}
+			/>
 			<Tabs.Screen
 				name="projects"
 				options={{
