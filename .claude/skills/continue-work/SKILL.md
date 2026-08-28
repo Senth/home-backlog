@@ -96,8 +96,10 @@ never two writing processes against this working tree.
    inside the Bash tool's ten-minute cap, and every attempt to run one has been killed
    mid-flight. Give the user the log path when you announce the dispatch.
 
-   A phase hinted `Opus` goes to an Opus subagent inside Claude Code instead, with the same
-   prompt. The spec says which; if it does not, take GLM and say so.
+   Every phase goes to GLM, including the ones that change how a screen looks, and so does
+   every review stage below. A spec written before that was settled may still hint `Opus`
+   on a phase; the hint is stale, and the phase is dispatched here like any other. Nothing
+   this skill dispatches runs on Claude.
 
 3. **Re-run the gates yourself.** Red or blocked → the escalation ladder in `glm-dispatch`.
 

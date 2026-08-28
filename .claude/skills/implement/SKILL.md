@@ -80,9 +80,11 @@ For each phase, in order:
    oc-task implement ~/git/home-backlog .tmp/prompts/phase-<n>.md
    ```
 
-   `GLM` is the default and takes almost everything. A phase hinted `Opus` goes to an Opus
-   subagent inside Claude Code with the same prompt. If the spec names neither, take GLM and
-   say so.
+   Every phase goes to GLM, including the ones that change how a screen looks. A spec
+   written before that was settled may still hint `Opus` on a phase; the hint is stale, and
+   the phase is dispatched here like any other. Visual judgement is not bought with a
+   bigger model — it is carried by `docs/DESIGN.md` and the spec's Surface brief, which is
+   why the prompt hands the agent both.
 
 3. **Verify it yourself.** Never take the agent's word for green:
 
@@ -102,9 +104,9 @@ For each phase, in order:
    ```
 
 4. **Red?** Take the escalation ladder in `glm-dispatch`: round 2 with `--continue` and the
-   failing gate's real output, then round 3 only if round 2 moved forward, then an Opus
-   subagent on the same unit, then stop and ask. Never restart at round 1 with a reworded
-   prompt, and never move to the next phase on red.
+   failing gate's real output, then round 3 only if round 2 moved forward, then stop and
+   ask. There is no rung above GLM here. Never restart at round 1 with a reworded prompt,
+   and never move to the next phase on red.
 
 5. **Commit.** One commit per phase, once it is green. The agent commits its own phase; if
    it did not, the phase is not done — do it yourself and say the agent skipped it:
