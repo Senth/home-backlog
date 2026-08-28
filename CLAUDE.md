@@ -2,7 +2,8 @@
 
 Home Backlog: an Expo / React Native web-first PWA on Firebase.
 [Setup and scripts](README.md) · [Vision and architecture](docs/PROJECT.md) ·
-[Infra and deploy](docs/OPERATIONS.md) · [Feature specs](docs/specs/)
+[Infra and deploy](docs/OPERATIONS.md) · [Feature specs](docs/specs/) ·
+[Design contract](docs/DESIGN.md)
 
 - Package manager is **yarn**, not npm; imports use the `@/` alias, never relative
   paths; platform splits are `.web.tsx` / `.native.tsx`.
