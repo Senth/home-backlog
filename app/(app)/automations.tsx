@@ -15,6 +15,7 @@ import {
 	TextInput,
 } from "react-native-paper";
 import { AppDialog, ConfirmDialog } from "@/components/ui/AppDialog";
+import { BackAction } from "@/components/ui/BackAction";
 import { Row } from "@/components/ui/Row";
 import { useAuth } from "@/contexts/AuthContext";
 import { createApiKey, revokeApiKey } from "@/data/api-keys";
@@ -23,13 +24,7 @@ import { useOnlineStatus } from "@/hooks/use-online-status";
 import { type ApiKey, type KeyNameError, keyNameError } from "@/models/api-key";
 import { formatElapsed } from "@/models/relative-time";
 import { useAppTheme } from "@/theme";
-import {
-	contentWidth,
-	radius,
-	space,
-	touchTarget,
-	touchTargetStyle,
-} from "@/theme/tokens";
+import { contentWidth, radius, space, touchTarget } from "@/theme/tokens";
 
 const createDialogTestID = "create-api-key-dialog";
 const secretDialogTestID = "api-key-secret-dialog";
@@ -117,8 +112,7 @@ export default function Automations() {
 				{/* Named rather than `router.back()`: this screen is reachable with no
 				    in-app history — a reload, a bookmark, a pasted URL — and there
 				    `back()` is a no-op that leaves the arrow dead. */}
-				<Appbar.BackAction
-					style={touchTargetStyle}
+				<BackAction
 					accessibilityLabel={t("tab.projects")}
 					onPress={() =>
 						router.canGoBack()

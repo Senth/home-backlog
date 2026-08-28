@@ -15,6 +15,7 @@ import { boardHref, detailsHref } from "@/components/board/board-href";
 import { DueChip } from "@/components/board/DueChip";
 import { MetaChip } from "@/components/board/MetaChip";
 import { TitleDialog } from "@/components/board/TitleDialog";
+import { BackAction } from "@/components/ui/BackAction";
 import { InstallCard } from "@/components/ui/InstallCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
@@ -24,7 +25,7 @@ import { dueState } from "@/models/due-date";
 import { hasSteps, type Node, rankAtEnd } from "@/models/node";
 import { rowsPerSection } from "@/models/overview";
 import { useAppTheme } from "@/theme";
-import { space, touchTarget, touchTargetStyle } from "@/theme/tokens";
+import { space, touchTarget } from "@/theme/tokens";
 
 /**
  * What is going on, without opening a board: the projects in progress, what is
@@ -112,8 +113,7 @@ export default function Overview() {
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
 			<Appbar.Header>
-				<Appbar.BackAction
-					style={touchTargetStyle}
+				<BackAction
 					accessibilityLabel={t("homes.title")}
 					onPress={() => router.push("/homes")}
 				/>

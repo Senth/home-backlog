@@ -9,6 +9,7 @@ import { Board } from "@/components/board/Board";
 import { BoardMenu } from "@/components/board/BoardMenu";
 import { Breadcrumbs } from "@/components/board/Breadcrumbs";
 import { boardHref, goneHref } from "@/components/board/board-href";
+import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
 import { useAncestors } from "@/hooks/use-ancestors";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
@@ -16,7 +17,7 @@ import { useNode } from "@/hooks/use-node";
 import { useNodes } from "@/hooks/use-nodes";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
 import { useAppTheme } from "@/theme";
-import { appBarStackBreakpoint, space, touchTargetStyle } from "@/theme/tokens";
+import { appBarStackBreakpoint, space } from "@/theme/tokens";
 
 const noAncestors: string[] = [];
 
@@ -101,8 +102,7 @@ export default function NodeBoard() {
 				    handled by any navigator" and leaves the arrow dead. */}
 				{/* The label names where the arrow *goes*, which is the parent card
 				    at every depth but one — not "Projects". */}
-				<Appbar.BackAction
-					style={touchTargetStyle}
+				<BackAction
 					accessibilityLabel={t("board.up")}
 					onPress={() => router.dismissTo(boardHref(node?.parentId ?? null))}
 				/>

@@ -399,6 +399,29 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 12. No Appbar.BackAction
+#
+# Paper's BackAction renders its arrow through AppbarBackIcon, which imports
+# MaterialCommunityIcon directly instead of going through Icon — so it is the
+# one glyph in the app that never reaches settings.icon, and PaperIcon never
+# gets to hide it. React Native Web then exposes it as role="img" with no
+# accessible name: a WCAG 1.1.1 failure, and the axe rule role-img-alt.
+#
+# It failed as a flake before it failed as a build, because the glyph only
+# enters the DOM once the icon font has loaded. components/ui/BackAction.tsx is
+# the same arrow built from Appbar.Action, whose icon is a string and so does
+# go through settings.icon.
+# ---------------------------------------------------------------------------
+PATTERN='<Appbar\.BackAction'
+hits=$(scan "${ALL_TS[@]}" | strip_comments)
+if [[ -n "$hits" ]]; then
+	report 12 "no Appbar.BackAction" FAIL "$hits" \
+		"Use <BackAction> from @/components/ui/BackAction."
+else
+	report 12 "no Appbar.BackAction" ok
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 printf '\ncheck-invariants — %d files\n\n' "${#ALL_TS[@]}"

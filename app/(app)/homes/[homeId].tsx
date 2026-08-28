@@ -16,18 +16,14 @@ import { DangerZone } from "@/components/homes/DangerZone";
 import { InviteForm } from "@/components/homes/InviteForm";
 import { MembersList } from "@/components/homes/MembersList";
 import { PendingInvites } from "@/components/homes/PendingInvites";
+import { BackAction } from "@/components/ui/BackAction";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { renameHome } from "@/data/homes";
 import { useHomeInvites } from "@/hooks/use-home-invites";
 import { type HomeNameError, homeNameError } from "@/models/home";
 import { useAppTheme } from "@/theme";
-import {
-	contentWidth,
-	space,
-	touchTarget,
-	touchTargetStyle,
-} from "@/theme/tokens";
+import { contentWidth, space, touchTarget } from "@/theme/tokens";
 
 /**
  * Managing one home: its name, its people, and the two ways out of it.
@@ -93,8 +89,7 @@ export default function ManageHome() {
 				    there `back()` is a no-op that logs "GO_BACK was not handled by
 				    any navigator" and leaves the arrow dead. The destination is the
 				    same either way, so name it. */}
-				<Appbar.BackAction
-					style={touchTargetStyle}
+				<BackAction
 					accessibilityLabel={t("homes.title")}
 					onPress={() => router.replace("/homes")}
 				/>
