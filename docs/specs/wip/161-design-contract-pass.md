@@ -318,7 +318,7 @@ Phase 2  the four checks in e2e/craft.spec.ts, against theme/           GLM
          index.ts and tokens.ts. Claims 24-29, plus the /login and
          /details tests. Written BEFORE the app changes, so what
          they find is what phase 3 fixes
-Phase 3  the FAB footprint + ColumnStrip's resting chip + the           Opus
+Phase 3  the FAB footprint + ColumnStrip's resting chip + the           GLM
          per-route proximity pass. Claims 30, 31, 33-35
 Phase 4  docs/DESIGN.md: § 3, § 5 and § 7 amended, Decisions            GLM
          appended with three dated entries
@@ -328,7 +328,9 @@ Phase 4  docs/DESIGN.md: § 3, § 5 and § 7 amended, Decisions            GLM
 checks are what turn "read the app against the contract" from a judgement into a list. A
 phase 3 that ran first would be guessing at what to fix.
 
-**Phase 3 is Opus.** It is the one phase whose design is genuinely unsettled: the FAB
-footprint mechanism is not decided here, it interacts with the measured pane inset that has
-been got wrong before, and it is judged by eye in two locales and two schemes. Everything
-else is dispatched to GLM.
+**Every phase is dispatched to GLM.** Phase 3 is the one whose design is genuinely
+unsettled — the FAB footprint mechanism is not decided here, it interacts with the measured
+pane inset that has been got wrong before, and it is judged by eye in two locales and two
+schemes. That makes it the phase most likely to need a second round, not the phase that needs
+a different model: what is unsettled is settled by the `[eye]` claims 33-35 at review, not by
+the writer. The kickoff spec routed it to Opus; that was wrong and is corrected here.
