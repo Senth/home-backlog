@@ -1,0 +1,53 @@
+# What this repo considers proof, and where its stage logic lives.
+# Written by `aic init`; the rest is home-backlog's own.
+
+[gates]
+# Ordered, cheapest first. Every one runs, every time.
+# `lint --write` fixes what it can, so it goes first and the rest see formatted
+# source. `e2e` boots the stack itself: `dev-stack.sh up` is idempotent and
+# reuses a stack that is already running.
+commands = [
+  "yarn lint --write",
+  "yarn invariants",
+  "yarn typecheck",
+  "yarn test",
+  "scripts/dev-stack.sh up && yarn e2e",
+]
+
+[review]
+# Globs that make a change user-visible, and whether this repo has a browser stage.
+#
+# These are the paths where a household could notice. They are the floor, not the
+# verdict: `diff-review` reads the diff and answers `User-visible: yes | no`, and a
+# change under `models/` or `data/` that alters what renders is user-visible even
+# though no glob here matches it. A new file under `components/` that nothing routes
+# to yet is not.
+visible_paths = [
+  "app/**",
+  "components/**",
+  "contexts/**",
+  "hooks/**",
+  "theme/**",
+  "i18n/locales/**",
+  "assets/**",
+  "public/**",
+]
+browser = true
+
+[design]
+# The contract and the values it is written against. `theme/tokens.ts` is ground
+# truth: when the contract and the file disagree, the file is right and the contract
+# is stale. Nobody edits the contract mid-run — a finding cites a rule in it or is
+# flagged a taste call, and proposed rule changes go to the human as one diff.
+contract = "docs/DESIGN.md"
+tokens = "theme/tokens.ts"
+
+[stages]
+implement = "implement"
+review = "review"
+ship = "ship"
+
+[paths]
+specs = "docs/specs"
+reports = ".tmp/reports"
+checkpoint = ".tmp/continue-work.state.json"
