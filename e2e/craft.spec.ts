@@ -4,11 +4,30 @@ import {
 	columnSelector,
 	gotoAndSettle,
 	ROUTES,
+	type Route,
 	VIEWPORTS,
 } from "@/e2e/support/app";
+import { PALETTE, type Scheme } from "@/e2e/support/theme";
 import enUS from "@/i18n/locales/en-US.json";
 import svSE from "@/i18n/locales/sv-SE.json";
-import { touchTarget } from "@/theme/tokens";
+import {
+	appBarStackBreakpoint,
+	border,
+	compactBreakpoint,
+	contentWidth,
+	denseBreakpoint,
+	drag,
+	elevation,
+	focusRing,
+	icon,
+	outlinedTouchTarget,
+	radius,
+	segmentedLabelLineHeight,
+	size,
+	space,
+	touchTarget,
+	touchTargetStyle,
+} from "@/theme/tokens";
 
 /**
  * The craft checks that are actually measurements.
@@ -54,6 +73,22 @@ import { touchTarget } from "@/theme/tokens";
  * | no clipped control label | the original check | claim 12, second half |
  * | does not scroll horizontally | the original check | claim 13 (named) |
  *
+ * Claims 24–29 join the same split. The off-scale spacing and near-miss
+ * alignment sweeps are geometry and run once per route in the loop below;
+ * the palette sweep is the one other measurement a scheme changes, so it
+ * sits in the scheme loop beside the axe pass — light in all four projects,
+ * dark in the two English ones the `@dark` tag keeps. Claims 27–29 name
+ * their one subject each: the FAB's fill against the page, `/login`
+ * unauthenticated, and a node's `/details` reached by clicking through from
+ * the board.
+ *
+ * All four measurement sweeps are written natively against
+ * `theme/tokens.ts` and `theme/index.ts` (via `e2e/support/theme.ts`,
+ * because `theme/index.ts` imports react-native-paper, whose react-native
+ * entry is Flow that Node cannot parse). They were written before the app
+ * was fixed, on purpose: a failure here is the finding phase 3 acts on, so
+ * the sweeps carry no allowance that the spec does not spell out.
+ *
  * The claims that are *not* a width-independent sweep get a test of their own:
  * the desktop column's own strings below, which are not inside an interactive
  * element and so are invisible to the clipped-label sweep, and the FAB
@@ -85,6 +120,349 @@ function axe(page: Parameters<typeof gotoAndSettle>[0]) {
  */
 const INTERACTIVE =
 	'button, [role="button"], [role="link"], [role="tab"], [role="switch"], [role="checkbox"], a[href], input, select, textarea';
+
+/**
+ * Every number `theme/tokens.ts` exports — the first carve-out of the
+ * off-scale spacing rule: a computed `padding*`, `margin*` or `*Gap` that is
+ * a token value is on-scale even when it is not a step of `space`.
+ */
+const TOKEN_NUMBERS: number[] = [
+	space,
+	radius,
+	elevation,
+	contentWidth,
+	size,
+	drag,
+	icon,
+	border,
+	focusRing,
+	touchTargetStyle,
+]
+	.flatMap((group) => Object.values(group as Record<string, number>))
+	.concat([
+		touchTarget,
+		outlinedTouchTarget,
+		segmentedLabelLineHeight,
+		compactBreakpoint,
+		appBarStackBreakpoint,
+		denseBreakpoint,
+	]);
+
+/** The spacing check's whole allowance: the `space` steps plus the tokens. */
+const ON_SCALE: number[] = [
+	...new Set([...Object.values(space), ...TOKEN_NUMBERS]),
+];
+
+/**
+ * The closed table of react-native-paper internals — the second carve-out of
+ * the off-scale spacing rule, and the only one that names an element. Every
+ * entry names a third-party internal and the Paper component that owns it;
+ * an entry naming one of our own screens is the baseline this spec forbids,
+ * and review rejects it on sight. Adding a sixth entry when Paper grows a
+ * control is one line; adding one to make our own change pass is not.
+ *
+ * `List.Subheader` ships no testID, so its entry matches by signature
+ * instead: a leaf text div at bodyMedium's 14px — the only 13px vertical
+ * padding in Paper's tree.
+ */
+const PAPER_INTERNALS: { value: number; css: string | null }[] = [
+	{ value: 5, css: 'a[role="tab"]' }, // BottomNavigation's tab item padding
+	// The spec's own row: IconButton's and Chip's margins are the same 6px.
+	// The Chip's margin div carries no testID of its own; it sits inside
+	// `chip-container`, and `closest` matches ancestors as well as the element.
+	{
+		value: 6,
+		css: '[data-testid="icon-button-container"], [data-testid="chip-container"]',
+	},
+	{ value: 13, css: null }, // List.Subheader's vertical padding
+	{ value: 12, css: '[data-testid="appbar-content"]' }, // Appbar.Content's left margin
+	{ value: 10, css: '[data-testid="button-text"]' }, // Button's label margin
+];
+
+/**
+ * Paper's FAB testIDs: the fill lives on `fab-container` — the inner
+ * touchable, `fab`, paints nothing — so both the contrast check and the
+ * measured-height carve-out read the container.
+ */
+const FAB_SELECTOR = '[data-testid="fab-container"]';
+
+/**
+ * The off-scale spacing sweep (claim 24). Every computed `padding*`,
+ * `margin*` and `*Gap` must be a step in `space` by absolute value, a token
+ * value, a named Paper internal, or — the spec's "derived at runtime from a
+ * measured element" carve-out — the height of a rendered FAB plus whole
+ * `space` steps, which is the arithmetic the pane inset is made of.
+ */
+function spacingSweep(args: {
+	allowed: number[];
+	paper: { value: number; css: string | null }[];
+	fabHeights: number[];
+}): string[] {
+	const onScale = new Set(args.allowed);
+	const offenders = new Set<string>();
+	const describe = (element: Element): string => {
+		const testID = element.getAttribute("data-testid");
+		const text = (element.textContent ?? "").trim().slice(0, 30);
+		return `<${element.tagName.toLowerCase()}${testID ? ` data-testid=${testID}` : ""}${text ? ` "${text}"` : ""}>`;
+	};
+	const paperExcuse = (element: Element, value: number): boolean =>
+		args.paper.some((entry) => {
+			if (entry.value !== value) return false;
+			if (entry.css !== null) return element.closest(entry.css) !== null;
+			return (
+				element.children.length === 0 &&
+				window.getComputedStyle(element).fontSize === "14px" &&
+				(element.textContent ?? "").trim() !== ""
+			);
+		});
+	const measuredExcuse = (value: number): boolean =>
+		args.fabHeights.some(
+			(height) => value > height && (value - height) % 4 === 0,
+		);
+
+	for (const element of Array.from(document.querySelectorAll("*"))) {
+		const style = window.getComputedStyle(element);
+		// Read as properties, not `getPropertyValue("paddingTop")`: the camel-
+		// case spelling returns "" from Chrome's computed style, and a sweep
+		// over empty strings passes vacuously.
+		for (const prop of [
+			"paddingTop",
+			"paddingRight",
+			"paddingBottom",
+			"paddingLeft",
+			"marginTop",
+			"marginRight",
+			"marginBottom",
+			"marginLeft",
+			"rowGap",
+			"columnGap",
+		] as const) {
+			const raw = style[prop];
+			// `normal` on unset gaps, `auto` on margins: neither is a length.
+			if (!raw.endsWith("px")) continue;
+			const value = Math.abs(Number.parseFloat(raw));
+			if (onScale.has(value)) continue;
+			if (paperExcuse(element, value)) continue;
+			if (measuredExcuse(value)) continue;
+			offenders.add(`${prop}: ${raw} on ${describe(element)}`);
+		}
+	}
+	return [...offenders];
+}
+
+/**
+ * The off-palette colour sweep (claim 25), scoped to what actually paints:
+ * `color` only on an element carrying its own text, `backgroundColor` only
+ * where it is not the UA default's transparent, border colours only where a
+ * border is actually drawn. Anything wider reports `rgb(0, 0, 0)` hundreds
+ * of times for text-less divs — a scoping artefact, not a finding.
+ */
+function paletteSweep(args: { palette: string[] }): string[] {
+	const onPalette = new Set(args.palette);
+	const offenders = new Set<string>();
+	const describe = (element: Element): string => {
+		const testID = element.getAttribute("data-testid");
+		const text = (element.textContent ?? "").trim().slice(0, 30);
+		return `<${element.tagName.toLowerCase()}${testID ? ` data-testid=${testID}` : ""}${text ? ` "${text}"` : ""}>`;
+	};
+	const alpha = (computed: string): number => {
+		const match = computed.match(/rgba?\(([^)]+)\)/);
+		if (match === null) return 0;
+		const parts = match[1].split(",").map((part) => part.trim());
+		return parts.length > 3 ? Number.parseFloat(parts[3]) : 1;
+	};
+	const canonical = (computed: string): string | null => {
+		const match = computed.match(/rgba?\(([^)]+)\)/);
+		// Empty on non-rendered elements (`<head>`, `<meta>`), which paint
+		// nothing and are not findings.
+		if (match === null) return null;
+		const [r, g, b, a = "1"] = match[1].split(",").map((part) => part.trim());
+		return `rgba(${r}, ${g}, ${b}, ${Number(a)})`;
+	};
+
+	for (const element of Array.from(document.querySelectorAll("*"))) {
+		const style = window.getComputedStyle(element);
+		const paintsText = Array.from(element.childNodes).some(
+			(node) =>
+				node.nodeType === Node.TEXT_NODE &&
+				(node.textContent ?? "").trim() !== "",
+		);
+		const textColor = canonical(style.color);
+		if (paintsText && textColor !== null && !onPalette.has(textColor)) {
+			offenders.add(`color: ${style.color} on ${describe(element)}`);
+		}
+		const background = canonical(style.backgroundColor);
+		if (
+			background !== null &&
+			alpha(style.backgroundColor) > 0 &&
+			!onPalette.has(background)
+		) {
+			offenders.add(
+				`backgroundColor: ${style.backgroundColor} on ${describe(element)}`,
+			);
+		}
+		for (const [widthProp, styleProp, colorProp, side] of [
+			["borderTopWidth", "borderTopStyle", "borderTopColor", "top"],
+			["borderRightWidth", "borderRightStyle", "borderRightColor", "right"],
+			["borderBottomWidth", "borderBottomStyle", "borderBottomColor", "bottom"],
+			["borderLeftWidth", "borderLeftStyle", "borderLeftColor", "left"],
+		] as const) {
+			const borderColor = canonical(style[colorProp]);
+			const drawn =
+				borderColor !== null &&
+				style[widthProp] !== "0px" &&
+				style[styleProp] !== "none";
+			if (drawn && borderColor !== null && !onPalette.has(borderColor)) {
+				offenders.add(
+					`border${side}Color: ${style[colorProp]} on ${describe(element)}`,
+				);
+			}
+		}
+	}
+	return [...offenders];
+}
+
+/**
+ * The near-miss alignment sweep (claim 26): two painted boxes — a background
+ * fill or a drawn border, never a component box against the text inside it —
+ * whose edges on the same axis differ by more than 0 and less than
+ * `space.xs`. Measured at rest; no drag state exists in these tests.
+ */
+function alignmentSweep(args: { xs: number }): string[] {
+	const offenders = new Set<string>();
+	const describe = (element: Element): string => {
+		const testID = element.getAttribute("data-testid");
+		const text = (element.textContent ?? "").trim().slice(0, 30);
+		return `<${element.tagName.toLowerCase()}${testID ? ` data-testid=${testID}` : ""}${text ? ` "${text}"` : ""}>`;
+	};
+	const alpha = (computed: string): number => {
+		const match = computed.match(/rgba?\(([^)]+)\)/);
+		if (match === null) return 0;
+		const parts = match[1].split(",").map((part) => part.trim());
+		return parts.length > 3 ? Number.parseFloat(parts[3]) : 1;
+	};
+	const painted = (element: Element): boolean => {
+		const style = window.getComputedStyle(element);
+		if (alpha(style.backgroundColor) > 0) return true;
+		for (const [widthProp, styleProp, colorProp] of [
+			["borderTopWidth", "borderTopStyle", "borderTopColor"],
+			["borderRightWidth", "borderRightStyle", "borderRightColor"],
+			["borderBottomWidth", "borderBottomStyle", "borderBottomColor"],
+			["borderLeftWidth", "borderLeftStyle", "borderLeftColor"],
+		] as const) {
+			if (
+				style[widthProp] !== "0px" &&
+				style[styleProp] !== "none" &&
+				alpha(style[colorProp]) > 0
+			) {
+				return true;
+			}
+		}
+		return false;
+	};
+
+	const boxes: { rect: DOMRect; name: string }[] = [];
+	for (const element of Array.from(document.querySelectorAll("*"))) {
+		if (!painted(element)) continue;
+		const rect = element.getBoundingClientRect();
+		if (rect.width === 0 || rect.height === 0) continue;
+		boxes.push({ rect, name: describe(element) });
+	}
+
+	for (let i = 0; i < boxes.length; i++) {
+		for (let j = i + 1; j < boxes.length; j++) {
+			const a = boxes[i];
+			const b = boxes[j];
+			for (const edge of ["left", "right", "top", "bottom"] as const) {
+				const delta = Math.abs(a.rect[edge] - b.rect[edge]);
+				// Up to 0.02px is the same edge read twice with float noise.
+				if (delta > 0.02 && delta < args.xs) {
+					offenders.add(
+						`${a.name} and ${b.name}: ${edge} edges differ by ${delta.toFixed(2)}px`,
+					);
+				}
+			}
+		}
+	}
+	return [...offenders];
+}
+
+/**
+ * The FAB fill against the surface behind it (claim 27): the WCAG contrast
+ * ratio between the FAB's computed `backgroundColor` and the first painted
+ * surface above it, composited if translucent down to the first opaque one.
+ * Returns `null` when the route renders no FAB.
+ */
+function fabContrastSweep(args: {
+	selector: string;
+}): { fill: string; behind: string; ratio: number } | null {
+	const fab = document.querySelector(args.selector);
+	if (fab === null) return null;
+	const linear = (channel: number): number => {
+		const c = channel / 255;
+		return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+	};
+	const luminance = ([r, g, b]: number[]): number =>
+		0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+	const parse = (computed: string): number[] | null => {
+		const match = computed.match(/rgba?\(([^)]+)\)/);
+		if (match === null) return null;
+		const [r, g, b, a = "1"] = match[1].split(",").map((part) => part.trim());
+		return [Number(r), Number(g), Number(b), Number(a)];
+	};
+
+	const fillParts = parse(window.getComputedStyle(fab).backgroundColor);
+	if (fillParts === null || fillParts[3] < 1) return null;
+	// The painted surfaces between the FAB and the page, innermost first.
+	const layers: number[][] = [];
+	for (let node = fab.parentElement; node !== null; node = node.parentElement) {
+		const parts = parse(window.getComputedStyle(node).backgroundColor);
+		if (parts === null || parts[3] <= 0) continue;
+		layers.push(parts);
+		if (parts[3] >= 1) break;
+	}
+	if (layers.length === 0 || layers[layers.length - 1][3] < 1) return null;
+
+	// Composite innermost over outermost down to the first opaque layer.
+	let [r, g, b] = layers[layers.length - 1];
+	for (let i = layers.length - 2; i >= 0; i--) {
+		const [tr, tg, tb, ta] = layers[i];
+		r = Math.round(tr * ta + r * (1 - ta));
+		g = Math.round(tg * ta + g * (1 - ta));
+		b = Math.round(tb * ta + b * (1 - ta));
+	}
+	const fillLuminance = luminance(fillParts);
+	const behindLuminance = luminance([r, g, b]);
+	const [lighter, darker] =
+		fillLuminance > behindLuminance
+			? [fillLuminance, behindLuminance]
+			: [behindLuminance, fillLuminance];
+	return {
+		fill: `rgb(${fillParts[0]}, ${fillParts[1]}, ${fillParts[2]})`,
+		behind: `rgb(${r}, ${g}, ${b})`,
+		ratio: (lighter + 0.05) / (darker + 0.05),
+	};
+}
+
+/**
+ * The three sweeps of claims 28 and 29 against a page that is already where
+ * it should be — `/login`, which no authed context can reach, and `/details`,
+ * which `ROUTES` cannot carry because its id comes from clicking.
+ */
+async function craftFindings(
+	page: Parameters<typeof gotoAndSettle>[0],
+	scheme: Scheme,
+): Promise<string[]> {
+	return [
+		...(await page.evaluate(spacingSweep, {
+			allowed: ON_SCALE,
+			paper: PAPER_INTERNALS,
+			fabHeights: [],
+		})),
+		...(await page.evaluate(paletteSweep, { palette: PALETTE[scheme] })),
+		...(await page.evaluate(alignmentSweep, { xs: space.xs })),
+	];
+}
 
 /**
  * The scheme axis, and the one check that is about colour.
@@ -121,7 +499,86 @@ for (const scheme of ["light", "dark"] as const) {
 					[],
 				);
 			});
+
+			test(`25: ${route.path} only paints palette colours`, async ({
+				page,
+			}) => {
+				await gotoAndSettle(page, route);
+
+				const offenders = await page.evaluate(paletteSweep, {
+					palette: PALETTE[scheme],
+				});
+
+				expect(
+					offenders,
+					`off-palette colour on ${route.path} (${scheme})`,
+				).toEqual([]);
+			});
 		}
+
+		test("27: the FAB's fill clears 3:1 against the surface behind it", async ({
+			page,
+		}) => {
+			const failures: string[] = [];
+			let measured = 0;
+			// The FAB lives on the board and on Overview; the board renders it
+			// below the breakpoint only, which the sweep reports as `null`.
+			for (const route of [BOARD, OVERVIEW]) {
+				await gotoAndSettle(page, route);
+				const result = await page.evaluate(fabContrastSweep, {
+					selector: FAB_SELECTOR,
+				});
+				if (result === null) continue;
+				measured += 1;
+				if (result.ratio < 3) {
+					failures.push(
+						`${route.path}: ${result.fill} on ${result.behind} is ${result.ratio.toFixed(2)}:1`,
+					);
+				}
+			}
+			expect(measured, "no route rendered a FAB").toBeGreaterThan(0);
+			expect(failures, `FAB fill contrast (${scheme})`).toEqual([]);
+		});
+
+		test("29: a node's /details is on-scale, on-palette and free of near-miss edges", async ({
+			page,
+		}) => {
+			// The same click-through claim 21 makes: the card's id comes from the
+			// fixture, never a literal, so the board is where the reach starts.
+			await gotoAndSettle(page, BOARD);
+			await page.getByText(SEEDED_PROJECT).first().click();
+			await page.waitForURL(/\/projects\/[^/]+$/);
+			const id = new URL(page.url()).pathname.split("/")[2] as string;
+			await page.goto(`/projects/${id}/details`);
+			await page.waitForLoadState("networkidle");
+			await page
+				.getByText(SEEDED_PROJECT)
+				.first()
+				.waitFor({ state: "visible", timeout: 30_000 });
+			await page.evaluate(() => document.fonts.ready);
+
+			const offenders = await craftFindings(page, scheme);
+
+			expect(offenders, `craft findings on /details (${scheme})`).toEqual([]);
+		});
+
+		test.describe("unauthenticated", () => {
+			// `/login` is the one route the authed context would bounce — the
+			// shared storage state would redirect it before it rendered — so it
+			// carries its own empty state rather than a `ROUTES` entry, and
+			// `console.spec.ts` and `i18n.spec.ts` stay untouched by it.
+			test.use({ storageState: { cookies: [], origins: [] } });
+
+			test("28: /login is on-scale, on-palette and free of near-miss edges", async ({
+				page,
+			}) => {
+				await gotoAndSettle(page, LOGIN_ROUTE);
+
+				const offenders = await craftFindings(page, scheme);
+
+				expect(offenders, `craft findings on /login (${scheme})`).toEqual([]);
+			});
+		});
 	});
 }
 
@@ -199,6 +656,37 @@ for (const route of ROUTES) {
 		).toEqual([]);
 	});
 
+	test(`24: ${route.path} only uses on-scale spacing`, async ({ page }) => {
+		await gotoAndSettle(page, route);
+
+		// The measured elements the pane inset is derived from: the FAB's own
+		// height, read the way `Board.tsx` and `overview.tsx` read it. Routes
+		// without a FAB carry none, and none of those render the inset.
+		const fabHeights = await page.evaluate((selector) => {
+			return Array.from(document.querySelectorAll(selector)).map(
+				(element) => element.getBoundingClientRect().height,
+			);
+		}, FAB_SELECTOR);
+
+		const offenders = await page.evaluate(spacingSweep, {
+			allowed: ON_SCALE,
+			paper: PAPER_INTERNALS,
+			fabHeights,
+		});
+
+		expect(offenders, `off-scale spacing on ${route.path}`).toEqual([]);
+	});
+
+	test(`26: ${route.path} has no near-miss edges between painted boxes`, async ({
+		page,
+	}) => {
+		await gotoAndSettle(page, route);
+
+		const offenders = await page.evaluate(alignmentSweep, { xs: space.xs });
+
+		expect(offenders, `near-miss edges on ${route.path}`).toEqual([]);
+	});
+
 	test(`${route.path} has no clipped control label`, async ({ page }) => {
 		await gotoAndSettle(page, route);
 
@@ -238,6 +726,17 @@ for (const route of ROUTES) {
  */
 
 const BOARD = ROUTES[1];
+/** The other route that renders the FAB, and the one Overview names. */
+const OVERVIEW = ROUTES[5];
+
+/**
+ * `/login` unauthenticated. A `ROUTES` entry would be walked by the authed
+ * projects and bounce to `/homes` before it rendered, so it is its own test.
+ */
+const LOGIN_ROUTE = {
+	path: "/login",
+	ready: { key: "screen.login.title" },
+} as unknown as Route;
 
 /** A card the fixture always has, whose title names the screen you open it as. */
 const SEEDED_PROJECT = "Renovera badrummet";
