@@ -24,8 +24,8 @@ Refuse to start unless all three hold, and say which failed:
 
 ## Step 1. Fold the wip spec
 
-Only when there is one — a bug fix or an invisible cleanup edits the area spec directly and
-never had a wip file. Skip to Step 3 in that case.
+Every kickoff skill writes one, so there is normally a wip spec to fold. Skip to Step 3 only
+when there genuinely is none.
 
 **Choose the home.** Extend the existing area spec whenever the work changes behaviour that
 spec already describes. Write a new area spec only for a genuinely new area with its own
@@ -36,9 +36,12 @@ file that reads as a diff against the others.
 not a stack of feature chapters. Delete what is no longer true. Keep everything that
 matters: the *why*, the rejected alternatives, formulas, thresholds, tables.
 
-Three sections are **wip-only and do not survive the fold** — `Handoff`, `Phases`, and
-`Acceptance`. Acceptance was scaffolding: its `[test]` claims now live in `e2e/` as real
-tests, and the area spec states the behaviour in the present tense instead.
+Four sections are **wip-only and do not survive the fold** — `Handoff`, `Surface brief`,
+`Acceptance` and `Phases`. All four were scaffolding. Acceptance's `[test]` claims now live
+in `e2e/` as real tests, and the area spec states the behaviour in the present tense
+instead. The Surface brief was the brief the implement stage built against; what it asked
+for is now either in the screen or it is not, and `docs/DESIGN.md` is where a durable rule
+about surfaces belongs.
 
 Then:
 
