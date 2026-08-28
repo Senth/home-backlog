@@ -98,8 +98,7 @@ Omit **Surface brief** and say so in **What**.
 
 Same shape either way, from [`new-feature`](../new-feature/SKILL.md). Acceptance claims
 tagged `[test]` map to their test by **number** — `test("2: …")` — and `yarn invariants`
-fails until each has one. Phases carry a routing hint, **GLM** or **Opus**; a cleanup is GLM
-by default.
+fails until each has one. Every phase goes to GLM, so no phase carries a routing hint.
 
 Ideas the personas raised and the cut does not cover: **ask** which to file, then
 `GIT_VANILLA=1 gh issue create --label idea` and move each to the Idea column in the same

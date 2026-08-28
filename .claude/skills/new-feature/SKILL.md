@@ -183,16 +183,19 @@ is `[test]`.
 ### Phases
 
 Vertical slices, each small enough for one dispatched session and each ending green on
-`yarn lint --write`, `yarn invariants`, `yarn typecheck` and `yarn test`. Name the routing
-hint per phase — **GLM** or **Opus** — so `/continue-work` does not have to guess. GLM is the
-default and takes almost everything; Opus is for a phase whose design is genuinely
-unsettled, and choosing it is worth one line of reason in the spec.
+`yarn lint --write`, `yarn invariants`, `yarn typecheck` and `yarn test`. **Every phase
+goes to GLM**, so no phase carries a routing hint, and least of all the phase that changes
+how something looks. Visual work is the one people reach for a bigger model on, and it is
+the wrong reach: what a screen should look like is decided in `docs/DESIGN.md` and in the
+Surface brief, both of which are written before any phase runs. A phase that needs taste
+at dispatch time is a phase whose design was never finished, and finishing it is this
+skill's job, here, before the user confirms the spec.
 
 ```
-Phase 1  models + rules + tests/rules                    GLM
-Phase 2  data hooks and queries                          GLM
-Phase 3  UI screens + strings (en-US + sv-SE)            GLM
-Phase 4  e2e specs for the [test] acceptance claims      GLM
+Phase 1  models + rules + tests/rules
+Phase 2  data hooks and queries
+Phase 3  UI screens + strings (en-US + sv-SE)
+Phase 4  e2e specs for the [test] acceptance claims
 ```
 
 **Phase 4 is not optional** when the feature is user-visible: the `[test]` claims become

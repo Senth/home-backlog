@@ -138,11 +138,11 @@ be using that skill instead.
 Acceptance claims tagged `[test]` map to their test by **number** — `test("1: …")` — and
 `yarn invariants` fails until each has one.
 
-Phases carry a routing hint, **GLM** or **Opus**. A bug fix is GLM by default:
+Every phase goes to GLM, so no phase carries a routing hint:
 
 ```
-Phase 1  the failing test, red for the reported reason        GLM
-Phase 2  the fix, and the test goes green                     GLM
+Phase 1  the failing test, red for the reported reason
+Phase 2  the fix, and the test goes green
 ```
 
 Do not invoke `ponytail` here. `/continue-work` runs it at write time, where a needless
