@@ -245,3 +245,39 @@ test("22: POST /nodes:bulk gives its new root every member, and refuses particip
 		expect(belowBody.error.code).toBe("participants_immutable");
 	});
 });
+
+test("32: two sequential mints never share a name, and both are revoked with no key left behind", async ({
+	page,
+}) => {
+	const names: string[] = [];
+
+	// A key's row exists only while the key does, so the single revoke button
+	// carrying the `KEY_NAME` prefix mid-mint is this mint's — its accessible
+	// name records the name the helper actually gave the key.
+	const mintedName = async (): Promise<string> => {
+		const revoke = page.getByRole("button", {
+			name: new RegExp(`^Revoke ${KEY_NAME} `),
+		});
+		await expect(revoke).toHaveCount(1);
+		const label = await revoke.getAttribute("aria-label");
+		if (!label) throw new Error("no aria-label on the revoke button");
+		return label;
+	};
+
+	await withApiKey(page, async () => {
+		names.push(await mintedName());
+	});
+	await withApiKey(page, async () => {
+		// The first key is already gone here: were it not, this count would be
+		// 2 and the helper's own exact-name revoke would refuse to click.
+		names.push(await mintedName());
+	});
+
+	expect(names[1]).not.toBe(names[0]);
+	await expect(
+		page.getByRole("button", { name: `Revoke ${names[0]}` }),
+	).toHaveCount(0);
+	await expect(
+		page.getByRole("button", { name: `Revoke ${names[1]}` }),
+	).toHaveCount(0);
+});
