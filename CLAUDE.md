@@ -33,12 +33,18 @@ Home Backlog: an Expo / React Native web-first PWA on Firebase.
 - `yarn invariants` ([`scripts/check-invariants.sh`](scripts/check-invariants.sh)) is
   where the greppable rules above are enforced; a new rule here that a regex could
   catch goes in that script too.
-- Work runs as five stages, **each in a fresh session** so no stage inherits the last
-  one's context: [`/new-feature`](.claude/skills/new-feature/SKILL.md) ·
-  [`/cleanup`](.claude/skills/cleanup/SKILL.md) · [`/bug`](.claude/skills/bug/SKILL.md)
-  → [`/implement`](.claude/skills/implement/SKILL.md)
-  → [`/review`](.claude/skills/review/SKILL.md)
-  → [`/ship`](.claude/skills/ship/SKILL.md).
+- Work runs in two sessions. A kickoff — [`/new-feature`](.claude/skills/new-feature/SKILL.md)
+  · [`/cleanup`](.claude/skills/cleanup/SKILL.md) · [`/bug`](.claude/skills/bug/SKILL.md) —
+  ends at a confirmed spec under `docs/specs/wip/` and writes no code. Then
+  [`/continue-work`](.claude/skills/continue-work/SKILL.md) takes it to a draft PR:
+  [`/implement`](.claude/skills/implement/SKILL.md) →
+  [`/review`](.claude/skills/review/SKILL.md) → [`/ship`](.claude/skills/ship/SKILL.md),
+  checkpointed in `.tmp/continue-work.state.json`. All three remain callable standalone.
+- Everything that writes code is dispatched to GLM through `oc-task`; the spec, the
+  dispatch and the PASS/FAIL stay with Claude. `homeowner-review` is the exception and
+  stays an Opus subagent.
+- `.ai/config.toml` is what a stage reads for the gate commands, what counts as
+  user-visible, the design contract and the report and checkpoint paths.
 - Ship only on a PASS — the session that wrote the code never signs it off, and
   `/ship` folds the wip spec into [`docs/specs/`](docs/specs/INDEX.md) and opens a
   **draft** PR.
