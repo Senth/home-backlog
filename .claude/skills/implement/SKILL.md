@@ -59,7 +59,10 @@ For each phase, in order:
 
 1. **Write the prompt to a file** under `.tmp/prompts/`, stable part first so a retry hits
    the prompt cache. It carries the spec path and **which phase**, the section map, the
-   gate commands by pointing at `.ai/config.toml`'s `[gates]`, and:
+   phase's gates — the four cheap commands from `.ai/config.toml`'s `[gates]`, plus the
+   targeted e2e command for the claim numbers the phase owns (`scripts/dev-stack.sh up &&
+   yarn playwright test --project=setup && yarn playwright test --no-deps --grep
+   '\b(<claims>):'`), or the full `[gates]` list when this is the last phase — and:
 
    - **`ponytail` in `full` mode. Always** — on the largest phase and on a two-phase spec
      alike. The short path is not an exemption. Catching an unnecessary abstraction at
@@ -90,18 +93,22 @@ For each phase, in order:
 
    ```bash
    yarn lint --write && yarn invariants && yarn typecheck && yarn test
+   scripts/dev-stack.sh up && yarn playwright test --project=setup
+   yarn playwright test --no-deps --grep '\b(<claims>):'
    ```
+
+   `<claims>` is the claim numbers this phase owns, from the spec's `[test]` tags. A phase
+   that owns none runs no e2e here. The setup pass renews the signed-in browser state and
+   clears leftover cards; `--no-deps` is what keeps the run targeted — `writes` depends on
+   the four read-only projects, and without it one claim drags all 163 of them in.
 
    `yarn invariants` fails until every `[test]` claim in the spec's Acceptance has a test
    whose title **starts with its number** — `test("3: …")`. That failure is the feedback,
-   not an obstacle: the fix is to write the test, never to reword the claim.
+   not an obstacle: the fix is to write the test, never to reword the claim. The claims
+   become real specs in the phase that builds the screen, not later.
 
-   A phase that touches user-visible surface also owes its `e2e/` tests — the `[test]`
-   claims become real specs in the phase that builds the screen, not later:
-
-   ```bash
-   scripts/dev-stack.sh up && yarn e2e
-   ```
+   The full suite is not a per-phase gate: it runs inside the last implement phase's
+   dispatch, and once more after review. `/review` owns that second pass.
 
 4. **Red?** Take the escalation ladder in `glm-dispatch`: round 2 with `--continue` and the
    failing gate's real output, then round 3 only if round 2 moved forward, then stop and

@@ -29,8 +29,12 @@ Home Backlog: an Expo / React Native web-first PWA on Firebase.
 - The console is clean and its exceptions are a closed list — see "The console" in
   [`platform-offline.md`](docs/specs/platform-offline.md).
 - After implementing: `yarn lint --write`, `yarn invariants`, `yarn typecheck`,
-  `yarn test` — fix everything they report, including pre-existing failures. `yarn e2e`
-  is the fifth gate, run by `/review` and CI, and needs `scripts/dev-stack.sh up`.
+  `yarn test` — fix everything they report, including pre-existing failures. e2e is
+  targeted per phase: `yarn playwright test --project=setup && yarn playwright test
+  --no-deps --grep '\b(<claims>):'` after `scripts/dev-stack.sh up`, for the claim numbers
+  the phase owns from the spec's `[test]` tags — `--no-deps` because the `writes` project
+  depends on the read-only ones and would drag them all in. The full `yarn e2e` runs once
+  at the end of implement and once more after review, before ship; CI runs it on the PR.
 - `yarn invariants` ([`scripts/check-invariants.sh`](scripts/check-invariants.sh)) is
   where the greppable rules above are enforced; a new rule here that a regex could
   catch goes in that script too.
