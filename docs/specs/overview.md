@@ -252,6 +252,18 @@ The landing route never depends on what is in the database. A rule like "open on
 until the first node exists" moves the app under a household the moment they create — and
 delete — their first card.
 
+### The sections get air, a board column does not
+
+The scroller sets `space.lg` between its groups — the install offer and the three sections
+— against `space.md` within them. Overview's job is to answer *what is going on* at a
+glance, and three headed lists with the same gap inside and between them read as one block
+with headings in it rather than as three answers.
+
+This is a **per-route** call, not a global one. A board column's whole job is cards per
+screen, and spending the same vertical pixels there buys separation nobody asked for at the
+cost of the thing the column is for. `docs/DESIGN.md` records the split so it is not
+re-argued as a finding on the next design pass.
+
 ### Chrome
 
 `Appbar.Header` copies the root board's exactly: a `BackAction` to `/homes`,
@@ -353,6 +365,12 @@ whose only write is "add the one thing I just noticed". The first-run line point
 FAB rather than carrying a second button for the same action. The screen reserves space
 under it from the FAB's *measured* height, because the label is words and so is taller in
 Swedish, and taller again at 200% text.
+
+**It carries the board FAB's two footprint caps**, for the same reason and from the same
+token: `maxWidth` at `fab.widthShare` of the window, and the plus glyph dropped below
+`denseBreakpoint` so a wrapped Swedish label keeps the words without overflowing the
+button. Overview is the screen the app opens on, so it is where a button that spans the
+screen would be met first — the cap belongs here at least as much as on the board.
 
 ### Offline
 
