@@ -107,7 +107,7 @@ finding list and the diff of just your fixes, and ask it to verify those rather 
 again from scratch.
 
 `diff-review`'s report carries **`User-visible: yes | no`**. That decides the next step. With
-`--code` or `--quick`, skip to Step 6 regardless and say so.
+`--code` or `--quick`, skip to Step 7 regardless and say so.
 
 ## Step 5. The full suite, once
 
