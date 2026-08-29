@@ -27,26 +27,31 @@ under caveman.
 Free things first, then cheap things, then expensive things.
 
 ```
-lint --write → invariants → typecheck → test → e2e   (zero tokens; a shell command each)
+lint --write → invariants → typecheck → test         (zero tokens; a shell command each)
         ↓
 diff-review  ‖  ponytail-review                      (tokens; diff-review decides visible)
+        ↓
+e2e, the full suite                                  (the run's one full pass here)
         ↓
 browser-review                                       (most tokens; only if user-visible)
 ```
 
-That is the order of the shell command in Step 3, and the two must never drift apart.
+That is the order of the shell commands in Steps 3, 5 and 6, and the two must never drift
+apart.
 
-Every mechanical gate runs before any agent is dispatched. A failure one of them catches is a
-round of agent review you did not have to pay for, and `e2e/` now covers what used to come
-back as a browser finding: console noise, a lost offline write, a broken back button, a
-contrast failure, a clipped Swedish label, a raw `t()` key.
+Every cheap gate runs before any agent is dispatched. A failure one of them catches is a
+round of agent review you did not have to pay for, and `e2e/` covers what used to come back
+as a browser finding: console noise, a lost offline write, a broken back button, a contrast
+failure, a clipped Swedish label, a raw `t()` key. The full suite is not a per-fix-round
+gate: it runs once, after the fix rounds have landed, as the double-check a targeted run
+cannot be.
 
 The two read-only reviews run **in parallel** — they touch nothing. Everything else is
 serial: one writing process against this working tree, ever, and a code fix invalidates a
 browser pass.
 
 Flags: `/review` (auto), `/review --code` (no browser pass, whatever `diff-review` says),
-`/review --quick` (mechanical gates plus `diff-review`, and you smoke-test the primary path
+`/review --quick` (cheap gates plus `diff-review`, and you smoke-test the primary path
 by hand). No other flags. If you disagree with the auto scope, say so in the prompt.
 
 ## Step 1. Scope
@@ -73,19 +78,15 @@ Pair each heading with the next heading's line number to get a range, pick the o
 diff actually touches, and pass them as `<file> <start>-<end> <heading>`. State the map in
 chat so it is auditable.
 
-## Step 3. The mechanical gates
+## Step 3. The cheap gates
 
 ```bash
 yarn lint --write && yarn invariants && yarn typecheck && yarn test
-scripts/dev-stack.sh up && yarn e2e
 ```
 
-All green before an agent is spawned. `dev-stack.sh up` is idempotent — it reuses a stack
-you already had running and reports whether the emulator is pristine or carrying whatever
-a previous session left in it. Say which in the final report.
-
-An `e2e` failure is a `blocking` finding you fix yourself, right here. It is also the
-cheapest signal in the whole run, so never skip it to save wall-clock time.
+All green before an agent is spawned. The full e2e suite is deliberately absent here — it
+runs once, in Step 5, after the fix rounds. A phase has already proven its own claims with
+the targeted run; paying for the whole suite before anyone has read the diff buys nothing.
 
 ## Step 4. diff-review and ponytail-review, in parallel
 
@@ -101,14 +102,31 @@ it and report only over-engineering. Never hand either one your own account of w
 or why it is correct — that sentence is what turns a reviewer into a rubber stamp.
 
 Read `.tmp/review/diff-review.md` and the `review` agent's report. Take the findings into
-Step 6's fix loop. If `diff-review` found `blocking` items, re-run it **scoped**: hand it the
+Step 7's fix loop. If `diff-review` found `blocking` items, re-run it **scoped**: hand it the
 finding list and the diff of just your fixes, and ask it to verify those rather than review
 again from scratch.
 
 `diff-review`'s report carries **`User-visible: yes | no`**. That decides the next step. With
 `--code` or `--quick`, skip to Step 6 regardless and say so.
 
-## Step 5. browser-review
+## Step 5. The full suite, once
+
+```bash
+scripts/dev-stack.sh up && yarn e2e
+```
+
+The run's one full e2e pass on this side of the house: the double-check that the fix rounds
+did not break a test a targeted run cannot see. All green before the browser stage spawns.
+
+An `e2e` failure is a `blocking` finding you fix yourself, right here, as its own round
+under Step 7's commit rule. It is the cheapest signal that will ever catch it, so never skip
+this step to save wall-clock time.
+
+`dev-stack.sh up` is idempotent — it reuses a stack you already had running and reports
+whether the emulator is pristine or carrying whatever a previous session left in it. Say
+which in the final report.
+
+## Step 6. browser-review
 
 Only when `diff-review` said yes.
 
@@ -128,7 +146,7 @@ person in both locales, whether an empty state is honest, whether the density ov
 It has a 15-turn budget. If it comes back having spent that on something `e2e/` already
 covers, that is a bug in the agent file, not a finding — say so.
 
-## Step 6. The fix loop
+## Step 7. The fix loop
 
 Read the reports. Print one severity-ordered table: severity, source, finding, fix.
 
@@ -143,7 +161,9 @@ Read the reports. Print one severity-ordered table: severity, source, finding, f
 While not PASS and rounds used **< 2**:
 
 1. Dispatch the fixes as one unit. One writer at a time.
-2. Re-run the mechanical gates. All green.
+2. Re-run the cheap gates, plus targeted e2e for the claims the fixes touched — the setup
+   project, then `--no-deps --grep '\b(<claims>):'`, the shape `/continue-work`'s gates
+   section defines. All green.
 3. **Commit the round**, with a message naming the finding it closes. Not "review fixes" —
    the finding, so `git log` says which review caught what.
 4. **Re-run scoped, not whole.** Hand the agent the list of fixes and ask it to verify
@@ -160,7 +180,7 @@ green report is a claim, not a verdict.
 After two rounds without a PASS, **stop**. Print what is outstanding, say which rounds were
 spent, ask how to proceed. Do not keep grinding.
 
-## Step 7. Report, and tear down
+## Step 8. Report, and tear down
 
 State plainly: PASS or NOT PASS, rounds used, what was fixed, what was deferred and why,
 which ideas were filed, and whether the emulator was pristine. If no browser pass happened,

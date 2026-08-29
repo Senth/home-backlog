@@ -44,17 +44,29 @@ and it is the only thing you carry.
 
 ## The gates
 
-Five, in this order, from `.ai/config.toml`:
+The cheap four, in this order, from `.ai/config.toml`, after every green report:
 
 ```bash
 yarn lint --write && yarn invariants && yarn typecheck && yarn test
-scripts/dev-stack.sh up && yarn e2e
 ```
 
-`lint --write` fixes what it can and goes first, so everything after it sees formatted
-source. `dev-stack.sh up` is idempotent: it reuses a stack that is already running and says
-whether the emulator is pristine or carrying what a previous session left in it. Note which,
-and report it at the end.
+`e2e` is not a per-phase gate. A phase proves only its own claims:
+
+```bash
+scripts/dev-stack.sh up && yarn playwright test --project=setup
+yarn playwright test --no-deps --grep '\b(<claims>):'
+```
+
+for the claim numbers the phase owns, and no e2e at all when it owns none. `--no-deps` is
+what keeps the run targeted: `writes` depends on the four read-only projects, so a plain
+`--grep` run drags all 163 of them in behind one claim. The setup pass renews the signed-in
+browser state and clears leftover cards before the targeted run. The full `yarn e2e` runs
+twice in a run — inside the last implement phase's dispatch, and once more after review and
+its fixes, before browser-review and ship. Review's fix rounds re-run the targeted command
+for what they touched. `lint --write` fixes what it can and goes first, so everything after
+it sees formatted source. `dev-stack.sh up` is idempotent: it reuses a stack that is already
+running and says whether the emulator is pristine or carrying what a previous session left
+in it. Note which, and report it at the end.
 
 **You run these yourself after every green report.** A green report is a claim. This costs
 no tokens and one shell command each, and when your run disagrees with the report, the
@@ -129,16 +141,19 @@ writing it. That is why the reviewers are separate processes with no memory of t
 Free things first, then cheap, then expensive:
 
 ```
-lint --write → invariants → typecheck → test → e2e     (zero tokens; a shell command each)
+lint --write → invariants → typecheck → test           (zero tokens; a shell command each)
         ↓
 diff-review  ‖  ponytail-review                        (tokens; diff-review decides visible)
+        ↓
+e2e, the full suite, once                              (the double-check after the fix rounds)
         ↓
 browser-review                                         (most tokens; only if user-visible)
 ```
 
-**Every mechanical gate is green before any agent is dispatched.** A failure a gate catches
-is a round of agent review nobody had to pay for. An `e2e` failure is a `blocking` finding
-you fix right here, and it is the cheapest signal in the run.
+**Every cheap gate is green before any agent is dispatched.** A failure a gate catches is a
+round of agent review nobody had to pay for. The full e2e suite runs once, after the fix
+rounds and before browser-review: it is the double-check for what a targeted run cannot see,
+and a failure there is a `blocking` finding you fix right here.
 
 ### The two read-only reviews, in parallel
 
@@ -172,9 +187,9 @@ common, and acting on a false finding costs a round.
   `GIT_VANILLA=1 gh issue create --label idea`, then move each to the Idea column in the
   same step. The rest are dropped. Never file one without asking, and never file them all.
 
-Each round: dispatch the fixes as one unit, one writer at a time. Re-run the gates. **When
-they are green, commit the round with a message naming the finding it closes**, then
-checkpoint with `rounds` incremented.
+Each round: dispatch the fixes as one unit, one writer at a time. Re-run the cheap gates,
+plus targeted e2e for the claims the fixes touched. **When they are green, commit the round
+with a message naming the finding it closes**, then checkpoint with `rounds` incremented.
 
 > Review never hands over with a dirty tree, and it never reaches the ideas question with
 > one either. Fixes made, gates green, nothing committed, next session inherits a mess —
