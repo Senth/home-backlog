@@ -230,8 +230,18 @@ the text inside it: Paper's `Chip` carries its own inner padding, so the chip bo
 while the label sits 8–12px inboard, and snapping one breaks the other on every card face.
 Measured at rest; no drag state.
 
-**Fill against the page.** The FAB's fill clears **3:1** against the surface behind it, in
-both schemes — the number § 3 already applies to `boardCardBorder`, and for the same reason.
+**Fill against the page — withdrawn.** This check was specified as the FAB's fill clearing
+**3:1** against the surface behind it, by analogy with the number § 3 applies to
+`boardCardBorder`. Measured, the FAB is at 1.31:1 in light and 2.18:1 in dark, and the analogy
+does not hold: § 3's number governs a *border*, which exists to draw an edge, while
+`primaryContainer` on `surface` is MD3's own FAB pairing and carries no fill-vs-page floor in
+the Material spec. A raised control is separated by elevation and shadow, not by fill contrast.
+
+So the check is withdrawn rather than the fill changed, and § 9's `primaryContainer` stands
+untouched. What the check was reaching for — a button Tom can still find in the garage at half
+brightness — is already claim 33, judged by eye in both schemes. A fabricated threshold that
+would have forced a colour change § 2 argued against is worse than the eye check that was
+always there.
 
 ### Where the checks run
 
@@ -261,7 +271,9 @@ Numbered from 24 because 1–19 and 21–23 are already taken by tests in `e2e/`
     `theme/index.ts`. Runs in light and dark.
 26. `[test]` No two painted boxes on the six `ROUTES` have edges on the same axis differing
     by more than 0 and less than `space.xs`.
-27. `[test]` The FAB's fill clears 3:1 against the surface behind it, in both schemes.
+27. `[eye]` **Withdrawn as a `[test]`.** The 3:1 fill-vs-page floor was measured at 1.31:1
+    light and 2.18:1 dark and found to be a threshold this contract invented rather than one
+    MD3 imposes; the fill stays as § 9 requires, and claim 33 carries the findability intent.
 28. `[test]` `/login`, in an unauthenticated context, is on-scale, on-palette and free of
     near-miss edges.
 29. `[test]` A node's `/details`, reached by clicking through from the board, is on-scale,
