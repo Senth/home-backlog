@@ -80,7 +80,8 @@ For each phase, in order:
 2. **Dispatch.** The spec names a routing hint per phase:
 
    ```bash
-   oc-task implement ~/git/home-backlog .tmp/prompts/phase-<n>.md
+   oc-task implement ~/git/home-backlog .tmp/prompts/implementation-<n>.md \
+     --label <issue>/implementation-<n>
    ```
 
    Every phase goes to GLM, including the ones that change how a screen looks. A spec

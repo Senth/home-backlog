@@ -92,7 +92,7 @@ something else, and a test that fails with a different error is reproducing a di
 Phase 1 reports which it saw.
 
 **The visual exception.** A bug you can only see cannot be usefully asserted. Skip the test,
-capture a screenshot of the defect into `.tmp/review/shots/` as the repro, and verify by
+capture a screenshot of the defect into `.tmp/bugs/` as the repro, and verify by
 eye after the fix. Say in the report that this bug ships without a regression guard, and
 why. Do not stretch a geometry assertion around something that is really a judgement — if
 it *can* be measured, it belongs in `e2e/craft.spec.ts` and it is not this exception.

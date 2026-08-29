@@ -49,5 +49,6 @@ ship = "ship"
 
 [paths]
 specs = "docs/specs"
-reports = ".tmp/reports"
+dispatch = ".tmp/dispatch"
+prompts = ".tmp/prompts"
 checkpoint = ".tmp/continue-work.state.json"

@@ -3,7 +3,8 @@
 description: "Use before a Home Backlog spec is written, to put a planned feature or removal in front of the homeowner personas. Not for code review, bug triage, or judging a screen that already exists."
 role: plan
 mode: subagent
-model: opus
+model: openrouter/z-ai/glm-5.3-flash
+variant: max
 tools:
   edit: false
   list: false

@@ -144,8 +144,8 @@ test. Say what you did not reach and why.
 
 - **390x844 only**, unless the spec says a layout genuinely differs at desktop.
 - **Only the screens the diff changed.** Not a tour.
-- Screenshot each changed screen once, at 390px, into `.tmp/review/shots/`, and read it
-  back. You cannot judge a layout from an accessibility tree. One screenshot per screen
+- Screenshot each changed screen once, at 390px, into `shots/` in your work dir, and read
+  it back. You cannot judge a layout from an accessibility tree. One screenshot per screen
   per scheme, no more.
 - Use `snapshot` to find refs to act on, never to read the page.
 - Switch to `sv-SE` once and re-look at the same screens. You are reading the wording, not
@@ -170,9 +170,12 @@ fix.
 
 ## Output
 
-Write to `.tmp/review/browser-review.md`, then print it. No preamble.
+Write to `report.md` in your work dir — the one oc-task named when it dispatched you — then
+print it. No preamble. The first line is the status; `PASS` is `green`, `FAIL` is `red`.
 
 ```
+STATUS: green|red
+
 # browser-review
 
 **Verdict:** PASS | FAIL

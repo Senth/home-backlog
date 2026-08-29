@@ -119,9 +119,13 @@ sentence on what is wrong, one concrete line on the fix.
 
 ## Output
 
-Write to `.tmp/review/diff-review.md`, then print the same content. No preamble.
+Write to `report.md` in your work dir — the one oc-task named when it dispatched you — then
+print the same content. No preamble. The first line is the status; `PASS` is `green`, `FAIL`
+is `red`.
 
 ```
+STATUS: green|red|blocked
+
 # diff-review
 
 **Verdict:** PASS | FAIL
