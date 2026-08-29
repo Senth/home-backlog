@@ -103,6 +103,7 @@ size:
 icon: { sm: 16, md: 24 }
 border: { hairline: 1 }
 drag: { lift: 1.04, landing: 72, edgeZone: 36 }
+fab: { widthShare: 0.6 }
 touchTarget: 48
 outlinedTouchTarget: 50
 segmentedLabelLineHeight: 30
@@ -177,7 +178,9 @@ them.
 
 **Primary is brand and it marks the way forward, never a mood.** It is the FAB, the active
 tab, a link, the focus ring and the brand mark. It is never a background for a block of
-content, never a status, and never a card's identity.
+content, never a status, and never a card's identity. The FAB keeps `primaryContainer` in
+both schemes: what governs how loud it reads is the room it takes (§ 7), not its fill — a
+raised control is separated by elevation and shadow, not by fill contrast against the page.
 
 **Status is `warning` and `success`, and it is always carried with words.** This is the
 rule the app is most opinionated about, and `components/board/DueChip.tsx` is where it is
@@ -270,7 +273,11 @@ Three breakpoints, each earned by a real failure and none of them a device size:
   the controls take the room.
 
 Proximity: the gap between groups is visibly larger than the gap within one. In practice
-that is `space.md` inside a group and `space.lg` between.
+that is `space.md` inside a group and `space.lg` between — **per route**. `/overview` and a
+node's `/details` take the air: `space.lg` between their groups. A board column keeps
+`space.md` throughout, because its whole job is cards per screen and `space.lg` between
+every group of meta on a card is vertical pixels the column cannot spare. Neither half is
+a taste call.
 
 ## 6. Components
 
@@ -323,8 +330,14 @@ Consequences a reviewer can cite:
 - A breadcrumb trail is never truncated to nothing. It scrolls.
 - **One primary action per surface**, and it is the FAB. A second saturated block of brand
   colour on the same screen is a finding.
-- The FAB is a control, not the signature. If it is competing with the card titles for the
-  eye, the FAB is wrong, not the titles.
+- The FAB is a control, not the signature. Measured, it was never the colour that made it
+  dominate — `primaryContainer` on `surface` is a quiet fill — it was the width: at 200%
+  text it once spanned 91.8% of the screen. So the rule it earns is about room: **the FAB
+  keeps its colour by being the one primary action; what it must not take is space.** It
+  spans at most `fab.widthShare` (0.6) of the width it is laid out in, and below
+  `denseBreakpoint` the plus glyph yields so the label wraps and the words stay. A FAB that
+  breaks the cap, or one quieted to `surface` to solve with colour what is a footprint
+  problem, is a finding either way.
 
 ## 8. States
 
@@ -427,3 +440,21 @@ Append-only. Date, decision, rationale, and which surface prompted it.
   status, AA against its own text, and the title still louder than the colour. Recorded
   rather than guessed, so the spec that lands it is not arguing with a rule invented here.
   (from: interview)
+- **2026-08-29** — § 7's FAB rule is about room, not colour. The 3:1 fill-vs-page floor
+  proposed for the FAB was measured at 1.31:1 in light and 2.18:1 in dark and then
+  withdrawn: it was a threshold this contract invented, not one MD3 imposes —
+  `primaryContainer` on `surface` is MD3's own FAB pairing, and a raised control is
+  separated by elevation and shadow, not fill contrast. What made the FAB dominate was
+  width (91.8% of a 195px screen in Swedish at 200% text), so the rule caps the footprint
+  at `fab.widthShare` 0.6 and below `denseBreakpoint` the plus glyph yields so the label
+  wraps. The fill stays `primaryContainer` in both schemes. (from: /projects)
+- **2026-08-29** — Proximity is per route. `/overview` and a node's `/details` use
+  `space.lg` between groups and `space.md` within; a board column keeps `space.md`
+  throughout. A column's whole job is cards per screen, and its density is deliberate —
+  recorded so it is not re-argued as a finding on the next review. (from: /projects)
+- **2026-08-29** — `PAPER_INTERNALS` in `e2e/craft.spec.ts` is a closed, named list of
+  third-party internals that the on-scale spacing sweep exempts, carrying an `owner` column
+  that names the Paper component owning each value. The rule: an entry may name a Paper
+  internal and never one of our screens. Adding an entry when Paper grows a control is one
+  line; adding one to make our own change pass is the failure the table exists to prevent.
+  (from: e2e/craft.spec.ts)
