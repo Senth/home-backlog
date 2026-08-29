@@ -208,10 +208,13 @@ multiple of 4": `20px` and `36px` fail. Two carve-outs:
    | 13px | `List.Subheader` | Paper's subheader padding |
    | 12px | `#appbar-content` | `Appbar.Content`'s left margin |
    | 10px | `#button-text` | `Button`'s label margin |
+   | 6px | `[data-testid$="-content"]` parent | `List.Item`'s row margin |
+   | 9px | `#button-text` | `Button`'s label margin in text+icon mode |
+   | 14px | outlined input | `TextInput`'s outlined input padding |
 
    **An entry may only ever name a third-party component's internal.** An entry naming one
    of our own screens is the baseline this issue forbids, and review rejects it on sight.
-   The third column is what lets a reviewer tell the two apart. Adding a sixth entry when
+   The third column is what lets a reviewer tell the two apart. Adding a further entry when
    Paper grows a control is one line; adding one to make our own change pass is not allowed.
 
 **Off-palette colour.** The input is `lightTheme.colors` / `darkTheme.colors` from
@@ -265,7 +268,7 @@ Numbered from 24 because 1–19 and 21–23 are already taken by tests in `e2e/`
 10 matches on the number alone.
 
 24. `[test]` Every rendered element on the six `ROUTES` has computed `padding*`, `margin*`
-    and `*Gap` values that are a step in `space` by absolute value, except the five named
+    and `*Gap` values that are a step in `space` by absolute value, except the named
     Paper internals and values derived from a measured element.
 25. `[test]` Every colour painted on the six `ROUTES` is in the active scheme's palette from
     `theme/index.ts`. Runs in light and dark.
