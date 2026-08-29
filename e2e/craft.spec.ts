@@ -5,6 +5,7 @@ import {
 	gotoAndSettle,
 	ROUTES,
 	type Route,
+	stripDevToast,
 	VIEWPORTS,
 } from "@/e2e/support/app";
 import { PALETTE, type Scheme } from "@/e2e/support/theme";
@@ -171,7 +172,9 @@ const ON_SCALE: number[] = [
  * ships none:
  *
  * - `List.Subheader`'s padding is the only 13px vertical padding on a leaf
- *   text div at bodyMedium's 14px.
+ *   text div at bodyMedium's 14px. A signature is a hole, not a selector: an
+ *   app-authored 13px on a 14px text leaf would pass under it, and only an
+ *   eye on the screens will catch that.
  * - `List.Item`'s row margin sits on a div whose child is Paper's own
  *   `<testID>-content` box — `undefined-content` here, since the app passes
  *   no testID — and `:has(>` reaches the row through that child. Pairing the
@@ -231,14 +234,14 @@ const FAB_SELECTOR = '[data-testid="fab-container"]';
 /**
  * The off-scale spacing sweep (claim 24). Every computed `padding*`,
  * `margin*` and `*Gap` must be a step in `space` by absolute value, a token
- * value, a named Paper internal, or — the spec's "derived at runtime from a
- * measured element" carve-out — the height of a rendered FAB plus whole
- * `space` steps, which is the arithmetic the pane inset is made of.
+ * value, a named Paper internal, or the one value the spec's "derived at
+ * runtime from a measured element" carve-out covers: the board's pane inset,
+ * `measuredFABHeight + space.md * 2` (`Board.tsx`'s `fabBottom = space.md`
+ * plus one `space.md` of daylight), which the caller folds into `allowed`.
  */
 function spacingSweep(args: {
 	allowed: number[];
 	paper: { value: number; css: string | null }[];
-	fabHeights: number[];
 }): string[] {
 	const onScale = new Set(args.allowed);
 	const offenders = new Set<string>();
@@ -257,10 +260,6 @@ function spacingSweep(args: {
 				(element.textContent ?? "").trim() !== ""
 			);
 		});
-	const measuredExcuse = (value: number): boolean =>
-		args.fabHeights.some(
-			(height) => value > height && (value - height) % 4 === 0,
-		);
 
 	for (const element of Array.from(document.querySelectorAll("*"))) {
 		const style = window.getComputedStyle(element);
@@ -285,7 +284,6 @@ function spacingSweep(args: {
 			const value = Math.abs(Number.parseFloat(raw));
 			if (onScale.has(value)) continue;
 			if (paperExcuse(element, value)) continue;
-			if (measuredExcuse(value)) continue;
 			offenders.add(`${prop}: ${raw} on ${describe(element)}`);
 		}
 	}
@@ -370,15 +368,16 @@ function paletteSweep(args: { palette: string[] }): string[] {
  * whose edges on the same axis differ by more than 0 and less than
  * `space.xs`. Measured at rest; no drag state exists in these tests.
  *
- * An edge pair can only *read* as a near-miss when the two boxes overlap on
- * the axis perpendicular to the edges compared: side-by-side boxes whose top
- * edges miss each other, or stacked boxes whose left edges do. Two boxes
- * that share no band on that axis — a chip in one board column and another
- * column's card bottom, a row's meta chip and a FAB a screen away — were
- * never aligned by anybody, and their near-equal edges are arithmetic
- * coincidence, not a defect the eye could see. Phase 3 measured all four
- * findings the first run reported and every one was of that kind; the
- * perpendicular overlap is what tells them from the real thing.
+ * An edge pair can only *read* as a near-miss between boxes somebody laid
+ * out together, so a pair is compared only when the two boxes share a
+ * parent element — that is what keeps a chip in one board column from being
+ * judged against another column's card, or a row's meta chip against a FAB
+ * a screen away. Which axis is compared follows the boxes' own overlap:
+ * stacked boxes — x-ranges overlapping — should line up left/right; boxes
+ * side by side — y-ranges overlapping — should line up top/bottom. Two
+ * same-parent boxes sharing neither band on the axis compared were never
+ * aligned there by anybody, and their near-equal edges are arithmetic
+ * coincidence, not a defect the eye could see.
  */
 function alignmentSweep(args: { xs: number }): string[] {
 	const offenders = new Set<string>();
@@ -413,30 +412,31 @@ function alignmentSweep(args: { xs: number }): string[] {
 		return false;
 	};
 
-	const boxes: { rect: DOMRect; name: string }[] = [];
+	const boxes: { rect: DOMRect; name: string; element: Element }[] = [];
 	for (const element of Array.from(document.querySelectorAll("*"))) {
 		if (!painted(element)) continue;
 		const rect = element.getBoundingClientRect();
 		if (rect.width === 0 || rect.height === 0) continue;
-		boxes.push({ rect, name: describe(element) });
+		boxes.push({ rect, name: describe(element), element });
 	}
 
 	for (let i = 0; i < boxes.length; i++) {
 		for (let j = i + 1; j < boxes.length; j++) {
 			const a = boxes[i];
 			const b = boxes[j];
-			const overlapY = a.rect.top < b.rect.bottom && b.rect.top < a.rect.bottom;
+			if (a.element.parentElement !== b.element.parentElement) continue;
 			const overlapX = a.rect.left < b.rect.right && b.rect.left < a.rect.right;
+			const overlapY = a.rect.top < b.rect.bottom && b.rect.top < a.rect.bottom;
 			for (const edge of ["left", "right", "top", "bottom"] as const) {
+				// Vertical edges belong to stacked boxes, which overlap in x;
+				// horizontal edges belong to side-by-side boxes, which overlap
+				// in y. See the function's comment for why.
+				if (edge === "left" || edge === "right" ? !overlapX : !overlapY) {
+					continue;
+				}
 				const delta = Math.abs(a.rect[edge] - b.rect[edge]);
 				// Up to 0.02px is the same edge read twice with float noise.
 				if (delta > 0.02 && delta < args.xs) {
-					// Vertical edges (left/right) are read side by side, so the two
-					// boxes must share a band of y; horizontal edges must share a
-					// band of x. See the function's comment for why.
-					if (edge === "left" || edge === "right" ? !overlapY : !overlapX) {
-						continue;
-					}
 					offenders.add(
 						`${a.name} and ${b.name}: ${edge} edges differ by ${delta.toFixed(2)}px`,
 					);
@@ -456,11 +456,15 @@ async function craftFindings(
 	page: Parameters<typeof gotoAndSettle>[0],
 	scheme: Scheme,
 ): Promise<string[]> {
+	// `/details` is reached by a bare `page.goto`, which never passes through
+	// `gotoAndSettle`, so the dev toast is stripped here. See
+	// `e2e/support/app.ts` for why.
+	await stripDevToast(page);
+
 	return [
 		...(await page.evaluate(spacingSweep, {
 			allowed: ON_SCALE,
 			paper: PAPER_INTERNALS,
-			fabHeights: [],
 		})),
 		...(await page.evaluate(paletteSweep, { palette: PALETTE[scheme] })),
 		...(await page.evaluate(alignmentSweep, { xs: space.xs })),
@@ -646,9 +650,9 @@ for (const route of ROUTES) {
 	test(`24: ${route.path} only uses on-scale spacing`, async ({ page }) => {
 		await gotoAndSettle(page, route);
 
-		// The measured elements the pane inset is derived from: the FAB's own
-		// height, read the way `Board.tsx` and `overview.tsx` read it. Routes
-		// without a FAB carry none, and none of those render the inset.
+		// The measured element the pane inset is derived from: the FAB's own
+		// height, read the way `Board.tsx` reads it. Routes without a FAB
+		// carry none, and none of those render the inset.
 		const fabHeights = await page.evaluate((selector) => {
 			return Array.from(document.querySelectorAll(selector)).map(
 				(element) => element.getBoundingClientRect().height,
@@ -656,9 +660,11 @@ for (const route of ROUTES) {
 		}, FAB_SELECTOR);
 
 		const offenders = await page.evaluate(spacingSweep, {
-			allowed: ON_SCALE,
+			allowed: [
+				...ON_SCALE,
+				...fabHeights.map((height) => height + space.md * 2),
+			],
 			paper: PAPER_INTERNALS,
-			fabHeights,
 		});
 
 		expect(offenders, `off-scale spacing on ${route.path}`).toEqual([]);
