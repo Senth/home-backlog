@@ -98,22 +98,27 @@ never two writing processes against this working tree.
 2. **Dispatch.** `GLM` is the routing hint on almost every phase:
 
    ```bash
-   oc-task implement ~/git/home-backlog .tmp/prompts/phase-<n>.md \
-     --label <issue>-phase-<n>
+   oc-task implement ~/git/home-backlog .tmp/prompts/implementation-<n>.md \
+     --label <issue>/implementation-<n>
    ```
 
    **Run it in the background** and watch
-   `.tmp/dispatch/<issue>-phase-<n>/progress.log`. A phase here is fifteen to forty
-   minutes — `yarn e2e` alone is about twelve — so a foreground dispatch cannot finish
-   inside the Bash tool's ten-minute cap, and every attempt to run one has been killed
-   mid-flight. Give the user the log path when you announce the dispatch.
+   `.tmp/dispatch/<issue>/implementation-<n>/progress.log`. A phase here is fifteen to
+   forty minutes — `yarn e2e` alone is about twelve — so a foreground dispatch cannot
+   finish inside the Bash tool's ten-minute cap, and every attempt to run one has been
+   killed mid-flight. Give the user the log path when you announce the dispatch. That dir
+   is where everything the dispatch produces lands: the report, the composed prompt, the
+   stream. Never treat a report file that was already sitting there as this dispatch's —
+   oc-task wipes the dir at launch, so the only report that exists is the one the command
+   you just ran prints a path for.
 
    Every phase goes to GLM, including the ones that change how a screen looks, and so does
    every review stage below. A spec written before that was settled may still hint `Opus`
    on a phase; the hint is stale, and the phase is dispatched here like any other. Nothing
    this skill dispatches runs on Claude.
 
-3. **Re-run the gates yourself.** Red or blocked → the escalation ladder in `glm-dispatch`.
+3. **Re-run the gates yourself.** Red or blocked → the escalation ladder in `glm-dispatch`,
+   `--round <n>` from the second round on.
 
    `yarn invariants` rule 10 is the exception, and it has already cost a session. It wants
    an `e2e` test literally named `test("NN: …")` for every Acceptance claim tagged
@@ -126,7 +131,9 @@ never two writing processes against this working tree.
 4. **Confirm the commit.** The stage commits its own phase. Check the tree is clean and HEAD
    moved. A phase that is not committed is not done, whatever the report says.
 
-5. **Checkpoint**, then report the phase in one line and move on.
+5. **Checkpoint**, then report the phase in one line and move on. A phase boundary is not a
+   stop. Announce, checkpoint, dispatch the next phase. Never pause to ask whether to
+   continue; the stop rules in the global skill are the only stops there are.
 
 A phase that builds a screen owns its `e2e/` tests in the same phase. The spec's `[test]`
 acceptance claims become real specs whose titles start with the claim's number —
@@ -161,9 +168,9 @@ They touch nothing, so they run together:
 
 ```bash
 oc-task diff-review ~/git/home-backlog .tmp/prompts/diff-review.md \
-  --label <issue>-diff-review &
+  --label <issue>/review-diff &
 oc-task review      ~/git/home-backlog .tmp/prompts/ponytail-review.md \
-  --label <issue>-ponytail-review &
+  --label <issue>/review-ponytail &
 wait
 ```
 
@@ -187,7 +194,8 @@ common, and acting on a false finding costs a round.
   `GIT_VANILLA=1 gh issue create --label idea`, then move each to the Idea column in the
   same step. The rest are dropped. Never file one without asking, and never file them all.
 
-Each round: dispatch the fixes as one unit, one writer at a time. Re-run the cheap gates,
+Each round: dispatch the fixes as one unit, one writer at a time, with
+`--label <issue>/review-fix-<round>` and `--round <round>`. Re-run the cheap gates,
 plus targeted e2e for the claims the fixes touched. **When they are green, commit the round
 with a message naming the finding it closes**, then checkpoint with `rounds` incremented.
 
@@ -211,7 +219,7 @@ It is the expensive stage, and a browser pass on a change nobody can see is pure
 ```bash
 scripts/dev-stack.sh up          # prints the web URL; today that is http://localhost:8081
 oc-task browser-review ~/git/home-backlog .tmp/prompts/browser-review.md \
-  --label <issue>-browser-review
+  --label <issue>/browser-review
 ```
 
 Take the URL from what `up` prints, never from memory — `dev-stack.sh status` lists the

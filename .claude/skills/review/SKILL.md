@@ -91,8 +91,8 @@ the targeted run; paying for the whole suite before anyone has read the diff buy
 ## Step 4. diff-review and ponytail-review, in parallel
 
 ```bash
-oc-task diff-review ~/git/home-backlog .tmp/prompts/diff-review.md &
-oc-task review      ~/git/home-backlog .tmp/prompts/ponytail-review.md &
+oc-task diff-review ~/git/home-backlog .tmp/prompts/diff-review.md --label <issue>/review-diff &
+oc-task review      ~/git/home-backlog .tmp/prompts/ponytail-review.md --label <issue>/review-ponytail &
 wait
 ```
 
@@ -101,10 +101,11 @@ The `review` agent gets the diff and one instruction: run the `ponytail-review` 
 it and report only over-engineering. Never hand either one your own account of what you built
 or why it is correct — that sentence is what turns a reviewer into a rubber stamp.
 
-Read `.tmp/review/diff-review.md` and the `review` agent's report. Take the findings into
-Step 7's fix loop. If `diff-review` found `blocking` items, re-run it **scoped**: hand it the
-finding list and the diff of just your fixes, and ask it to verify those rather than review
-again from scratch.
+Read the report body each command prints. It lands at `report.md` in the dispatch's work
+dir under `.tmp/dispatch/<issue>/<stage-run>/`, and it is the only report that exists,
+because oc-task wipes the dir at launch. Take the findings into Step 7's fix loop. If
+`diff-review` found `blocking` items, re-run it **scoped**: hand it the finding list and the
+diff of just your fixes, and ask it to verify those rather than review again from scratch.
 
 `diff-review`'s report carries **`User-visible: yes | no`**. That decides the next step. With
 `--code` or `--quick`, skip to Step 7 regardless and say so.
@@ -132,7 +133,7 @@ Only when `diff-review` said yes.
 
 ```bash
 scripts/dev-stack.sh up          # prints the web URL; today that is http://localhost:8081
-oc-task browser-review ~/git/home-backlog .tmp/prompts/browser-review.md
+oc-task browser-review ~/git/home-backlog .tmp/prompts/browser-review.md --label <issue>/browser-review
 ```
 
 Take the URL from what `up` prints, never from memory — `dev-stack.sh status` lists the ports
@@ -160,7 +161,8 @@ Read the reports. Print one severity-ordered table: severity, source, finding, f
 
 While not PASS and rounds used **< 2**:
 
-1. Dispatch the fixes as one unit. One writer at a time.
+1. Dispatch the fixes as one unit, `--label <issue>/review-fix-<round>` and
+   `--round <round>`. One writer at a time.
 2. Re-run the cheap gates, plus targeted e2e for the claims the fixes touched — the setup
    project, then `--no-deps --grep '\b(<claims>):'`, the shape `/continue-work`'s gates
    section defines. All green.
@@ -194,8 +196,8 @@ playwright-cli -s=review close
 
 Only if you started the stack. `down` stops what it started and leaves anything else alone.
 
-Reports and screenshots stay in `.tmp/review/`. Gitignored, never committed, nothing posted
-to GitHub.
+Reports and screenshots stay in the dispatch work dirs under `.tmp/dispatch/`. Gitignored,
+never committed, nothing posted to GitHub.
 
 On a PASS, tell the user to run **`/ship`**, or **`/continue-work`** to pick the arc back
 up. Do not fold the spec, open a PR or merge from here.
