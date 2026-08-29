@@ -36,8 +36,10 @@ import { useAppTheme } from "@/theme";
 import {
 	compactBreakpoint,
 	contentWidth,
+	denseBreakpoint,
 	drag as dragTokens,
 	elevation,
+	fab as fabTokens,
 	radius,
 	space,
 	touchTarget,
@@ -473,10 +475,26 @@ export function Board({
 
 			{/* One FAB below the breakpoint, naming its destination in words. The
 			    column it adds to is the one on screen, so "Add to To do" is a
-			    promise the board can keep. */}
+			    promise the board can keep.
+
+			    Two caps on its footprint, both so the button never becomes the
+			    biggest thing on the screen:
+
+			    - `maxWidth` is a share of the board the FAB floats over. Wide
+			      enough to be a no-op at a phone's full width; at 200% text, where
+			      the window is 195px and the Swedish label once claimed 91.8% of
+			      it, the label wraps instead and the words stay.
+			    - Below `denseBreakpoint` the plus glyph gives way to those words:
+			      with the icon kept, a wrapped Swedish label would need three
+			      lines and overflow the button's own box. The glyph is the part
+			      the claim can afford to lose — the words are the affordance.
+
+			    The height does not change, so the measured inset below keeps its
+			    arithmetic — a taller box here would be a second, silent change to
+			    the pane's bottom padding. */}
 			{compact && onScreen !== undefined ? (
 				<FAB
-					icon="plus"
+					icon={boardWidth < denseBreakpoint ? undefined : "plus"}
 					label={t("board.addTo", { column: t(`status.${onScreen}`) })}
 					onPress={() => setAdding(onScreen)}
 					// What the pane above pads its bottom by. The label is a
@@ -491,6 +509,7 @@ export function Board({
 						// somebody did not mean to move — and a FAB parked on top of it
 						// is the one control that must never be covered.
 						bottom: fabBottom,
+						maxWidth: boardWidth * fabTokens.widthShare,
 					}}
 				/>
 			) : null}

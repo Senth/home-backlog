@@ -114,6 +114,18 @@ export const drag = {
 } as const;
 
 /**
+ * The FAB's footprint. The one primary action per surface earns its colour,
+ * and what it must not take is room: at 200% text a full-label FAB once
+ * spanned 91.8% of a 195px window — essentially the whole screen. Capped at
+ * this share of the width it is laid out in, the label wraps and the words
+ * stay. Measured against the *viewport* the claim names, and applied through
+ * the box the FAB actually sits in.
+ */
+export const fab = {
+	widthShare: 0.6,
+} as const;
+
+/**
  * Icon sizes. Paper's `Icon` and `@expo/vector-icons` both take a plain number
  * for `size`, which is exactly the literal this file exists to keep out of
  * components. `md` is Material's standard 24dp; `sm` sits with label text.

@@ -1,8 +1,14 @@
 import "@/i18n";
 
+import {
+	DarkTheme,
+	DefaultTheme,
+	ThemeProvider,
+} from "@react-navigation/native";
 import { Slot } from "expo-router";
 import Head from "expo-router/head";
 import { StatusBar } from "expo-status-bar";
+import { type ReactNode, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -13,7 +19,7 @@ import { SplashScreen } from "@/components/ui/SplashScreen";
 import { UpdateBanner } from "@/components/ui/UpdateBanner";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { darkTheme, lightTheme } from "@/theme";
+import { darkTheme, lightTheme, useAppTheme } from "@/theme";
 
 function AuthGate() {
 	const { loading } = useAuth();
@@ -34,6 +40,36 @@ function AuthGate() {
 			<UpdateBanner />
 		</View>
 	);
+}
+
+/**
+ * The theme the *navigators* read. Without it every Stack and Tabs falls back
+ * to react-navigation's `DefaultTheme`, which paints `rgb(242, 242, 242)` as
+ * the full-screen background of every route and `rgb(216, 216, 216)` as the
+ * desktop tab bar's top border — colours that belong to no palette this app
+ * has. The mapping is Paper role → navigation role, so the navigator paints
+ * the same surfaces the screens under it do.
+ */
+function NavigationTheme({ children }: { children: ReactNode }) {
+	const theme = useAppTheme();
+
+	const navigationTheme = useMemo(
+		() => ({
+			...(theme.dark ? DarkTheme : DefaultTheme),
+			colors: {
+				...(theme.dark ? DarkTheme : DefaultTheme).colors,
+				primary: theme.colors.primary,
+				background: theme.colors.background,
+				card: theme.colors.surface,
+				text: theme.colors.onSurface,
+				border: theme.colors.outlineVariant,
+				notification: theme.colors.error,
+			},
+		}),
+		[theme],
+	);
+
+	return <ThemeProvider value={navigationTheme}>{children}</ThemeProvider>;
 }
 
 export default function RootLayout() {
@@ -61,10 +97,12 @@ export default function RootLayout() {
 				// the control's own label as the only thing announced.
 				settings={{ icon: PaperIcon }}
 			>
-				<AuthProvider>
-					<AuthGate />
-					<StatusBar style="auto" />
-				</AuthProvider>
+				<NavigationTheme>
+					<AuthProvider>
+						<AuthGate />
+						<StatusBar style="auto" />
+					</AuthProvider>
+				</NavigationTheme>
 			</PaperProvider>
 		</GestureHandlerRootView>
 	);

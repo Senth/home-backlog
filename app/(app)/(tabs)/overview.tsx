@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, View } from "react-native";
+import { ScrollView, useWindowDimensions, View } from "react-native";
 import {
 	ActivityIndicator,
 	Appbar,
@@ -25,7 +25,12 @@ import { dueState } from "@/models/due-date";
 import { hasSteps, type Node, rankAtEnd } from "@/models/node";
 import { rowsPerSection } from "@/models/overview";
 import { useAppTheme } from "@/theme";
-import { space, touchTarget } from "@/theme/tokens";
+import {
+	denseBreakpoint,
+	fab as fabTokens,
+	space,
+	touchTarget,
+} from "@/theme/tokens";
 
 /**
  * What is going on, without opening a board: the projects in progress, what is
@@ -45,6 +50,7 @@ export default function Overview() {
 	const router = useRouter();
 	const { user } = useAuth();
 	const { activeHome } = useHome();
+	const { width } = useWindowDimensions();
 
 	const homeId = activeHome?.id ?? null;
 	const { ongoing, due, done, roots } = useOverview(homeId);
@@ -121,7 +127,16 @@ export default function Overview() {
 				<AccountMenu />
 			</Appbar.Header>
 
-			<ScrollView contentContainerStyle={{ paddingBottom: fabInset }}>
+			{/* Per-route proximity: this screen gets the air. `space.lg` between
+			    the groups — the install offer and the three sections — so Overview
+			    reads as sections rather than one block; a board column keeps its
+			    own density and gets no such gap. */}
+			<ScrollView
+				contentContainerStyle={{
+					paddingBottom: fabInset,
+					gap: space.lg,
+				}}
+			>
 				{/* The install offer belongs on whatever the app opens on, and that is
 				    now this screen — behind a tab tap it is never seen by the member
 				    who never opens Projects. Inside the scroller rather than pinned
@@ -184,12 +199,21 @@ export default function Overview() {
 				)}
 			</ScrollView>
 
+			{/* The same two footprint caps the board's FAB carries — a share of the
+			    width it floats over, and the words over the glyph below
+			    `denseBreakpoint` — so the claim about the FAB's room holds on the
+			    screen Ingrid opens, not only on the board. */}
 			<FAB
-				icon="plus"
+				icon={width < denseBreakpoint ? undefined : "plus"}
 				label={t("overview.add")}
 				onPress={() => setAdding(true)}
 				onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
-				style={{ position: "absolute", right: space.md, bottom: space.md }}
+				style={{
+					position: "absolute",
+					right: space.md,
+					bottom: space.md,
+					maxWidth: width * fabTokens.widthShare,
+				}}
 			/>
 
 			<TitleDialog
