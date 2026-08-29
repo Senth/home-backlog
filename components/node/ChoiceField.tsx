@@ -27,7 +27,10 @@ interface ChoiceFieldProps<T extends string> {
  * text can read, and an ellipsis is worse than either.
  *
  * Chips wrap instead of shrinking, so every label stays whole at every width and
- * text size, and the row simply gets taller.
+ * text size, and the row simply gets taller. Each chip also grows to share its
+ * line out, so every line runs flush to the field's edge — a chip left
+ * content-sized on a part-full line can land its right edge a pixel or two
+ * from the line below's, which reads as a ragged column edge (claim 26).
  *
  * **Tapping the selected value clears it.** Neither field has a "none" chip,
  * because a chip that means "not set" is indistinguishable from the absence of a
@@ -79,7 +82,10 @@ export function ChoiceField<T extends string>({
 							// style lands on the outer surface and the pressable inside
 							// stretches to fill it — minus the chip's own border, which is
 							// why this is `outlinedTouchTarget` and not `touchTarget`.
-							style={{ minHeight: outlinedTouchTarget }}
+							style={{
+								minHeight: outlinedTouchTarget,
+								flexGrow: 1,
+							}}
 						>
 							{labelFor(candidate)}
 						</Chip>

@@ -1090,6 +1090,21 @@ two *text* colours and survives any fill change, so `onCardMuted` closes it dire
 about 2× dimmer than the title in dark and 3× in light, with half a stop of headroom over
 the 4.5:1 floor `e2e/craft.spec.ts` enforces.
 
+**The column strip has two weights, and only one of them is loud.** The strip is on screen
+the whole time a phone-width board is, so whatever marks the current column competes with
+the card titles for every second nobody is dragging.
+
+- **At rest the selected chip is quiet:** outlined, with `primary` on its border and its
+  label, and no fill — the same primary-as-active role the tab bar already uses. It reads
+  as *where you are*, which is chrome, and it loses to a card title on purpose.
+- **Mid-drag the marked chip is filled**, `primary` behind `onPrimary`, inverted rather
+  than merely tinted. It is transient, it appears only while a card is in the air, and
+  below `compactBreakpoint` it is the only drop affordance there is — so it is allowed to
+  be the loudest thing on the screen for exactly as long as the gesture lasts.
+
+That split is why the resting chip could be quietened without touching the drop marker:
+they were one visual treatment doing two jobs, and only the always-on one was too loud.
+
 *Rejected:* colour-coding cards by priority or lateness. See [the card](#the-card) — on a
 curated board that renders one member's judgement of another member's Saturday as an
 alarm.
@@ -1261,9 +1276,28 @@ exactly as long as the undo is on screen. Its offset is therefore the first term
 inset rather than a number. `space.xxl` survives only as the value for the single frame
 before the FAB has laid itself out.
 
+**The FAB is capped at a share of the width it floats over, and the words win the cap.**
+The one primary action per surface earns its colour; what it must not take is room. A
+full-label FAB once spanned 91.8% of a 195px window — a 390px phone at 200% text, in
+Swedish — which is a screen where the control is the biggest thing on it. Two caps hold
+it, both read from `fab.widthShare` in `theme/tokens.ts`:
+
+- **`maxWidth` is `fab.widthShare` (0.6) of the board the FAB floats over.** Wide enough
+  to be a no-op at a phone's full width; at 195px the label wraps instead and the button
+  grows taller rather than wider.
+- **Below `denseBreakpoint` the plus glyph gives way to the label.** With the icon kept, a
+  wrapped Swedish label needs three lines and overflows the button's own box. The glyph is
+  the part that can be spared — the words are the affordance.
+
+The height is deliberately unchanged by all of this, so the measured inset above keeps its
+arithmetic; a taller resting box here would be a second, silent change to the pane's
+bottom padding.
+
 *Rejected:* an icon-only or collapse-on-scroll FAB as the overlap fix. The button names
 its destination in words on purpose, and hiding the label exactly when the column is full
-inverts that.
+inverts that. The width cap above is the opposite trade and does not reopen this one: it
+drops the *glyph* and keeps the words, and it is driven by the width the button claims
+rather than by how far the column has scrolled.
 
 A board whose own node has not arrived yet renders no board at all. `parent` is what
 `createNode` receives, and a null parent is not "this board" but the root, so a card
@@ -1656,7 +1690,8 @@ Kept because each one is the kind of thing the next person reintroduces:
   entries and two focus-trap subscriptions per card, on a Done column that grows without
   bound. They mount only while open, which is what Paper's own `Menu` does.
 - **Paper's `Chip` `selected` tint alone is not a mark.** On a strip of eight it is a
-  slightly different shade of the same green; filled against outlined is legible.
+  slightly different shade of the same green. The strip carries its own weights instead,
+  and they are described under [the board's surfaces](#the-boards-surfaces).
 - **A Paper `Chip` with no `onPress` is a *disabled* pressable.** It renders through
   `TouchableRipple`, which computes `disabled = disabledProp || !hasPassedTouchHandler`, so
   React Native Web writes `aria-disabled="true"` on it. A screen reader announced the
@@ -1807,6 +1842,12 @@ clipped "Brådskande" to "Bråds…". That defeats the reason the values are wor
 `PROJECT.md` chose "an evening" over "< 2 h" because a math symbol is not what a
 71-year-old at 200% text can read, and an ellipsis is worse than either. Chips wrap instead
 of shrinking, so every label stays whole and the row gets taller.
+
+**Each chip grows to share out its own line**, so every line of a wrapped row runs flush to
+the field's edge. Left content-sized, a chip on a part-full line lands its right edge a
+pixel or two from the edge of the line below — close enough to read as a ragged column that
+was meant to be straight, and far enough to be nobody's intent. `e2e/craft.spec.ts` catches
+exactly that as a near-miss.
 
 Neither field has a *None* value. Tapping the selected chip clears it, because a chip
 meaning "not set" is indistinguishable from no selection, and a value that cannot be

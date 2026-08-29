@@ -264,6 +264,21 @@ The board adds four named colours of its own on top of this ramp — a recessed 
 raised card, the card's border and the muted step count. They are the board's own surfaces
 and [`boards-and-nodes`](boards-and-nodes.md#the-boards-surfaces) records why they exist.
 
+### The navigators are themed too, or they paint their own grey
+
+Paper's theme reaches every Paper component, but not the navigators. A `Stack` or `Tabs`
+left alone reads react-navigation's own `DefaultTheme`, which paints `rgb(242,242,242)` as
+the full-screen background behind every route and `rgb(216,216,216)` as the desktop tab
+bar's top border. Neither belongs to any palette here, and both sit underneath screens
+that are painting the real one — so the wrong grey shows exactly where a screen does not
+cover its own background.
+
+So the root layout wraps the app in react-navigation's `ThemeProvider` and maps Paper's
+roles onto navigation's, in both schemes: `primary` to `primary`, `background` to
+`background`, `surface` to `card`, `onSurface` to `text`, `outlineVariant` to `border`
+and `error` to `notification`. All six of navigation's roles are assigned, because a role
+left out falls back to the same stock grey the mapping exists to remove.
+
 ## The keyboard focus ring
 
 One CSS rule, app-wide, in `theme/focus-visible.ts` and injected by `app/+html.tsx` the

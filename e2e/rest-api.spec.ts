@@ -37,8 +37,11 @@ test.afterEach(async () => {
 
 /**
  * Mints a real API key through the Automations screen, runs `use` with it,
- * then revokes it — so a crashed run leaves nothing behind but a card, which
- * `afterEach` already sweeps.
+ * then revokes it. The mint lives inside the `try`, so a key minted but never
+ * surfaced (the secret dialog failing to render, say) is still revoked in the
+ * `finally`. What a crashed run can still leave behind is a key — `afterEach`
+ * sweeps only the cards — which is why every mint also gets a unique name: a
+ * leaked key can never collide with a later mint's revoke locator.
  */
 async function withApiKey<T>(
 	page: Page,
@@ -47,23 +50,33 @@ async function withApiKey<T>(
 	await page.goto("/automations");
 	await page.waitForLoadState("networkidle");
 
-	await page.getByRole("button", { name: "New API key" }).click();
-	await page.getByRole("textbox").fill(KEY_NAME);
-	await page.getByRole("button", { name: "Create", exact: true }).click();
-
-	// The secret `Text` carries the token as its own accessible name's target,
-	// not a form control `getByLabel` would find — see `automations.tsx`.
-	const secret = page.locator('[aria-label="Copy the key now"]');
-	await expect(secret).toBeVisible();
-	const token = (await secret.textContent())?.trim();
-	if (!token) throw new Error("no token rendered in the secret dialog");
-	await page.getByRole("button", { name: "Done" }).click();
+	// Two keys can never share a name, so every mint gets a unique one;
+	// `Date.now()` also keeps parallel workers and CI retries apart.
+	const keyName = `${KEY_NAME} ${Date.now()}`;
+	let minted = false;
 
 	try {
+		await page.getByRole("button", { name: "New API key" }).click();
+		await page.getByRole("textbox").fill(keyName);
+		await page.getByRole("button", { name: "Create", exact: true }).click();
+		minted = true;
+
+		// The secret `Text` carries the token as its own accessible name's target,
+		// not a form control `getByLabel` would find — see `automations.tsx`.
+		const secret = page.locator('[aria-label="Copy the key now"]');
+		await expect(secret).toBeVisible();
+		const token = (await secret.textContent())?.trim();
+		if (!token) throw new Error("no token rendered in the secret dialog");
+		await page.getByRole("button", { name: "Done" }).click();
+
 		return await use(token);
 	} finally {
-		await page.getByRole("button", { name: `Revoke ${KEY_NAME}` }).click();
-		await page.getByRole("button", { name: "Revoke", exact: true }).click();
+		// Only a mint that got as far as `Create` can have produced a key; before
+		// that there is nothing to revoke and revoking would hang on a locator.
+		if (minted) {
+			await page.getByRole("button", { name: `Revoke ${keyName}` }).click();
+			await page.getByRole("button", { name: "Revoke", exact: true }).click();
+		}
 	}
 }
 
@@ -231,4 +244,40 @@ test("22: POST /nodes:bulk gives its new root every member, and refuses particip
 		const belowBody = (await below.json()) as { error: { code: string } };
 		expect(belowBody.error.code).toBe("participants_immutable");
 	});
+});
+
+test("32: two sequential mints never share a name, and both are revoked with no key left behind", async ({
+	page,
+}) => {
+	const names: string[] = [];
+
+	// A key's row exists only while the key does, so the single revoke button
+	// carrying the `KEY_NAME` prefix mid-mint is this mint's — its accessible
+	// name records the name the helper actually gave the key.
+	const mintedName = async (): Promise<string> => {
+		const revoke = page.getByRole("button", {
+			name: new RegExp(`^Revoke ${KEY_NAME} `),
+		});
+		await expect(revoke).toHaveCount(1);
+		const label = await revoke.getAttribute("aria-label");
+		if (!label) throw new Error("no aria-label on the revoke button");
+		return label;
+	};
+
+	await withApiKey(page, async () => {
+		names.push(await mintedName());
+	});
+	await withApiKey(page, async () => {
+		// The first key is already gone here: were it not, this count would be
+		// 2 and the helper's own exact-name revoke would refuse to click.
+		names.push(await mintedName());
+	});
+
+	expect(names[1]).not.toBe(names[0]);
+	await expect(
+		page.getByRole("button", { name: `Revoke ${names[0]}` }),
+	).toHaveCount(0);
+	await expect(
+		page.getByRole("button", { name: `Revoke ${names[1]}` }),
+	).toHaveCount(0);
 });

@@ -82,10 +82,12 @@ export function ColumnStrip({
 						collapsable={false}
 					>
 						<Chip
-							// Filled against outlined, not Paper's selected tint alone: on a
-							// strip of eight, a slightly different shade of the same green is
-							// not a mark anyone can find while swiping.
-							mode={index === current || marked ? "flat" : "outlined"}
+							// The resting selected chip is *quiet*: outlined, with the
+							// brand colour on its border and its words only — the same
+							// primary-as-active-tab role the tab bar uses. It is always
+							// on screen, and a filled chip here competed with the card
+							// titles for the eye whenever nobody was dragging.
+							mode={marked ? "flat" : "outlined"}
 							selected={index === current || marked}
 							showSelectedCheck={false}
 							// "This is where the card would land" is inverted rather than
@@ -103,8 +105,17 @@ export function ColumnStrip({
 									minHeight: outlinedTouchTarget,
 									justifyContent: "center",
 								},
-								marked ? { backgroundColor: theme.colors.primary } : null,
+								marked
+									? { backgroundColor: theme.colors.primary }
+									: index === current
+										? { borderColor: theme.colors.primary }
+										: null,
 							]}
+							textStyle={
+								marked || index !== current
+									? undefined
+									: { color: theme.colors.primary }
+							}
 							selectedColor={marked ? theme.colors.onPrimary : undefined}
 							onPress={() => onSelect(index)}
 							accessibilityLabel={spoken}

@@ -16,6 +16,7 @@ import {
 import enUS from "@/i18n/locales/en-US.json";
 import { soonInDays, toCalendarDay } from "@/models/due-date";
 import { doneWithinDays } from "@/models/overview";
+import { touchTarget } from "@/theme/tokens";
 
 /**
  * `#54`'s claims 1–12 and 17 — Overview's own behaviour, over Ongoing projects,
@@ -390,6 +391,27 @@ test("11: a home with no nodes shows the first-run line, and no section headings
 	await expect(page.getByText(enUS.overview.ongoing.title)).toHaveCount(0);
 	await expect(page.getByText(enUS.overview.due.title)).toHaveCount(0);
 	await expect(page.getByText(enUS.overview.done.title)).toHaveCount(0);
+
+	await deleteThrowawayHome(page, homeName);
+});
+
+test("30: on a home with no nodes the first-run line still points at a FAB of at least touchTarget", async ({
+	page,
+}) => {
+	// The empty state's sentence is prose pointing at a control. If the FAB
+	// ever shrank, wrapped away, or stopped rendering on the one screen a new
+	// household meets first, the sentence would point at nothing — so the box
+	// it points at is measured alongside the line itself.
+	const homeName = `${PREFIX}claim 30 throwaway ${Date.now()}`;
+	await createThrowawayHome(page, homeName);
+
+	await expect(page.getByText(enUS.overview.empty)).toBeVisible({
+		timeout: 30_000,
+	});
+	const fab = await page.locator('[data-testid="fab-container"]').boundingBox();
+	expect(fab, "the FAB the first-run line points at").not.toBeNull();
+	expect(fab?.width ?? 0).toBeGreaterThanOrEqual(touchTarget);
+	expect(fab?.height ?? 0).toBeGreaterThanOrEqual(touchTarget);
 
 	await deleteThrowawayHome(page, homeName);
 });
