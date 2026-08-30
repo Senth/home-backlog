@@ -4,11 +4,12 @@ import { View } from "react-native";
 import { Card, Icon, Text } from "react-native-paper";
 import { DueChip } from "@/components/board/DueChip";
 import { MetaChip } from "@/components/board/MetaChip";
+import { useWaitingMark } from "@/components/board/waiting-mark";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useHome } from "@/contexts/HomeContext";
 import { formatList } from "@/i18n/format-list";
 import { dueState } from "@/models/due-date";
-import { hasSteps, type Node, unresolvedBlockers } from "@/models/node";
+import { hasSteps, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { icon, size, space, touchTarget } from "@/theme/tokens";
 
@@ -117,11 +118,13 @@ export function BoardCard({
 	const showDue = node.dueDate !== null && (due === "late" || due === "soon");
 	const isPrivate = node.visibility === "private";
 
-	// Waiting is the *unresolved* blockers, never the stored list: a done
-	// blocker stops holding this card without being removed, and a card in
-	// Done never marks, whatever its list holds.
-	const waiting = unresolvedBlockers(node, blockers);
-	const isWaiting = node.status !== "done" && waiting.length > 0;
+	// Waiting is the *unresolved* blockers, never the stored list — the shared
+	// `useWaitingMark` derivation, so the face and Overview cannot disagree.
+	const {
+		isWaiting,
+		label: waitingLabel,
+		a11yLabel,
+	} = useWaitingMark(node, blockers);
 
 	// A member who has left the home has no profile left, and is still assigned:
 	// the row says *Someone* rather than dropping them, the same way the members
@@ -248,13 +251,9 @@ export function BoardCard({
 							<Text
 								variant="labelMedium"
 								style={{ color: theme.colors.warning }}
-								accessibilityLabel={t("board.waitingLabel", {
-									count: waiting.length,
-								})}
+								accessibilityLabel={a11yLabel}
 							>
-								{waiting.length > 1
-									? `${t("board.blocked")} · ${waiting.length}`
-									: t("board.blocked")}
+								{waitingLabel}
 							</Text>
 						</View>
 					) : null}

@@ -7,9 +7,12 @@ import type { Node } from "@/models/node";
  *
  * The breadcrumb precedent: deliberately *n* single reads, never
  * `documentId() 'in' <ids>` — one unreadable blocker must not erase every
- * row, and a `null` answer renders the gone row rather than nothing. Reading
- * on focus is what makes a reopened blocker re-block on return, and what lets
- * a just-picked one appear without any listener of its own.
+ * row, and a `null` answer renders the gone row rather than nothing. An
+ * offline read answers `undefined` — *unanswered*, not gone — and is kept
+ * out of the map, so its row holds the not-yet state the way a not-yet-read
+ * one does. Reading on focus is what makes a reopened blocker re-block on
+ * return, and what lets a just-picked one appear without any listener of
+ * its own.
  */
 export function useBlockerReads(
 	homeId: string | null,
@@ -37,7 +40,16 @@ export function useBlockerReads(
 		)
 			.then((pairs) => {
 				if (cancelled) return;
-				setBlockers(new Map(pairs));
+				// `undefined` is a read that never happened — offline — so it
+				// stays unanswered instead of masquerading as a gone row.
+				setBlockers(
+					new Map(
+						pairs.filter(
+							(pair): pair is readonly [string, Node | null] =>
+								pair[1] !== undefined,
+						),
+					),
+				);
 			})
 			.catch((reason) => {
 				console.error("Could not read the blockers:", reason);

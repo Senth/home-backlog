@@ -363,6 +363,8 @@ today and renders nowhere, and an agent that populates it deserves to know that 
 does. `blockedBy` ([#66](https://github.com/Senth/home-backlog/issues/66)) renders in the
 app as *Waiting*: the app derives the state from the blockers' statuses. Nothing
 auto-clears it — a done blocker stops holding cards, and reopening one re-blocks them.
+Writing a private node's id into a shared card's list leaves the other members a row they
+cannot read and can remove.
 
 ### The contract is a skill, and a vendored copy is the normal case
 

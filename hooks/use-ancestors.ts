@@ -122,7 +122,9 @@ async function memoized(
 	const remembered = cache.get(key);
 	if (remembered) return remembered;
 
-	const node = await getNode(homeId, nodeId);
+	// `undefined` — a read the network could not make — reads as the same
+	// neutral crumb a refusal does; only a node that was read is remembered.
+	const node = (await getNode(homeId, nodeId)) ?? null;
 	if (node) cache.set(key, node);
 	return node;
 }

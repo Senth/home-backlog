@@ -299,13 +299,19 @@ export function participatingPickerQuery(
 }
 
 /**
- * One node by id, or null if it is not there or cannot be read.
+ * One node by id.
  *
- * The two answers are deliberately the same one. Participant inheritance runs
- * *downward* — a private child holds all of its parent's participants, not the
- * reverse — so being added to a private subtask does not grant a read on the
- * private project above it, and a breadcrumb for it is a crumb the reader is
- * not allowed to see. Neither case is an error worth surfacing.
+ * Three answers. The node; `null` when it is not there or cannot be read —
+ * gone, or permission-denied, and those two are deliberately the same one; and
+ * `undefined` when it could not answer at all, which is the offline case: the
+ * caller cannot tell "the server says it is gone" from "I never asked" if this
+ * folded into `null`.
+ *
+ * Participant inheritance runs *downward* — a private child holds all of its
+ * parent's participants, not the reverse — so being added to a private subtask
+ * does not grant a read on the private project above it, and a breadcrumb for
+ * it is a crumb the reader is not allowed to see. Neither case is an error
+ * worth surfacing.
  *
  * One `getDoc` per ancestor rather than `where(documentId(), 'in', ancestorIds)`:
  * that would be one read instead of *n* and is **query-unsafe** — a single
@@ -315,11 +321,16 @@ export function participatingPickerQuery(
 export async function getNode(
 	homeId: string,
 	nodeId: string,
-): Promise<Node | null> {
+): Promise<Node | null | undefined> {
 	try {
 		const snapshot = await getDoc(nodeRef(homeId, nodeId));
 		return snapshot.exists() ? toNode(snapshot) : null;
 	} catch (reason) {
+		// `unavailable` is the network saying it could not ask, not the rules
+		// saying no — answering anything here would be a guess dressed as data.
+		if ((reason as { code?: string } | null)?.code === "unavailable") {
+			return undefined;
+		}
 		// A refusal is the answer, not an error: an unreadable ancestor is the
 		// case this function's own contract is built around, and logging it would
 		// make an ordinary breadcrumb draw a raw `FirebaseError` over the screen

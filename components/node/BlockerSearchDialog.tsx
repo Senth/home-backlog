@@ -73,7 +73,10 @@ export function BlockerSearchDialog({
 	}, [text]);
 
 	useEffect(() => {
-		if (uid === null || query.length < minQueryLength) {
+		// `online` is in the guard, not only in `canSearch`: going offline
+		// inside the debounce window would otherwise fire the server read and
+		// draw its rejection. Offline the dialog's own hint is the whole answer.
+		if (uid === null || !online || query.length < minQueryLength) {
 			setResults([]);
 			setCapped(false);
 			setSearching(false);
@@ -110,7 +113,7 @@ export function BlockerSearchDialog({
 		return () => {
 			cancelled = true;
 		};
-	}, [homeId, uid, query, node]);
+	}, [homeId, uid, online, query, node]);
 
 	const canSearch = online && uid !== null;
 	const settled = query.length >= minQueryLength;
@@ -174,7 +177,10 @@ export function BlockerSearchDialog({
 						/>
 					))}
 
-					{capped && results.length > 0 ? (
+					{/* On `capped` alone: the cap is measured on the raw hits, so all
+				    fifty can filter away and leave "no cards match" — the dialog
+				    must still admit what the search may have missed. */}
+					{capped ? (
 						<Text
 							variant="bodySmall"
 							style={{ color: theme.colors.onSurfaceVariant }}

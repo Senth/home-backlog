@@ -32,7 +32,9 @@ interface WaitingOnSectionProps {
  *
  * A blocker that is gone or unreadable renders as the gone row, with its
  * remove action beside it: a mark with nothing behind it is Ingrid's "tapped
- * something and cannot find my way back", rebuilt as data. Nothing here ever
+ * something and cannot find my way back", rebuilt as data. A read that could
+ * not happen — offline — is *unanswered* instead, and its row holds the
+ * loading state rather than claiming the card is gone. Nothing here ever
  * removes an entry by itself — stopping is a person's tap, and it queues
  * offline like every other field write.
  */

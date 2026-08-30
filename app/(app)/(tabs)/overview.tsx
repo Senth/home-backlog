@@ -15,6 +15,7 @@ import { boardHref, detailsHref } from "@/components/board/board-href";
 import { DueChip } from "@/components/board/DueChip";
 import { MetaChip } from "@/components/board/MetaChip";
 import { TitleDialog } from "@/components/board/TitleDialog";
+import { useWaitingMark } from "@/components/board/waiting-mark";
 import { BackAction } from "@/components/ui/BackAction";
 import { InstallCard } from "@/components/ui/InstallCard";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,12 +23,7 @@ import { useHome } from "@/contexts/HomeContext";
 import { createNode } from "@/data/nodes";
 import { type OverviewSection, useOverview } from "@/hooks/use-overview";
 import { dueState } from "@/models/due-date";
-import {
-	hasSteps,
-	type Node,
-	rankAtEnd,
-	unresolvedBlockers,
-} from "@/models/node";
+import { hasSteps, type Node, rankAtEnd } from "@/models/node";
 import { rowsPerSection } from "@/models/overview";
 import { useAppTheme } from "@/theme";
 import {
@@ -392,10 +388,13 @@ function RowMeta({
 
 	const due = dueState(node.dueDate, new Date());
 	const showDue = node.dueDate !== null && (due === "late" || due === "soon");
-	// The same derivation the card face makes: unresolved blockers, and a card
-	// in Done never marks.
-	const waiting = unresolvedBlockers(node, blockers);
-	const isWaiting = node.status !== "done" && waiting.length > 0;
+	// The same derivation the card face makes — the shared `useWaitingMark`,
+	// so the two surfaces cannot disagree about when a card waits.
+	const {
+		isWaiting,
+		label: waitingLabel,
+		a11yLabel,
+	} = useWaitingMark(node, blockers);
 
 	if (!hasSteps(node) && !showDue && !isWaiting) return null;
 
@@ -406,13 +405,9 @@ function RowMeta({
 				<MetaChip
 					source="pause-circle-outline"
 					color={theme.colors.warning}
-					accessibilityLabel={t("board.waitingLabel", {
-						count: waiting.length,
-					})}
+					accessibilityLabel={a11yLabel}
 				>
-					{waiting.length > 1
-						? `${t("board.blocked")} · ${waiting.length}`
-						: t("board.blocked")}
+					{waitingLabel}
 				</MetaChip>
 			) : null}
 			{hasSteps(node) ? (

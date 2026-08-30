@@ -573,7 +573,9 @@ function MenuLabel({ children }: { children: string }) {
  * root.
  */
 async function requireNode(homeId: string, nodeId: string): Promise<Node> {
-	const node = await getNode(homeId, nodeId);
+	// `undefined` — offline, no answer at all — has the same answer here as a
+	// refusal: up-one-level needs the real node, and neither is it.
+	const node = (await getNode(homeId, nodeId)) ?? null;
 	if (node === null) {
 		throw new Error("The board above this one is not readable.");
 	}
