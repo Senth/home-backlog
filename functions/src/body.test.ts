@@ -112,15 +112,15 @@ describe("what the server owns", () => {
  * return the wrong set permanently, with no screen showing a discrepancy.
  */
 describe("location fields", () => {
-	it.each(["locationId", "locationAncestorIds"])(
-		"refuses %s rather than ignoring it",
-		(field) => {
-			const error = refusal({ [field]: "loc-1" }, "create");
+	it.each([
+		"locationId",
+		"locationAncestorIds",
+	])("refuses %s rather than ignoring it", (field) => {
+		const error = refusal({ [field]: "loc-1" }, "create");
 
-			expect(error.code).toBe("locations_unavailable");
-			expect(error.status).toBe(400);
-		},
-	);
+		expect(error.code).toBe("locations_unavailable");
+		expect(error.status).toBe(400);
+	});
 });
 
 /**

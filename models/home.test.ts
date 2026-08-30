@@ -123,19 +123,23 @@ describe("homeNameError", () => {
 });
 
 describe("isEmailAddress", () => {
-	it.each(["nadia@example.com", "a.b+c@sub.example.co.uk", " x@y.zz "])(
-		"accepts %p",
-		(value) => {
-			expect(isEmailAddress(value)).toBe(true);
-		},
-	);
+	it.each([
+		"nadia@example.com",
+		"a.b+c@sub.example.co.uk",
+		" x@y.zz ",
+	])("accepts %p", (value) => {
+		expect(isEmailAddress(value)).toBe(true);
+	});
 
-	it.each(["", "nadia", "nadia@example", "@example.com", "a b@example.com"])(
-		"rejects %p",
-		(value) => {
-			expect(isEmailAddress(value)).toBe(false);
-		},
-	);
+	it.each([
+		"",
+		"nadia",
+		"nadia@example",
+		"@example.com",
+		"a b@example.com",
+	])("rejects %p", (value) => {
+		expect(isEmailAddress(value)).toBe(false);
+	});
 });
 
 describe("inviteProblem", () => {

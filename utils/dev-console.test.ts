@@ -86,28 +86,26 @@ const wasDev = __DEV__;
 afterEach(() => setDev(wasDev));
 
 describe("isKnownFrameworkWarning", () => {
-	it.each(Object.entries(REAL_MESSAGES))(
-		"matches the real %s message",
-		(_id, message) => {
-			expect(isKnownFrameworkWarning([message], ON_WEB)).toBe(true);
-		},
-	);
+	it.each(
+		Object.entries(REAL_MESSAGES),
+	)("matches the real %s message", (_id, message) => {
+		expect(isKnownFrameworkWarning([message], ON_WEB)).toBe(true);
+	});
 
-	it.each(Object.entries(UPSTREAM))(
-		"still matches what the installed react-native-web writes for %s",
-		(id, path) => {
-			const known = KNOWN_FRAMEWORK_WARNINGS.find((k) => k.id === id);
-			if (!known) throw new Error(`no entry for ${id}`);
-			const source = upstreamText(path);
+	it.each(
+		Object.entries(UPSTREAM),
+	)("still matches what the installed react-native-web writes for %s", (id, path) => {
+		const known = KNOWN_FRAMEWORK_WARNINGS.find((k) => k.id === id);
+		if (!known) throw new Error(`no entry for ${id}`);
+		const source = upstreamText(path);
 
-			// The prefix has to be findable in the package, and the fixture has to
-			// be the message the package actually builds. Without this the fixture
-			// and the prefix drift together and the suite stays green while the
-			// filter matches nothing.
-			expect(source).toContain(known.prefix);
-			expect(source).toContain(REAL_MESSAGES[id as keyof typeof REAL_MESSAGES]);
-		},
-	);
+		// The prefix has to be findable in the package, and the fixture has to
+		// be the message the package actually builds. Without this the fixture
+		// and the prefix drift together and the suite stays green while the
+		// filter matches nothing.
+		expect(source).toContain(known.prefix);
+		expect(source).toContain(REAL_MESSAGES[id as keyof typeof REAL_MESSAGES]);
+	});
 
 	it("has a fixture for every entry, and an entry for every fixture", () => {
 		expect(KNOWN_FRAMEWORK_WARNINGS.map((known) => known.id).sort()).toEqual(

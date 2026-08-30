@@ -135,12 +135,14 @@ describe("the field set", () => {
 		expect(codes(nodeDoc({ status: "blocked" }))).toContain("invalid_status");
 	});
 
-	it.each(["2026-9-1", "01/09/2026", "not a date", "2026-09-30T00:00:00Z"])(
-		"refuses a dueDate of %s",
-		(dueDate) => {
-			expect(codes(nodeDoc({ dueDate }))).toContain("invalid_due_date");
-		},
-	);
+	it.each([
+		"2026-9-1",
+		"01/09/2026",
+		"not a date",
+		"2026-09-30T00:00:00Z",
+	])("refuses a dueDate of %s", (dueDate) => {
+		expect(codes(nodeDoc({ dueDate }))).toContain("invalid_due_date");
+	});
 
 	it("accepts a dueDate that is a calendar day", () => {
 		expect(validateNode(nodeDoc({ dueDate: "2026-09-30" }), atRoot)).toEqual(
