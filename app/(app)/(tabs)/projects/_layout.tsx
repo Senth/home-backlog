@@ -20,13 +20,21 @@ import { Stack } from "expo-router";
  *
  * No header: each screen renders its own `Appbar`, which carries the
  * breadcrumbs and the account menu.
+ *
+ * `initialRouteName="index"` names the root board as the Stack's initial
+ * route, so a tab press lands on `/projects` instead of a board with no node
+ * id. Declaration order would put `index` first too, but that hoisting is an
+ * implementation detail no documented API guarantees, so the prop, not the
+ * ordering, is the mechanism. The `<Stack.Screen name="index" />` declaration
+ * stays to document the screen.
  */
 export default function ProjectsLayout() {
 	const identity = (_name: string, params: Record<string, unknown>) =>
 		String(params.nodeId);
 
 	return (
-		<Stack screenOptions={{ headerShown: false }}>
+		<Stack screenOptions={{ headerShown: false }} initialRouteName="index">
+			<Stack.Screen name="index" />
 			<Stack.Screen name="[nodeId]/index" dangerouslySingular={identity} />
 			<Stack.Screen name="[nodeId]/details" dangerouslySingular={identity} />
 		</Stack>
