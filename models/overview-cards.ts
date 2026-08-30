@@ -46,6 +46,7 @@ export type CardCondition =
 	| { field: "assigneeIds"; anyOf: string[] }
 	| { field: "participantIds"; anyOf: string[] }
 	| { field: "blockedBy"; is: "any" | "none" }
+	| { field: "locationId"; is: "any" | "none" }
 	| { field: "visibility"; is: Visibility }
 	| { field: "createdVia"; is: CreatedVia }
 	| { field: "notes" | "photos" | "checklist"; is: boolean };
@@ -266,6 +267,10 @@ function matches(node: Node, condition: CardCondition, ctx: MatchContext) {
 			return condition.is === "any"
 				? node.blockedBy.length > 0
 				: node.blockedBy.length === 0;
+		case "locationId":
+			return condition.is === "any"
+				? node.locationId !== null
+				: node.locationId === null;
 		case "visibility":
 			return node.visibility === condition.is;
 		case "createdVia":
@@ -354,12 +359,70 @@ export function cardRows(
  * ---------------------------------------------------------------------------
  */
 
+/** Where a card is stored — which of the three config surfaces holds it. */
+export type CardScope = "global" | "home" | "shared";
+
 /**
- * Global + home + shared, minus `hiddenSharedIds`, ordered by `(rank, id)`.
+ * One card as the editor draws it: the card, where it is stored, and whether
+ * this member hid it (shared cards only — a hide rides on the hider's own doc
+ * and never touches the card itself).
+ */
+export interface EditorCard {
+	card: Card;
+	scope: CardScope;
+	hidden: boolean;
+}
+
+/**
+ * Global + home + shared, with each card's scope and hide flag, ordered by
+ * `(rank, id)`. A later scope wins on an id collision, which is what makes a
+ * home copy able to shadow a global card; the editor's list keeps hidden
+ * shared cards (badged) where the screen's own list drops them.
+ */
+export function editorList(
+	global: readonly Card[],
+	home: readonly Card[],
+	shared: readonly Card[],
+	hiddenSharedIds: readonly string[],
+): EditorCard[] {
+	const byId = new Map<string, EditorCard>();
+	for (const card of global)
+		byId.set(card.id, { card, scope: "global", hidden: false });
+	for (const card of home)
+		byId.set(card.id, { card, scope: "home", hidden: false });
+
+	const hidden = new Set(hiddenSharedIds);
+	for (const card of shared) {
+		byId.set(card.id, { card, scope: "shared", hidden: hidden.has(card.id) });
+	}
+
+	// `(rank, id)` — the same order a board column holds its cards in, so a
+	// card the household arranged on one screen sits in the same place here.
+	return [...byId.values()].sort((a, b) => {
+		if (a.card.rank !== b.card.rank) return a.card.rank < b.card.rank ? -1 : 1;
+		return a.card.id < b.card.id ? -1 : a.card.id > b.card.id ? 1 : 0;
+	});
+}
+
+/** Which scope each merged card lives in — later scope wins, as the merge does. */
+export function cardScopes(
+	global: readonly Card[],
+	home: readonly Card[],
+	shared: readonly Card[],
+): Record<string, CardScope> {
+	const scopes: Record<string, CardScope> = {};
+	for (const card of global) scopes[card.id] = "global";
+	for (const card of home) scopes[card.id] = "home";
+	for (const card of shared) scopes[card.id] = "shared";
+	return scopes;
+}
+
+/**
+ * The screen's list: global + home + shared, minus `hiddenSharedIds`.
  *
- * A later scope wins on an id collision, which is what makes a home copy able
- * to shadow a global card; hiding is per-member and touches shared cards
- * only, on the hider's own doc.
+ * A hide only ever reaches a card that *is* shared — the list rides on the
+ * member's own doc, and a stale id on it must not be able to remove a global
+ * or home card it was never aimed at.
  */
 export function mergeCards(
 	global: readonly Card[],
@@ -367,23 +430,60 @@ export function mergeCards(
 	shared: readonly Card[],
 	hiddenSharedIds: readonly string[],
 ): Card[] {
-	const byId = new Map<string, Card>();
-	for (const card of global) byId.set(card.id, card);
-	for (const card of home) byId.set(card.id, card);
-	for (const card of shared) byId.set(card.id, card);
-	// A hide only ever reaches a card that *is* shared — the list rides on the
-	// member's own doc, and a stale id on it must not be able to remove a
-	// global or home card it was never aimed at.
-	const sharedIds = new Set(shared.map((card) => card.id));
-	for (const id of hiddenSharedIds) {
-		if (sharedIds.has(id)) byId.delete(id);
-	}
-	// `(rank, id)` — the same order a board column holds its cards in, so a
-	// card the household arranged on one screen sits in the same place here.
-	return [...byId.values()].sort((a, b) => {
-		if (a.rank !== b.rank) return a.rank < b.rank ? -1 : 1;
-		return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-	});
+	// A hidden shared card's id could equal a global or home card's only if
+	// somebody crafted the config by hand; the scope check inside `editorList`
+	// is what keeps the stale-id guard honest here too.
+	return editorList(global, home, shared, hiddenSharedIds)
+		.filter((entry) => !entry.hidden)
+		.map((entry) => entry.card);
+}
+
+/**
+ * The seeds the member deleted: every seed whose id is nowhere among the
+ * cards they still hold, in any scope. These are what *Removed originals*
+ * lists, and a restore re-creates one from this exact shape.
+ */
+export function removedSeeds(cards: readonly Card[]): Card[] {
+	const present = new Set<string>(
+		cards.flatMap((card) => (card.seedId === null ? [] : [card.seedId])),
+	);
+	return Object.values(seedCards()).filter((seed) => !present.has(seed.id));
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Editing conditions
+ * ---------------------------------------------------------------------------
+ */
+
+/**
+ * The one condition a card holds on a field, or `null`. A card carries at
+ * most one condition per field — two on the same field would AND into
+ * near-nothing — which is what makes the editor's one-field-at-a-time chips
+ * able to show the whole state.
+ */
+export function conditionForField(
+	conditions: readonly CardCondition[],
+	field: CardCondition["field"],
+): CardCondition | null {
+	return conditions.find((condition) => condition.field === field) ?? null;
+}
+
+/**
+ * The conditions after one field was edited: the field's previous condition
+ * replaced or removed. An empty any-of means the field says nothing, so the
+ * condition goes — a chip group the reader unticked entirely is not a
+ * condition that matches nothing.
+ */
+export function withCondition(
+	conditions: readonly CardCondition[],
+	next: CardCondition | null,
+): CardCondition[] {
+	const others = conditions.filter(
+		(condition) => condition.field !== next?.field,
+	);
+	const keeps = next !== null && !("anyOf" in next && next.anyOf.length === 0);
+	return keeps ? [...others, next] : [...others];
 }
 
 /*
@@ -414,6 +514,7 @@ const conditionFields = new Set([
 	"assigneeIds",
 	"participantIds",
 	"blockedBy",
+	"locationId",
 	"visibility",
 	"createdVia",
 	"notes",
@@ -458,8 +559,9 @@ function toCondition(value: unknown): CardCondition | null {
 				? { field: "dueDate", is: data.is as DueFilter }
 				: null;
 		case "blockedBy":
+		case "locationId":
 			return data.is === "any" || data.is === "none"
-				? { field: "blockedBy", is: data.is }
+				? { field: data.field as "blockedBy", is: data.is }
 				: null;
 		case "visibility":
 			return data.is === "shared" || data.is === "private"

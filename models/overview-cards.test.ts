@@ -4,12 +4,17 @@ import {
 	type CardCondition,
 	type CardSort,
 	cardRows,
+	cardScopes,
+	conditionForField,
+	editorList,
 	mergeCards,
+	removedSeeds,
 	type SeedId,
 	seedCards,
 	seedTitleKeys,
 	sortRows,
 	toCard,
+	withCondition,
 } from "@/models/overview-cards";
 
 /**
@@ -278,6 +283,18 @@ describe("matching", () => {
 		).toEqual(["node-1"]);
 	});
 
+	it("asks locationId about the field the node carries", () => {
+		const placed = task({ locationId: "kitchen" });
+
+		expect(
+			rowsOf([{ field: "locationId", is: "any" }], [placed, task()]),
+		).toEqual([placed.id]);
+		expect(rowsOf([{ field: "locationId", is: "none" }], [placed])).toEqual([]);
+		expect(rowsOf([{ field: "locationId", is: "none" }], [task()])).toEqual([
+			"node-1",
+		]);
+	});
+
 	/**
 	 * The privacy predicate is not a condition and not optional: the pool's
 	 * shared arm matches every shared node regardless of participants, so a
@@ -436,6 +453,122 @@ describe("mergeCards", () => {
 		);
 
 		expect(merged.map((each) => each.id)).toEqual(["global", "home"]);
+	});
+});
+
+describe("editorList", () => {
+	const made = (id: string, rank: string) =>
+		({ ...seeded.ongoing, id, rank }) as ReturnType<
+			typeof seedCards
+		>[keyof ReturnType<typeof seedCards>];
+
+	it("keeps a hidden shared card, badged, where the screen's list drops it", () => {
+		const list = editorList([], [], [made("shared", "a1")], ["shared"]);
+
+		expect(list).toHaveLength(1);
+		expect(list[0]).toMatchObject({ scope: "shared", hidden: true });
+
+		expect(mergeCards([], [], [made("shared", "a1")], ["shared"])).toEqual([]);
+	});
+
+	it("names the winning scope of an id collision", () => {
+		const list = editorList([made("same", "a1")], [made("same", "a2")], [], []);
+
+		expect(list).toHaveLength(1);
+		expect(list[0]).toMatchObject({ scope: "home" });
+	});
+
+	it("never marks a global or home card hidden, whatever a stale hide id says", () => {
+		const list = editorList([made("global", "a1")], [], [], ["global"]);
+
+		expect(list[0]).toMatchObject({ scope: "global", hidden: false });
+	});
+});
+
+describe("cardScopes", () => {
+	it("answers per card, later scope winning", () => {
+		const global = seeded.ongoing;
+		const home = { ...seeded.comingUp, id: "home-card" };
+		const shared = { ...seeded.quickWins, id: "shared-card" };
+
+		expect(
+			cardScopes([global], [home], [shared, { ...global, rank: "zz" }]),
+		).toEqual({
+			[global.id]: "shared",
+			[home.id]: "home",
+			[shared.id]: "shared",
+		});
+	});
+});
+
+describe("removedSeeds", () => {
+	it("lists the seeds the cards no longer hold, with their original settings", () => {
+		const kept = [seeded.ongoing, seeded.comingUp];
+
+		expect(removedSeeds(kept).map((seed) => seed.id)).toEqual([
+			"quickWins",
+			"aFewHours",
+			"needsSplitting",
+			"needsEstimate",
+			"recentlyDone",
+		]);
+	});
+
+	it("finds a seed held in any scope, including one somebody hid", () => {
+		const shared = { ...seeded.quickWins, id: "shared-copy", rank: "zz" };
+
+		expect(removedSeeds([shared])).not.toContainEqual(
+			expect.objectContaining({ id: "quickWins" }),
+		);
+	});
+
+	it("lists every seed when nothing is held", () => {
+		expect(removedSeeds([])).toHaveLength(7);
+	});
+});
+
+describe("editing conditions", () => {
+	it("answers the one condition a field carries, or none", () => {
+		const conditions: CardCondition[] = [
+			{ field: "effort", anyOf: ["quick"] },
+			{ field: "isRoot", is: true },
+		];
+
+		expect(conditionForField(conditions, "effort")).toEqual({
+			field: "effort",
+			anyOf: ["quick"],
+		});
+		expect(conditionForField(conditions, "dueDate")).toBeNull();
+	});
+
+	it("replaces a field's condition and keeps the others", () => {
+		const next = withCondition(
+			[
+				{ field: "effort", anyOf: ["quick"] },
+				{ field: "isRoot", is: true },
+			],
+			{ field: "effort", anyOf: ["hours", "evening"] },
+		);
+
+		expect(next).toEqual([
+			{ field: "isRoot", is: true },
+			{ field: "effort", anyOf: ["hours", "evening"] },
+		]);
+	});
+
+	it("removes a field's condition when it is unticked entirely", () => {
+		const next = withCondition(
+			[
+				{ field: "effort", anyOf: ["quick"] },
+				{ field: "isRoot", is: true },
+			],
+			{ field: "effort", anyOf: [] },
+		);
+
+		expect(next).toEqual([{ field: "isRoot", is: true }]);
+
+		const nothing = withCondition([{ field: "isRoot", is: true }], null);
+		expect(nothing).toEqual([{ field: "isRoot", is: true }]);
 	});
 });
 

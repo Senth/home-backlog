@@ -1,6 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { createThrowawayHome, deleteThrowawayHome } from "@/e2e/support/app";
+import { SECOND_ACCOUNT, signInAs } from "@/e2e/support/auth";
 import {
 	createFixtureNode,
 	deleteDocAt,
@@ -570,4 +571,486 @@ test("19: a card whose rows have no priority set still renders, and unset priori
 	await expect.poll(() => ordered(descending, low, noEffort)).toBe(true);
 
 	await deleteDocAt(dashPath);
+});
+
+/*
+ * ---------------------------------------------------------------------------
+ * Phase 3 — the editor. Claims 11–16 and 18: scopes, reorder, hide, create,
+ * edit, remove, restore, and the privacy predicate on a composed card.
+ * ---------------------------------------------------------------------------
+ */
+
+/** The tune action's name, which is the editor's own title. */
+const EDITOR = enUS.overview.cards.editor.title;
+/** What a menu says, from the file both locales are checked against. */
+const MENU = enUS.overview.cards.menu;
+
+/**
+ * Overview, then the editor behind the tune action. The editor is ready when
+ * any card row is up — the list is never empty, because the seeds are there
+ * unless a test replaced the config with cards of its own.
+ */
+async function gotoEditor(page: Page): Promise<void> {
+	await gotoOverview(page);
+	await page.getByRole("button", { name: EDITOR }).click();
+	await page
+		.locator('[data-testid^="overview-editor-card-"]')
+		.first()
+		.waitFor({ state: "visible", timeout: 30_000 });
+}
+
+/**
+ * `clickMenuItem`, hardened for the editor: the screens here hold live
+ * listeners that keep settling after their own readiness marker, so a menu
+ * opened too early either never renders its items or swallows the next
+ * anchor click — the state that left `clickMenuItem` retrying against its
+ * own open menu. Between attempts, any menu left open is dismissed with
+ * Escape, the way a person would close one.
+ */
+async function openCardMenu(
+	page: Page,
+	anchor: Locator,
+	itemName: string | RegExp,
+	attempts = 8,
+): Promise<void> {
+	for (let attempt = 1; attempt <= attempts; attempt++) {
+		await page.keyboard.press("Escape").catch(() => undefined);
+		await page.waitForTimeout(400);
+		try {
+			await anchor.click({ timeout: 2_500 });
+		} catch {
+			continue;
+		}
+		try {
+			const item = page.getByRole("menuitem", { name: itemName });
+			await item.waitFor({ state: "visible", timeout: 2_500 });
+			await item.click();
+			return;
+		} catch {
+			// The menu opened without its items, or not at all. Again.
+		}
+	}
+	throw new Error(
+		`the menu item ${String(itemName)} never appeared for ${anchor}`,
+	);
+}
+
+/** Two sections' order on the read screen, polled the way `ordered` is. */
+function sectionOrder(
+	page: Page,
+	above: string,
+	below: string,
+): Promise<boolean> {
+	return ordered2(section(page, above), section(page, below));
+}
+
+/** `ordered` over two locators already resolved. */
+async function ordered2(above: Locator, below: Locator): Promise<boolean> {
+	const aboveBox = await above.boundingBox();
+	const belowBox = await below.boundingBox();
+	expect(aboveBox, "the card above was not on screen").not.toBeNull();
+	expect(belowBox, "the card below was not on screen").not.toBeNull();
+	return (aboveBox?.y ?? 0) < (belowBox?.y ?? 0);
+}
+
+/** One filter card's stored shape, with what a fixture needs to render it. */
+function storedCard(
+	id: string,
+	title: string,
+	overrides: Record<string, Json> = {},
+): Record<string, Json> {
+	return {
+		id,
+		kind: "filter",
+		seedId: null,
+		title,
+		conditions: [],
+		sort: null,
+		shown: 20,
+		max: 20,
+		empty: { mode: "say", key: "overview.cards.empty.generic" },
+		rank: "VA",
+		...overrides,
+	};
+}
+
+test("11: a card marked All my homes renders in every home the account belongs to, and reordering it in one home reorders it in the other", async ({
+	page,
+}) => {
+	const marcus = await memberUid("Marcus");
+	const configPath = `/users/${marcus}/dashboard/config`;
+
+	// Two global cards, the second ranked below the first. Reorder moves the
+	// second above the first — through the menu, which is the accessible
+	// alternative the editor exists to offer.
+	await writeDocAt(configPath, {
+		cards: {
+			e2eFirst: storedCard("e2eFirst", `${PREFIX}first`, { rank: "VA" }),
+			e2eSecond: storedCard("e2eSecond", `${PREFIX}second`, { rank: "VB" }),
+		},
+		seededAt: new Date(),
+	});
+
+	await gotoOverview(page);
+	await expect(section(page, "e2eFirst")).toBeVisible();
+	await expect
+		.poll(() => sectionOrder(page, "e2eFirst", "e2eSecond"))
+		.toBe(true);
+
+	// Move the second card up, and wait for the write to reach the config the
+	// other home will read it from.
+	await gotoEditor(page);
+	await openCardMenu(
+		page,
+		page.getByTestId("overview-editor-menu-e2eSecond"),
+		MENU.moveUp,
+	);
+	await expect
+		.poll(
+			async () => {
+				const config = await readDocAt(configPath);
+				const cards = config?.cards as Record<string, { rank?: string }> | null;
+				return (cards?.e2eSecond?.rank ?? "") < (cards?.e2eFirst?.rank ?? "");
+			},
+			{ timeout: 30_000 },
+		)
+		.toBe(true);
+
+	// The screen agrees, here…
+	await gotoOverview(page);
+	await expect
+		.poll(() => sectionOrder(page, "e2eSecond", "e2eFirst"))
+		.toBe(true);
+
+	// …and in the other home, because a global card has one rank.
+	const homeName = `${PREFIX}global home ${Date.now()}`;
+	await createThrowawayHome(page, homeName);
+	await gotoOverview(page);
+	await expect(section(page, "e2eSecond")).toBeVisible();
+	await expect(section(page, "e2eFirst")).toBeVisible();
+	await expect
+		.poll(() => sectionOrder(page, "e2eSecond", "e2eFirst"))
+		.toBe(true);
+
+	await deleteThrowawayHome(page, homeName);
+	await deleteDocAt(configPath);
+});
+
+test("12: a card marked Only this home renders in that home only", async ({
+	page,
+}) => {
+	const home = await homeId();
+	const marcus = await memberUid("Marcus");
+	const dashPath = `/homes/${home}/dashboards/${marcus}`;
+
+	await writeDocAt(dashPath, {
+		cards: {
+			e2eHomeCard: storedCard("e2eHomeCard", `${PREFIX}home only`, {
+				rank: "V8",
+			}),
+		},
+		hiddenSharedIds: [],
+	});
+
+	await gotoOverview(page);
+	await expect(section(page, "e2eHomeCard")).toBeVisible();
+
+	const homeName = `${PREFIX}elsewhere home ${Date.now()}`;
+	await createThrowawayHome(page, homeName);
+	await gotoOverview(page);
+	await expect(section(page, "e2eHomeCard")).toHaveCount(0);
+
+	await deleteThrowawayHome(page, homeName);
+	await deleteDocAt(dashPath);
+});
+
+test("13: a card marked Everyone here renders for every member; hiding it removes it from that member's screen alone, and the others still see it", async ({
+	page,
+	browser,
+}) => {
+	const home = await homeId();
+	const marcus = await memberUid("Marcus");
+	const sharedPath = `/homes/${home}/dashboardCards/e2eShared`;
+	const dashPath = `/homes/${home}/dashboards/${marcus}`;
+
+	await writeDocAt(sharedPath, storedCard("e2eShared", `${PREFIX}shared`));
+
+	await gotoOverview(page);
+	await expect(section(page, "e2eShared")).toBeVisible();
+
+	// Anna, on her own fresh page, sees the same card — it is shared with the
+	// home, and she is a member of it.
+	const annaContext = await browser.newContext();
+	const annaPage = await annaContext.newPage();
+	await signInAs(annaPage, SECOND_ACCOUNT);
+	await gotoOverview(annaPage);
+	await expect(section(annaPage, "e2eShared")).toBeVisible();
+
+	// Marcus hides it from his own screen. His write lands on his own
+	// dashboards doc, never on the shared card.
+	await openCardMenu(
+		page,
+		page.getByTestId("overview-card-menu-e2eShared"),
+		MENU.hide,
+	);
+	await expect(section(page, "e2eShared")).toHaveCount(0);
+	await page.reload();
+	await expect(section(page, "e2eShared")).toHaveCount(0);
+	await expect
+		.poll(async () => (await readDocAt(dashPath))?.hiddenSharedIds)
+		.toEqual(["e2eShared"]);
+
+	// Anna still sees it, and the card itself never changed.
+	await expect(section(annaPage, "e2eShared")).toBeVisible();
+	const shared = await readDocAt(sharedPath);
+	expect(shared?.title).toBe(`${PREFIX}shared`);
+
+	await annaContext.close();
+	await deleteDocAt(sharedPath);
+	await deleteDocAt(dashPath);
+});
+
+test("14: the editor creates a card from conditions and the card renders with matching rows on Overview", async ({
+	page,
+}) => {
+	const home = await homeId();
+	const marcus = await memberUid("Marcus");
+
+	const root = await throwawayRoot(home, `${PREFIX}assign root`);
+	await taskOf(home, root, `${PREFIX}assign mine`, {
+		assigneeIds: [marcus],
+	});
+	await taskOf(home, root, `${PREFIX}assign other`, {
+		assigneeIds: [await memberUid("Anna Maria Berg")],
+	});
+
+	await gotoEditor(page);
+	await page
+		.getByRole("button", { name: enUS.overview.cards.editor.add })
+		.click();
+
+	// A title, then the two conditions the claim names: assigned to me, and
+	// not a root. Every choice is a chip in plain words.
+	const sheet = page.getByTestId("overview-card-edit");
+	await sheet.getByRole("textbox").first().fill(`${PREFIX}mine`);
+	await sheet.getByRole("button", { name: enUS.detail.assignees }).click();
+	await sheet
+		.getByRole("button", { name: enUS.overview.cards.field.me, exact: true })
+		.click();
+	await sheet
+		.getByRole("button", { name: enUS.overview.cards.field.root })
+		.click();
+	await sheet
+		.getByRole("button", { name: enUS.overview.cards.field.isStep })
+		.click();
+	await sheet.getByRole("button", { name: enUS.manageHome.save }).click();
+
+	// The card is in the editor's list. Paper's List.Item suffixes its own
+	// `-content` test id from the row's, so the prefix matches two elements.
+	await expect(
+		page
+			.locator(
+				'[data-testid^="overview-editor-card-"]:not([data-testid$="-content"])',
+			)
+			.filter({ hasText: `${PREFIX}mine` }),
+	).toBeVisible();
+
+	// …and on the screen, holding the row the conditions match and not the
+	// one they do not.
+	await gotoOverview(page);
+	const mine = page
+		.locator('[data-testid^="overview-section-"]')
+		.filter({ hasText: `${PREFIX}mine` });
+	await expect(mine.getByText(`${PREFIX}assign mine`)).toBeVisible();
+	await expect(mine.getByText(`${PREFIX}assign other`)).toHaveCount(0);
+
+	// The card the editor just made is the only thing this test leaves in the
+	// global config; wait for the write to reach the backend, then take the
+	// config away so nothing leaks past this test.
+	await expect
+		.poll(async () => {
+			const config = await readDocAt(`/users/${marcus}/dashboard/config`);
+			const cards = (config?.cards ?? {}) as Record<string, { title?: string }>;
+			return Object.values(cards).some(
+				(card) => card.title === `${PREFIX}mine`,
+			);
+		})
+		.toBe(true);
+	await deleteDocAt(`/users/${marcus}/dashboard/config`);
+});
+
+test("15: editing a card's conditions changes its rows; removing a card takes it off the screen and it stays removed after a reload", async ({
+	page,
+}) => {
+	const home = await homeId();
+	const marcus = await memberUid("Marcus");
+	const dashPath = `/homes/${home}/dashboards/${marcus}`;
+
+	const root = await throwawayRoot(home, `${PREFIX}editroot root`);
+	await taskOf(home, root, `${PREFIX}editroot step`, {});
+
+	await writeDocAt(dashPath, {
+		cards: {
+			e2eEdit: storedCard("e2eEdit", `${PREFIX}editcard`, {
+				rank: "V9",
+				conditions: [{ field: "isRoot", is: true }],
+			}),
+		},
+		hiddenSharedIds: [],
+	});
+
+	await gotoOverview(page);
+	const edit = section(page, "e2eEdit");
+	await expect(edit.getByText(`${PREFIX}editroot root`)).toBeVisible();
+
+	// Edit: the project-or-step condition flips from project to step, so the
+	// card's rows swap from the root to its step.
+	await gotoEditor(page);
+	await openCardMenu(
+		page,
+		page.getByTestId("overview-editor-menu-e2eEdit"),
+		MENU.edit,
+	);
+	await page.waitForTimeout(2_500);
+	const sheet = page.getByTestId("overview-card-edit");
+	await sheet
+		.getByRole("button", { name: enUS.overview.cards.field.root })
+		.click();
+	await sheet
+		.getByRole("button", { name: enUS.overview.cards.field.isStep })
+		.click();
+	await sheet.getByRole("button", { name: enUS.manageHome.save }).click();
+
+	await gotoOverview(page);
+	const edited = section(page, "e2eEdit");
+	await expect(edited.getByText(`${PREFIX}editroot step`)).toBeVisible();
+	await expect(edited.getByText(`${PREFIX}editroot root`)).toHaveCount(0);
+
+	// Remove, and the card is gone — here, and after a reload, because the
+	// config no longer holds it.
+	await gotoEditor(page);
+	await openCardMenu(
+		page,
+		page.getByTestId("overview-editor-menu-e2eEdit"),
+		MENU.remove,
+	);
+	await page.getByRole("button", { name: MENU.remove }).click();
+
+	await gotoOverview(page);
+	await expect(section(page, "e2eEdit")).toHaveCount(0);
+	await page.reload();
+	await expect(section(page, "e2eEdit")).toHaveCount(0);
+
+	await deleteDocAt(dashPath);
+});
+
+test("16: a removed seed restored from the editor returns with its original settings", async ({
+	page,
+}) => {
+	const marcus = await memberUid("Marcus");
+	const configPath = `/users/${marcus}/dashboard/config`;
+
+	// From the seeds: open Overview once with no config, so the seven are
+	// written, then remove one through the editor.
+	await deleteDocAt(configPath);
+	await gotoOverview(page);
+	await expect(section(page, "quickWins")).toBeVisible();
+
+	await gotoEditor(page);
+	await openCardMenu(
+		page,
+		page.getByTestId("overview-editor-menu-quickWins"),
+		MENU.remove,
+	);
+	await page.getByRole("button", { name: MENU.remove }).click();
+
+	// The editor is pushed over the read screen, whose sections are still in
+	// the DOM under it — so "removed" is asserted on the editor's own list,
+	// where the row goes and the Removed originals section appears.
+	await expect(page.getByTestId("overview-editor-card-quickWins")).toHaveCount(
+		0,
+	);
+
+	// The editor keeps the deleted original, named, under Removed originals.
+	const removed = page.getByTestId("overview-editor-removed");
+	await expect(
+		removed.getByText(enUS.overview.cards.title.quickWins),
+	).toBeVisible();
+
+	// Restore puts it back with the seed's own settings — not a fresh copy.
+	await removed
+		.getByRole("button", { name: enUS.overview.cards.editor.restore })
+		.click();
+	await expect(
+		page.getByTestId("overview-editor-card-quickWins"),
+	).toBeVisible();
+
+	await gotoOverview(page);
+	await expect(section(page, "quickWins")).toBeVisible();
+	await expect
+		.poll(async () => {
+			const config = await readDocAt(configPath);
+			return (config?.cards as Record<string, Record<string, Json>> | undefined)
+				?.quickWins?.max;
+		})
+		.toBe(3);
+	const config = await readDocAt(configPath);
+	const restored = (config?.cards as Record<string, Record<string, Json>>)
+		.quickWins;
+	expect(restored.shown).toBe(3);
+	expect(restored.title).toBeNull();
+	expect(restored.empty).toEqual({
+		mode: "say",
+		key: "overview.cards.empty.quickWins",
+	});
+
+	await deleteDocAt(configPath);
+});
+
+test("18: with another member's private project present that matches a card's conditions, Overview still loads, and that project appears only for its participant", async ({
+	page,
+	browser,
+}) => {
+	const home = await homeId();
+	const anna = await memberUid("Anna Maria Berg");
+
+	await writeDocAt(
+		`/homes/${home}/dashboardCards/e2ePrivate`,
+		storedCard("e2ePrivate", `${PREFIX}privatecard`, {
+			rank: "VA",
+			conditions: [{ field: "isRoot", is: true }],
+		}),
+	);
+
+	// Anna's private project matches the shared card's conditions on the
+	// fields themselves — but the pool's privacy predicate still decides who
+	// sees it.
+	await createFixtureNode({
+		title: `${PREFIX}private project`,
+		status: "execution",
+		parentId: null,
+		ancestorIds: [],
+		visibility: "private",
+		participantIds: [anna],
+		dueDate: null,
+		completedAt: null,
+	});
+
+	await gotoOverview(page);
+	// Marcus's screen loads and renders his cards…
+	await expect(section(page, "e2ePrivate")).toBeVisible();
+	// …and Anna's private work is not on it.
+	await expect(page.getByText(`${PREFIX}private project`)).toHaveCount(0);
+
+	const annaContext = await browser.newContext();
+	const annaPage = await annaContext.newPage();
+	await signInAs(annaPage, SECOND_ACCOUNT);
+	await gotoOverview(annaPage);
+	await expect(section(annaPage, "e2ePrivate")).toBeVisible();
+	await expect(
+		section(annaPage, "e2ePrivate").getByText(`${PREFIX}private project`),
+	).toBeVisible();
+
+	await annaContext.close();
+	await deleteDocAt(`/homes/${home}/dashboardCards/e2ePrivate`);
 });

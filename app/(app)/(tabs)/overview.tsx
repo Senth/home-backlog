@@ -16,10 +16,18 @@ import { DueChip } from "@/components/board/DueChip";
 import { MetaChip } from "@/components/board/MetaChip";
 import { TitleDialog } from "@/components/board/TitleDialog";
 import { useWaitingMark } from "@/components/board/waiting-mark";
+import { CardActionsMenu } from "@/components/overview/CardActionsMenu";
+import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { BackAction } from "@/components/ui/BackAction";
 import { InstallCard } from "@/components/ui/InstallCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
+import {
+	deleteSharedCard,
+	saveGlobalCards,
+	saveHiddenShared,
+	saveHomeCards,
+} from "@/data/cards";
 import { createNode } from "@/data/nodes";
 import { useDashboardCards } from "@/hooks/use-dashboard-cards";
 import { useOverview } from "@/hooks/use-overview";
@@ -62,6 +70,8 @@ export default function Overview() {
 	const { roots, pool, done } = useOverview(homeId);
 	const {
 		cards,
+		scopes,
+		hiddenSharedIds,
 		loading: configLoading,
 		failed: configFailed,
 		retry: retryConfig,
@@ -78,6 +88,8 @@ export default function Overview() {
 
 	const [adding, setAdding] = useState(false);
 	const [fabHeight, setFabHeight] = useState(0);
+	/** The card whose *Remove* is waiting for its confirmation. */
+	const [removing, setRemoving] = useState<Card | null>(null);
 
 	// Measured, not assumed: the FAB names its action in words, so it is taller
 	// in Swedish and taller again at 200% text. `space.xxl` is only the value for
@@ -160,6 +172,50 @@ export default function Overview() {
 		roots.retry();
 	};
 
+	/**
+	 * The editor, reached from the tune action or from a card's own menu. One
+	 * screen owns every arrangement — neither entry is load-bearing for the
+	 * other.
+	 */
+	const openEditor = () => {
+		router.push("/overview-editor");
+	};
+
+	/**
+	 * Hiding a shared card writes its id to the member's own dashboards doc —
+	 * the card itself is never touched, so the household still sees it.
+	 */
+	const hideCard = (card: Card) => {
+		if (uid === null || homeId === null) return;
+		saveHiddenShared(homeId, uid, [...hiddenSharedIds, card.id]).catch(
+			couldNotSave,
+		);
+	};
+
+	/**
+	 * Removing deletes: the card leaves its surface's map, or its shared
+	 * document is deleted. A removed seed stays removable only in the sense
+	 * the editor restores it — the seeds, not the member's own cards.
+	 */
+	const removeCard = (card: Card) => {
+		const scope = scopes[card.id];
+		if (scope === "shared") {
+			if (homeId !== null) {
+				deleteSharedCard(homeId, card.id).catch(couldNotSave);
+			}
+			return;
+		}
+		if (uid === null || homeId === null) return;
+		const rest = cards.filter(
+			(each) => scopes[each.id] === scope && each.id !== card.id,
+		);
+		const write =
+			scope === "global"
+				? saveGlobalCards(uid, rest)
+				: saveHomeCards(homeId, uid, rest);
+		write.catch(couldNotSave);
+	};
+
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
 			<Appbar.Header>
@@ -168,6 +224,12 @@ export default function Overview() {
 					onPress={() => router.push("/homes")}
 				/>
 				<Appbar.Content title={activeHome?.name ?? ""} />
+				<Appbar.Action
+					icon="tune"
+					accessibilityLabel={t("overview.cards.editor.title")}
+					style={{ width: touchTarget, height: touchTarget }}
+					onPress={openEditor}
+				/>
 				<AccountMenu />
 			</Appbar.Header>
 
@@ -234,6 +296,19 @@ export default function Overview() {
 									rows={rows.get(card.id) ?? []}
 									onOpen={open}
 									blockers={blockers}
+									menu={
+										<CardActionsMenu
+											testID={`overview-card-menu-${card.id}`}
+											scope={scopes[card.id] ?? "global"}
+											onEdit={openEditor}
+											onHide={
+												scopes[card.id] === "shared"
+													? () => hideCard(card)
+													: undefined
+											}
+											onRemove={() => setRemoving(card)}
+										/>
+									}
 								/>
 							);
 						})}
@@ -276,11 +351,30 @@ export default function Overview() {
 				onSubmit={add}
 				testID={newProjectDialogTestID}
 			/>
+
+			{removing !== null ? (
+				<ConfirmDialog
+					visible
+					onDismiss={() => setRemoving(null)}
+					onConfirm={() => {
+						removeCard(removing);
+						setRemoving(null);
+					}}
+					title={t("overview.cards.menu.removeTitle")}
+					body={t("overview.cards.menu.removeBody")}
+					confirmLabel={t("overview.cards.menu.remove")}
+					destructive
+					testID="overview-card-remove"
+				/>
+			) : null}
 		</View>
 	);
 }
 
 const newProjectDialogTestID = "new-project-dialog";
+
+const couldNotSave = (reason: unknown) =>
+	console.error("Could not save the cards:", reason);
 
 interface CardSectionProps {
 	card: Card;
@@ -289,6 +383,8 @@ interface CardSectionProps {
 	onOpen: (node: Node) => void;
 	/** What a row's waiting mark is resolved against. */
 	blockers: ReadonlyMap<string, Node | null>;
+	/** The card's press menu — the per-card chrome, which appears on press. */
+	menu: React.ReactNode;
 }
 
 /**
@@ -302,7 +398,7 @@ interface CardSectionProps {
  * one sentence — because a card you configured that vanishes reads as broken
  * config, and for several seeds an empty card is the good outcome.
  */
-function CardSection({ card, rows, onOpen, blockers }: CardSectionProps) {
+function CardSection({ card, rows, onOpen, blockers, menu }: CardSectionProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const [expanded, setExpanded] = useState(false);
@@ -318,10 +414,13 @@ function CardSection({ card, rows, onOpen, blockers }: CardSectionProps) {
 
 	return (
 		<List.Section testID={`overview-section-${card.id}`}>
-			<List.Subheader>
-				{card.title ??
-					(card.seedId !== null ? t(seedTitleKeys[card.seedId]) : card.id)}
-			</List.Subheader>
+			<View style={{ flexDirection: "row", alignItems: "center" }}>
+				<List.Subheader style={{ flex: 1 }}>
+					{card.title ??
+						(card.seedId !== null ? t(seedTitleKeys[card.seedId]) : card.id)}
+				</List.Subheader>
+				{menu}
+			</View>
 
 			{rows.length === 0 ? (
 				<Text

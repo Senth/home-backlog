@@ -14,7 +14,14 @@ import {
 } from "@/data/cards";
 import { isQueryAnswer, subscribeWithRetry } from "@/data/live-query";
 import { isOnline } from "@/hooks/use-online-status";
-import { type Card, mergeCards, toCard } from "@/models/overview-cards";
+import {
+	type Card,
+	type CardScope,
+	cardScopes,
+	type EditorCard,
+	editorList,
+	toCard,
+} from "@/models/overview-cards";
 
 /**
  * The card config Overview renders: the three scopes merged into one ordered
@@ -28,9 +35,22 @@ import { type Card, mergeCards, toCard } from "@/models/overview-cards";
  * A cache-only miss is held rather than seeded, the same line
  * `hooks/use-node.ts` holds — offline, "not in my cache" is not "not there",
  * and seeding over a server doc would resurrect a seed somebody deleted.
+ *
+ * Alongside the screen's own list — merged, minus what this member hid — the
+ * hook returns the editor's view of the same data: every card with its scope
+ * and hide flag (the editor shows a hidden shared card, badged), the scope of
+ * each card (the per-card menu is different for a shared one), and the ids
+ * this member hid. No listener is opened for any of it.
  */
 export function useDashboardCards(homeId: string | null): {
+	/** The screen's list: merged, minus the shared cards this member hid. */
 	cards: Card[];
+	/** Everything, for the editor: each card with its scope and hide flag. */
+	editorCards: EditorCard[];
+	/** Which surface each card lives on — a shared card's menu is not the same. */
+	scopes: Record<string, CardScope>;
+	/** The shared card ids this member hid, on their own doc. */
+	hiddenSharedIds: string[];
 	loading: boolean;
 	failed: boolean;
 	retry: () => void;
@@ -182,15 +202,29 @@ export function useDashboardCards(homeId: string | null): {
 		};
 	}, [uid, homeId, attempt]);
 
-	const cards = useMemo(
-		() => mergeCards(global, home, shared, hiddenSharedIds),
+	const editorCards = useMemo(
+		() => editorList(global, home, shared, hiddenSharedIds),
 		[global, home, shared, hiddenSharedIds],
+	);
+
+	const cards = useMemo(
+		() =>
+			editorCards.filter((entry) => !entry.hidden).map((entry) => entry.card),
+		[editorCards],
+	);
+
+	const scopes = useMemo(
+		() => cardScopes(global, home, shared),
+		[global, home, shared],
 	);
 
 	const retry = useCallback(() => setAttempt((count) => count + 1), []);
 
 	return {
 		cards,
+		editorCards,
+		scopes,
+		hiddenSharedIds,
 		loading: !loaded.global || !loaded.home || !loaded.shared,
 		failed: failed.global || failed.home || failed.shared,
 		retry,

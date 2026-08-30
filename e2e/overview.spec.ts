@@ -452,7 +452,14 @@ test("12: with an ongoing project but nothing due and nothing completed, Coming 
 	await moveCardTo(page, projectTitle, enUS.status.execution);
 
 	await gotoOverview(page);
-	await expect(page.getByText(projectTitle, { exact: true })).toBeVisible();
+	// Scoped to the Ongoing projects card: the four effort cards partition the
+	// effort scale, so this effort-less root also matches Needs an estimate —
+	// an overlap `166-overview-filter-cards.md` accepts on the record.
+	await expect(
+		page
+			.getByTestId("overview-section-ongoing")
+			.getByText(projectTitle, { exact: true }),
+	).toBeVisible();
 	await expect(page.getByText(enUS.overview.due.empty)).toBeVisible();
 	await expect(page.getByText(enUS.overview.done.title)).toHaveCount(0);
 
