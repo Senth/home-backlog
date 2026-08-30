@@ -406,8 +406,8 @@ Forbidden vocabulary, specific to this app:
 
 ## 12. Verification
 
-- **Run the app:** `scripts/dev-stack.sh up` → the URL it prints (today
-  <http://localhost:8081>). `scripts/dev-stack.sh status` lists the ports.
+- **Run the app:** `scripts/dev-stack.sh up` → the URL it prints.
+  `scripts/dev-stack.sh status` lists the ports.
 - **Representative routes:** `/overview`, `/projects`, a drilled-in board, a node's
   `/details`, `/homes`, `/login`.
 - **Viewports:** 390×844 always; desktop only where a layout genuinely differs above

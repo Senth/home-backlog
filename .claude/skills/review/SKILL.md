@@ -132,7 +132,7 @@ which in the final report.
 Only when `diff-review` said yes.
 
 ```bash
-scripts/dev-stack.sh up          # prints the web URL; today that is http://localhost:8081
+scripts/dev-stack.sh up          # prints the web URL
 oc-task browser-review ~/git/home-backlog .tmp/prompts/browser-review.md --label <issue>/browser-review
 ```
 

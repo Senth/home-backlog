@@ -94,6 +94,14 @@ export default defineConfig({
 
 	projects: [
 		{
+			// The allocator's own behaviour — claims 1-2 of the worktree spec.
+			// Node-side and browserless: Playwright launches a browser only for a
+			// test that asks for one, and none of these does. It needs no
+			// signed-in state and not even the stack, so no dependency.
+			name: "node",
+			testMatch: /port-alloc\.spec\.ts/,
+		},
+		{
 			// Both setup files, and every other project depends on this one: the
 			// suite needs a signed-in browser and a board that matches the seed
 			// before its first assertion.
