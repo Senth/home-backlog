@@ -31,6 +31,7 @@ import {
 	homeDoc,
 	INVITEE,
 	inviteDoc,
+	locationDoc,
 	MEMBER,
 	NORDIC,
 	nodeDoc,
@@ -2252,19 +2253,201 @@ describe("homes/{homeId}/nodes", () => {
 	});
 });
 
-describe("homes/{homeId}/locations and /recurring", () => {
-	it.each(["locations", "recurring"])("%s is member-only", async (name) => {
+describe("homes/{homeId}/recurring", () => {
+	it("is member-only", async () => {
 		await seedHome();
-		const path = `${homePath}/${name}/item-1`;
+		const path = `${homePath}/recurring/item-1`;
 
 		await assertSucceeds(
-			setDoc(doc(dbAs(env, MEMBER), path), { name: "Basement" }),
+			setDoc(doc(dbAs(env, MEMBER), path), { name: "Clean the gutters" }),
 		);
 		await assertFails(
-			setDoc(doc(dbAs(env, OUTSIDER), path), { name: "Basement" }),
+			setDoc(doc(dbAs(env, OUTSIDER), path), { name: "Clean the gutters" }),
 		);
 		await assertFails(getDoc(doc(dbAs(env, OUTSIDER), path)));
 		await assertFails(getDoc(doc(dbAnon(env), path)));
+	});
+});
+
+describe("homes/{homeId}/locations", () => {
+	const locationsPath = `${homePath}/locations`;
+
+	function create(
+		db: ReturnType<typeof dbAs>,
+		id: string,
+		overrides: Record<string, unknown> = {},
+	) {
+		return setDoc(doc(db, locationsPath, id), locationDoc(overrides));
+	}
+
+	async function seedLocations() {
+		await seedHome();
+		await seed(env, async (db) => {
+			await setDoc(doc(db, locationsPath, "garden"), locationDoc());
+		});
+	}
+
+	it("is member-only", async () => {
+		await seedHome();
+
+		await assertSucceeds(create(dbAs(env, MEMBER), "garden"));
+		await assertFails(create(dbAs(env, OUTSIDER), "garden"));
+		await assertFails(
+			getDoc(doc(dbAs(env, OUTSIDER), locationsPath, "garden")),
+		);
+		await assertFails(getDoc(doc(dbAnon(env), locationsPath, "garden")));
+	});
+
+	it("accepts a location with every field written", async () => {
+		await seedHome();
+
+		await assertSucceeds(create(dbAs(env, MEMBER), "garden"));
+	});
+
+	it.each([
+		"title",
+		"parentId",
+		"ancestorIds",
+		"rank",
+		"createdAt",
+		"createdBy",
+		"updatedAt",
+	])("refuses a location with no %s", async (field) => {
+		await seedHome();
+		const data = locationDoc();
+		delete data[field];
+
+		await assertFails(
+			setDoc(doc(dbAs(env, MEMBER), locationsPath, "incomplete"), data),
+		);
+	});
+
+	it.each([
+		["empty", ""],
+		["over 200 characters", "x".repeat(201)],
+	])("refuses a title that is %s", async (_label, title) => {
+		await seedHome();
+
+		await assertFails(create(dbAs(env, MEMBER), "bad-title", { title }));
+	});
+
+	it("refuses an ancestor path containing the location itself", async () => {
+		// A location that is its own ancestor is a cycle: every walk of the
+		// tree from it never terminates.
+		await seedHome();
+
+		await assertFails(
+			create(dbAs(env, MEMBER), "loop", {
+				parentId: "garden",
+				ancestorIds: ["loop", "garden"],
+			}),
+		);
+	});
+
+	it("refuses a root with a non-empty ancestor path", async () => {
+		await seedHome();
+
+		await assertFails(
+			create(dbAs(env, MEMBER), "rootish", {
+				parentId: null,
+				ancestorIds: ["garden"],
+			}),
+		);
+	});
+
+	it("refuses an ancestor path that does not end in its parentId", async () => {
+		await seedHome();
+		const db = dbAs(env, MEMBER);
+
+		await assertFails(
+			create(db, "task", { parentId: "garden", ancestorIds: [] }),
+		);
+		await assertFails(
+			create(db, "task", {
+				parentId: "garden",
+				ancestorIds: ["somewhere"],
+			}),
+		);
+		await assertSucceeds(
+			create(db, "task", { parentId: "garden", ancestorIds: ["garden"] }),
+		);
+	});
+
+	it("lets a member rename", async () => {
+		await seedLocations();
+
+		await assertSucceeds(
+			updateDoc(doc(dbAs(env, MEMBER), locationsPath, "garden"), {
+				title: "The garden",
+			}),
+		);
+	});
+
+	/**
+	 * One batch, the shape `moveLocation` writes: the moved location and its
+	 * descendants' rewritten paths at once. There is no parent get() to spend —
+	 * `structure()` is the only thing checking the path — so the batch costs
+	 * the home's one membership read and nothing else, however deep the
+	 * subtree. That is what the node reparent's twenty-document-access budget
+	 * problem looks like when it is designed out.
+	 */
+	it("lets a member reparent a location and rewrite its descendants in one batch", async () => {
+		await seedHome();
+		await seed(env, async (db) => {
+			await setDoc(doc(db, locationsPath, "old-home"), locationDoc());
+			await setDoc(doc(db, locationsPath, "new-home"), locationDoc());
+			await setDoc(
+				doc(db, locationsPath, "moved"),
+				locationDoc({ parentId: "old-home", ancestorIds: ["old-home"] }),
+			);
+			await setDoc(
+				doc(db, locationsPath, "child"),
+				locationDoc({
+					parentId: "moved",
+					ancestorIds: ["old-home", "moved"],
+				}),
+			);
+		});
+
+		const db = dbAs(env, MEMBER);
+		const batch = writeBatch(db);
+		batch.update(doc(db, locationsPath, "moved"), {
+			parentId: "new-home",
+			ancestorIds: ["new-home"],
+		});
+		batch.update(doc(db, locationsPath, "child"), {
+			ancestorIds: ["new-home", "moved"],
+		});
+
+		await assertSucceeds(batch.commit());
+	});
+
+	it("refuses changing createdAt or createdBy after the fact", async () => {
+		await seedLocations();
+		const db = dbAs(env, MEMBER);
+
+		await assertFails(
+			updateDoc(doc(db, locationsPath, "garden"), {
+				createdAt: new Date("2026-06-01T00:00:00Z"),
+			}),
+		);
+		await assertFails(
+			updateDoc(doc(db, locationsPath, "garden"), { createdBy: MEMBER.uid }),
+		);
+		await assertSucceeds(
+			updateDoc(doc(db, locationsPath, "garden"), { title: "The garden" }),
+		);
+	});
+
+	it("lets a member delete, and a non-member do nothing", async () => {
+		await seedLocations();
+
+		await assertFails(
+			deleteDoc(doc(dbAs(env, OUTSIDER), locationsPath, "garden")),
+		);
+		await assertSucceeds(
+			deleteDoc(doc(dbAs(env, MEMBER), locationsPath, "garden")),
+		);
 	});
 });
 

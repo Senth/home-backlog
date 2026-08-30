@@ -594,8 +594,15 @@ export function compareNodes(a: Node, b: Node): number {
  * ---------------------------------------------------------------------------
  */
 
-/** The `ancestorIds` of a child of `parent` — `[]` for a root node. */
-export function childAncestorIds(parent: Node | null): string[] {
+/**
+ * The `ancestorIds` of a child of `parent` — `[]` for a root node.
+ *
+ * Structural on purpose, so a location's path (#50) is derived through the
+ * same function: the two trees must not drift apart on the shape of a path.
+ */
+export function childAncestorIds(
+	parent: { id: string; ancestorIds: readonly string[] } | null,
+): string[] {
 	return parent === null ? [] : [...parent.ancestorIds, parent.id];
 }
 
@@ -610,16 +617,17 @@ export function childAncestorIds(parent: Node | null): string[] {
  * This is the function the split in `firestore.rules` leans on. The rules check
  * the path structurally rather than walking it, so a wrong *grandparent* id
  * passes them; `parentId` stays the source of truth and this is what derives
- * the rest of it, which is why it is tested rather than trusted.
+ * the rest of it, which is why it is tested rather than trusted. A location
+ * move (#50) reuses it for the same reason.
  */
 export function movedAncestorIds(
-	descendant: Node,
+	ancestorIds: readonly string[],
 	movedId: string,
 	movedAncestors: readonly string[],
 ): string[] {
-	const index = descendant.ancestorIds.indexOf(movedId);
-	if (index === -1) return [...descendant.ancestorIds];
-	return [...movedAncestors, ...descendant.ancestorIds.slice(index)];
+	const index = ancestorIds.indexOf(movedId);
+	if (index === -1) return [...ancestorIds];
+	return [...movedAncestors, ...ancestorIds.slice(index)];
 }
 
 /**

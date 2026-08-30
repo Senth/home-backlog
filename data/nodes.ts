@@ -894,7 +894,11 @@ export async function reparentNode(
 	}
 	for (const snapshot of descendants) {
 		batch.update(snapshot.ref, {
-			ancestorIds: movedAncestorIds(toNode(snapshot), node.id, ancestorIds),
+			ancestorIds: movedAncestorIds(
+				toNode(snapshot).ancestorIds,
+				node.id,
+				ancestorIds,
+			),
 			updatedAt: serverTimestamp(),
 		});
 	}

@@ -487,8 +487,60 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // A place — the second tree (#50). Household furniture: member-only and
+      // uniform, the grant `recurring` already has, with no visibility to hide
+      // anything and no counters to keep in step. New collection, no legacy
+      // documents — so unlike the node fields, nothing here is validated
+      // present-only; every document carries every field from the first one.
+      //
+      // No get() anywhere: a location carries no inheritance invariant beyond
+      // structure, so a batched subtree move never approaches the
+      // twenty-document-access budget the node reparent's parent get() spends.
       match /locations/{locationId} {
-        allow read, write: if isMember(homeId);
+        function validLocation(data) {
+          return data.title is string
+            && data.title.size() >= 1
+            && data.title.size() <= 200
+            && (data.parentId == null || data.parentId is string)
+            && data.ancestorIds is list
+            && data.rank is string
+            && data.rank.size() > 0
+            && data.createdAt is timestamp
+            && data.createdBy is string
+            && data.updatedAt is timestamp;
+        }
+
+        // The same structural check nodes use, with no get(): a rule's get()
+        // reads committed state and cannot see the rest of a writeBatch, so a
+        // batched subtree move — the moved location and its descendants'
+        // rewritten paths at once — validates each document on its own. What
+        // it gives up is full-path verification: parentId is the source of
+        // truth and ancestorIds is derived from it, so a wrong grandparent id
+        // is the recoverable class of error.
+        function structure(data) {
+          return (data.parentId == null
+                  ? data.ancestorIds.size() == 0
+                  : (data.ancestorIds.size() > 0
+                     && data.ancestorIds[data.ancestorIds.size() - 1] == data.parentId))
+            && !(locationId in data.ancestorIds);
+        }
+
+        // createdAt and createdBy are the only immutable fields — a location
+        // carries no authorship mark beyond them, unlike a node's createdVia.
+        function immutable(next, current) {
+          return next.createdAt == current.createdAt
+            && next.createdBy == current.createdBy;
+        }
+
+        allow get, list: if isMember(homeId);
+        allow create: if isMember(homeId)
+          && validLocation(request.resource.data)
+          && structure(request.resource.data);
+        allow update: if isMember(homeId)
+          && validLocation(request.resource.data)
+          && structure(request.resource.data)
+          && immutable(request.resource.data, resource.data);
+        allow delete: if isMember(homeId);
       }
 
       match /recurring/{ruleId} {

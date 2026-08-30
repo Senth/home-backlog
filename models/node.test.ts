@@ -182,33 +182,19 @@ describe("childAncestorIds", () => {
 
 describe("movedAncestorIds", () => {
 	it("splices in the moved node's new path and keeps the rest", () => {
-		const grandchild = node({
-			id: "grandchild",
-			parentId: "child",
-			ancestorIds: ["old-home", "moved", "child"],
-		});
-
-		expect(movedAncestorIds(grandchild, "moved", ["new-home"])).toEqual([
-			"new-home",
-			"moved",
-			"child",
-		]);
+		expect(
+			movedAncestorIds(["old-home", "moved", "child"], "moved", ["new-home"]),
+		).toEqual(["new-home", "moved", "child"]);
 	});
 
 	it("moves a subtree to the root", () => {
-		const child = node({
-			id: "child",
-			parentId: "moved",
-			ancestorIds: ["old-home", "moved"],
-		});
-
-		expect(movedAncestorIds(child, "moved", [])).toEqual(["moved"]);
+		expect(movedAncestorIds(["old-home", "moved"], "moved", [])).toEqual([
+			"moved",
+		]);
 	});
 
 	it("leaves a node that is not in the moved subtree alone", () => {
-		const elsewhere = node({ id: "elsewhere", ancestorIds: ["other"] });
-
-		expect(movedAncestorIds(elsewhere, "moved", ["new-home"])).toEqual([
+		expect(movedAncestorIds(["other"], "moved", ["new-home"])).toEqual([
 			"other",
 		]);
 	});
