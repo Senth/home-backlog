@@ -93,10 +93,18 @@ test("2: a claim whose owning pid is dead is reclaimed by the next allocation; o
 
 	const ports = alloc(["firestore", "storage"]);
 
-	expect(Object.values(ports)).toContain(deadPort);
+	// The live claim is never handed out, whatever else happens.
 	expect(Object.values(ports)).not.toContain(livePort);
-	// The reclaimed claim now names the allocator that took it over.
-	expect(
-		fs.readFileSync(path.join(registry, String(deadPort), "pid"), "utf8"),
-	).not.toBe(`${dead.pid}`);
+	if (Object.values(ports).includes(deadPort)) {
+		// The reclaimed claim now names the allocator that took it over.
+		expect(
+			fs.readFileSync(path.join(registry, String(deadPort), "pid"), "utf8"),
+		).not.toBe(`${dead.pid}`);
+	} else {
+		// The 7000-7999 range is shared with sibling worktrees, so another
+		// stack may bind deadPort between our probe and this alloc; the
+		// allocator routing around it is correct. What must never happen is
+		// the port coming back neither reclaimed nor bound.
+		expect(await portFree(deadPort)).toBe(false);
+	}
 });
