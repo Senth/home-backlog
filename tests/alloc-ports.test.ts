@@ -1,9 +1,9 @@
 // Black-box tests for scripts/alloc-ports.mjs, driven exactly the way
 // dev-stack.sh drives it: spawned with `node`, with DEV_STACK_REGISTRY pointed
-// at a throwaway directory (os.tmpdir() — a fresh CI checkout has no .tmp/ to
-// scratch in) — no test ever touches the real registry. These are the
-// behavioural proof for acceptance claims 1-2 of the
-// worktree-parallel-emulators work, folded into docs/OPERATIONS.md.
+// at a throwaway directory — no test ever touches the real registry. This is
+// the allocator's only proof, and deliberately so: the allocator is dev
+// tooling, and e2e is for production code and UI (see docs/OPERATIONS.md,
+// "The local stack").
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";

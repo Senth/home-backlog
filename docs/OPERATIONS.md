@@ -401,20 +401,9 @@ Two things it depends on, both easy to break by regenerating the fixture:
 
 #### Where a new spec goes
 
-The suite is projects crossed over two axes and two exceptions, and putting a new
+The suite is projects crossed over two axes and one exception, and putting a new
 spec in the wrong one costs a duplicate pass — the same measurement made twice,
-paid for on every PR forever. Five questions, in order:
-
-**Does its claim need the app at all?** A claim about the dev stack's own
-machinery — the port allocator, the stack scripts — goes in the `node`
-project: browserless, no signed-in state, no viewport, no locale, and no
-dependency on the setup project, because it needs none of what setup builds.
-It starts as soon as the suite does, beside setup rather than after it, and
-never opens the app in a browser. Its config still reads `stack.json` at load,
-so the stack must exist — it just never visits it. One rule learned the hard
-way: the 7000–7999 range is shared with every other worktree on the machine,
-so a spec there may not assume a port it probed free stays free until its
-assertion runs; assert the invariant, not the port's identity.
+paid for on every PR forever. Four questions, in order:
 
 **Does it write to the emulator?** Then it goes in the `writes` project,
 whatever else is true of it. That project runs one worker and runs last, after
