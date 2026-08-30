@@ -1,11 +1,13 @@
 // Black-box tests for scripts/alloc-ports.mjs, driven exactly the way
 // dev-stack.sh drives it: spawned with `node`, with DEV_STACK_REGISTRY pointed
-// at a scratch directory inside this worktree — no test ever touches the real
-// registry. These are the behavioural proof for acceptance claims 1-2 of the
+// at a throwaway directory (os.tmpdir() — a fresh CI checkout has no .tmp/ to
+// scratch in) — no test ever touches the real registry. These are the
+// behavioural proof for acceptance claims 1-2 of the
 // worktree-parallel-emulators work, folded into docs/OPERATIONS.md.
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
+import os from "node:os";
 import path from "node:path";
 
 const SCRIPT = path.join(__dirname, "..", "scripts", "alloc-ports.mjs");
@@ -33,7 +35,7 @@ const portFree = (port: number) =>
 	});
 
 beforeEach(() => {
-	root = fs.mkdtempSync(path.join(__dirname, "..", ".tmp", "alloc-ports-"));
+	root = fs.mkdtempSync(path.join(os.tmpdir(), "alloc-ports-"));
 	registry = path.join(root, "registry");
 });
 
