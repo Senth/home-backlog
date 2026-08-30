@@ -146,15 +146,27 @@ const functions = getFunctions(app, functionsRegion);
  * cannot reach the household's real data.
  *
  * `__DEV__` is false in an `expo export` bundle, so production builds and CI
- * never take this branch. Ports are offset from the sibling project's
- * (8050–8052) so both emulator suites can run side by side.
+ * never take this branch. The ports are the ones `scripts/dev-stack.sh up`
+ * allocated for this worktree and exports as `EXPO_PUBLIC_EMULATOR_*` — never
+ * literals, so two worktrees can each run a stack at once.
  */
 if (__DEV__) {
+	const authPort = Number(process.env.EXPO_PUBLIC_EMULATOR_AUTH);
+	const firestorePort = Number(process.env.EXPO_PUBLIC_EMULATOR_FIRESTORE);
+	const storagePort = Number(process.env.EXPO_PUBLIC_EMULATOR_STORAGE);
+	const functionsPort = Number(process.env.EXPO_PUBLIC_EMULATOR_FUNCTIONS);
+	if (!authPort || !firestorePort || !storagePort || !functionsPort) {
+		throw new Error(
+			"Emulator ports are missing from the environment — start the stack with scripts/dev-stack.sh up, which sets EXPO_PUBLIC_EMULATOR_*",
+		);
+	}
 	const host = "localhost";
-	connectAuthEmulator(auth, `http://${host}:8061`, { disableWarnings: true });
-	connectFirestoreEmulator(db, host, 8062);
-	connectStorageEmulator(storage, host, 8063);
-	connectFunctionsEmulator(functions, host, 8064);
+	connectAuthEmulator(auth, `http://${host}:${authPort}`, {
+		disableWarnings: true,
+	});
+	connectFirestoreEmulator(db, host, firestorePort);
+	connectStorageEmulator(storage, host, storagePort);
+	connectFunctionsEmulator(functions, host, functionsPort);
 }
 
 export { auth, db, functions, storage };

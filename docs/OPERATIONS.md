@@ -238,13 +238,21 @@ serves its own handler and its own account picker.
 
 ## Rules tests
 
-`yarn test:rules` boots the emulators and runs `tests/rules/` against them,
-serially, under the project id `demo-home-backlog-rules`. That id appears in
-both the `test:rules` script and `tests/rules/helpers.ts` and the two must
-agree: the emulators run in `singleProjectMode`, and `storage.rules` reaches
-into Firestore with `firestore.get()`, which resolves against the emulator's
-own project. A mismatch fails every upload test with a permission error that
-looks like a rules bug and is not.
+`yarn test:rules` runs `tests/rules/` against its own Firestore and Storage
+emulators, serially, under the project id `demo-home-backlog-rules`. That id
+appears in both `scripts/test-rules.mjs` and `tests/rules/helpers.ts` and the
+two must agree: the emulators run in `singleProjectMode`, and `storage.rules`
+reaches into Firestore with `firestore.get()`, which resolves against the
+emulator's own project. A mismatch fails every upload test with a permission
+error that looks like a rules bug and is not.
+
+`scripts/test-rules.mjs` allocates a fresh port block through
+`scripts/alloc-ports.mjs` — firestore and storage, plus the hub and the
+logging emulator, which run beside whatever `--only` names — writes a
+generated `firebase.rules-tests.json` at the worktree root, and runs jest
+inside `firebase emulators:exec` with the ports in the `EMULATOR_*_PORT`
+environment, which `tests/rules/helpers.ts` reads. Nothing is a fixed port,
+so two worktrees can run the suite at the same time.
 
 ## One-off migrations
 
@@ -280,10 +288,10 @@ The same script migrates `.emulator-seed/`, which is the other place stored
 documents live:
 
 ```bash
-yarn emulators:seed
-FIRESTORE_EMULATOR_HOST=127.0.0.1:8062 \
+scripts/dev-stack.sh up --no-web   # imports .emulator-seed; ports in .tmp/dev-stack/stack.json
+FIRESTORE_EMULATOR_HOST=127.0.0.1:$(jq -r .ports.firestore .tmp/dev-stack/stack.json) \
   node functions/scripts/<script>.mjs --project home-backlog --apply
-yarn emulators:export
+scripts/dev-stack.sh export
 ```
 
 Written so far:
@@ -297,28 +305,49 @@ Written so far:
 
 The Auth emulator serves its own sign-in widget, so Google sign-in works locally
 without a real Google account. The web flow is a **redirect**, not a popup — see
-`components/auth/GoogleSignIn.web.tsx` — so signing in leaves the app for
-`localhost:8061`, picks an account from `.emulator-seed/auth_export`, and comes
-back. One tab throughout.
+`components/auth/GoogleSignIn.web.tsx` — so signing in leaves the app for the
+Auth emulator's account picker on the port this worktree's stack allocated (see
+`scripts/dev-stack.sh status`), picks an account from
+`.emulator-seed/auth_export`, and comes back. One tab throughout.
 
 ### The local stack
 
 `scripts/dev-stack.sh` owns bringing the emulators and the Expo web server up and
-down. Three callers share it: you, `playwright.config.ts` (whose `webServer`
-points at it), and the `/review` skill.
+down. Three callers share it: you, `yarn e2e` (which boots it before running the
+suite), and the `/review` skill.
 
 ```bash
 scripts/dev-stack.sh up      # idempotent; imports .emulator-seed
 scripts/dev-stack.sh up --no-web   # emulators only
 scripts/dev-stack.sh up --fresh    # boot empty, for rebuilding the fixture
 scripts/dev-stack.sh status  # which ports are listening, and whose they are
+scripts/dev-stack.sh export  # overwrite .emulator-seed from the running stack
 scripts/dev-stack.sh down    # stops only what it started
 ```
 
-`up` leaves an already-listening port completely alone, and `status` says whether
-a running stack is `ours` or `external`. That distinction matters for review: a
-stack you did not start holds whatever data the last session left in it, not the
-committed fixture.
+Every `up` that actually boots something allocates a fresh block of ports in
+7000–7999 — the emulators, the hub and logging emulator, and the web server —
+through `scripts/alloc-ports.mjs`: each port is bind-probed, then claimed by an
+atomic mkdir in the **main** repo's registry (`git rev-parse --git-common-dir`,
+so every worktree shares one book), and a claim whose owning pid is dead is
+reclaimed by the next allocation. The allocation lands in
+`.tmp/dev-stack/stack.json`, and the emulators run against a generated
+`firebase.dev-stack.json` at the worktree root — the committed `firebase.json`
+with only its `emulators` block rewritten (at the root, because the CLI pins
+the project root to the config file's directory). Consumers read the
+allocation instead of literals: `playwright.config.ts` and the e2e helpers
+read `stack.json`, the web bundle gets its ports as `EXPO_PUBLIC_EMULATOR_*`,
+and a dev app started without them fails fast naming `dev-stack.sh`. Two
+worktrees can each run a full stack at once; `yarn e2e` and `yarn test:rules`
+in one never touch the other's ports.
+
+`up` is idempotent and never adopts a foreign stack: what it trusts is this
+worktree's own `stack.json` and the pids recorded in it, and nothing else. A
+port that is listening without a live recorded pid is somebody else's — `up`
+allocates its own block around it, and `down` still only ever stops what this
+worktree started. `status` marks each port `ours` or `external`, and that
+distinction matters for review: a stack you did not start holds whatever data
+the last session left in it, not the committed fixture.
 
 Two traps, both of which cost real time before this script existed, and one of
 which cost it again while writing this:
