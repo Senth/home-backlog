@@ -15,6 +15,8 @@ interface TitleDialogProps {
 	confirmLabel: string;
 	/** What the field starts with. A rename starts from the current title. */
 	initialTitle?: string;
+	/** The field's own label. The board's "Title" is the default. */
+	label?: string;
 	/** Called with the trimmed title. Never awaited — see below. */
 	onSubmit: (title: string) => void;
 	/** Unique per dialog: the focus trap finds the surface by `${testID}-surface`. */
@@ -40,6 +42,7 @@ export function TitleDialog({
 	heading,
 	confirmLabel,
 	initialTitle = "",
+	label,
 	onSubmit,
 	testID,
 	returnFocusTo,
@@ -103,7 +106,7 @@ export function TitleDialog({
 		>
 			<TextInput
 				mode="outlined"
-				label={t("board.titleLabel")}
+				label={label ?? t("board.titleLabel")}
 				value={title}
 				onChangeText={(value) => {
 					setTitle(value);

@@ -63,11 +63,26 @@
 			"offlineHint": "Signing in needs a connection."
 		},
 		"locations": {
-			"empty": "No locations yet."
+			"loadFailed": "Could not load the locations. Check your connection."
 		},
 		"maintenance": {
 			"empty": "Nothing due."
 		}
+	},
+	"locations": {
+		"add": "Add location",
+		"addUnder": "Add under…",
+		"moveUnder": "Move under…",
+		"moveUnderTop": "Top level",
+		"rename": "Rename",
+		"renameTitle": "Rename location",
+		"nameLabel": "Name",
+		"delete": "Delete",
+		"deleteTitle": "Delete {{name}}?",
+		"deleteBody": "{{name}}, and everything under it, will be deleted. This cannot be undone.",
+		"emptyTitle": "Add the places around your home",
+		"emptyBody": "The garden, the basement, the cabin — build the tree now, file work in it later.",
+		"actions": "Location actions"
 	},
 	"homes": {
 		"title": "My homes",

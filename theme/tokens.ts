@@ -114,6 +114,17 @@ export const drag = {
 } as const;
 
 /**
+ * The location tree's row indent (#50). One `step` per level of depth, capped
+ * at `levels` steps: past the cap a deep row at 200 % text would spend its
+ * width on indentation instead of its name, so there the structure yields and
+ * the name keeps its room.
+ */
+export const indent = {
+	step: 16,
+	levels: 3,
+} as const;
+
+/**
  * The FAB's footprint. The one primary action per surface earns its colour,
  * and what it must not take is room: at 200% text a full-label FAB once
  * spanned 91.8% of a 195px window — essentially the whole screen. Capped at
