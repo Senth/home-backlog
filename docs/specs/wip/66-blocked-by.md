@@ -104,7 +104,7 @@ All through `t()`, `en-US.json` and `sv-SE.json` in the same change. The face wo
 | `detail.stopWaitingOn` | Stop waiting on {{title}} | Sluta vänta på {{title}} |
 | `detail.stopWaitingOnGone` | Stop waiting on it | Sluta vänta på det |
 
-The offline hint reuses `board.offlineHint`. i18next plurals carry the label; "uppgift" is the register `sv-SE` already uses for tasks — check the existing locale for the word the app actually uses on cards and stay with it.
+The offline hint reuses `board.offlineHint`. `detail.stopWaitingOnGone` is the no-title label for both rows without a referent — the gone row and the loading/offline row — so no label interpolates a hint or a sentence. i18next plurals carry the label; "uppgift" is the register `sv-SE` already uses for tasks — check the existing locale for the word the app actually uses on cards and stay with it.
 
 ## Acceptance
 

@@ -102,11 +102,12 @@ export function WaitingOnSection({
 												icon="close"
 												size={icon.sm}
 												accessibilityLabel={
-													// The gone row has no title to name — its
-													// sentence must not become the label's
-													// object ("Stop waiting on That card is
-													// gone.").
-													blocker === null
+													// A label with no title to name — the read
+													// is pending/offline or came back gone —
+													// must not make the hint or the sentence
+													// its object ("Stop waiting on Needs a
+													// connection."); both use the no-title key.
+													blocker === undefined || blocker === null
 														? t("detail.stopWaitingOnGone")
 														: t("detail.stopWaitingOn", {
 																title,
