@@ -221,7 +221,7 @@ filed work you did not file.
 | `assigneeIds` | ✅ | Shown in the app. Who is doing this card. Uids from `GET /v1/homes`. |
 | `parentId` | ✅ | Structure. On `POST` it places the node; on `PATCH` it moves the subtree. |
 | `visibility` | ✅ on create, at the top level only | Shown in the app. `shared` or `private`. |
-| `blockedBy` | ✅ | **Stored, no screen yet.** Node ids this is waiting on. Nothing renders it today. |
+| `blockedBy` | ✅ | Rendered in the app as *Waiting*: the app derives the state from the blockers' statuses, and nothing auto-clears it — a done blocker stops holding cards, and reopening one re-blocks them. Writing a private node's id into a shared card's list leaves the other members a row they cannot read and can remove. |
 | `checklist` | ✅ | **Stored, no screen yet.** Up to 200 items. Nothing renders it today. |
 | `participantIds` | ❌ | Shown in the app. Whose project this is. Set by a person. |
 | `archived` | ❌ | Hides a card from every board. Nothing in the app can bring one back yet, so nothing here may hide one. |
