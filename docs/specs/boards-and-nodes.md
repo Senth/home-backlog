@@ -1525,6 +1525,14 @@ Navigation is a Stack inside the Projects tab, over the routes `/projects`,
 depth, and browser back, the PWA back gesture, reload and a shared link all work.
 `board-href.ts` is the one place those paths are written.
 
+The Stack's initial route is the root board: `initialRouteName="index"` names it, so a
+tab press lands on `/projects` rather than on a board whose node id is missing. The prop,
+not the declaration order of the `Stack.Screen` children, is the mechanism — Expo Router
+hoists declared screens to the front, but that ordering is an implementation detail, and
+a child reorder or dependency bump must not silently re-break the tab. (#167 was exactly
+that break: with only the two dynamic screens declared, the tab press resolved the
+initial route to `[nodeId]/index` with no param and landed on `/projects/undefined`.)
+
 Going *up* uses `dismissTo`, not `push`: the crumbs are the stack you came down. Two things
 make that work:
 
