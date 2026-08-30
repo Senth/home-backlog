@@ -5,7 +5,8 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 
 /**
- * Acceptance claims 1–2 of `docs/specs/wip/171-worktree-parallel-emulators.md`,
+ * Acceptance claims 1–2 of the worktree-parallel-emulators work, folded into
+ * `docs/OPERATIONS.md`,
  * and the only specs here that need no browser: the thing under test is
  * `scripts/alloc-ports.mjs`, driven exactly the way `dev-stack.sh` drives it —
  * spawned with `node`, with `DEV_STACK_REGISTRY` pointed at a fresh, throwaway

@@ -1,8 +1,8 @@
 // Black-box tests for scripts/alloc-ports.mjs, driven exactly the way
 // dev-stack.sh drives it: spawned with `node`, with DEV_STACK_REGISTRY pointed
 // at a scratch directory inside this worktree — no test ever touches the real
-// registry. These are the behavioural proof for acceptance claims 1-2 of
-// docs/specs/wip/171-worktree-parallel-emulators.md.
+// registry. These are the behavioural proof for acceptance claims 1-2 of the
+// worktree-parallel-emulators work, folded into docs/OPERATIONS.md.
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";

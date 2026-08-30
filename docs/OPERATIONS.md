@@ -326,20 +326,33 @@ scripts/dev-stack.sh down    # stops only what it started
 ```
 
 Every `up` that actually boots something allocates a fresh block of ports in
-7000–7999 — the emulators, the hub and logging emulator, and the web server —
+7000–7999 — the emulators, the web server, and the hub and logging emulator too,
+which `firebase.json` never pinned and which default to 4400/4500, so two
+concurrent suites would fight over them exactly as over any other port —
 through `scripts/alloc-ports.mjs`: each port is bind-probed, then claimed by an
 atomic mkdir in the **main** repo's registry (`git rev-parse --git-common-dir`,
 so every worktree shares one book), and a claim whose owning pid is dead is
 reclaimed by the next allocation. The allocation lands in
 `.tmp/dev-stack/stack.json`, and the emulators run against a generated
 `firebase.dev-stack.json` at the worktree root — the committed `firebase.json`
-with only its `emulators` block rewritten (at the root, because the CLI pins
-the project root to the config file's directory). Consumers read the
+with only its `emulators` block rewritten, everything else spliced through byte
+for byte so rules paths, the storage bucket and the functions predeploy survive
+a reflow they never asked for (at the root, because the CLI pins the project
+root to the config file's directory). Consumers read the
 allocation instead of literals: `playwright.config.ts` and the e2e helpers
 read `stack.json`, the web bundle gets its ports as `EXPO_PUBLIC_EMULATOR_*`,
 and a dev app started without them fails fast naming `dev-stack.sh`. Two
 worktrees can each run a full stack at once; `yarn e2e` and `yarn test:rules`
 in one never touch the other's ports.
+
+There is no Firebase-native standard underneath this: the CLI cannot bind port
+0 and has no per-emulator port flags. The alternatives were rejected for
+concrete reasons. Fixed ports forever is the behaviour the issue exists to
+kill. A deterministic per-worktree offset puts two worktrees on one block and
+knows nothing about a foreign squatter. Env vars alone race, because two `up`s
+scanning at the same moment can pick the same free ports — which is why the
+claims are atomic `mkdir`s rather than a convention. And a running stack never
+re-allocates: new ports are for a boot, not a re-ask.
 
 `up` is idempotent and never adopts a foreign stack: what it trusts is this
 worktree's own `stack.json` and the pids recorded in it, and nothing else. A
@@ -347,7 +360,11 @@ port that is listening without a live recorded pid is somebody else's — `up`
 allocates its own block around it, and `down` still only ever stops what this
 worktree started. `status` marks each port `ours` or `external`, and that
 distinction matters for review: a stack you did not start holds whatever data
-the last session left in it, not the committed fixture.
+the last session left in it, not the committed fixture. The distinction is also
+why the script exists: its predecessor read any listening port as "already up
+(not ours)", so a second worktree did not fail, it silently adopted the first
+worktree's emulator and ran its e2e against someone else's data — the behaviour
+issue #171 exists to kill.
 
 Two traps, both of which cost real time before this script existed, and one of
 which cost it again while writing this:
@@ -384,9 +401,20 @@ Two things it depends on, both easy to break by regenerating the fixture:
 
 #### Where a new spec goes
 
-The suite is projects crossed over two axes and one exception, and putting a new
+The suite is projects crossed over two axes and two exceptions, and putting a new
 spec in the wrong one costs a duplicate pass — the same measurement made twice,
-paid for on every PR forever. Four questions, in order:
+paid for on every PR forever. Five questions, in order:
+
+**Does its claim need the app at all?** A claim about the dev stack's own
+machinery — the port allocator, the stack scripts — goes in the `node`
+project: browserless, no signed-in state, no viewport, no locale, and no
+dependency on the setup project, because it needs none of what setup builds.
+It starts as soon as the suite does, beside setup rather than after it, and
+never opens the app in a browser. Its config still reads `stack.json` at load,
+so the stack must exist — it just never visits it. One rule learned the hard
+way: the 7000–7999 range is shared with every other worktree on the machine,
+so a spec there may not assume a port it probed free stays free until its
+assertion runs; assert the invariant, not the port's identity.
 
 **Does it write to the emulator?** Then it goes in the `writes` project,
 whatever else is true of it. That project runs one worker and runs last, after
