@@ -7,7 +7,7 @@ import { apiHome, apiNode, etagFor, visibleTo } from "./api-nodes.js";
 import { type ApiCaller, caller, homeAccess } from "./auth.js";
 import { ApiError } from "./errors.js";
 import { db, homesCollection, nodesCollection } from "./firestore.js";
-import { handle } from "./handler.js";
+import { handle, param } from "./handler.js";
 
 /**
  * The node and home verbs.
@@ -23,15 +23,6 @@ import { handle } from "./handler.js";
 
 function homeNodes(homeId: string) {
 	return db.collection(homesCollection).doc(homeId).collection(nodesCollection);
-}
-
-/** A path parameter, or a 400 rather than a request against `undefined`. */
-function param(request: Request, name: string): string {
-	const value = request.params[name];
-	if (typeof value !== "string" || value.length === 0) {
-		throw new ApiError(400, "invalid_path", `Missing ${name} in the path.`);
-	}
-	return value;
 }
 
 /**

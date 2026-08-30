@@ -5,15 +5,15 @@ import type {
 	QueryDocumentSnapshot,
 } from "firebase-admin/firestore";
 import { FieldValue } from "firebase-admin/firestore";
-import { apiLocation } from "./api-nodes.js";
+import { apiLocation, etagFor } from "./api-nodes.js";
 import { type ApiCaller, caller, homeAccess, recordWrite } from "./auth.js";
 import { parseLocationBody } from "./body.js";
 import { ApiError } from "./errors.js";
 import { db, homesCollection, locationsCollection } from "./firestore.js";
-import { handle } from "./handler.js";
+import { handle, param } from "./handler.js";
 import { childAncestorIds, movedAncestorIds, rankAfter } from "./node.js";
 import { type LocationContext, validateLocation } from "./validate.js";
-import { refuseOversizedSubtree } from "./writes.js";
+import { checkPrecondition, refuseOversizedSubtree } from "./writes.js";
 
 /**
  * The location verbs (#50): list, create, rename-and-move, delete a place.
@@ -37,14 +37,6 @@ function homeLocations(homeId: string) {
 		.collection(homesCollection)
 		.doc(homeId)
 		.collection(locationsCollection);
-}
-
-function param(request: Request, name: string): string {
-	const value = request.params[name];
-	if (typeof value !== "string" || value.length === 0) {
-		throw new ApiError(400, "invalid_path", `Missing ${name} in the path.`);
-	}
-	return value;
 }
 
 function notFound(locationId: string, homeId: string): ApiError {
@@ -146,6 +138,7 @@ async function respondWithLocation(
 	status: number,
 ): Promise<void> {
 	const written = await homeLocations(homeId).doc(locationId).get();
+	response.setHeader("ETag", etagFor(written.get("updatedAt")));
 	response.status(status).json(apiLocation(written.id, written.data() ?? {}));
 }
 
@@ -206,6 +199,7 @@ async function patchLocation(
 
 	const locationId = param(request, "locationId");
 	const snapshot = await readLocation(homeId, locationId);
+	checkPrecondition(request, snapshot);
 	const current = snapshot.data() ?? {};
 	const body = parseLocationBody(request.body, "update");
 
@@ -272,7 +266,8 @@ async function deleteLocation(
 	const home = await homeAccess(me, homeId);
 
 	const locationId = param(request, "locationId");
-	await readLocation(homeId, locationId);
+	const snapshot = await readLocation(homeId, locationId);
+	checkPrecondition(request, snapshot);
 
 	const descendants = await descendantsOf(homeId, locationId);
 	const cascade = request.query.cascade === "true";

@@ -333,11 +333,14 @@ that is occasionally absent.
 
 ### Optimistic concurrency is `ETag` and `If-Match`
 
-Every single-node response carries `ETag: "<updatedAt as ISO 8601>"`, and `PATCH` and
-`DELETE` honour `If-Match` against it, returning `412 version_mismatch` when it does not
-agree and applying no precondition at all when the header is absent. It is the whole of the
-concurrency control. An agent that read a card, thought about it and comes back to write
-finds out that somebody edited it in between instead of silently overwriting them.
+Every single-node response carries `ETag: "<updatedAt as ISO 8601>"`, and the location
+verbs carry the same contract: `POST` and `PATCH` on
+`/homes/:homeId/locations/:locationId` return the created or written place with its
+`ETag`. `PATCH` and `DELETE` honour `If-Match` against it, on nodes and locations alike,
+returning `412 version_mismatch` when it does not agree and applying no precondition at
+all when the header is absent. It is the whole of the concurrency control. An agent that
+read a card, thought about it and comes back to write finds out that somebody edited it
+in between instead of silently overwriting them.
 
 Read verbs send the header too. Without that the only way to obtain one would be to write
 first, which is the wrong way round.

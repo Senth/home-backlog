@@ -73,7 +73,7 @@ payload. Messages are not translated, because the app never shows them.
 | `401` | The key is missing, malformed or revoked. |
 | `404` | No such home, node or location — or a node you are not allowed to see. Deliberately the same answer. |
 | `409` | You asked for something that needs confirming (`has_children`) or does not fit (`subtree_too_large`). |
-| `412` | `If-Match` did not agree. Read the node again. |
+| `412` | `If-Match` did not agree. Read the node or place again. |
 | `413` | The body is over 1 MB. |
 | `500` | Our fault. Retry is reasonable. |
 
@@ -218,13 +218,15 @@ among its siblings (omit both for a top-level place at the end).
 { "title": "Garden", "parentId": "wJg9A41tevu4ydzlnZvz" }
 ```
 
-Returns `201` and the created location. Its path is derived from `parentId` — send
-`ancestorIds` and it is refused, like every computed field.
+Returns `201` and the created location, with its `ETag` in the response headers — there is
+no single-place read verb, so that is where you first get one. Its path is derived from
+`parentId` — send `ancestorIds` and it is refused, like every computed field.
 
 ### `PATCH /v1/homes/{homeId}/locations/{locationId}`
 
 One update verb, like the node one: send `title` to rename, `parentId` to move the place and
-everything under it. Moving a place inside its own subtree is `400 cycle`.
+everything under it. Moving a place inside its own subtree is `400 cycle`. The response
+carries an `ETag`, and `If-Match` guards the write exactly as it does for nodes.
 
 ### `DELETE /v1/homes/{homeId}/locations/{locationId}`
 
