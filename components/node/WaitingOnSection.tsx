@@ -9,6 +9,7 @@ import { Row } from "@/components/ui/Row";
 import { useAuth } from "@/contexts/AuthContext";
 import type { NodeChanges } from "@/data/nodes";
 import { useBlockerReads } from "@/hooks/use-blockers";
+import { useOnlineStatus } from "@/hooks/use-online-status";
 import type { Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { icon, space, touchTarget, touchTargetStyle } from "@/theme/tokens";
@@ -33,8 +34,8 @@ interface WaitingOnSectionProps {
  * A blocker that is gone or unreadable renders as the gone row, with its
  * remove action beside it: a mark with nothing behind it is Ingrid's "tapped
  * something and cannot find my way back", rebuilt as data. A read that could
- * not happen — offline — is *unanswered* instead, and its row holds the
- * loading state rather than claiming the card is gone. Nothing here ever
+ * not happen — offline — is *unanswered* instead: the row says it needs the
+ * server rather than loading forever. Nothing here ever
  * removes an entry by itself — stopping is a person's tap, and it queues
  * offline like every other field write.
  */
@@ -47,6 +48,7 @@ export function WaitingOnSection({
 	const theme = useAppTheme();
 	const { user } = useAuth();
 	const focused = useIsFocused();
+	const online = useOnlineStatus();
 	const [searching, setSearching] = useState(false);
 
 	const blockers = useBlockerReads(homeId, node.blockedBy, focused);
@@ -70,10 +72,12 @@ export function WaitingOnSection({
 					{node.blockedBy.map((id) => {
 						// Unanswered holds its row — the same not-yet direction the
 						// face mark takes. `null` is a read that came back gone.
+						// Offline the read cannot happen at all: say so instead of
+						// loading forever, the way the search dialog admits it.
 						const blocker = blockers.get(id);
 						const title =
 							blocker === undefined
-								? t("common.loading")
+								? t(online ? "common.loading" : "board.offlineHint")
 								: (blocker?.title ?? t("detail.blockerGone"));
 
 						return (

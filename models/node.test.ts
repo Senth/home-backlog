@@ -759,9 +759,17 @@ describe("pickerCandidates", () => {
 	];
 
 	it("filters on a case-insensitive title substring", () => {
-		const { results } = pickerCandidates("TILES", self, [], shared, []);
+		const { results, rawCount } = pickerCandidates(
+			"TILES",
+			self,
+			[],
+			shared,
+			[],
+		);
 
 		expect(results.map((candidate) => candidate.id)).toEqual(["order-tiles"]);
+		// The footer counts what the search saw, before any filtering.
+		expect(rawCount).toBe(2);
 	});
 
 	it("drops self, existing blockers and done", () => {
@@ -802,7 +810,9 @@ describe("pickerCandidates", () => {
 
 		// Every hit survives the filter, so the flag is the only thing that can
 		// say the home may hold more candidates than the search saw.
-		expect(pickerCandidates("tiles", self, [], many, []).capped).toBe(true);
+		const seen = pickerCandidates("tiles", self, [], many, []);
+		expect(seen.capped).toBe(true);
+		expect(seen.rawCount).toBe(50);
 		expect(
 			pickerCandidates("tiles", self, [], many.slice(0, 49), []).capped,
 		).toBe(false);

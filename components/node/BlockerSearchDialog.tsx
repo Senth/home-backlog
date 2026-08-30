@@ -62,6 +62,7 @@ export function BlockerSearchDialog({
 	const [text, setText] = useState("");
 	const [query, setQuery] = useState("");
 	const [results, setResults] = useState<Node[]>([]);
+	const [rawCount, setRawCount] = useState(0);
 	const [capped, setCapped] = useState(false);
 	const [searching, setSearching] = useState(false);
 
@@ -78,6 +79,7 @@ export function BlockerSearchDialog({
 		// draw its rejection. Offline the dialog's own hint is the whole answer.
 		if (uid === null || !online || query.length < minQueryLength) {
 			setResults([]);
+			setRawCount(0);
 			setCapped(false);
 			setSearching(false);
 			return;
@@ -100,6 +102,7 @@ export function BlockerSearchDialog({
 					participating.docs.map(toNode),
 				);
 				setResults(found.results);
+				setRawCount(found.rawCount);
 				setCapped(found.capped);
 			})
 			.catch((reason) => {
@@ -179,13 +182,14 @@ export function BlockerSearchDialog({
 
 					{/* On `capped` alone: the cap is measured on the raw hits, so all
 				    fifty can filter away and leave "no cards match" — the dialog
-				    must still admit what the search may have missed. */}
+				    must still admit what the search may have missed. The count is
+				    the raw hits too: what the search saw, not what survived. */}
 					{capped ? (
 						<Text
 							variant="bodySmall"
 							style={{ color: theme.colors.onSurfaceVariant }}
 						>
-							{t("detail.waitingSearchCapped", { count: results.length })}
+							{t("detail.waitingSearchCapped", { count: rawCount })}
 						</Text>
 					) : null}
 				</View>

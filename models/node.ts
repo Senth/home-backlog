@@ -292,7 +292,8 @@ export function crossBoardBlockerIds(nodes: readonly Node[]): string[] {
  *
  * The cap is measured on the *raw* hits, before filtering: it answers "the
  * home may hold more candidates than the search saw", not "the filtered list
- * is long".
+ * is long". `rawCount` is that raw size, so the footer can say how many hits
+ * the search saw even when every one of them filtered away.
  */
 export function pickerCandidates(
 	query: string,
@@ -300,7 +301,7 @@ export function pickerCandidates(
 	blockedBy: readonly string[],
 	shared: readonly Node[],
 	participating: readonly Node[],
-): { results: Node[]; capped: boolean } {
+): { results: Node[]; rawCount: number; capped: boolean } {
 	const seen = new Set<string>();
 	const merged: Node[] = [];
 	for (const node of [...shared, ...participating]) {
@@ -320,6 +321,7 @@ export function pickerCandidates(
 
 	return {
 		results,
+		rawCount: merged.length,
 		capped: shared.length >= pickerLimit || participating.length >= pickerLimit,
 	};
 }
