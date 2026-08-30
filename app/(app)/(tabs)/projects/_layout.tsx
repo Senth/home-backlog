@@ -20,6 +20,10 @@ import { Stack } from "expo-router";
  *
  * No header: each screen renders its own `Appbar`, which carries the
  * breadcrumbs and the account menu.
+ *
+ * `index` is declared first on purpose: Expo Router hoists declared screens to
+ * the front in declaration order, so it — not a board with no node id — is the
+ * Stack's initial route, and a tab press lands on `/projects`.
  */
 export default function ProjectsLayout() {
 	const identity = (_name: string, params: Record<string, unknown>) =>
@@ -27,6 +31,7 @@ export default function ProjectsLayout() {
 
 	return (
 		<Stack screenOptions={{ headerShown: false }}>
+			<Stack.Screen name="index" />
 			<Stack.Screen name="[nodeId]/index" dangerouslySingular={identity} />
 			<Stack.Screen name="[nodeId]/details" dangerouslySingular={identity} />
 		</Stack>
