@@ -48,7 +48,7 @@ Every field is written on create, with the default below.
 | `visibility` | `'shared' \| 'private'` | parent's, else `'shared'` | equals the parent's, always; only a root sets it |
 | `dueDate` | `string \| null` | `null` | `'YYYY-MM-DD'` |
 | `priority` | `Priority \| null` | `null` | `low` `normal` `high` `urgent` |
-| `blockedBy` | `string[]` | `[]` | node ids; [#66](https://github.com/Senth/home-backlog/issues/66) |
+| `blockedBy` | `string[]` | `[]` | node ids of the nodes this one waits on; any non-done node, no cap; removed only by a person |
 | `notes` | `string` | `''` | ≤ 10 000 characters |
 | `checklist` | `ChecklistItem[]` | `[]` | `{ id, text, done }`, ≤ 200; [#52](https://github.com/Senth/home-backlog/issues/52) |
 | `effort` | `Effort \| null` | `null` | `quick` `hours` `evening` `weekend` `multi_week` |
@@ -181,13 +181,28 @@ are the cost. See [the index](#storage-cost-lives-in-the-index-not-the-document)
 The vocabulary is four values. **Being blocked is a condition, not a stage.**
 
 A card is in exactly one status, so parking one in Blocked destroys the stage it was in,
-and nothing says where it goes when the blocker clears. `blockedBy[]` already exists on the
-document and is already the actionability test the suggestion engine
-([#55](https://github.com/Senth/home-backlog/issues/55)) uses, so the condition has a home
-that is not `status`: the card stays in its real column and shows a mark. Nothing in the UI
-writes `blockedBy` yet, which is
-[#66](https://github.com/Senth/home-backlog/issues/66), so it arrives from the REST API
-or a fixture until then.
+and nothing says where it goes when the blocker clears. `blockedBy[]` is the actionability
+test the suggestion engine ([#55](https://github.com/Senth/home-backlog/issues/55)) uses,
+so the condition has a home that is not `status`: the card stays in its real column and
+shows a mark.
+
+**The relation is durable.** Nothing in the app removes an entry except a person. The mark
+derives from `unresolvedBlockers` — the entries whose blocker is missing from the home's
+nodes or whose blocker is not done — and "waiting" means that list is non-empty on a card
+that is not itself done. A done blocker stops holding its dependents, and reopening it
+re-blocks them, which is the wrong-delivery case: the arrival is rejected, *Order tiles*
+reopens, and the waiting cards must not stay free with no memory of why. A missing blocker
+waits too — honest *not yet* beats a mark that lies either way. Completing a waiting card
+keeps its `blockedBy`; in Done the list is inert history.
+
+*Rejected:* auto-clearing, completing a blocker removes it from every waiting card's
+`blockedBy`. The client cannot run the safe query pair the counters use: the shared half
+is `visibility == 'shared' && blockedBy array-contains <id>`, but the private half needs
+`participantIds array-contains` *and* `blockedBy array-contains`, and Firestore allows one
+`array-contains` per query, so the private half has no provably safe query. Doing it from
+a Cloud Function contradicts `PROJECT.md` ("node operations stay client-side and
+offline-capable"), and a denormalized reverse list (`unblocks[]` on the blocker) survives
+the query problem but was declined with it: references are kept.
 
 *Rejected:* keeping `blocked` in the enum and merely not displaying it. A value nothing
 writes and nothing shows is a trap for the REST API
@@ -560,6 +575,39 @@ visibility, but can never orphan.
 *Rejected:* a `flipPending` marker field so an interrupted flip could be found later.
 Another field on every document, and the union above already removes the consequence that
 made finding it urgent.
+
+### The blocker picker's home-wide search
+
+The *Waiting on…* picker's *Search everywhere…* fires two one-shot `getDocsFromServer`
+queries per settled query, debounced at two characters, once, and adds no listener. Both
+are constrained to not-done candidates — `archived == false && completedAt == null`,
+where `completedAt == null` is "not done", so a blocker's past stays out of the picker
+even when custom statuses arrive — and ordered `updatedAt` desc, limit 50:
+
+```ts
+// Q-S1 — safe by the read rule's first disjunct
+query(nodes,
+  where("archived", "==", false),
+  where("completedAt", "==", null),
+  where("visibility", "==", "shared"),
+  orderBy("updatedAt", "desc"), limit(50))
+
+// Q-S2 — safe by the second disjunct
+query(nodes,
+  where("archived", "==", false),
+  where("completedAt", "==", null),
+  where("participantIds", "array-contains", uid),
+  orderBy("updatedAt", "desc"), limit(50))
+```
+
+Each half is provably safe on its own, so the union is. They need two composite indexes,
+`(archived, completedAt, visibility, updatedAt DESC)` and
+`(archived, completedAt, participantIds, updatedAt DESC)` — the older composites end in
+`dueDate` or `completedAt`, neither of which orders candidates usefully. Results merge and
+dedupe by id and are filtered client-side, the same shape `subtreeOf()` uses. The 50-cap
+means a home of thousands of dormant cards can miss candidates, and the picker says so
+rather than pretending completeness. No listener is added and no query is fired until the
+picker is used.
 
 ### Storage cost lives in the index, not the document
 
@@ -1176,9 +1224,23 @@ it before meeting the reason for it.
 
 ### The card
 
-A title, a mark when `blockedBy[]` is non-empty, and, only when the value is set, an
-outlined priority chip, an outlined effort chip and a due chip. A card with nothing set is
-a title and nothing else.
+A title, a *Waiting* mark when unresolved blockers hold it, and, only when the value is
+set, an outlined priority chip, an outlined effort chip and a due chip. A card with
+nothing set is a title and nothing else.
+
+**The waiting mark is the condition, said as *not yet*.** `pause-circle-outline` and the
+word *Waiting* / *Väntar* in the warning colour, on its own line — the same amber the
+overdue words use, separated from them by icon and words, so neither reads as an alarm. A
+second blocker turns it *Waiting · 2*, with an accessibility label carrying the plural.
+It renders from `unresolvedBlockers`, not from `blockedBy.length`: a done blocker stops
+marking its dependents, and a card in Done never marks, whatever its list holds. The
+derivation is one shared helper used by the card face and the Overview row mark alike,
+so the two surfaces cannot disagree. Blockers on the same board resolve from the board's
+own query pair; blockers living anywhere else are watched by a `BlockerWatcher` mounted
+once per board screen — one invisible component per cross-board blocker id, each a
+single-document `useNode` listener, deduped across cards and torn down with the screen.
+Single-document listeners cannot be query-denied the way a multi-document query can.
+Until a watched document loads, its card waits — the not-yet direction.
 
 Two of those marks answer the people questions, both only when set, the same rule the due
 chip follows:
@@ -1311,6 +1373,7 @@ added during that window would silently become a top-level project.
 | Move to → *column* | one tap, appends at the end of that column |
 | Change position… | lists the current column's cards: *At the top*, *After ‹card›* |
 | Move under… | the other cards on this board, plus *Up one level* / *Top level* |
+| Waiting on… | pick a card this one waits on: chosen blockers, then *On this board*, then *Search everywhere…* |
 | Rename | a dialog with the title field |
 | Delete | confirm, then the card and everything under it |
 
@@ -1341,16 +1404,36 @@ the same destination one level below the root, so they are never both offered. I
 Undo, because reversing a re-parent needs a second server read, which is
 [#79](https://github.com/Senth/home-backlog/issues/79).
 
+**Waiting on…** picks what this card waits on. Chosen blockers come first, check-marked,
+and tapping one unpicks it. Then the other cards **on this board** under an *On this board*
+header — free, from the nodes already in hand, and this is what makes it work offline.
+Then *Search everywhere…* under an *Everywhere* header, opening the [search
+dialog](#the-blocker-search-dialog); the group headers put the same-board-first priority
+in front of the eye without help text. Picks and unpicks are ordinary `updateNode` writes
+on the blocked card, and the menu stays open for a second pick.
+
 **Delete** warns that everything under the card goes too, in as many words, and is styled
 as the destructive action the way `ConfirmDialog` already does elsewhere.
 
-**Offline**, the split is the one the writes already draw: move, change position and rename
-queue; `Move under…` and `Delete` are disabled with a hint rather than failing after the
-tap.
+**Offline**, the split is the one the writes already draw: move, change position, rename
+and same-board *Waiting on…* picks queue; `Move under…`, `Delete` and *Search everywhere…*
+are disabled with a hint rather than failing after the tap.
 
 Nothing on this menu was removed when [dragging](#moving-a-card-by-dragging-it) arrived.
 The drag is an added gesture, and the menu stays the path that works without it: with a
 keyboard, with a screen reader, and for the two actions a drag deliberately cannot do.
+
+### The blocker search dialog
+
+*Search everywhere…* on the menu and the add row in the detail's *Waiting on* section open
+one dialog, mounted only while open like `TitleDialog`. Its queries and their safety are
+[the picker's home-wide search](#the-blocker-pickers-home-wide-search); what it adds is
+the client half: results from both queries merge and dedupe by id, filter on a
+case-insensitive title substring, and drop the card itself, its existing blockers and
+anything done. A footer line appears when the cap was hit, with the count the search saw
+rather than the survivors — a truncated search that filters down to nothing must still
+admit it said "No cards match" over fifty hits. Tapping a result picks it and closes;
+tapping a picked result unpicks it. Offline the dialog says it needs a connection.
 
 ### Moving a card by dragging it
 
@@ -1616,6 +1699,33 @@ Rename on both app bars adds no key. It reuses `board.rename` (*Rename* / *Byt n
 thing being renamed is a card at every depth, whether you are reading its details or
 standing inside it as a board.
 
+The waiting strings say *waiting*, never *blocked* — project jargon, and `PERSONAS.md`'s
+quit line is learning a vocabulary for something Ingrid already understands. Swedish keeps
+the locale's own word for a card, *kort*.
+
+| Key | `en-US` | `sv-SE` |
+| --- | ------- | ------- |
+| `board.blocked` | Waiting | Väntar |
+| `board.waitingLabel_one` / `_other` | Waiting on {{count}} card / Waiting on {{count}} cards | Väntar på {{count}} kort (both) |
+| `board.waitingOn` | Waiting on… | Väntar på… |
+| `board.waitingGroupBoard` | On this board | På den här tavlan |
+| `board.waitingGroupEverywhere` | Everywhere | Överallt |
+| `board.waitingSearch` | Search everywhere… | Sök överallt… |
+| `detail.waitingOn` | Waiting on | Väntar på |
+| `detail.waitingAdd` | Add a card this one waits on | Lägg till ett kort den här väntar på |
+| `detail.waitingSearchTitle` | Find the card it waits on | Hitta kortet det väntar på |
+| `detail.waitingSearchPlaceholder` | Search cards | Sök kort |
+| `detail.waitingSearchEmpty` | No cards match | Inga kort matchar |
+| `detail.waitingSearchCapped` | Showing the first {{count}} — refine the search | Visar de första {{count}} — begränsa sökningen |
+| `detail.blockerDone` | Done | Klar |
+| `detail.blockerGone` | That card is gone. | Det kortet är borta. |
+| `detail.stopWaitingOn` | Stop waiting on {{title}} | Sluta vänta på {{title}} |
+| `detail.stopWaitingOnGone` | Stop waiting on it | Sluta vänta på det |
+
+`waitingLabel` carries i18next plurals; `stopWaitingOnGone` exists because the gone and
+unreadable rows have no title to name, and interpolating a sentence into *Stop waiting on
+‹…›* announces nonsense to a screen reader. The offline hint reuses `board.offlineHint`.
+
 The people strings are question-shaped and plain, the precedent that produced *Att
 göra*, *Klart senast* and *Tidsåtgång*.
 
@@ -1829,10 +1939,23 @@ screens are.
 | Priority | a wrapping row of chips, four values, tapping the selected one clears it |
 | Effort | the same control, five values |
 | Notes | multiline `TextInput`, `maxLength` 10 000, with the `Saved hh:mm` line beneath |
+| Waiting on | one row per blocker: its title and a *Done* chip when it has completed; a gone row when the blocker is deleted or unreadable; an add row opening the search dialog |
 | Who's in on this? | checkbox rows of the home's members; **root only** |
 | Who's doing it? | the same control, over the assignable members; absent when there is nothing to choose |
 | Who can see this project? | two chips, *Everyone in the home* / *Only the people I choose*; **root only** |
 | Who can see what? | a disclosure, closed, explaining the two controls above |
+
+**Waiting on** sits below notes, so the note keeps its place, and renders always, because
+an add affordance nobody can find is a feature nobody has. Each blocker is read with a
+one-shot `getNode` — the breadcrumb precedent: deliberately *n* single reads, never
+`documentId() 'in' <ids>`, because one unreadable blocker must not erase every row — read
+fresh when the screen focuses, so a reopened blocker re-blocks on return. A blocker that
+has completed shows a *Done* chip, a `MetaChip` that is not a control, the *Hidden*
+precedent. A blocker that is gone or unreadable renders as a row saying so — the
+deleted-card sentence, the `members.unknown` register — with the remove action beside it:
+a mark with nothing behind it is "tapped something and cannot find my way back", rebuilt
+as data. Every row's remove affordance is labelled for itself, *Stop waiting on ‹title›*,
+or *Stop waiting on it* when there is no title to name.
 
 Then **Steps**: a count line, the children as plain rows in board order, an *Add step*
 button, and *Open board* once there is at least one. With no steps it reads *No steps yet*
@@ -2016,8 +2139,14 @@ Rename go through `updateNode`, and `Add step` through `createNode`.
 
 The exceptions are the ones that read a subtree from the server first, and they are
 disabled with a hint rather than left to fail after the fact: the visibility flip, and
-participants on an *already private* project. `Move under…` and `Delete` on the board are
-the same case.
+participants on an *already private* project. `Move under…`, `Delete` and the blocker
+search on the board are the same case.
+
+The *Waiting on* section adds a read case of its own. Its picks and unpicks are
+`updateNode` writes and queue like everything else; the rows' title reads need the server,
+and a row that cannot be read says so — *Needs a connection* — and holds its card in
+waiting rather than pretending to know. The board's watcher degrades the same way: cached
+blockers render, unreachable ones hold the card in waiting.
 
 ### One dependency
 
@@ -2086,10 +2215,18 @@ time a native build happens, which `PROJECT.md` schedules rather than rules out.
   a drag nobody has used yet is a guess. That is where `rankSequence` finally gets a caller
   in the UI.
 - **A keyboard drag.** The card menu is the keyboard path, by design.
-- **Archive** #64, **Done newest-first** #76, checklists #52, photos #53, blocked-by #66:
-  fields only, or not yet. An archive *cascade* over a subtree carries the same top-down
-  constraint as the visibility flip. Checklists and photos are both on the document and on
-  no screen, and both belong on the detail screen when they arrive.
+- **Archive** #64, **Done newest-first** #76, checklists #52, photos #53: fields only, or
+  not yet. An archive *cascade* over a subtree carries the same top-down constraint as the
+  visibility flip. Checklists and photos are both on the document and on no screen, and
+  both belong on the detail screen when they arrive.
+- **A cycle warning in the picker**,
+  [#183](https://github.com/Senth/home-backlog/issues/183). A–waits-on–B–waits-on–A is
+  permitted and renders: two marked cards, both fixable at either end. The warning is a
+  best-effort nicety when both nodes are already in hand.
+- **What a card unblocks — the reverse view**,
+  [#184](https://github.com/Senth/home-backlog/issues/184). The shared half is a safe
+  query (`visibility == 'shared' && blockedBy array-contains <id>`); the private half has
+  no safe query shape, so a reverse view would need a denormalized list.
 - **Cost and budget fields**, [#70](https://github.com/Senth/home-backlog/issues/70).
   `PROJECT.md`: notes absorb it until the real need is understood.
 - **One-tap done on the card row**, [#75](https://github.com/Senth/home-backlog/issues/75).
