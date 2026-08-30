@@ -217,7 +217,7 @@ fixes have landed and the gates are green, because a code fix invalidates a brow
 It is the expensive stage, and a browser pass on a change nobody can see is pure cost.
 
 ```bash
-scripts/dev-stack.sh up          # prints the web URL; today that is http://localhost:8081
+scripts/dev-stack.sh up          # prints the web URL; the port is allocated per worktree
 oc-task browser-review ~/git/home-backlog .tmp/prompts/browser-review.md \
   --label <issue>/browser-review
 ```

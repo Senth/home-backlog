@@ -99,14 +99,15 @@ If the app is not reachable, say so and stop. Do not start servers.
 
 Four commands, and none of them is a popup. `GoogleSignIn.web.tsx` uses
 `signInWithRedirect` deliberately, so the browser leaves the app for the Auth emulator's own
-account picker on port 8061 and comes back. **One tab throughout** — do not go looking for a
-second one.
+account picker — its port is in `dev-stack.sh status` — and comes back. **One tab throughout** —
+do not go looking for a second one.
 
 ```bash
-playwright-cli -s=review open http://localhost:8081
+WEB="http://localhost:$(scripts/dev-stack.sh status | awk '$NF=="web" {print $1}')"
+playwright-cli -s=review open "$WEB"
 playwright-cli -s=review snapshot                    # find the sign-in button
 playwright-cli -s=review click <Continue with Google>
-playwright-cli -s=review snapshot                    # the picker, on :8061
+playwright-cli -s=review snapshot                    # the picker, on the auth port status printed
 playwright-cli -s=review click <marcus@example.com>
 ```
 

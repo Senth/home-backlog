@@ -19,8 +19,11 @@
  * security check.
  */
 
+import { stackPorts } from "@/e2e/support/stack";
+
 const PROJECT = "home-backlog";
-const BASE = `http://localhost:8062/v1/projects/${PROJECT}/databases/(default)/documents`;
+const EMULATOR_PORT = stackPorts().firestore;
+const BASE = `http://localhost:${EMULATOR_PORT}/v1/projects/${PROJECT}/databases/(default)/documents`;
 const HEADERS = { Authorization: "Bearer owner" };
 
 /** The seeded home the suite works inside; matches `auth.setup.ts`. */
@@ -85,10 +88,13 @@ export async function deleteNodesByTitlePrefix(prefix: string): Promise<void> {
 	for (const document of documents) {
 		const title = document.fields?.title?.stringValue;
 		if (title === undefined || !title.startsWith(prefix)) continue;
-		const response = await fetch(`http://localhost:8062/v1/${document.name}`, {
-			method: "DELETE",
-			headers: HEADERS,
-		});
+		const response = await fetch(
+			`http://localhost:${EMULATOR_PORT}/v1/${document.name}`,
+			{
+				method: "DELETE",
+				headers: HEADERS,
+			},
+		);
 		// A delete that quietly fails is the worst outcome available here: the
 		// card stays on the board and the run that pays for it is a later spec in
 		// a different project, failing on a card count with nothing in its output

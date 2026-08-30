@@ -32,22 +32,42 @@ set -uo pipefail
 export LC_ALL=C
 
 top=$(git rev-parse --show-toplevel 2>/dev/null) || {
-	echo "check-invariants: not inside a git repository" >&2; exit 2; }
-cd "$top" || { echo "check-invariants: cannot enter $top" >&2; exit 2; }
+	echo "check-invariants: not inside a git repository" >&2
+	exit 2
+}
+cd "$top" || {
+	echo "check-invariants: cannot enter $top" >&2
+	exit 2
+}
 
 BASE=""
 BASE_EXPLICIT=0
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--base)
-			[[ $# -ge 2 ]] || { echo "check-invariants: --base needs a ref" >&2; exit 2; }
-			BASE="$2"; BASE_EXPLICIT=1; shift 2 ;;
-		-h|--help) sed -n '3,26p' "$0" | sed 's/^# \?//'; exit 0 ;;
-		*) echo "check-invariants: unknown argument: $1" >&2; exit 2 ;;
+	--base)
+		[[ $# -ge 2 ]] || {
+			echo "check-invariants: --base needs a ref" >&2
+			exit 2
+		}
+		BASE="$2"
+		BASE_EXPLICIT=1
+		shift 2
+		;;
+	-h | --help)
+		sed -n '3,26p' "$0" | sed 's/^# \?//'
+		exit 0
+		;;
+	*)
+		echo "check-invariants: unknown argument: $1" >&2
+		exit 2
+		;;
 	esac
 done
 
-command -v jq >/dev/null 2>&1 || { echo "check-invariants: jq not found" >&2; exit 2; }
+command -v jq >/dev/null 2>&1 || {
+	echo "check-invariants: jq not found" >&2
+	exit 2
+}
 
 # ---------------------------------------------------------------------------
 # What is in scope
@@ -61,10 +81,11 @@ command -v jq >/dev/null 2>&1 || { echo "check-invariants: jq not found" >&2; ex
 # still honouring .gitignore.
 # ---------------------------------------------------------------------------
 mapfile -t -d '' TREE < <(
-	git ls-files -z --cached --others --exclude-standard '*.ts' '*.tsx')
+	git ls-files -z --cached --others --exclude-standard '*.ts' '*.tsx'
+)
 
-SRC=()      # checks 1-3: everything the tokens and the theme apply to
-ALL_TS=()   # checks 4-5: every app-side file, theme included
+SRC=()    # checks 1-3: everything the tokens and the theme apply to
+ALL_TS=() # checks 4-5: every app-side file, theme included
 for f in "${TREE[@]}"; do
 	[[ "$f" =~ ^(functions|dist|node_modules)/ ]] && continue
 	ALL_TS+=("$f")
@@ -103,7 +124,8 @@ strip_comments() { grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)' || true; }
 
 # report <number> <name> <status> [detail-blocks...]
 report() {
-	local num="$1" name="$2" status="$3"; shift 3
+	local num="$1" name="$2" status="$3"
+	shift 3
 	RESULTS+=("$(printf '%2s|%s|%s' "$num" "$name" "$status")")
 	if [[ "$status" == "FAIL" ]]; then
 		FAILED=1
@@ -246,7 +268,10 @@ fi
 # ---------------------------------------------------------------------------
 if [[ -z "$BASE" ]]; then
 	for candidate in origin/main main; do
-		if git rev-parse --verify --quiet "$candidate" >/dev/null; then BASE="$candidate"; break; fi
+		if git rev-parse --verify --quiet "$candidate" >/dev/null; then
+			BASE="$candidate"
+			break
+		fi
 	done
 fi
 merge_base=""
@@ -263,8 +288,8 @@ else
 		git diff --name-only HEAD
 		git ls-files --others --exclude-standard
 	)
-	if grep -qE '^(firestore|storage)\.rules$' <<<"$changed" \
-		&& ! grep -q '^tests/rules/' <<<"$changed"; then
+	if grep -qE '^(firestore|storage)\.rules$' <<<"$changed" &&
+		! grep -q '^tests/rules/' <<<"$changed"; then
 		report 7 "rules -> rules tests" FAIL \
 			"$(grep -E '^(firestore|storage)\.rules$' <<<"$changed" | sort -u)" \
 			"Changed against ${BASE}, with nothing under tests/rules/ in the same diff."
@@ -337,7 +362,9 @@ fi
 # each claim `[test]` (assertable in a browser) or `[eye]` (a judgement, left to
 # browser-review). A `[test]` claim is a promise that an `e2e/` spec asserts it,
 # and that promise is the only reason the review gate stopped walking acceptance
-# by hand — see .claude/skills/review/SKILL.md.
+# by hand — see .claude/skills/review/SKILL.md. The promise is only available to
+# production code and UI: e2e drives a real browser and an app, so a dev-tooling
+# spec proves itself in `yarn test` and tags nothing [test].
 #
 # The check is deliberately shallow: it matches the claim *number*, as
 # `test("<n>: ...")` or `test("<n> ...")`, not the wording. Whether the test
@@ -348,15 +375,15 @@ fi
 # Only wip specs are checked. `/ship` deletes the Acceptance section when it
 # folds a spec into docs/specs/, because by then the tests are the record.
 # ---------------------------------------------------------------------------
-wip_specs=$(git ls-files --cached --others --exclude-standard 'docs/specs/wip/*.md' \
-	| grep -v '/README\.md$' || true)
+wip_specs=$(git ls-files --cached --others --exclude-standard 'docs/specs/wip/*.md' |
+	grep -v '/README\.md$' || true)
 missing=""
 for spec in $wip_specs; do
 	[[ -f "$spec" ]] || continue
 	# The Acceptance section: from its heading to the next heading.
-	claims=$(sed -n '/^##[[:space:]].*Acceptance/,/^##[[:space:]]/p' "$spec" \
-		| grep -oE '^[[:space:]]*([0-9]+)\.[[:space:]]*`?\[test\]`?' \
-		| grep -oE '[0-9]+' || true)
+	claims=$(sed -n '/^##[[:space:]].*Acceptance/,/^##[[:space:]]/p' "$spec" |
+		grep -oE '^[[:space:]]*([0-9]+)\.[[:space:]]*`?\[test\]`?' |
+		grep -oE '[0-9]+' || true)
 	for n in $claims; do
 		if ! grep -rqE "test\(\s*[\"'\`]${n}[:.]?[[:space:]]" e2e/ 2>/dev/null; then
 			missing+="${spec}: claim ${n} is tagged [test] but no e2e test is named for it"$'\n'
@@ -365,7 +392,7 @@ for spec in $wip_specs; do
 done
 if [[ -n "$missing" ]]; then
 	report 10 "acceptance claims tested" FAIL "${missing%$'\n'}" \
-		"Name the e2e test after the claim number, e.g. test(\"3: a no-op drag writes nothing\"), or retag the claim [eye]."
+		"Name the e2e test after the claim number, e.g. test(\"3: a no-op drag writes nothing\"), or retag the claim [eye]. Dev tooling is never [test]: prove it in \`yarn test\`, e2e is for production code and UI."
 else
 	report 10 "acceptance claims tested" ok
 fi
@@ -382,8 +409,8 @@ fi
 # a frontmatter that names last quarter's version tells a stale reader they are
 # current, which is the one failure the whole scheme exists to prevent.
 # ---------------------------------------------------------------------------
-skill_version=$(sed -n '/^---$/,/^---$/p' functions/SKILL.md 2>/dev/null \
-	| sed -n 's/^api-version:[[:space:]]*//p' | head -1)
+skill_version=$(sed -n '/^---$/,/^---$/p' functions/SKILL.md 2>/dev/null |
+	sed -n 's/^api-version:[[:space:]]*//p' | head -1)
 code_version=$(sed -n 's/^export const apiVersion = "\(.*\)";$/\1/p' \
 	functions/src/version.ts 2>/dev/null | head -1)
 if [[ -z "$skill_version" || -z "$code_version" ]]; then

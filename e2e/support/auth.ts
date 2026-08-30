@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { stackPorts } from "@/e2e/support/stack";
 
 /**
  * Signing in as a second seeded account, for the two claims that need one.
@@ -63,8 +64,12 @@ export async function signInAs(page: Page, email: string): Promise<void> {
 
 	await page.getByRole("button", { name: /continue with google/i }).click();
 
-	// The emulator's picker is a different origin (8061), reached by redirect.
-	await page.waitForURL(/:8061\/emulator\/auth\/handler/, { timeout: 30_000 });
+	// The emulator's picker is a different origin (the allocated auth port),
+	// reached by redirect.
+	await page.waitForURL(
+		new RegExp(`:${stackPorts().auth}/emulator/auth/handler`),
+		{ timeout: 30_000 },
+	);
 	await page.getByText(email, { exact: true }).click();
 
 	await page.waitForURL((url) => url.pathname !== "/login", {

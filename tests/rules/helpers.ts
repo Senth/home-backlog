@@ -179,23 +179,35 @@ export function nodeDoc(
 }
 
 export async function createTestEnv(): Promise<RulesTestEnvironment> {
+	// The ports come from the allocation `yarn test:rules` sets, so two
+	// worktrees can run the suite at once. Never literals — and deliberately
+	// *not* the web bundle's `EXPO_PUBLIC_*` names: babel-preset-expo rewrites
+	// every `process.env.EXPO_PUBLIC_*` read into an import of expo's ESM-only
+	// `expo/virtual/env`, which this Jest project does not transform.
+	const firestorePort = Number(process.env.EMULATOR_FIRESTORE_PORT);
+	const storagePort = Number(process.env.EMULATOR_STORAGE_PORT);
+	if (!firestorePort || !storagePort) {
+		throw new Error(
+			"emulator ports are not set — run the rules suite with yarn test:rules",
+		);
+	}
 	return initializeTestEnvironment({
-		// Must match the `--project` in the `test:rules` script. firebase.json runs
-		// the emulators in `singleProjectMode`, and the Storage rules reach into
-		// Firestore with `firestore.get()` — that lookup resolves against the
-		// emulator's own project, so a different id here would find no home doc
-		// and deny every upload. The `demo-` prefix keeps the SDK from ever
-		// reaching a real project.
+		// Must match the `--project` in `scripts/test-rules.mjs`. The generated
+		// config runs the emulators in `singleProjectMode`, and the Storage
+		// rules reach into Firestore with `firestore.get()` — that lookup
+		// resolves against the emulator's own project, so a different id here
+		// would find no home doc and deny every upload. The `demo-` prefix
+		// keeps the SDK from ever reaching a real project.
 		projectId: "demo-home-backlog-rules",
 		firestore: {
 			rules: readFileSync("firestore.rules", "utf8"),
 			host: "127.0.0.1",
-			port: 8062,
+			port: firestorePort,
 		},
 		storage: {
 			rules: readFileSync("storage.rules", "utf8"),
 			host: "127.0.0.1",
-			port: 8063,
+			port: storagePort,
 		},
 	});
 }

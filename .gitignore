@@ -51,6 +51,8 @@ yarn-error.*
 
 # Firebase
 functions/lib/
+firebase.dev-stack.json
+firebase.rules-tests.json
 .firebase/
 firebase-debug.log
 firebase_app_id_file.json

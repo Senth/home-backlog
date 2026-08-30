@@ -1,4 +1,5 @@
 import { expect, test as setup } from "@playwright/test";
+import { stackPorts } from "@/e2e/support/stack";
 import { AUTH_STATE } from "@/playwright.config";
 
 /**
@@ -6,10 +7,11 @@ import { AUTH_STATE } from "@/playwright.config";
  *
  * Sign-in here is a **redirect**, not a popup: `GoogleSignIn.web.tsx` uses
  * `signInWithRedirect` deliberately, because a popup dead-ends in an installed
- * PWA. The Auth emulator serves its own handler at port 8061, which is an
- * account picker listing whatever `.emulator-seed/auth_export` holds, so no real
- * Google account is involved. The browser leaves the app, picks an account, and
- * comes back — one tab throughout.
+ * PWA. The Auth emulator serves its own handler on the port this worktree's
+ * stack allocated, which is an account picker listing whatever
+ * `.emulator-seed/auth_export` holds, so no real Google account is involved.
+ * The browser leaves the app, picks an account, and comes back — one tab
+ * throughout.
  *
  * The saved state has to include **IndexedDB**. Firebase's web persistence
  * chain starts at `indexedDBLocalPersistence` (see `config/firebase.ts`), so
@@ -33,8 +35,12 @@ setup("sign in and save browser state", async ({ page }) => {
 
 	await page.getByRole("button", { name: /continue with google/i }).click();
 
-	// The emulator's picker is a different origin (8061), reached by redirect.
-	await page.waitForURL(/:8061\/emulator\/auth\/handler/, { timeout: 30_000 });
+	// The emulator's picker is a different origin (the allocated auth port),
+	// reached by redirect.
+	await page.waitForURL(
+		new RegExp(`:${stackPorts().auth}/emulator/auth/handler`),
+		{ timeout: 30_000 },
+	);
 	await page.getByText(ACCOUNT, { exact: true }).click();
 
 	// Back in the app and past the splash. A signed-in browser with no home

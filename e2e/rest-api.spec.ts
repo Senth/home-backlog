@@ -7,6 +7,7 @@ import {
 	homeMemberUids,
 	memberUid,
 } from "@/e2e/support/firestore";
+import { stackPorts } from "@/e2e/support/stack";
 
 /**
  * The two `#102` acceptance claims about the REST API — 13 and 18 — which
@@ -27,7 +28,7 @@ import {
  * none), so this is the only door available to a real request.
  */
 
-const FUNCTIONS_BASE = "http://127.0.0.1:8064/home-backlog/europe-west1/api/v1";
+const FUNCTIONS_BASE = `http://127.0.0.1:${stackPorts().functions}/home-backlog/europe-west1/api/v1`;
 const PREFIX = "E2E rest ";
 const KEY_NAME = "E2E rest api key";
 

@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { VIEWPORTS } from "@/e2e/support/app";
+import { stackPorts } from "@/e2e/support/stack";
 
 /**
  * The end-to-end suite: the checks that used to be a browser agent's checklist.
@@ -22,7 +23,10 @@ import { VIEWPORTS } from "@/e2e/support/app";
  * already had open reuses it untouched.
  */
 
-const WEB = "http://localhost:8081";
+// The web port is the one this worktree's `dev-stack.sh up` allocated, read
+// from its state file — never a literal, so two worktrees can run suites at
+// once. `yarn e2e` boots the stack before Playwright loads this config.
+const WEB = `http://localhost:${stackPorts().web}`;
 
 /** Where the signed-in browser state from `auth.setup.ts` is kept. */
 export const AUTH_STATE = ".tmp/e2e/auth.json";

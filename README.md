@@ -46,16 +46,19 @@ scripts/dev-stack.sh status  # what is listening, and whether it is yours
 scripts/dev-stack.sh down    # stops only what it started
 ```
 
-Or run the two halves yourself in separate terminals:
+Every `up` allocates a fresh block of ports in 7000–7999, so two worktrees can
+each run their own stack at once. Or just the emulators, with the web server
+as a second step:
 
 ```bash
-yarn emulators   # UI 8060, Auth 8061, Firestore 8062, Storage 8063, Functions 8064
-yarn web         # http://localhost:8081
+yarn emulators               # emulators only, detached; ports via scripts/dev-stack.sh status
+scripts/dev-stack.sh up      # adds the web server and prints its URL
 ```
 
 The REST API lives in `functions/`, a sibling npm package that `yarn install`
 sets up through the root `postinstall`. Against the emulators it answers at
-`http://127.0.0.1:8064/home-backlog/europe-west1/api/v1/health`; in production
+`http://127.0.0.1:<functions port>/home-backlog/europe-west1/api/v1/health`,
+with the port from `scripts/dev-stack.sh status`; in production
 Hosting rewrites `/api/**` to it, so it is `https://hb.senth.org/api/v1/health`.
 
 Its contract is [`functions/SKILL.md`](functions/SKILL.md), an installable agent
@@ -73,9 +76,8 @@ Google account is needed locally.
 |                                          |                                                                        |
 | ---------------------------------------- | ---------------------------------------------------------------------- |
 | `yarn web` / `yarn android` / `yarn ios` | Start the dev server                                                   |
-| `yarn emulators`                         | Firebase emulator suite                                                |
-| `yarn emulators:seed`                    | Emulator suite with the `.emulator-seed/` review fixture               |
-| `yarn emulators:export`                  | Overwrite `.emulator-seed/` from the running suite                     |
+| `yarn emulators`                         | Emulators only, detached (`scripts/dev-stack.sh up --no-web`)          |
+| `yarn emulators:export`                  | Overwrite `.emulator-seed/` from the running stack                     |
 | `yarn lint` / `yarn lint --write`        | Biome check / autofix                                                  |
 | `yarn invariants`                        | The grep-shaped `CLAUDE.md` invariants (`scripts/check-invariants.sh`) |
 | `yarn typecheck`                         | `tsc --noEmit`                                                         |
