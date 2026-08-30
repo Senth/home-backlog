@@ -101,9 +101,17 @@ export function WaitingOnSection({
 											<IconButton
 												icon="close"
 												size={icon.sm}
-												accessibilityLabel={t("detail.stopWaitingOn", {
-													title,
-												})}
+												accessibilityLabel={
+													// The gone row has no title to name — its
+													// sentence must not become the label's
+													// object ("Stop waiting on That card is
+													// gone.").
+													blocker === null
+														? t("detail.stopWaitingOnGone")
+														: t("detail.stopWaitingOn", {
+																title,
+															})
+												}
 												onPress={() => stopWaiting(id)}
 												style={touchTargetStyle}
 											/>

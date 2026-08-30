@@ -102,6 +102,7 @@ All through `t()`, `en-US.json` and `sv-SE.json` in the same change. The face wo
 | `detail.blockerDone` | Done | Klar |
 | `detail.blockerGone` | That card is gone. | Det kortet är borta. |
 | `detail.stopWaitingOn` | Stop waiting on {{title}} | Sluta vänta på {{title}} |
+| `detail.stopWaitingOnGone` | Stop waiting on it | Sluta vänta på det |
 
 The offline hint reuses `board.offlineHint`. i18next plurals carry the label; "uppgift" is the register `sv-SE` already uses for tasks — check the existing locale for the word the app actually uses on cards and stay with it.
 

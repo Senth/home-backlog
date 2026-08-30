@@ -281,6 +281,7 @@
 		"blockerDone": "Done",
 		"blockerGone": "That card is gone.",
 		"stopWaitingOn": "Stop waiting on {{title}}",
+		"stopWaitingOnGone": "Stop waiting on it",
 		"createdViaApi": "Added by an automation"
 	},
 	"priority": {

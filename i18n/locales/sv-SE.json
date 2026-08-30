@@ -281,6 +281,7 @@
 		"blockerDone": "Klar",
 		"blockerGone": "Det kortet är borta.",
 		"stopWaitingOn": "Sluta vänta på {{title}}",
+		"stopWaitingOnGone": "Sluta vänta på det",
 		"createdViaApi": "Tillagd av en automation"
 	},
 	"priority": {

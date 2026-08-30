@@ -303,7 +303,9 @@ test("6: deleting a blocker leaves its row saying the card is gone, with the rem
 
 	await openDetails(page, waiterId, waiterTitle);
 	await expect(page.getByText(GONE)).toBeVisible();
-	const stop = page.getByRole("button", { name: `Stop waiting on ${GONE}` });
+	const stop = page.getByRole("button", {
+		name: enUS.detail.stopWaitingOnGone,
+	});
 	await expect(stop).toBeVisible();
 	await stop.click();
 
