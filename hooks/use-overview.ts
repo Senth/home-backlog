@@ -1,10 +1,11 @@
+import type { DocumentData, Query } from "firebase/firestore";
 import { useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
 	participatingDoneQuery,
-	participatingDueQuery,
+	participatingPoolQuery,
 	sharedDoneQuery,
-	sharedDueQuery,
+	sharedPoolQuery,
 } from "@/data/nodes";
 import { useNodes } from "@/hooks/use-nodes";
 import { type QueryPair, usePairedListener } from "@/hooks/use-paired-listener";
@@ -25,7 +26,7 @@ export interface OverviewSection {
  * Six listeners, not eight: the roots pair — `useNodes(homeId, null)`, the
  * root board's own pair — serves both **Ongoing projects** and the
  * root-scoped hide predicate every section needs, so it is not opened again
- * here. Coming up and Recently done add one pair each, for Q3–Q6 in
+ * here. The pool pair and Recently done add one pair each, for Q3–Q6 in
  * `data/nodes.ts`.
  *
  * A section's own query pair only bounds what *can* arrive; `models/overview.ts`
@@ -47,11 +48,17 @@ export function useOverview(homeId: string | null): {
 	const uid = user?.uid ?? null;
 
 	const roots = useNodes(homeId, null);
-	const due = useDatedPair(homeId, uid, sharedDueQuery, participatingDueQuery, {
-		shared: "Could not load what is coming up",
-		participating: "Could not load your own cards coming up",
-	});
-	const done = useDatedPair(
+	const due = useOverviewPair(
+		homeId,
+		uid,
+		sharedPoolQuery,
+		participatingPoolQuery,
+		{
+			shared: "Could not load what is coming up",
+			participating: "Could not load your own cards coming up",
+		},
+	);
+	const done = useOverviewPair(
 		homeId,
 		uid,
 		sharedDoneQuery,
@@ -105,33 +112,26 @@ export function useOverview(homeId: string | null): {
 }
 
 /**
- * One of Overview's two dated pairs, as `usePairedListener` holds every pair.
+ * One of Overview's two pairs, as `usePairedListener` holds every pair.
  *
- * The only thing a dated pair does differently from a board's is *when* its
- * queries are built: Q3–Q6 close over a `now`, and it is taken at subscribe
- * rather than tracked as a dependency. A listener stays open for hours, and
- * rebuilding the query on every tick would tear it down and reopen it just as
- * often — so `now` is whatever it was when this pair last (re)subscribed, which
- * is exactly what `useOverview` re-filters against on every render.
+ * The queries themselves take no arguments beyond the home and, for the
+ * participating arm, the uid: the pool pair has no `now` in it at all — it is
+ * the whole open set, narrowed on screen — and the done pair takes its `now`
+ * when the query is built, which is at subscribe.
  */
-function useDatedPair(
+function useOverviewPair(
 	homeId: string | null,
 	uid: string | null,
-	sharedQuery: (homeId: string, now: Date) => ReturnType<typeof sharedDueQuery>,
-	participatingQuery: (
-		homeId: string,
-		now: Date,
-		uid: string,
-	) => ReturnType<typeof participatingDueQuery>,
+	sharedQuery: (homeId: string) => Query<DocumentData>,
+	participatingQuery: (homeId: string, uid: string) => Query<DocumentData>,
 	labels: { shared: string; participating: string },
 ) {
 	const build = useCallback((): QueryPair => {
 		if (homeId === null || uid === null) return null;
 
-		const now = new Date();
 		return {
-			shared: sharedQuery(homeId, now),
-			participating: participatingQuery(homeId, now, uid),
+			shared: sharedQuery(homeId),
+			participating: participatingQuery(homeId, uid),
 		};
 	}, [homeId, uid, sharedQuery, participatingQuery]);
 

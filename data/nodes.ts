@@ -38,7 +38,7 @@ import {
 	toNode,
 	type Visibility,
 } from "@/models/node";
-import { comingUpUntil, doneSince, overviewLimit } from "@/models/overview";
+import { doneSince, overviewLimit } from "@/models/overview";
 
 /**
  * Every Firestore read and write that touches a node.
@@ -144,7 +144,7 @@ export function participatingBoardQuery(
 }
 
 /*
- * Overview's four dated queries — Q3 to Q6. Each pair is one section, for the
+ * Overview's two query pairs — Q3 to Q6. Each pair is one section, for the
  * same reason a board is a pair: the read rule has two disjuncts and a query
  * may only constrain one of them.
  *
@@ -152,54 +152,33 @@ export function participatingBoardQuery(
  * which is what makes them safe. Q3 and Q5 keep theirs free, for
  * `locationAncestorIds` when the location tree gives Overview a place filter.
  *
- * Every one of them is capped. `CLAUDE.md` names listener breadth the cost risk
- * in this app, and these run on the screen it opens on.
+ * The pool pair (Q3/Q4) deliberately has no `limit` and no `orderBy`: it is
+ * the open set every Overview filter card is a client-side
+ * `.filter().sort().slice()` over, and a household's open work is
+ * scale-checked in the hundreds against the free tier — the cost risk is
+ * breadth, not this one home-sized set. The done pair (Q5/Q6) stays capped.
  */
 
 /**
- * Q3 — everything shared that is late or due within `soonInDays`.
+ * Q3 — the pool's shared arm: every open shared node in the home.
  *
- * Three clauses here are load-bearing:
- *
- * - **`dueDate >= ''` is a belt beside a brace, not the brace.** Firestore orders values by
- *   *type* before value — `Null < Boolean < Number < Timestamp < String` — and
- *   `orderBy('dueDate')` alone really does return every undated node in the
- *   home, sorted first. The emulator says an inequality filter is already
- *   scoped to its own type, so `dueDate <= cutoff` excludes them by itself and
- *   this bound is a no-op today. It is kept because the empty string is the
- *   smallest string, so it costs nothing and no index, and because "every
- *   undated card in the house" is what this listener degrades to if that
- *   type-scoping ever stops holding. `tests/rules/` asserts the exclusion
- *   against the real thing rather than against either reading.
- * - **`completedAt == null` is how "not done" is spelled.** The rules enforce
- *   `(status == 'done') == (completedAt != null)`, so the two say the same
- *   thing — and this one keeps saying it when custom statuses (#69) arrive,
- *   which `status in [...]` would not.
- * - **Ascending order is late-first**, which is the order the section wants. No
- *   second query and no client sort. A home with more than `overviewLimit`
- *   items in the window sees the oldest of them, which is the right ones.
- *
- * There is deliberately no lower bound on how far back late reaches: a card
- * overdue by 400 days is still overdue, and archiving it is the honest answer.
- * The `limit` is what bounds the listener.
+ * Provably safe: `visibility == 'shared'` is the read rule's first disjunct,
+ * so no matching document can be denied. What a section *shows* from this is
+ * decided in `models/overview.ts`, re-filtered with a fresh `now` on every
+ * render.
  */
-export function sharedDueQuery(homeId: string, now: Date): Query<DocumentData> {
+export function sharedPoolQuery(homeId: string): Query<DocumentData> {
 	return query(
 		nodesRef(homeId),
 		where("archived", "==", false),
 		where("completedAt", "==", null),
 		where("visibility", "==", "shared"),
-		where("dueDate", ">=", ""),
-		where("dueDate", "<=", comingUpUntil(now)),
-		orderBy("dueDate"),
-		limit(overviewLimit),
 	);
 }
 
-/** Q4 — the same window, through the read rule's second disjunct. */
-export function participatingDueQuery(
+/** Q4 — the same pool, through the read rule's second disjunct. */
+export function participatingPoolQuery(
 	homeId: string,
-	now: Date,
 	uid: string,
 ): Query<DocumentData> {
 	return query(
@@ -207,10 +186,6 @@ export function participatingDueQuery(
 		where("archived", "==", false),
 		where("completedAt", "==", null),
 		where("participantIds", "array-contains", uid),
-		where("dueDate", ">=", ""),
-		where("dueDate", "<=", comingUpUntil(now)),
-		orderBy("dueDate"),
-		limit(overviewLimit),
 	);
 }
 
@@ -218,17 +193,16 @@ export function participatingDueQuery(
  * Q5 — everything shared that was completed inside the recent window.
  *
  * `completedAt` needs no lower-bound trick of its own: `null` sorts below every
- * timestamp, so the range excludes not-done nodes by itself.
+ * timestamp, so the range excludes not-done nodes by itself. `now` is taken
+ * when the query is built — at subscribe, and again on every retry — which is
+ * the same instant the caller would have passed it.
  */
-export function sharedDoneQuery(
-	homeId: string,
-	now: Date,
-): Query<DocumentData> {
+export function sharedDoneQuery(homeId: string): Query<DocumentData> {
 	return query(
 		nodesRef(homeId),
 		where("archived", "==", false),
 		where("visibility", "==", "shared"),
-		where("completedAt", ">=", doneSince(now)),
+		where("completedAt", ">=", doneSince(new Date())),
 		orderBy("completedAt", "desc"),
 		limit(overviewLimit),
 	);
@@ -237,14 +211,13 @@ export function sharedDoneQuery(
 /** Q6 — the same window, through the read rule's second disjunct. */
 export function participatingDoneQuery(
 	homeId: string,
-	now: Date,
 	uid: string,
 ): Query<DocumentData> {
 	return query(
 		nodesRef(homeId),
 		where("archived", "==", false),
 		where("participantIds", "array-contains", uid),
-		where("completedAt", ">=", doneSince(now)),
+		where("completedAt", ">=", doneSince(new Date())),
 		orderBy("completedAt", "desc"),
 		limit(overviewLimit),
 	);

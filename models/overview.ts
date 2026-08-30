@@ -20,8 +20,8 @@ export const doneWithinDays = 30;
 const dayInMs = 24 * 60 * 60 * 1000;
 
 /**
- * Rows one dated section can hold: Q3–Q6's `limit`, and the ceiling a `+N more`
- * counts against. Twenty is already past what a summary can be.
+ * Rows one section can hold: the done pair's `limit`, and the ceiling a
+ * `+N more` counts against. Twenty is already past what a summary can be.
  */
 export const overviewLimit = 20;
 
@@ -99,7 +99,7 @@ export function ongoingProjects(roots: readonly Node[], uid: string): Node[] {
 
 /**
  * Coming up: everything dated that is late or due within `soonInDays`, oldest
- * first — which is late-first, and is what the query already orders by.
+ * first. The pool it reads (Q3/Q4) is unordered, so this sort is the only one.
  *
  * No lower bound on how far back late reaches. A card overdue by 400 days is
  * still overdue, and the honest answer to it is archiving it, not hiding it
