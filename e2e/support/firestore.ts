@@ -445,3 +445,143 @@ export async function memberUid(displayName: string): Promise<string> {
 	}
 	return match[0];
 }
+
+/*
+ * ---------------------------------------------------------------------------
+ * Locations (#50) — the same three jobs as above, for the place tree.
+ * ---------------------------------------------------------------------------
+ */
+
+/** Every location title in the seeded home, straight from the backend. */
+export async function locationTitles(): Promise<string[]> {
+	const { documents = [] } = await get(
+		`/homes/${await homeId()}/locations?pageSize=300`,
+	);
+	return documents
+		.map((document) => document.fields?.title?.stringValue)
+		.filter((title): title is string => typeof title === "string");
+}
+
+/** A location's id, resolved by its title — for a place created through the UI. */
+export async function locationIdByTitle(title: string): Promise<string> {
+	const { documents = [] } = await get(
+		`/homes/${await homeId()}/locations?pageSize=300`,
+	);
+	const match = documents.find(
+		(document) => document.fields?.title?.stringValue === title,
+	);
+	if (!match) {
+		throw new Error(`no location titled "${title}" in ${HOME_NAME}`);
+	}
+	return idOf(match.name);
+}
+
+/**
+ * A location's id, resolved by its title once the write reaches the backend —
+ * the `waitForNodeIdByTitle` story: a UI write is visible optimistically long
+ * before the emulator sees it, and `expect.poll` treats a throw as a failure
+ * rather than something to retry.
+ */
+export async function waitForLocationIdByTitle(
+	title: string,
+	timeoutMs = 30_000,
+): Promise<string> {
+	const deadline = Date.now() + timeoutMs;
+	for (;;) {
+		try {
+			return await locationIdByTitle(title);
+		} catch (reason) {
+			if (Date.now() > deadline) throw reason;
+			await new Promise((resolve) => setTimeout(resolve, 300));
+		}
+	}
+}
+
+/** One location's fields, decoded to plain JSON — for asserting what a write did. */
+export async function locationFields(
+	locationId: string,
+): Promise<Record<string, unknown>> {
+	const home = await homeId();
+	const response = await fetch(
+		`${BASE}/homes/${home}/locations/${locationId}`,
+		{ headers: HEADERS },
+	);
+	if (!response.ok) {
+		throw new Error(
+			`emulator REST could not read location ${locationId}: ${response.status} ${response.statusText}`,
+		);
+	}
+	const document = (await response.json()) as {
+		fields?: Record<string, unknown>;
+	};
+	return decodeFields(document.fields ?? {});
+}
+
+/**
+ * Deletes every location whose title begins with this prefix. Best-effort the
+ * same way `deleteNodesByTitlePrefix` is, and failing the same way when a
+ * delete is refused — a place left behind empties no tree, and the next run's
+ * Locations screen would wait on an empty state that never comes.
+ */
+export async function deleteLocationsByTitlePrefix(
+	prefix: string,
+): Promise<void> {
+	const { documents = [] } = await get(
+		`/homes/${await homeId()}/locations?pageSize=300`,
+	);
+
+	for (const document of documents) {
+		const title = document.fields?.title?.stringValue;
+		if (title === undefined || !title.startsWith(prefix)) continue;
+		const response = await fetch(
+			`http://localhost:${EMULATOR_PORT}/v1/${document.name}`,
+			{
+				method: "DELETE",
+				headers: HEADERS,
+			},
+		);
+		if (!response.ok) {
+			throw new Error(
+				`emulator REST could not delete location "${title}": ${response.status} ${response.statusText}`,
+			);
+		}
+	}
+}
+
+/**
+ * One location, written straight past the UI the way `createFixtureNode` is.
+ *
+ * There is no stored location to copy as a template — the seed ships no
+ * places, the blank start `PROJECT.md` § Locations commits to — so the
+ * document is hand-written here. The fields are exactly the schema of
+ * `models/locations.ts`, and `createdAt` / `updatedAt` go in as dates the
+ * emulator stores as timestamps.
+ */
+export async function createFixtureLocation(
+	overrides: Record<string, Json>,
+): Promise<string> {
+	const home = await homeId();
+	const fields = encodeFields({
+		title: "E2E loc fixture",
+		parentId: null,
+		ancestorIds: [],
+		rank: "e2e",
+		createdAt: new Date(),
+		createdBy: await memberUid("Marcus"),
+		updatedAt: new Date(),
+		...overrides,
+	});
+
+	const response = await fetch(`${BASE}/homes/${home}/locations`, {
+		method: "POST",
+		headers: { ...HEADERS, "Content-Type": "application/json" },
+		body: JSON.stringify({ fields }),
+	});
+	if (!response.ok) {
+		throw new Error(
+			`emulator REST could not create a fixture location: ${response.status} ${response.statusText}`,
+		);
+	}
+	const created = (await response.json()) as { name: string };
+	return idOf(created.name);
+}
