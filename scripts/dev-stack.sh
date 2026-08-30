@@ -184,6 +184,9 @@ cmd_up() {
 	if running emulators; then
 		echo "dev-stack: emulators already up (ours)"
 	else
+		# A web that outlived its emulators is stopped here, before the rewrite
+		# below drops .pids.web: its bundle points at the old, now-dead ports.
+		stop_group web
 		# `--import` will not create the directory, so a missing fixture fails
 		# here rather than silently booting empty.
 		if [ "$import" = 1 ] && [ ! -d .emulator-seed ]; then
