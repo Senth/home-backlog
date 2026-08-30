@@ -32,6 +32,7 @@ import {
 	type Node,
 	type NodeData,
 	newNodeData,
+	pickerLimit,
 	rootIdOf,
 	type Status,
 	toNode,
@@ -246,6 +247,54 @@ export function participatingDoneQuery(
 		where("completedAt", ">=", doneSince(now)),
 		orderBy("completedAt", "desc"),
 		limit(overviewLimit),
+	);
+}
+
+/*
+ * The picker's home-wide search — Q-S1 and Q-S2 (#66). One-shot
+ * `getDocsFromServer` reads, fired debounced on a non-empty query by the
+ * *Waiting on…* picker; nothing fires them until then, and no listener exists
+ * for them.
+ *
+ * `completedAt == null` is how "not done" is spelled, so a blocker's past
+ * stays out of the picker even when custom statuses arrive — the same
+ * spelling Q3 and Q4 use. The 50-cap is `pickerLimit` in `models/node.ts`,
+ * and the two composite indexes the shape needs are declared in
+ * `firestore.indexes.json`.
+ */
+
+/**
+ * Q-S1 — every shared card still going, anywhere in the home.
+ *
+ * Provably safe: `visibility == 'shared'` is the read rule's first disjunct.
+ */
+export function sharedPickerQuery(homeId: string): Query<DocumentData> {
+	return query(
+		nodesRef(homeId),
+		where("archived", "==", false),
+		where("completedAt", "==", null),
+		where("visibility", "==", "shared"),
+		orderBy("updatedAt", "desc"),
+		limit(pickerLimit),
+	);
+}
+
+/**
+ * Q-S2 — the same, through the read rule's second disjunct: my private cards,
+ * and any shared one I am a participant of, which is why the picker's results
+ * are deduped by id rather than concatenated.
+ */
+export function participatingPickerQuery(
+	homeId: string,
+	uid: string,
+): Query<DocumentData> {
+	return query(
+		nodesRef(homeId),
+		where("archived", "==", false),
+		where("completedAt", "==", null),
+		where("participantIds", "array-contains", uid),
+		orderBy("updatedAt", "desc"),
+		limit(pickerLimit),
 	);
 }
 

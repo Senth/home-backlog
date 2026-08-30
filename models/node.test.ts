@@ -25,6 +25,7 @@ import {
 	staleAssignees,
 	titleError,
 	toNode,
+	unresolvedBlockers,
 	visibleColumns,
 } from "@/models/node";
 
@@ -351,16 +352,16 @@ describe("counter changes", () => {
 	 * A reparent is a leave and an arrive, so the two must cancel exactly — a
 	 * card moved to another board and back leaves both counters where they were.
 	 */
-	it.each([
-		"backlog",
-		"done",
-	] as const)("cancels itself over a %s card's round trip", (status) => {
-		const there = childArrives(status);
-		const back = childLeaves(status);
+	it.each(["backlog", "done"] as const)(
+		"cancels itself over a %s card's round trip",
+		(status) => {
+			const there = childArrives(status);
+			const back = childLeaves(status);
 
-		expect(there.childCount + back.childCount).toBe(0);
-		expect(there.doneCount + back.doneCount).toBe(0);
-	});
+			expect(there.childCount + back.childCount).toBe(0);
+			expect(there.doneCount + back.doneCount).toBe(0);
+		},
+	);
 });
 
 describe("titleError", () => {
@@ -664,6 +665,62 @@ describe("hiddenByParticipants", () => {
 		expect(
 			hiddenByParticipants(node({ participantIds: ["uid-b"] }), "uid-a"),
 		).toBe(true);
+	});
+});
+
+describe("unresolvedBlockers", () => {
+	/**
+	 * The map a screen resolves blockers from — the board's own nodes, or the
+	 * detail screen's per-id reads. Whatever is missing from it is a blocker
+	 * nobody has heard from yet.
+	 */
+	const blockers = new Map([
+		["order-tiles", node({ id: "order-tiles", status: "execution" })],
+		["done-thing", node({ id: "done-thing", status: "done" })],
+	]);
+
+	it("is empty for a card that waits on nothing", () => {
+		expect(unresolvedBlockers(node(), blockers)).toEqual([]);
+		expect(unresolvedBlockers(node({ blockedBy: [] }), blockers)).toEqual([]);
+	});
+
+	it("waits on a blocker that is still going", () => {
+		expect(
+			unresolvedBlockers(node({ blockedBy: ["order-tiles"] }), blockers),
+		).toEqual(["order-tiles"]);
+	});
+
+	it("stops waiting on a done blocker, without the entry being removed", () => {
+		// The relation is durable: the entry stays and the card no longer marks.
+		expect(
+			unresolvedBlockers(
+				node({ blockedBy: ["done-thing", "order-tiles"] }),
+				blockers,
+			),
+		).toEqual(["order-tiles"]);
+	});
+
+	it("waits on a blocker the map has never heard of", () => {
+		// Gone, or not read yet — honest *not yet* beats a mark that lies either
+		// way.
+		expect(
+			unresolvedBlockers(node({ blockedBy: ["deleted-thing"] }), blockers),
+		).toEqual(["deleted-thing"]);
+	});
+
+	it("never waits on a done card, whatever its list holds", () => {
+		// Completing a waiting card keeps its `blockedBy` as inert history, and
+		// a card in Done never marks. The entries stay unresolved — what makes
+		// it *waiting* is the list non-empty and the card itself not done.
+		const card = node({
+			status: "done",
+			blockedBy: ["order-tiles", "deleted-thing"],
+		});
+
+		const unresolved = unresolvedBlockers(card, blockers);
+
+		expect(unresolved).toEqual(["order-tiles", "deleted-thing"]);
+		expect(unresolved.length > 0 && card.status !== "done").toBe(false);
 	});
 });
 
@@ -1001,14 +1058,12 @@ describe("toNode", () => {
 	 * prototype and hand the board `Object.prototype.toString` — a *function* —
 	 * where a status belongs.
 	 */
-	it.each([
-		"constructor",
-		"toString",
-		"valueOf",
-		"hasOwnProperty",
-	])("reads the inherited property %s as backlog, not as a function", (status) => {
-		expect(toNode(snapshot("node-9", { status })).status).toBe("backlog");
-	});
+	it.each(["constructor", "toString", "valueOf", "hasOwnProperty"])(
+		"reads the inherited property %s as backlog, not as a function",
+		(status) => {
+			expect(toNode(snapshot("node-9", { status })).status).toBe("backlog");
+		},
+	);
 
 	/**
 	 * `columns` arrived after the document did, so every node written by #74 is

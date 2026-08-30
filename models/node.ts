@@ -214,6 +214,50 @@ export function hasDetails(node: Node): boolean {
 	);
 }
 
+/*
+ * ---------------------------------------------------------------------------
+ * Blocked-by (#66)
+ * ---------------------------------------------------------------------------
+ *
+ * A card can wait on other cards through `blockedBy[]`. Being blocked is a
+ * condition, not a stage — the card stays in its real column and shows a mark —
+ * and the relation is **durable**: nothing in the app ever removes an entry
+ * except a person. A done blocker stops holding the card without being
+ * removed, and reopening it re-blocks the dependents; completing a waiting
+ * card keeps its list as inert history.
+ */
+
+/**
+ * How deep the picker's home-wide search reaches (Q-S1/Q-S2 in
+ * `data/nodes.ts`). The cap is what bounds the search, and the one thing the
+ * capped footer line has to name: a home of thousands of dormant cards can
+ * miss candidates, and the picker says so rather than pretending
+ * completeness.
+ */
+export const pickerLimit = 50;
+
+/**
+ * The entries of `blockedBy` that still hold the card: each id is either
+ * missing from `blockerById` — gone, or not read yet — or its blocker's
+ * `status` is anything but `'done'`.
+ *
+ * A missing blocker waits deliberately: honest *not yet* beats a mark that
+ * lies either way. A done blocker stops holding the card without being
+ * removed, which is what makes the relation durable rather than a moment that
+ * passes.
+ *
+ * **Waiting is this list non-empty *and* the node itself not `done`.** A card
+ * completed while waiting keeps its `blockedBy` as inert history and never
+ * marks, whatever its list holds — so the caller composes the two, and this
+ * function answers only "which entries are unresolved".
+ */
+export function unresolvedBlockers(
+	node: Node,
+	blockerById: Map<string, Node>,
+): string[] {
+	return node.blockedBy.filter((id) => blockerById.get(id)?.status !== "done");
+}
+
 /**
  * How a *parent's* two counters move. Zero means the field is not written at
  * all, so a write that changes nothing costs nothing.

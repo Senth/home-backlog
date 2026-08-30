@@ -45,6 +45,26 @@
 			"queryScope": "COLLECTION",
 			"fields": [
 				{ "fieldPath": "archived", "order": "ASCENDING" },
+				{ "fieldPath": "completedAt", "order": "ASCENDING" },
+				{ "fieldPath": "visibility", "order": "ASCENDING" },
+				{ "fieldPath": "updatedAt", "order": "DESCENDING" }
+			]
+		},
+		{
+			"collectionGroup": "nodes",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{ "fieldPath": "archived", "order": "ASCENDING" },
+				{ "fieldPath": "completedAt", "order": "ASCENDING" },
+				{ "fieldPath": "participantIds", "arrayConfig": "CONTAINS" },
+				{ "fieldPath": "updatedAt", "order": "DESCENDING" }
+			]
+		},
+		{
+			"collectionGroup": "nodes",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{ "fieldPath": "archived", "order": "ASCENDING" },
 				{ "fieldPath": "visibility", "order": "ASCENDING" },
 				{ "fieldPath": "completedAt", "order": "DESCENDING" }
 			]
