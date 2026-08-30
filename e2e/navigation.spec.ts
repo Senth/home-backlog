@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { gotoAndSettle, ROUTES } from "@/e2e/support/app";
+import enUS from "@/i18n/locales/en-US.json";
 
 /**
  * Reload, back, and deep links — the three ways a router quietly breaks.
@@ -16,6 +17,30 @@ import { gotoAndSettle, ROUTES } from "@/e2e/support/app";
 
 const HOMES = ROUTES[0];
 const BOARD = ROUTES[1];
+const OVERVIEW = ROUTES[5];
+
+test("1: clicking the Projects tab lands on /projects and shows the root board", async ({
+	page,
+}) => {
+	await gotoAndSettle(page, OVERVIEW);
+
+	// The suite's first navigation by tab press. The pathname is asserted
+	// before the board's data, so a wrong landing fails as a path — never as
+	// a timeout, never as missing data.
+	await page.getByRole("tab", { name: enUS.tab.projects }).click();
+
+	// Wait for the router to go anywhere before asserting where it went:
+	// asserting the pathname the instant after the click would race the
+	// navigation and report the screen we came from.
+	await page.waitForURL((url) => url.pathname !== OVERVIEW.path, {
+		timeout: 30_000,
+	});
+	expect(new URL(page.url()).pathname).toBe(BOARD.path);
+
+	await expect(page.getByText(BOARD.ready.text).first()).toBeVisible({
+		timeout: 30_000,
+	});
+});
 
 test("a reload keeps you on the same screen, with its data", async ({
 	page,
