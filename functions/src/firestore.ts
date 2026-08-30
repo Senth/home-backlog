@@ -25,6 +25,7 @@ export const db = getFirestore();
 
 export const homesCollection = "homes";
 export const nodesCollection = "nodes";
+export const locationsCollection = "locations";
 export const usersCollection = "users";
 export const apiKeysCollection = "apiKeys";
 export const apiClientsCollection = "apiClients";

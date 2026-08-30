@@ -151,8 +151,8 @@ export function apiNode(id: string, data: Record<string, unknown>): ApiNode {
 		rank: stringOr(data.rank, ""),
 		parentId: stringOrNull(data.parentId),
 		ancestorIds: strings(data.ancestorIds),
-		// Read but never written: the location verbs arrive with #50 and #51, and
-		// until then the API refuses both of these in a request body.
+		// Read but never written: filing work in a place is #51's, and until
+		// then the API refuses both of these in a node request body.
 		locationId: stringOrNull(data.locationId),
 		locationAncestorIds: strings(data.locationAncestorIds),
 		participantIds: strings(data.participantIds),
@@ -175,6 +175,39 @@ export function apiNode(id: string, data: Record<string, unknown>): ApiNode {
 		// existed. Nothing queries this field, so nothing needed backfilling.
 		createdVia: data.createdVia === "api" ? "api" : "app",
 		completedAt: isoTime(data.completedAt),
+		createdAt: isoTime(data.createdAt),
+		createdBy: stringOr(data.createdBy, ""),
+		updatedAt: isoTime(data.updatedAt),
+	};
+}
+
+export interface ApiLocation {
+	id: string;
+	title: string;
+	parentId: string | null;
+	ancestorIds: string[];
+	rank: string;
+	createdAt: string | null;
+	createdBy: string;
+	updatedAt: string | null;
+}
+
+/**
+ * A stored location as JSON, read defensively — the same argument `apiNode`
+ * makes. Smaller than a node, because a location is household furniture: no
+ * visibility, no participants, no counters. The id fields are read but never
+ * taken from a request body; `ancestorIds` is derived from `parentId`.
+ */
+export function apiLocation(
+	id: string,
+	data: Record<string, unknown>,
+): ApiLocation {
+	return {
+		id,
+		title: stringOr(data.title, ""),
+		parentId: stringOrNull(data.parentId),
+		ancestorIds: strings(data.ancestorIds),
+		rank: stringOr(data.rank, ""),
 		createdAt: isoTime(data.createdAt),
 		createdBy: stringOr(data.createdBy, ""),
 		updatedAt: isoTime(data.updatedAt),

@@ -1,0 +1,309 @@
+import type { Request, Response, Router } from "express";
+import type {
+	DocumentData,
+	DocumentSnapshot,
+	QueryDocumentSnapshot,
+} from "firebase-admin/firestore";
+import { FieldValue } from "firebase-admin/firestore";
+import { apiLocation } from "./api-nodes.js";
+import { type ApiCaller, caller, homeAccess, recordWrite } from "./auth.js";
+import { parseLocationBody } from "./body.js";
+import { ApiError } from "./errors.js";
+import { db, homesCollection, locationsCollection } from "./firestore.js";
+import { handle } from "./handler.js";
+import { childAncestorIds, movedAncestorIds, rankAfter } from "./node.js";
+import { type LocationContext, validateLocation } from "./validate.js";
+import { refuseOversizedSubtree } from "./writes.js";
+
+/**
+ * The location verbs (#50): list, create, rename-and-move, delete a place.
+ *
+ * The node verbs, mirrored one endpoint set over, with two things absent on
+ * purpose. No visibility split — a location is household furniture,
+ * member-only and uniform, so once `homeAccess` has passed there is nothing
+ * per-document to check. No counters — a location carries no `childCount`, so
+ * a create is one `set` and a delete repairs nothing.
+ *
+ * These write with the Admin SDK, so `firestore.rules` enforces nothing here;
+ * every document goes through `validateLocation` before it is committed. A
+ * move rewrites the moved document's path and every descendant's
+ * `ancestorIds` in one batch, and a cascading delete removes the subtree in
+ * one batch — the `onLocationWritten` trigger unfilms anchored nodes on both
+ * paths, the same contract the app's own writes get.
+ */
+
+function homeLocations(homeId: string) {
+	return db
+		.collection(homesCollection)
+		.doc(homeId)
+		.collection(locationsCollection);
+}
+
+function param(request: Request, name: string): string {
+	const value = request.params[name];
+	if (typeof value !== "string" || value.length === 0) {
+		throw new ApiError(400, "invalid_path", `Missing ${name} in the path.`);
+	}
+	return value;
+}
+
+function notFound(locationId: string, homeId: string): ApiError {
+	return new ApiError(
+		404,
+		"location_not_found",
+		`No location ${locationId} in ${homeId}.`,
+	);
+}
+
+async function readLocation(
+	homeId: string,
+	locationId: string,
+): Promise<DocumentSnapshot<DocumentData>> {
+	const snapshot = await homeLocations(homeId).doc(locationId).get();
+	if (!snapshot.exists) throw notFound(locationId, homeId);
+	return snapshot;
+}
+
+/** What a prospective child needs to know about its parent location. */
+interface ParentLocationFacts {
+	id: string;
+	ancestorIds: string[];
+}
+
+function factsOf(
+	snapshot: DocumentSnapshot<DocumentData>,
+): ParentLocationFacts {
+	const ancestorIds = snapshot.get("ancestorIds");
+	return {
+		id: snapshot.id,
+		ancestorIds: Array.isArray(ancestorIds) ? (ancestorIds as string[]) : [],
+	};
+}
+
+/** The parent a request names, resolved, or `null` for a root place. */
+async function resolveParent(
+	homeId: string,
+	parentId: string | null,
+): Promise<ParentLocationFacts | null> {
+	if (parentId === null) return null;
+	return factsOf(await readLocation(homeId, parentId));
+}
+
+/** Every descendant of a location, at any depth. */
+async function descendantsOf(
+	homeId: string,
+	locationId: string,
+): Promise<QueryDocumentSnapshot<DocumentData>[]> {
+	const subtree = await homeLocations(homeId)
+		.where("ancestorIds", "array-contains", locationId)
+		.get();
+	return subtree.docs;
+}
+
+/**
+ * The rank of a place appended to a parent's children, or to the root.
+ *
+ * Read whole and filtered in code rather than `where("parentId").orderBy("rank")`,
+ * which would want a composite index the app's one-listener tree query never
+ * needs. Locations count in tens per home, so the extra reads are nothing.
+ */
+async function rankAtEndOfSiblings(
+	homeId: string,
+	parentId: string | null,
+): Promise<string> {
+	const locations = await homeLocations(homeId).orderBy("rank").get();
+	const siblings = locations.docs.filter(
+		(doc) => (doc.get("parentId") ?? null) === parentId,
+	);
+	return rankAfter(siblings.map((doc) => String(doc.get("rank") ?? "")));
+}
+
+/** Turn validation issues into the one 400 that names all of them at once. */
+function refuseInvalidLocation(
+	data: Record<string, unknown>,
+	context: LocationContext,
+): void {
+	const issues = validateLocation(data, context);
+	if (issues.length === 0) return;
+
+	throw new ApiError(
+		400,
+		issues[0].code,
+		issues[0].message,
+		issues.map((issue) => ({
+			field: issue.field,
+			code: issue.code,
+			message: issue.message,
+		})),
+	);
+}
+
+/** Read the committed document back, so a response never carries a sentinel. */
+async function respondWithLocation(
+	response: Response,
+	homeId: string,
+	locationId: string,
+	status: number,
+): Promise<void> {
+	const written = await homeLocations(homeId).doc(locationId).get();
+	response.status(status).json(apiLocation(written.id, written.data() ?? {}));
+}
+
+async function listLocations(
+	request: Request,
+	response: Response,
+): Promise<void> {
+	const me = caller(response);
+	const homeId = param(request, "homeId");
+	await homeAccess(me, homeId);
+
+	const locations = await homeLocations(homeId).orderBy("rank").get();
+
+	response.json({
+		locations: locations.docs.map((doc) => apiLocation(doc.id, doc.data())),
+	});
+}
+
+async function createLocation(
+	request: Request,
+	response: Response,
+): Promise<void> {
+	const me: ApiCaller = caller(response);
+	const homeId = param(request, "homeId");
+	const home = await homeAccess(me, homeId);
+
+	const body = parseLocationBody(request.body, "create");
+	const parent = await resolveParent(homeId, body.parentId ?? null);
+
+	const ref = homeLocations(homeId).doc();
+	const document: Record<string, unknown> = {
+		title: (body.title ?? "").trim(),
+		parentId: parent?.id ?? null,
+		// Derived from parentId, never taken from the body — a caller-supplied
+		// path is exactly what cannot be verified from outside.
+		ancestorIds: childAncestorIds(parent),
+		rank: body.rank ?? (await rankAtEndOfSiblings(homeId, parent?.id ?? null)),
+		createdAt: FieldValue.serverTimestamp(),
+		createdBy: me.uid,
+		updatedAt: FieldValue.serverTimestamp(),
+	};
+
+	refuseInvalidLocation(document, { locationId: ref.id, parent });
+
+	await ref.set(document);
+	await recordWrite(me, home);
+
+	await respondWithLocation(response, homeId, ref.id, 201);
+}
+
+async function patchLocation(
+	request: Request,
+	response: Response,
+): Promise<void> {
+	const me = caller(response);
+	const homeId = param(request, "homeId");
+	const home = await homeAccess(me, homeId);
+
+	const locationId = param(request, "locationId");
+	const snapshot = await readLocation(homeId, locationId);
+	const current = snapshot.data() ?? {};
+	const body = parseLocationBody(request.body, "update");
+
+	const oldParentId = (current.parentId ?? null) as string | null;
+	const moving = "parentId" in body && (body.parentId ?? null) !== oldParentId;
+	const newParentId = moving ? (body.parentId ?? null) : oldParentId;
+	const parent = await resolveParent(homeId, newParentId);
+
+	if (
+		moving &&
+		parent !== null &&
+		(parent.id === locationId || parent.ancestorIds.includes(locationId))
+	) {
+		// A location moved inside its own subtree is a cycle: unreachable from
+		// the tree screen and from every anchored node's path.
+		throw new ApiError(
+			400,
+			"cycle",
+			"A location cannot be moved inside its own subtree.",
+		);
+	}
+
+	const descendants = moving ? await descendantsOf(homeId, locationId) : [];
+	if (moving) refuseOversizedSubtree(descendants.length, "This move");
+
+	const changes: Record<string, unknown> = {
+		...(body.title !== undefined ? { title: body.title.trim() } : {}),
+		...(moving
+			? {
+					parentId: newParentId,
+					ancestorIds: childAncestorIds(parent),
+					rank: await rankAtEndOfSiblings(homeId, newParentId),
+				}
+			: {}),
+		updatedAt: FieldValue.serverTimestamp(),
+	};
+
+	refuseInvalidLocation({ ...current, ...changes }, { locationId, parent });
+
+	const batch = db.batch();
+	batch.update(homeLocations(homeId).doc(locationId), changes);
+	for (const descendant of descendants) {
+		batch.update(descendant.ref, {
+			ancestorIds: movedAncestorIds(
+				(descendant.get("ancestorIds") ?? []) as string[],
+				locationId,
+				childAncestorIds(parent),
+			),
+			updatedAt: FieldValue.serverTimestamp(),
+		});
+	}
+	await batch.commit();
+	await recordWrite(me, home);
+
+	await respondWithLocation(response, homeId, locationId, 200);
+}
+
+async function deleteLocation(
+	request: Request,
+	response: Response,
+): Promise<void> {
+	const me = caller(response);
+	const homeId = param(request, "homeId");
+	const home = await homeAccess(me, homeId);
+
+	const locationId = param(request, "locationId");
+	await readLocation(homeId, locationId);
+
+	const descendants = await descendantsOf(homeId, locationId);
+	const cascade = request.query.cascade === "true";
+
+	// The API's confirmation dialog, the same one the node delete gives: the
+	// destructive act has to be spelled out rather than stumbled into.
+	if (descendants.length > 0 && !cascade) {
+		const children = descendants.filter(
+			(doc) => doc.get("parentId") === locationId,
+		).length;
+		throw new ApiError(
+			409,
+			"has_children",
+			`This location has ${children} place${children === 1 ? "" : "s"} and ${descendants.length} document${descendants.length === 1 ? "" : "s"} below it. Repeat with ?cascade=true to delete them all.`,
+		);
+	}
+
+	refuseOversizedSubtree(descendants.length, "This delete");
+
+	const batch = db.batch();
+	for (const descendant of descendants) batch.delete(descendant.ref);
+	batch.delete(homeLocations(homeId).doc(locationId));
+	await batch.commit();
+	await recordWrite(me, home);
+
+	response.json({ id: locationId, deleted: descendants.length + 1 });
+}
+
+export function registerLocationRoutes(v1: Router): void {
+	v1.get("/homes/:homeId/locations", handle(listLocations));
+	v1.post("/homes/:homeId/locations", handle(createLocation));
+	v1.patch("/homes/:homeId/locations/:locationId", handle(patchLocation));
+	v1.delete("/homes/:homeId/locations/:locationId", handle(deleteLocation));
+}

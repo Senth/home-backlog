@@ -157,7 +157,7 @@ async function descendantsOf(
  * writes at once, and the moved node plus its parents take three of them, so a
  * subtree that will not fit is refused with a number rather than half-written.
  */
-function refuseOversizedSubtree(count: number, operation: string): void {
+export function refuseOversizedSubtree(count: number, operation: string): void {
 	if (count + 3 <= maxBatchWrites) return;
 	throw new ApiError(
 		409,

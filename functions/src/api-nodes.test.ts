@@ -1,4 +1,4 @@
-import { apiHome, apiNode, visibleTo } from "./api-nodes.js";
+import { apiHome, apiLocation, apiNode, visibleTo } from "./api-nodes.js";
 
 const me = "uid-member";
 const someoneElse = "uid-owner";
@@ -151,6 +151,44 @@ describe("a node on the wire", () => {
 
 		expect(node.priority).toBeNull();
 		expect(node.effort).toBeNull();
+	});
+});
+
+describe("a location on the wire", () => {
+	const stored = {
+		title: "The garden",
+		parentId: "place-root",
+		ancestorIds: ["place-root"],
+		rank: "a0",
+		createdAt: stamp("2026-01-01T00:00:00.000Z"),
+		createdBy: someoneElse,
+		updatedAt: stamp("2026-02-01T12:00:00.000Z"),
+	};
+
+	it("carries the id and every field", () => {
+		expect(apiLocation("loc-1", stored)).toEqual({
+			id: "loc-1",
+			...stored,
+			createdAt: "2026-01-01T00:00:00.000Z",
+			updatedAt: "2026-02-01T12:00:00.000Z",
+		});
+	});
+
+	it("renders a root place's parentId as null", () => {
+		expect(
+			apiLocation("loc-1", { ...stored, parentId: null, ancestorIds: [] })
+				.parentId,
+		).toBeNull();
+	});
+
+	it("survives a document with nothing in it", () => {
+		const location = apiLocation("empty", {});
+
+		expect(location.title).toBe("");
+		expect(location.parentId).toBeNull();
+		expect(location.ancestorIds).toEqual([]);
+		expect(location.rank).toBe("");
+		expect(location.createdAt).toBeNull();
 	});
 });
 

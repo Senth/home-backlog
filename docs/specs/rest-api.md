@@ -216,20 +216,28 @@ never clean up after itself, and every mistake would become Marcus's manual work
 *Rejected:* requiring the caller to echo an expected descendant count. Strongest guard, one
 more thing for every agent author to get right, for a case the `409` already reports.
 
-### Location fields are refused, not ignored
+### Location fields on nodes are refused, not ignored
 
-`locationId` and `locationAncestorIds` in a request body return `400
-locations_unavailable`. The `locations` collection has no verbs and, today, no screens
-([#50](https://github.com/Senth/home-backlog/issues/50),
-[#51](https://github.com/Senth/home-backlog/issues/51)), so nothing can hand an agent a
-valid location id, and `locationAncestorIds` is a denormalized path that is unverifiable
-from outside. An invented one makes "everything in the Basement" return the wrong set
-permanently, with no screen anywhere showing a discrepancy.
+`locationId` and `locationAncestorIds` in a **node** request body return `400
+locations_unavailable`. Filing work in a place is
+[#51](https://github.com/Senth/home-backlog/issues/51)'s and has no semantics yet, so
+nothing can check a location id a caller names, and `locationAncestorIds` is a
+denormalized path that is unverifiable from outside. An invented one makes "everything in
+the Basement" return the wrong set permanently, with no screen anywhere showing a
+discrepancy.
 
 *Rejected:* accepting and silently ignoring them. The agent then believes it filed work it
 did not file.
 
-`SKILL.md` states that agent-created work is unfiled until the location verbs ship.
+The `locations` collection itself gained verbs with
+[#50](https://github.com/Senth/home-backlog/issues/50) — `GET` and `POST` on
+`/homes/:homeId/locations`, `PATCH` and `DELETE` on
+`/homes/:homeId/locations/:locationId` — mirroring the node verbs one endpoint set over.
+`ancestorIds` is derived server-side from `parentId`, never trusted from a body; `PATCH`
+owns rename and move, with `400 cycle` for a move inside the moved place's own subtree; and
+`DELETE` answers `409 has_children` before `?cascade=true` deletes the subtree in one batch,
+so the node-maintenance trigger unfilms every anchored node on that path too. Work created
+over the API stays unfiled until #51, and `SKILL.md` says so.
 
 ### A status outside the parent's frozen columns is refused
 
@@ -711,17 +719,17 @@ by developers, never rendered in the app.
 - **`flipVisibility`.** It stays client-side, top-down and resumable. The API cannot flip.
 - **Node read rules.** Nothing is widened; the API reads with the Admin SDK and applies the
   visibility predicate in code.
-- **`locations` and `recurring`.** No verbs, no rule changes, no schema changes.
+- **`recurring`.** No verbs, no rule changes, no schema changes. (`locations` left this
+  list when [#50](https://github.com/Senth/home-backlog/issues/50) gave it verbs.)
 - **Offline behaviour anywhere in the app.** The API is online-only by nature and the two
   new screens are the only places that say so.
 
 ## Out of scope
 
-- **Location and recurring verbs.** [#50](https://github.com/Senth/home-backlog/issues/50),
-  [#51](https://github.com/Senth/home-backlog/issues/51),
-  [#57](https://github.com/Senth/home-backlog/issues/57),
-  [#58](https://github.com/Senth/home-backlog/issues/58). Those collections have no data
-  model in use yet; the API gains their verbs with them.
+- **Recurring verbs.** [#57](https://github.com/Senth/home-backlog/issues/57),
+  [#58](https://github.com/Senth/home-backlog/issues/58). The collection has no data
+  model in use yet; the API gains its verbs with it. Location verbs shipped with
+  [#50](https://github.com/Senth/home-backlog/issues/50).
 - **Read-only versus read-write key scopes.**
   [#92](https://github.com/Senth/home-backlog/issues/92).
 - **Season-neutral `SKILL.md` examples.**
