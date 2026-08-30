@@ -21,10 +21,12 @@ import { InstallCard } from "@/components/ui/InstallCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { createNode } from "@/data/nodes";
-import { type OverviewSection, useOverview } from "@/hooks/use-overview";
+import { useDashboardCards } from "@/hooks/use-dashboard-cards";
+import { useOverview } from "@/hooks/use-overview";
 import { dueState } from "@/models/due-date";
 import { hasSteps, type Node, rankAtEnd } from "@/models/node";
-import { rowsPerSection } from "@/models/overview";
+import { recentlyDone } from "@/models/overview";
+import { type Card, cardRows, seedTitleKeys } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
 import {
 	denseBreakpoint,
@@ -34,8 +36,9 @@ import {
 } from "@/theme/tokens";
 
 /**
- * What is going on, without opening a board: the projects in progress, what is
- * coming up or already late, and what recently got done.
+ * What is going on, without opening a board: an ordered list of the home's
+ * filter cards over one shared pool of open nodes, ending in what recently
+ * got done.
  *
  * The first tab and the route the app opens on — a summary you have to navigate
  * to is a summary nobody reads. The app bar names the *home*, not the screen:
@@ -43,7 +46,8 @@ import {
  * the app for recording cabin work on the house board, with no breadcrumb to
  * lean on. No `BoardMenu`, because there is no filter here to toggle.
  *
- * Every read is `useOverview`; this file opens no listener of its own.
+ * Every read is `useOverview` or `useDashboardCards`; this file opens no
+ * listener of its own, and renders every card through the one `CardSection`.
  */
 export default function Overview() {
 	const { t } = useTranslation();
@@ -54,14 +58,21 @@ export default function Overview() {
 	const { width } = useWindowDimensions();
 
 	const homeId = activeHome?.id ?? null;
-	const { ongoing, due, done, roots } = useOverview(homeId);
+	const uid = user?.uid ?? null;
+	const { roots, pool, done } = useOverview(homeId);
+	const {
+		cards,
+		loading: configLoading,
+		failed: configFailed,
+		retry: retryConfig,
+	} = useDashboardCards(homeId);
 
 	// What a row resolves its waiting mark against: statuses already in hand —
-	// every root, and both dated sections. No new listener anywhere; a blocker
+	// every root, and the whole pool. No new listener anywhere; a blocker
 	// absent from the map keeps its card waiting, the same not-yet direction
 	// the board and the detail screen take.
 	const blockers = new Map<string, Node | null>();
-	for (const node of [...roots, ...due.nodes, ...done.nodes]) {
+	for (const node of [...roots, ...pool.nodes, ...done.nodes]) {
 		blockers.set(node.id, node);
 	}
 
@@ -74,28 +85,46 @@ export default function Overview() {
 	// keeps under its own FAB.
 	const fabInset = fabHeight > 0 ? fabHeight + space.md + space.md : space.xxl;
 
-	const loading = ongoing.loading || due.loading || done.loading;
+	const loading =
+		roots.loading || pool.loading || done.loading || configLoading;
+	const failed = roots.failed || pool.failed || done.failed || configFailed;
+
 	// Not while anything failed: "add the first project" and "could not load" are
 	// contradictory instructions, and only one of them is true.
 	//
-	// And not while the home holds a root at all. Three empty sections are not the
-	// same claim as an empty house: every project sitting in To do, undated and
-	// with nothing finished this month empties all three, and so does being on
-	// none of the household's roots. `boards-and-nodes.md` settled that a
-	// "nothing here yet" a household can disprove is the kind of lie people stop
-	// trusting a screen for, and Overview has no filter control to disprove it
-	// with. `roots` is every unarchived root the pair returned — before the hide
-	// predicate, which is what makes the second case say "nothing in progress"
-	// rather than "add the first project".
+	// And not while the home holds any open node at all. Seven empty cards are
+	// not the same claim as an empty house: every project sitting in To do,
+	// undated and with nothing finished this month empties them all, and so does
+	// being on none of the household's roots. `boards-and-nodes.md` settled that
+	// a "nothing here yet" a household can disprove is the kind of lie people
+	// stop trusting a screen for, and Overview has no filter control to disprove
+	// it with.
 	const nothingAtAll =
 		!loading &&
-		!ongoing.failed &&
-		!due.failed &&
-		!done.failed &&
-		roots.length === 0 &&
-		ongoing.nodes.length === 0 &&
-		due.nodes.length === 0 &&
+		!failed &&
+		roots.nodes.length === 0 &&
+		pool.nodes.length === 0 &&
 		done.nodes.length === 0;
+
+	// Fresh every render, like a card face's own due chip — the point is a card
+	// agreeing with its own heading at the moment it is looked at, not at the
+	// moment its listener last fired.
+	const now = new Date();
+	const rows = new Map<string, Node[]>();
+	if (uid !== null) {
+		for (const card of cards) {
+			rows.set(
+				card.id,
+				card.kind === "completed"
+					? recentlyDone(done.nodes, roots.nodes, uid, now)
+					: cardRows(card, pool.nodes, {
+							uid,
+							now,
+							roots: roots.nodes,
+						}),
+			);
+		}
+	}
 
 	/**
 	 * A tap goes where a board card's tap goes: the board once the project has a
@@ -119,11 +148,16 @@ export default function Overview() {
 
 		createNode(homeId, user.uid, {
 			title,
-			rank: rankAtEnd(roots.at(-1)?.rank ?? null),
+			rank: rankAtEnd(roots.nodes.at(-1)?.rank ?? null),
 			parent: null,
 			status: "backlog",
 			participantIds: Object.keys(activeHome?.members ?? {}),
 		});
+	};
+
+	/** The roots pair is the one every card's hide predicate depends on. */
+	const retryRoots = () => {
+		roots.retry();
 	};
 
 	return (
@@ -138,9 +172,9 @@ export default function Overview() {
 			</Appbar.Header>
 
 			{/* Per-route proximity: this screen gets the air. `space.lg` between
-			    the groups — the install offer and the three sections — so Overview
-			    reads as sections rather than one block; a board column keeps its
-			    own density and gets no such gap. */}
+			    the groups — the install offer and the cards — so Overview reads as
+			    sections rather than one block; a board column keeps its own
+			    density and gets no such gap. */}
 			<ScrollView
 				contentContainerStyle={{
 					paddingBottom: fabInset,
@@ -173,41 +207,46 @@ export default function Overview() {
 					>
 						{t("overview.empty")}
 					</Text>
-				) : ongoing.failed ? (
-					/* The roots pair is the one every section depends on — Ongoing
-					   projects *is* it, and the other two need it for the hide scope —
-					   so when it fails, all three fail with it. Said once, with one Try
-					   again: three copies of the same sentence over three buttons that
-					   all retry the same listener is one failure reported as three. */
-					<LoadFailed onRetry={ongoing.retry} />
+				) : roots.failed ? (
+					/* Said once, with one Try again: the roots pair feeds every
+					   card's hide predicate, so when it fails every card would fail
+					   with it — one failure reported as one, not as seven. */
+					<LoadFailed onRetry={retryRoots} />
+				) : configFailed ? (
+					<LoadFailed onRetry={retryConfig} />
 				) : (
 					<>
-						<Section
-							title={t("overview.ongoing.title")}
-							empty={t("overview.ongoing.empty")}
-							section={ongoing}
-							onOpen={open}
-							blockers={blockers}
-							testID="overview-section-ongoing"
-						/>
-						<Section
-							title={t("overview.due.title")}
-							empty={t("overview.due.empty")}
-							section={due}
-							onOpen={open}
-							blockers={blockers}
-							testID="overview-section-due"
-						/>
-						{/* No empty line. "Nothing completed" is the report card, and a
-					    household that has finished nothing does not need a box
-					    saying so — the section is absent instead. */}
-						<Section
-							title={t("overview.done.title")}
-							section={done}
-							onOpen={open}
-							blockers={blockers}
-							testID="overview-section-done"
-						/>
+						{pool.failed ? (
+							/* One load failure for the whole pool: every filter card
+							   reads the same pair, and five copies of the same sentence
+							   over five retry buttons would be one failure reported as
+							   five. The completed card reads the done pair and still
+							   renders. */
+							<LoadFailed onRetry={pool.retry} />
+						) : null}
+						{cards.map((card) => {
+							if (card.kind === "filter" && pool.failed) return null;
+							if (card.kind === "completed" && done.failed) return null;
+							return (
+								<CardSection
+									key={card.id}
+									card={card}
+									rows={rows.get(card.id) ?? []}
+									onOpen={open}
+									blockers={blockers}
+								/>
+							);
+						})}
+						{done.failed ? (
+							/* The done pair is the completed card's alone, so its failure
+							   is said where that card would have been. */
+							<LoadFailed
+								onRetry={() => {
+									roots.retry();
+									done.retry();
+								}}
+							/>
+						) : null}
 					</>
 				)}
 			</ScrollView>
@@ -243,61 +282,48 @@ export default function Overview() {
 
 const newProjectDialogTestID = "new-project-dialog";
 
-interface SectionProps {
-	title: string;
-	/**
-	 * What the section says when it is answered and empty. A section with no
-	 * empty line — Recently done — is not rendered at all when it holds nothing.
-	 */
-	empty?: string;
-	section: OverviewSection;
+interface CardSectionProps {
+	card: Card;
+	/** What the engine answered for this card, before the shown/max slice. */
+	rows: Node[];
 	onOpen: (node: Node) => void;
 	/** What a row's waiting mark is resolved against. */
 	blockers: ReadonlyMap<string, Node | null>;
-	/** Scopes a claim to its own section — three headings share every row's words. */
-	testID: string;
 }
 
 /**
- * One heading and its rows, answered independently of the other two.
+ * One heading and its rows — the one renderer every card goes through, seed
+ * or composed.
  *
- * A section that is still loading renders nothing rather than a heading over a
- * gap: a heading with nothing under it is indistinguishable from an empty
- * section, and this screen has three of them.
+ * A card whose answer has not arrived renders nothing rather than a heading
+ * over a gap: a heading with nothing under it is indistinguishable from an
+ * empty card, and this screen holds several. Empty is a per-card decision —
+ * mode `hide` renders nothing at all, mode `say` keeps the heading and says
+ * one sentence — because a card you configured that vanishes reads as broken
+ * config, and for several seeds an empty card is the good outcome.
  */
-function Section({
-	title,
-	empty,
-	section,
-	onOpen,
-	blockers,
-	testID,
-}: SectionProps) {
+function CardSection({ card, rows, onOpen, blockers }: CardSectionProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const [expanded, setExpanded] = useState(false);
 
-	if (section.loading) return null;
-	if (!section.failed && section.nodes.length === 0 && empty === undefined) {
-		return null;
-	}
+	const emptyLine = card.empty.mode === "say" ? t(card.empty.key) : undefined;
+	if (rows.length === 0 && emptyLine === undefined) return null;
 
-	const shown = expanded
-		? section.nodes
-		: section.nodes.slice(0, rowsPerSection);
-	const more = section.nodes.length - shown.length;
+	// Rows held is the card's own ceiling, not the screen's: what sits above a
+	// card can never empty it out, because nothing is shared between cards.
+	const held = rows.slice(0, card.max);
+	const shown = expanded ? held : held.slice(0, card.shown);
+	const more = held.length - shown.length;
 
 	return (
-		<List.Section testID={testID}>
-			<List.Subheader>{title}</List.Subheader>
+		<List.Section testID={`overview-section-${card.id}`}>
+			<List.Subheader>
+				{card.title ??
+					(card.seedId !== null ? t(seedTitleKeys[card.seedId]) : card.id)}
+			</List.Subheader>
 
-			{/* Said rather than drawn as an empty section: a section is two
-			    listeners and only one of them has to fail, and "nothing coming up"
-			    is the wrong answer to "I could not ask". Only this section's own
-			    pair reaches here — a failed roots pair is reported once, above. */}
-			{section.failed ? (
-				<LoadFailed onRetry={section.retry} />
-			) : section.nodes.length === 0 ? (
+			{rows.length === 0 ? (
 				<Text
 					variant="bodyMedium"
 					style={{
@@ -305,7 +331,7 @@ function Section({
 						paddingHorizontal: space.md,
 					}}
 				>
-					{empty}
+					{emptyLine}
 				</Text>
 			) : (
 				shown.map((node) => (
@@ -339,9 +365,9 @@ function Section({
 /**
  * What a spent retry ladder looks like: what happened, and the way back.
  *
- * One component for both scopes — the whole screen when the roots pair failed,
- * one section when only that section's own pair did — because the sentence and
- * the button are the same; all that differs is what `onRetry` reopens.
+ * One component for every failure scope on this screen — the whole pool, the
+ * done pair, the card config — because the sentence and the button are the
+ * same; all that differs is what `onRetry` reopens.
  */
 function LoadFailed({ onRetry }: { onRetry: () => void }) {
 	const { t } = useTranslation();

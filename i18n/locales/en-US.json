@@ -234,6 +234,19 @@
 		"done": {
 			"title": "Recently done"
 		},
+		"cards": {
+			"title": {
+				"quickWins": "Quick wins",
+				"aFewHours": "A few hours",
+				"needsSplitting": "Needs splitting",
+				"needsEstimate": "Needs an estimate"
+			},
+			"empty": {
+				"generic": "Nothing matches this card.",
+				"quickWins": "Set the time needed on a task and the quick ones land here.",
+				"needsSplitting": "Nothing needs splitting up."
+			}
+		},
 		"more": "+{{count}} more",
 		"less": "Show less",
 		"empty": "Nothing here yet. Add the first project.",

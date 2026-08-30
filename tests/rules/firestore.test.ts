@@ -2568,3 +2568,83 @@ describe("homes/{homeId}/apiClients", () => {
 		await assertFails(deleteDoc(doc(dbAs(env, MEMBER), clientPath)));
 	});
 });
+
+/**
+ * #166 phase 2: the three card-config surfaces. Each one is read by id — the
+ * two documents — or as one bounded collection, so a query can never match a
+ * document its caller could not read; what the rules must prove is *who* may
+ * name each path.
+ */
+describe("card config", () => {
+	const card = { cards: {}, seededAt: new Date("2026-01-01T00:00:00Z") };
+
+	describe("users/{uid}/dashboard/config", () => {
+		const configPath = `users/${OWNER.uid}/dashboard/config`;
+
+		it("is the owner's alone, like the apiKeys beside it", async () => {
+			await assertSucceeds(setDoc(doc(dbAs(env, OWNER), configPath), card));
+			await assertSucceeds(getDoc(doc(dbAs(env, OWNER), configPath)));
+		});
+
+		it("denies another signed-in user on the same path", async () => {
+			await assertFails(getDoc(doc(dbAs(env, MEMBER), configPath)));
+			await assertFails(setDoc(doc(dbAs(env, MEMBER), configPath), card));
+			await assertFails(getDoc(doc(dbAnon(env), configPath)));
+		});
+	});
+
+	describe("homes/{homeId}/dashboards/{uid}", () => {
+		const ownPath = `homes/${HOME_ID}/dashboards/${MEMBER.uid}`;
+		const otherPath = `homes/${HOME_ID}/dashboards/${OWNER.uid}`;
+
+		it("lets a member write their own document", async () => {
+			await seedHome();
+
+			await assertSucceeds(
+				setDoc(doc(dbAs(env, MEMBER), ownPath), { cards: {} }),
+			);
+			await assertSucceeds(getDoc(doc(dbAs(env, MEMBER), ownPath)));
+		});
+
+		it("denies a member on another member's document", async () => {
+			await seedHome();
+
+			// Nobody arranges your screen: membership is not enough, the path
+			// must name the writer.
+			await assertFails(
+				setDoc(doc(dbAs(env, MEMBER), otherPath), { cards: {} }),
+			);
+			await assertFails(getDoc(doc(dbAs(env, MEMBER), otherPath)));
+		});
+
+		it("denies a signed-in non-member", async () => {
+			await seedHome();
+
+			await assertFails(
+				setDoc(doc(dbAs(env, OUTSIDER), ownPath), { cards: {} }),
+			);
+			await assertFails(getDoc(doc(dbAs(env, OUTSIDER), ownPath)));
+		});
+	});
+
+	describe("homes/{homeId}/dashboardCards/{cardId}", () => {
+		const cardPath = `${homePath}/dashboardCards/shared-card`;
+
+		it("lets any member read and write", async () => {
+			await seedHome();
+
+			await assertSucceeds(setDoc(doc(dbAs(env, MEMBER), cardPath), card));
+			await assertSucceeds(getDoc(doc(dbAs(env, OWNER), cardPath)));
+			await assertSucceeds(
+				updateDoc(doc(dbAs(env, OWNER), cardPath), { x: 1 }),
+			);
+		});
+
+		it("denies a non-member", async () => {
+			await seedHome();
+
+			await assertFails(getDoc(doc(dbAs(env, OUTSIDER), cardPath)));
+			await assertFails(setDoc(doc(dbAs(env, OUTSIDER), cardPath), card));
+		});
+	});
+});

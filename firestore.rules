@@ -543,6 +543,21 @@ service cloud.firestore {
         allow delete: if isMember(homeId);
       }
 
+      // A member's cards for one home. Own document only — nobody arranges
+      // your screen, and the per-member hide of a shared card lives here too.
+      match /dashboards/{uid} {
+        allow read, write: if signedIn()
+          && uid == request.auth.uid
+          && isMember(homeId);
+      }
+
+      // Shared cards. Any member reads and writes; hiding is per-member, on
+      // their own doc, which is what keeps a shared card from becoming the
+      // chore-wall.
+      match /dashboardCards/{cardId} {
+        allow read, write: if isMember(homeId);
+      }
+
       match /recurring/{ruleId} {
         allow read, write: if isMember(homeId);
       }
@@ -555,6 +570,13 @@ service cloud.firestore {
     // the person. It holds nothing but keys — member display names and photos
     // stay in `memberProfiles` on the home, where the rules read them.
     match /users/{uid} {
+      // A person's card config. Owner only, like the apiKeys beside it — one
+      // cross-home document: the global cards plus the marker saying the one
+      // seed write ran.
+      match /dashboard/{docId} {
+        allow read, write: if signedIn() && uid == request.auth.uid;
+      }
+
       match /apiKeys/{keyId} {
         // Minted by the `createApiKey` callable, which uses the Admin SDK and is
         // not subject to these rules. A client may see its own keys and revoke

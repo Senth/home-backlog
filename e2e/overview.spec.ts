@@ -3,6 +3,8 @@ import { expect, test } from "@playwright/test";
 import {
 	clickMenuItem,
 	columnSelector,
+	createThrowawayHome,
+	deleteThrowawayHome,
 	gotoAndSettle,
 	ROUTES,
 } from "@/e2e/support/app";
@@ -85,46 +87,6 @@ async function moveCardTo(
 	await page.getByRole("menuitem", { name: columnLabel }).click();
 }
 
-/** A throwaway home, created and switched into — for claims 11 and 12. */
-async function createThrowawayHome(
-	page: Page,
-	homeName: string,
-): Promise<void> {
-	await page.goto("/homes");
-	await page.waitForLoadState("networkidle");
-	await page.getByRole("button", { name: enUS.homes.create }).click();
-	await page.getByRole("textbox").first().fill(homeName);
-	await page
-		.getByRole("button", { name: enUS.homes.createAction, exact: true })
-		.click();
-	await page.waitForURL((url) => !url.pathname.endsWith("/homes"), {
-		timeout: 60_000,
-	});
-}
-
-/**
- * Deletes the throwaway home.
- *
- * Nothing here has to switch the browser back to Huset: every test in this
- * file gets its own fresh context loaded from `playwright.config.ts`'s own
- * `storageState`, the one `auth.setup.ts` saved once with Huset active — a
- * home switched inside one test's own context never carries into the next.
- */
-async function deleteThrowawayHome(
-	page: Page,
-	homeName: string,
-): Promise<void> {
-	await page.goto("/homes");
-	await page.waitForLoadState("networkidle");
-	await page.getByRole("button", { name: `Manage ${homeName}` }).click();
-	await page.waitForURL(/\/homes\/[^/]+$/);
-	await page.getByRole("button", { name: enUS.manageHome.delete }).click();
-	await page
-		.getByRole("button", { name: enUS.manageHome.deleteConfirm, exact: true })
-		.click();
-	await page.waitForURL("**/homes", { timeout: 30_000 });
-}
-
 test("1: the app opens on Overview, and Overview is the first tab", async ({
 	page,
 }) => {
@@ -159,15 +121,20 @@ test("2: a root card in In progress appears under Ongoing projects, and leaves t
 		completedAt: null,
 	});
 
+	// Scoped to Ongoing projects: with #166 the same node can also render in
+	// other cards — an undated root lands in Needs an estimate — so a
+	// page-wide locator would meet it twice.
+	const ongoing = page.getByTestId("overview-section-ongoing");
+
 	await gotoOverview(page);
-	await expect(page.getByText(title)).toBeVisible();
+	await expect(ongoing.getByText(title)).toBeVisible();
 
 	await gotoAndSettle(page, BOARD);
 	await page.getByTestId("chip").nth(EXECUTION_CHIP).click();
 	await moveCardTo(page, title, enUS.status.backlog);
 
 	await gotoOverview(page);
-	await expect(page.getByText(title)).toHaveCount(0);
+	await expect(ongoing.getByText(title)).toHaveCount(0);
 });
 
 test("3: a node with no due date is absent from Coming up", async ({
@@ -186,7 +153,10 @@ test("3: a node with no due date is absent from Coming up", async ({
 	});
 
 	await gotoOverview(page);
-	await expect(page.getByText(title)).toHaveCount(0);
+	// Scoped to Coming up — the node itself still renders in Needs an estimate.
+	await expect(
+		page.getByTestId("overview-section-comingUp").getByText(title),
+	).toHaveCount(0);
 });
 
 test("4: under Coming up, a node whose due date has passed sorts above one due in three days", async ({
@@ -216,12 +186,23 @@ test("4: under Coming up, a node whose due date has passed sorts above one due i
 		dueDate: calendarDay(3),
 	});
 
+	// Scoped to Coming up: the two fixtures are undated roots too, so they
+	// render in Needs an estimate as well, and a page-wide box would be
+	// ambiguous.
+	const comingUp = page.getByTestId("overview-section-comingUp");
+
 	await gotoOverview(page);
-	const lateBox = await page.getByText(lateTitle).boundingBox();
-	const soonBox = await page.getByText(soonTitle).boundingBox();
-	expect(lateBox, `"${lateTitle}" was not on screen`).not.toBeNull();
-	expect(soonBox, `"${soonTitle}" was not on screen`).not.toBeNull();
-	expect(lateBox?.y ?? 0).toBeLessThan(soonBox?.y ?? 0);
+	// Polled: two boxes measured at two instants of a settling layout can
+	// disagree with the order both had a moment later.
+	await expect
+		.poll(async () => {
+			const lateBox = await comingUp.getByText(lateTitle).boundingBox();
+			const soonBox = await comingUp.getByText(soonTitle).boundingBox();
+			expect(lateBox, `"${lateTitle}" was not on screen`).not.toBeNull();
+			expect(soonBox, `"${soonTitle}" was not on screen`).not.toBeNull();
+			return (lateBox?.y ?? 0) < (soonBox?.y ?? 0);
+		})
+		.toBe(true);
 });
 
 test("5: a node due further out than soonInDays is absent from Coming up", async ({
@@ -240,7 +221,9 @@ test("5: a node due further out than soonInDays is absent from Coming up", async
 	});
 
 	await gotoOverview(page);
-	await expect(page.getByText(title)).toHaveCount(0);
+	await expect(
+		page.getByTestId("overview-section-comingUp").getByText(title),
+	).toHaveCount(0);
 });
 
 test("6: a node completed yesterday appears under Recently done; one completed 40 days ago does not", async ({

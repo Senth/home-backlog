@@ -234,6 +234,19 @@
 		"done": {
 			"title": "Nyligen klart"
 		},
+		"cards": {
+			"title": {
+				"quickWins": "Snabba vinster",
+				"aFewHours": "Några timmar",
+				"needsSplitting": "Behöver delas upp",
+				"needsEstimate": "Behöver en uppskattning"
+			},
+			"empty": {
+				"generic": "Inget matchar det här kortet.",
+				"quickWins": "Sätt tidsåtgång på ett jobb så landar de snabba här.",
+				"needsSplitting": "Inget behöver delas upp."
+			}
+		},
 		"more": "+{{count}} till",
 		"less": "Visa färre",
 		"empty": "Inget här ännu. Lägg till första projektet.",

@@ -3,6 +3,51 @@ import enUS from "@/i18n/locales/en-US.json";
 import svSE from "@/i18n/locales/sv-SE.json";
 
 /**
+ * A throwaway home, created and switched into — for a claim that needs a home
+ * whose contents it controls, which the seeded `Huset` never is. The same
+ * trade `overview.spec.ts` already accepts: a run killed mid-test leaves the
+ * home behind.
+ */
+export async function createThrowawayHome(
+	page: Page,
+	homeName: string,
+): Promise<void> {
+	await page.goto("/homes");
+	await page.waitForLoadState("networkidle");
+	await page.getByRole("button", { name: enUS.homes.create }).click();
+	await page.getByRole("textbox").first().fill(homeName);
+	await page
+		.getByRole("button", { name: enUS.homes.createAction, exact: true })
+		.click();
+	await page.waitForURL((url) => !url.pathname.endsWith("/homes"), {
+		timeout: 60_000,
+	});
+}
+
+/**
+ * Deletes the throwaway home.
+ *
+ * Nothing here has to switch the browser back to Huset: every test in a
+ * `writes` spec gets its own fresh context loaded from `playwright.config.ts`'s
+ * own `storageState`, the one `auth.setup.ts` saved once with Huset active — a
+ * home switched inside one test's own context never carries into the next.
+ */
+export async function deleteThrowawayHome(
+	page: Page,
+	homeName: string,
+): Promise<void> {
+	await page.goto("/homes");
+	await page.waitForLoadState("networkidle");
+	await page.getByRole("button", { name: `Manage ${homeName}` }).click();
+	await page.waitForURL(/\/homes\/[^/]+$/);
+	await page.getByRole("button", { name: enUS.manageHome.delete }).click();
+	await page
+		.getByRole("button", { name: enUS.manageHome.deleteConfirm, exact: true })
+		.click();
+	await page.waitForURL("**/homes", { timeout: 30_000 });
+}
+
+/**
  * The signed-in routes the cross-cutting specs walk.
  *
  * Expo Router's `(app)` and `(tabs)` are groups, not path segments, so

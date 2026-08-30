@@ -46,22 +46,28 @@ async function get(path: string): Promise<{ documents?: Document[] }> {
 
 let cachedHomeId: string | undefined;
 
+/** A home's document id, resolved by name — including the throwaway ones. */
+export async function homeIdByName(name: string): Promise<string> {
+	const { documents = [] } = await get("/homes");
+	const home = documents.find(
+		(document) => document.fields?.name?.stringValue === name,
+	);
+	if (!home) {
+		throw new Error(
+			`no home named ${name} in the emulator — is it running with --import .emulator-seed?`,
+		);
+	}
+
+	const id = home.name.split("/").pop();
+	if (!id) throw new Error(`could not read an id from ${home.name}`);
+	return id;
+}
+
 /** The document id of the seeded home, resolved by name and then remembered. */
 export async function homeId(): Promise<string> {
 	if (cachedHomeId) return cachedHomeId;
 
-	const { documents = [] } = await get("/homes");
-	const home = documents.find(
-		(document) => document.fields?.name?.stringValue === HOME_NAME,
-	);
-	if (!home) {
-		throw new Error(
-			`no home named ${HOME_NAME} in the emulator — is it running with --import .emulator-seed?`,
-		);
-	}
-
-	cachedHomeId = home.name.split("/").pop();
-	if (!cachedHomeId) throw new Error(`could not read an id from ${home.name}`);
+	cachedHomeId = await homeIdByName(HOME_NAME);
 	return cachedHomeId;
 }
 
@@ -372,9 +378,16 @@ export async function waitForNodeIdByTitle(
  */
 export async function createFixtureNode(
 	overrides: Record<string, Json>,
+	toHome?: string,
 ): Promise<string> {
-	const home = await homeId();
-	const { documents = [] } = await get(`/homes/${home}/nodes?pageSize=1`);
+	const home = toHome ?? (await homeId());
+	let { documents = [] } = await get(`/homes/${home}/nodes?pageSize=1`);
+	if (documents[0] === undefined) {
+		// A throwaway home has no node to copy — borrow the seeded home's
+		// template instead; the overrides decide every field that matters.
+		documents =
+			(await get(`/homes/${await homeId()}/nodes?pageSize=1`)).documents ?? [];
+	}
 	const template = documents[0];
 	if (template === undefined) {
 		throw new Error(
@@ -517,6 +530,30 @@ export async function locationFields(
 	return decodeFields(document.fields ?? {});
 }
 
+export type { Json };
+
+/**
+ * A document's fields, decoded to plain JSON — or `null` when it is not
+ * there. Card-config fixtures (#166) read and rewrite whole documents, so a
+ * seed a test removes is removed the way the app's own editor would remove
+ * it: by writing the map back without it.
+ */
+export async function readDocAt(
+	path: string,
+): Promise<Record<string, unknown> | null> {
+	const response = await fetch(`${BASE}${path}`, { headers: HEADERS });
+	if (response.status === 404) return null;
+	if (!response.ok) {
+		throw new Error(
+			`emulator REST ${path} responded ${response.status} ${response.statusText}`,
+		);
+	}
+	const document = (await response.json()) as {
+		fields?: Record<string, unknown>;
+	};
+	return decodeFields(document.fields ?? {});
+}
+
 /**
  * Deletes every location whose title begins with this prefix. Best-effort the
  * same way `deleteNodesByTitlePrefix` is, and failing the same way when a
@@ -584,4 +621,54 @@ export async function createFixtureLocation(
 	}
 	const created = (await response.json()) as { name: string };
 	return idOf(created.name);
+}
+
+/** Writes a whole document, creating or replacing it. Fixture plumbing. */
+export async function writeDocAt(
+	path: string,
+	fields: Record<string, Json>,
+): Promise<void> {
+	const response = await fetch(`${BASE}${path}`, {
+		method: "PATCH",
+		headers: { ...HEADERS, "Content-Type": "application/json" },
+		body: JSON.stringify({ fields: encodeFields(fields) }),
+	});
+	if (!response.ok) {
+		throw new Error(
+			`emulator REST could not write ${path}: ${response.status} ${response.statusText}`,
+		);
+	}
+}
+
+/** Deletes the document at the path; deleting nothing is not an error. */
+export async function deleteDocAt(path: string): Promise<void> {
+	const response = await fetch(`${BASE}${path}`, {
+		method: "DELETE",
+		headers: HEADERS,
+	});
+	if (!response.ok && response.status !== 404) {
+		throw new Error(
+			`emulator REST could not delete ${path}: ${response.status} ${response.statusText}`,
+		);
+	}
+}
+
+/**
+ * A home's id, resolved once the write reaches the backend — the same wait
+ * `waitForNodeIdByTitle` does for a node: a home made through the UI exists
+ * on screen before the emulator this file reads through can see it.
+ */
+export async function waitForHomeId(
+	name: string,
+	timeoutMs = 30_000,
+): Promise<string> {
+	const deadline = Date.now() + timeoutMs;
+	for (;;) {
+		try {
+			return await homeIdByName(name);
+		} catch (reason) {
+			if (Date.now() > deadline) throw reason;
+			await new Promise((resolve) => setTimeout(resolve, 300));
+		}
+	}
 }
