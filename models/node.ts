@@ -238,8 +238,8 @@ export const pickerLimit = 50;
 
 /**
  * The entries of `blockedBy` that still hold the card: each id is either
- * missing from `blockerById` — gone, or not read yet — or its blocker's
- * `status` is anything but `'done'`.
+ * missing from `blockerById` — gone, unreadable, or not read yet — or its
+ * blocker's `status` is anything but `'done'`.
  *
  * A missing blocker waits deliberately: honest *not yet* beats a mark that
  * lies either way. A done blocker stops holding the card without being
@@ -250,12 +250,78 @@ export const pickerLimit = 50;
  * completed while waiting keeps its `blockedBy` as inert history and never
  * marks, whatever its list holds — so the caller composes the two, and this
  * function answers only "which entries are unresolved".
+ *
+ * The map's values may be `null` — the board's watcher records a blocker the
+ * server confirmed gone, and a `null` reads exactly like a missing entry.
  */
 export function unresolvedBlockers(
 	node: Node,
-	blockerById: Map<string, Node>,
+	blockerById: ReadonlyMap<string, Node | null>,
 ): string[] {
 	return node.blockedBy.filter((id) => blockerById.get(id)?.status !== "done");
+}
+
+/**
+ * The blocker ids no card on this board carries — the ones its own query pair
+ * cannot see, and so the ones the board's `BlockerWatcher` listens to one
+ * single-document listener apiece.
+ *
+ * A same-board blocker resolves free from the board's merged results, which
+ * carry every status column. Deduped: two cards can wait on the same
+ * off-board blocker, and it is one document.
+ */
+export function crossBoardBlockerIds(nodes: readonly Node[]): string[] {
+	const onBoard = new Set(nodes.map((node) => node.id));
+	const ids = new Set<string>();
+	for (const node of nodes) {
+		for (const id of node.blockedBy) {
+			if (!onBoard.has(id)) ids.add(id);
+		}
+	}
+	return [...ids];
+}
+
+/**
+ * The picker's home-wide search results, merged.
+ *
+ * Dedupe by id — a shared card I participate in matches both queries (Q-S1
+ * and Q-S2) — then filter client-side: a case-insensitive title substring,
+ * and drop self, existing blockers and done. The queries already exclude
+ * done, so the status check is what keeps the function honest whichever
+ * snapshot list reaches it.
+ *
+ * The cap is measured on the *raw* hits, before filtering: it answers "the
+ * home may hold more candidates than the search saw", not "the filtered list
+ * is long".
+ */
+export function pickerCandidates(
+	query: string,
+	self: Node,
+	blockedBy: readonly string[],
+	shared: readonly Node[],
+	participating: readonly Node[],
+): { results: Node[]; capped: boolean } {
+	const seen = new Set<string>();
+	const merged: Node[] = [];
+	for (const node of [...shared, ...participating]) {
+		if (seen.has(node.id)) continue;
+		seen.add(node.id);
+		merged.push(node);
+	}
+
+	const needle = query.toLowerCase();
+	const results = merged.filter(
+		(candidate) =>
+			candidate.id !== self.id &&
+			!blockedBy.includes(candidate.id) &&
+			candidate.status !== "done" &&
+			candidate.title.toLowerCase().includes(needle),
+	);
+
+	return {
+		results,
+		capped: shared.length >= pickerLimit || participating.length >= pickerLimit,
+	};
 }
 
 /**

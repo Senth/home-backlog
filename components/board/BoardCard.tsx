@@ -8,7 +8,7 @@ import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useHome } from "@/contexts/HomeContext";
 import { formatList } from "@/i18n/format-list";
 import { dueState } from "@/models/due-date";
-import { hasSteps, type Node } from "@/models/node";
+import { hasSteps, type Node, unresolvedBlockers } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { icon, size, space, touchTarget } from "@/theme/tokens";
 
@@ -31,7 +31,17 @@ interface BoardCardProps {
 	 * the board already knows.
 	 */
 	wide?: boolean;
+	/**
+	 * The blockers this card might wait on, by id — the board's own nodes plus
+	 * the watcher's cross-board documents, `null` for one the server confirmed
+	 * gone. Absent means *not heard from yet*, which waits. Overview hands the
+	 * statuses it already holds, in the same shape.
+	 */
+	blockers?: ReadonlyMap<string, Node | null>;
 }
+
+/** What a card resolves its waiting against before its board has said anything. */
+const noBlockers: ReadonlyMap<string, Node | null> = new Map();
 
 /**
  * One card: a title, what little metadata is worth carrying, and a mark when
@@ -94,6 +104,7 @@ export function BoardCard({
 	onOpen,
 	menu,
 	wide = false,
+	blockers = noBlockers,
 }: BoardCardProps) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
@@ -105,6 +116,12 @@ export function BoardCard({
 	// the warning colour on it, are `DueChip`'s.
 	const showDue = node.dueDate !== null && (due === "late" || due === "soon");
 	const isPrivate = node.visibility === "private";
+
+	// Waiting is the *unresolved* blockers, never the stored list: a done
+	// blocker stops holding this card without being removed, and a card in
+	// Done never marks, whatever its list holds.
+	const waiting = unresolvedBlockers(node, blockers);
+	const isWaiting = node.status !== "done" && waiting.length > 0;
 
 	// A member who has left the home has no profile left, and is still assigned:
 	// the row says *Someone* rather than dropping them, the same way the members
@@ -208,11 +225,14 @@ export function BoardCard({
 						</View>
 					) : null}
 
-					{/* Blocked is a *condition*, not a column: the card stays in the
-					    stage it is really in and says it is waiting. Nothing in the UI
-					    sets `blockedBy` yet — that is #66 — so this arrives from the
-					    REST API or a fixture until then. */}
-					{node.blockedBy.length > 0 ? (
+					{/* Waiting is a *condition*, not a column: the card stays in the
+				    stage it is really in and says it is waiting. The mark derives
+				    from the blockers' own statuses, so a done blocker stops marking
+				    its dependents and a missing one keeps holding the card — honest
+				    *not yet* beats a mark that lies either way. The count appears
+				    past one blocker; the colour is the warning colour, and the words
+				    and icon separate it from the overdue text beside it. */}
+					{isWaiting ? (
 						<View
 							style={{
 								flexDirection: "row",
@@ -228,8 +248,13 @@ export function BoardCard({
 							<Text
 								variant="labelMedium"
 								style={{ color: theme.colors.warning }}
+								accessibilityLabel={t("board.waitingLabel", {
+									count: waiting.length,
+								})}
 							>
-								{t("board.blocked")}
+								{waiting.length > 1
+									? `${t("board.blocked")} · ${waiting.length}`
+									: t("board.blocked")}
 							</Text>
 						</View>
 					) : null}

@@ -6,6 +6,7 @@ import {
 	childLeaves,
 	compareNodes,
 	completionChange,
+	crossBoardBlockerIds,
 	defaultColumns,
 	doneChange,
 	effectiveParticipants,
@@ -17,6 +18,7 @@ import {
 	movedAncestorIds,
 	type Node,
 	newNodeData,
+	pickerCandidates,
 	rankAtEnd,
 	rankBetween,
 	rankSequence,
@@ -721,6 +723,89 @@ describe("unresolvedBlockers", () => {
 
 		expect(unresolved).toEqual(["order-tiles", "deleted-thing"]);
 		expect(unresolved.length > 0 && card.status !== "done").toBe(false);
+	});
+});
+
+describe("crossBoardBlockerIds", () => {
+	it("leaves same-board blockers to the board's own query pair", () => {
+		const board = [
+			node({ id: "lay-tiles", blockedBy: ["order-tiles"] }),
+			node({ id: "order-tiles" }),
+		];
+
+		expect(crossBoardBlockerIds(board)).toEqual([]);
+	});
+
+	it("names the blocker no card on the board carries, deduped", () => {
+		const board = [
+			node({ id: "lay-tiles", blockedBy: ["order-tiles", "order-grout"] }),
+			node({ id: "order-tiles" }),
+			node({ id: "seal-grout", blockedBy: ["order-grout"] }),
+		];
+
+		expect(crossBoardBlockerIds(board)).toEqual(["order-grout"]);
+	});
+
+	it("is empty when nothing waits on anything", () => {
+		expect(crossBoardBlockerIds([node()])).toEqual([]);
+	});
+});
+
+describe("pickerCandidates", () => {
+	const self = node({ id: "lay-tiles" });
+	const shared = [
+		node({ id: "order-tiles", title: "Order tiles" }),
+		node({ id: "sweep", title: "Book the chimney sweep" }),
+	];
+
+	it("filters on a case-insensitive title substring", () => {
+		const { results } = pickerCandidates("TILES", self, [], shared, []);
+
+		expect(results.map((candidate) => candidate.id)).toEqual(["order-tiles"]);
+	});
+
+	it("drops self, existing blockers and done", () => {
+		const blocked = [
+			node({ id: "lay-tiles", title: "Lay tiles" }),
+			node({ id: "order-tiles", title: "Order tiles" }),
+			node({ id: "old-roof", title: "Order roof tiles", status: "done" }),
+			node({ id: "spare-tiles", title: "Count the spare tiles" }),
+		];
+
+		const { results } = pickerCandidates(
+			"tiles",
+			self,
+			["order-tiles"],
+			blocked,
+			[],
+		);
+
+		expect(results.map((candidate) => candidate.id)).toEqual(["spare-tiles"]);
+	});
+
+	it("dedupes a card both queries matched", () => {
+		const { results } = pickerCandidates(
+			"tiles",
+			self,
+			[],
+			shared,
+			shared.slice(0, 1),
+		);
+
+		expect(results.map((candidate) => candidate.id)).toEqual(["order-tiles"]);
+	});
+
+	it("reports the cap from the raw hits, before any filtering", () => {
+		const many = Array.from({ length: 50 }, (_, index) =>
+			node({ id: `card-${index}`, title: `Tiles ${index}` }),
+		);
+
+		// Every hit survives the filter, so the flag is the only thing that can
+		// say the home may hold more candidates than the search saw.
+		expect(pickerCandidates("tiles", self, [], many, []).capped).toBe(true);
+		expect(
+			pickerCandidates("tiles", self, [], many.slice(0, 49), []).capped,
+		).toBe(false);
 	});
 });
 

@@ -1,8 +1,9 @@
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, View } from "react-native";
-import { IconButton, Menu } from "react-native-paper";
+import { IconButton, Menu, Text } from "react-native-paper";
 import { TitleDialog } from "@/components/board/TitleDialog";
+import { BlockerSearchDialog } from "@/components/node/BlockerSearchDialog";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/data/nodes";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { type Node, rankAtEnd, rankBetween, type Status } from "@/models/node";
+import { useAppTheme } from "@/theme";
 import { icon, space, touchTarget } from "@/theme/tokens";
 
 /** A message the board says after an action, with the way back if there is one. */
@@ -36,6 +38,12 @@ interface CardMenuProps {
 	columns: readonly Status[];
 	/** Every card on this board, in `(rank, id)` order. */
 	nodes: Node[];
+	/**
+	 * What a chosen blocker's title is read from — the board's own nodes plus
+	 * the watcher's cross-board documents. Same-board picks need nothing from
+	 * the server; that is what makes them work offline.
+	 */
+	blockers: ReadonlyMap<string, Node | null>;
 	onNotice: (notice: Notice) => void;
 	/**
 	 * Opening the card's details. Here as well as on the tap, because a card that
@@ -44,7 +52,7 @@ interface CardMenuProps {
 	onDetails: () => void;
 }
 
-type Page = "root" | "move" | "position" | "under";
+type Page = "root" | "move" | "position" | "under" | "waiting";
 
 /** `null` is the top level; `"up"` is the board above this one. */
 type Destination = Node | null | "up";
@@ -69,6 +77,7 @@ export function CardMenu({
 	parent,
 	columns,
 	nodes,
+	blockers,
 	onNotice,
 	onDetails,
 }: CardMenuProps) {
@@ -80,6 +89,7 @@ export function CardMenu({
 	const [page, setPage] = useState<Page>("root");
 	const [renaming, setRenaming] = useState(false);
 	const [deleting, setDeleting] = useState(false);
+	const [searching, setSearching] = useState(false);
 	const anchor = useRef<View | null>(null);
 	/**
 	 * How tall the root page is, which is the only height Paper ever measured.
@@ -120,6 +130,18 @@ export function CardMenu({
 	// permission error.
 	const hosts = nodes.filter(
 		(card) => card.id !== node.id && card.visibility === node.visibility,
+	);
+
+	/**
+	 * The same-board candidates for *Waiting on…*, from cards already in hand —
+	 * free, and working offline. Chosen blockers are listed above instead, and
+	 * a done card blocks nothing, so it is no candidate.
+	 */
+	const waitingCandidates = nodes.filter(
+		(card) =>
+			card.id !== node.id &&
+			card.status !== "done" &&
+			!node.blockedBy.includes(card.id),
 	);
 
 	const failed = (reason: unknown) =>
@@ -211,6 +233,37 @@ export function CardMenu({
 	};
 
 	/**
+	 * Pick or unpick a blocker. An ordinary `updateNode` write, which queues
+	 * offline like every other field write — same-board picks work in a shed,
+	 * and the mark updates from the local cache.
+	 *
+	 * The menu stays open: picking a second blocker means tapping it in the
+	 * same page, and the chosen list above updates from the live node.
+	 */
+	const toggleBlocker = (id: string, add: boolean) => {
+		const next = add
+			? [...node.blockedBy, id]
+			: node.blockedBy.filter((current) => current !== id);
+
+		updateNode(homeId, node.id, { blockedBy: next }).catch((reason) => {
+			console.error("Could not change what the card waits on:", reason);
+			onNotice({ text: t("error.saveFailed") });
+		});
+	};
+
+	/**
+	 * A chosen blocker's label. Cross-board ones are known to the watcher, so
+	 * by the time the page is open the title has usually arrived; while it has
+	 * not, *Loading* says the row is real rather than a gone card.
+	 */
+	const blockerTitle = (id: string) => {
+		const blocker = blockers.get(id);
+		if (blocker === undefined) return t("common.loading");
+		if (blocker === null) return t("board.gone");
+		return blocker.title;
+	};
+
+	/**
 	 * The card **and everything under it**, in one batch. A node whose parent is
 	 * gone is unreachable from every board and every breadcrumb, so the subtree
 	 * cannot be left behind.
@@ -288,6 +341,11 @@ export function CardMenu({
 							title={t("board.moveUnder")}
 							onPress={() => setPage("under")}
 							disabled={!online || (hosts.length === 0 && parent === null)}
+						/>
+						<Menu.Item
+							leadingIcon="pause-circle-outline"
+							title={t("board.waitingOn")}
+							onPress={() => setPage("waiting")}
 						/>
 						<Menu.Item
 							leadingIcon="pencil-outline"
@@ -382,6 +440,53 @@ export function CardMenu({
 								))}
 							</>
 						) : null}
+
+						{page === "waiting" ? (
+							<>
+								{/* The chosen ones first, check-marked; tapping one
+								    unpicks it. Titles come from the board's own nodes and
+								    the watcher, so a cross-board one says its name too. */}
+								{node.blockedBy.map((id) => (
+									<Menu.Item
+										key={id}
+										leadingIcon="check"
+										title={blockerTitle(id)}
+										onPress={() => toggleBlocker(id, false)}
+									/>
+								))}
+
+								{/* Same-board first, and visibly so — the group header is
+								    the priority the picker wants seen without any help
+								    text. Hidden when there is nothing to put under it. */}
+								{waitingCandidates.length === 0 ? null : (
+									<MenuLabel>{t("board.waitingGroupBoard")}</MenuLabel>
+								)}
+								{waitingCandidates.map((card) => (
+									<Menu.Item
+										key={card.id}
+										title={card.title}
+										onPress={() => toggleBlocker(card.id, true)}
+									/>
+								))}
+
+								<MenuLabel>{t("board.waitingGroupEverywhere")}</MenuLabel>
+								<Menu.Item
+									leadingIcon="magnify"
+									title={t("board.waitingSearch")}
+									onPress={() => {
+										close();
+										setSearching(true);
+									}}
+									disabled={!online}
+								/>
+								{/* The search reads the server on purpose, so the hint
+								    says what it needs rather than letting the tap fail
+								    after the fact — exactly *Move under…*'s split. */}
+								{online ? null : (
+									<Menu.Item disabled title={t("board.offlineHint")} />
+								)}
+							</>
+						) : null}
 					</ScrollView>
 				)}
 			</Menu>
@@ -418,7 +523,43 @@ export function CardMenu({
 					returnFocusTo={anchor}
 				/>
 			) : null}
+
+			{searching ? (
+				<BlockerSearchDialog
+					homeId={homeId}
+					uid={user?.uid ?? null}
+					node={node}
+					onDismiss={() => setSearching(false)}
+					onPick={(id) => toggleBlocker(id, true)}
+					onUnpick={(id) => toggleBlocker(id, false)}
+					testID={`blocker-search-${node.id}`}
+					returnFocusTo={anchor}
+				/>
+			) : null}
 		</>
+	);
+}
+
+/**
+ * A group header inside a menu page. Plain text, deliberately not a disabled
+ * `Menu.Item`: a header is a word about the list under it, and Paper names a
+ * disabled item "dimmed" to a screen reader — the same trap `MetaChip` exists
+ * for.
+ */
+function MenuLabel({ children }: { children: string }) {
+	const theme = useAppTheme();
+
+	return (
+		<Text
+			variant="labelMedium"
+			style={{
+				color: theme.colors.onSurfaceVariant,
+				paddingHorizontal: space.md,
+				paddingVertical: space.xs,
+			}}
+		>
+			{children}
+		</Text>
 	);
 }
 

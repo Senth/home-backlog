@@ -20,6 +20,7 @@ import { NotesField } from "@/components/node/NotesField";
 import { PeopleSection, WhoSeesWhat } from "@/components/node/PeopleSection";
 import { StepsSection } from "@/components/node/StepsSection";
 import { VisibilityField } from "@/components/node/VisibilityField";
+import { WaitingOnSection } from "@/components/node/WaitingOnSection";
 import { BackAction } from "@/components/ui/BackAction";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
@@ -260,6 +261,15 @@ export default function NodeDetails() {
 						stored={node.notes}
 						onSave={(notes) => save({ notes })}
 					/>
+
+					{/* What this card waits on — below the notes, so the note that
+					    keeps its place stays there, and rendered always: an add
+					    affordance nobody can find is a feature nobody has. The people
+					    controls keep their order above the new section's neighbours
+					    untouched. */}
+					{homeId === null ? null : (
+						<WaitingOnSection homeId={homeId} node={node} onSave={save} />
+					)}
 
 					{/* Whose project this is, who is doing this card, and whether it is
 					    anybody else's business. All three are hidden while the home has

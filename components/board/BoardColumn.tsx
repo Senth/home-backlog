@@ -59,6 +59,11 @@ interface BoardColumnProps {
 	 * out of this column and into another one.
 	 */
 	drag?: ColumnDrag;
+	/**
+	 * What a card resolves its waiting mark against — see `BoardCard`. The
+	 * board hands down its own nodes plus the watcher's cross-board documents.
+	 */
+	blockers?: ReadonlyMap<string, Node | null>;
 }
 
 /**
@@ -80,6 +85,7 @@ export function BoardColumn({
 	onOpen,
 	renderMenu,
 	drag,
+	blockers,
 }: BoardColumnProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
@@ -256,6 +262,7 @@ export function BoardColumn({
 										onOpen={() => onOpen(node)}
 										menu={renderMenu?.(node)}
 										wide={wide}
+										blockers={blockers}
 									/>
 								) : (
 									<DragArea {...drag.handlers(node)}>
@@ -264,6 +271,7 @@ export function BoardColumn({
 											onOpen={() => onOpen(node)}
 											menu={renderMenu?.(node)}
 											wide={wide}
+											blockers={blockers}
 										/>
 									</DragArea>
 								)}
