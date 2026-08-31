@@ -378,6 +378,68 @@ describe("matching", () => {
 			"node-1",
 		]);
 	});
+
+	describe("locationId picker — in or under", () => {
+		const picking = (ids: readonly string[]) =>
+			[{ field: "locationId", anyOf: ids }] as CardCondition[];
+		const rowsPicking = (ids: readonly string[], nodes: Node[]) =>
+			rowsOf(picking(ids), nodes);
+		// The kitchen sits under the house; the shed stands alone.
+		const under = task({
+			locationId: "kitchen",
+			locationAncestorIds: ["house"],
+		});
+
+		it("matches a node by its own location", () => {
+			expect(rowsPicking(["kitchen"], [under])).toEqual(["node-1"]);
+		});
+
+		it("matches a node under a picked location through the ancestor chain", () => {
+			expect(rowsPicking(["house"], [under])).toEqual(["node-1"]);
+		});
+
+		it("matches an unknown id by nothing", () => {
+			expect(rowsPicking(["boat"], [under])).toEqual([]);
+		});
+
+		it("reads none exactly as before, whatever the picker does", () => {
+			expect(
+				rowsOf([{ field: "locationId", is: "none" }], [under, task()]),
+			).toEqual([task().id]);
+			expect(
+				rowsOf([{ field: "locationId", is: "any" }], [under, task()]),
+			).toEqual([under.id]);
+		});
+
+		it("decodes the picker form, dropping junk and empty lists to the is-form", () => {
+			const read = toCard("p", {
+				conditions: [
+					{
+						field: "locationId",
+						anyOf: ["kitchen", 7, null, "boat"],
+					},
+					{ field: "locationId", anyOf: [] },
+					{ field: "locationId", is: "none" },
+				],
+			});
+
+			expect(read?.conditions).toEqual([
+				{ field: "locationId", anyOf: ["kitchen", "boat"] },
+				{ field: "locationId", is: "none" },
+			]);
+		});
+
+		it("travels export → import as ids", () => {
+			const card = {
+				...seeded.ongoing,
+				title: "E2E location card",
+				conditions: picking(["kitchen", "boat"]),
+			};
+			const round = importCard(exportCard(card));
+
+			expect(round?.conditions).toEqual(picking(["kitchen", "boat"]));
+		});
+	});
 });
 
 /**

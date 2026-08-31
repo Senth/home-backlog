@@ -326,7 +326,8 @@
 				"noPhotos": "No photos",
 				"checklist": "Checklist",
 				"withChecklist": "Has a checklist",
-				"noChecklist": "No checklist"
+				"noChecklist": "No checklist",
+				"inLocation": "in {{location}}"
 			}
 		},
 		"more": "+{{count}} more",

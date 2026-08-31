@@ -32,6 +32,7 @@ import {
 	saveHiddenShared,
 	saveScopeCards,
 } from "@/data/cards";
+import { useLocations } from "@/hooks/use-locations";
 import { membersOf } from "@/models/home";
 import { rankAtEnd, rankBetween } from "@/models/node";
 import {
@@ -81,6 +82,10 @@ export default function OverviewEditor() {
 	// `dashboardCards` collection and both config docs against the budget.
 	const { editorCards, hiddenSharedIds, loading, failed, retry } =
 		useDashboardCardsConfig();
+	// The location picker's vocabulary. One more listener while a card is
+	// being composed or imported — bounded by the collection, and the spec's
+	// listener table notes it.
+	const { locations } = useLocations(homeId);
 
 	const [editing, setEditing] = useState<{
 		card: Card | null;
@@ -462,6 +467,7 @@ export default function OverviewEditor() {
 					card={editing.card}
 					scope={editing.scope}
 					members={members}
+					locations={locations}
 					onDismiss={() => setEditing(null)}
 					onSave={save}
 				/>
@@ -471,6 +477,7 @@ export default function OverviewEditor() {
 				<ImportCardDialog
 					visible
 					members={members}
+					locations={locations}
 					onDismiss={() => setImporting(false)}
 					onAdd={importInto}
 				/>

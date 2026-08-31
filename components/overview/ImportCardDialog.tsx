@@ -11,6 +11,7 @@ import {
 import { fieldSpecs } from "@/components/overview/CardEditSheet";
 import { AppDialog } from "@/components/ui/AppDialog";
 import type { Member } from "@/models/home";
+import type { Location } from "@/models/locations";
 import {
 	type Card,
 	type CardCondition,
@@ -35,6 +36,8 @@ interface ImportCardDialogProps {
 	visible: boolean;
 	/** The home's members, for naming the two people fields in the preview. */
 	members: readonly Member[];
+	/** The home's locations, for naming the picked ones in the preview. */
+	locations: readonly Location[];
 	onDismiss: () => void;
 	onAdd: (draft: Omit<Card, "id" | "rank">, scope: CardScope) => void;
 }
@@ -42,6 +45,7 @@ interface ImportCardDialogProps {
 export function ImportCardDialog({
 	visible,
 	members,
+	locations,
 	onDismiss,
 	onAdd,
 }: ImportCardDialogProps) {
@@ -147,7 +151,7 @@ export function ImportCardDialog({
 									variant="bodyMedium"
 									style={{ color: theme.colors.onSurfaceVariant }}
 								>
-									{conditionLine(condition, members, t)}
+									{conditionLine(condition, members, locations, t)}
 								</Text>
 							))}
 						</View>
@@ -169,12 +173,25 @@ export function ImportCardDialog({
 function conditionLine(
 	condition: CardCondition,
 	members: readonly Member[],
+	locations: readonly Location[],
 	t: ReturnType<typeof useTranslation>["t"],
 ): string {
-	const spec = fieldSpecs(members, t).find(
+	const spec = fieldSpecs(members, locations, t).find(
 		(each) => each.field === condition.field,
 	);
 	const label = spec?.label ?? condition.field;
+
+	// The picker form: one "in <location>" per picked id, named by title —
+	// an id the home does not have prints as what it is, the rule member
+	// references travel by.
+	if (condition.field === "locationId" && "anyOf" in condition) {
+		const picked = condition.anyOf.map((id) => {
+			const title =
+				spec?.extraValues?.find((each) => each.value === id)?.label ?? id;
+			return t("overview.cards.field.inLocation", { location: title });
+		});
+		return `${label}: ${picked.join(" · ")}`;
+	}
 
 	if ("anyOf" in condition) {
 		const values = condition.anyOf.map(

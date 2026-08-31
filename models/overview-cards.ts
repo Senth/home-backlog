@@ -50,6 +50,7 @@ export type CardCondition =
 	| { field: "participantIds"; anyOf: string[] }
 	| { field: "blockedBy"; is: "any" | "none" }
 	| { field: "locationId"; is: "any" | "none" }
+	| { field: "locationId"; anyOf: readonly string[] }
 	| { field: "visibility"; is: Visibility }
 	| { field: "createdVia"; is: CreatedVia }
 	| { field: "notes" | "photos" | "checklist"; is: boolean };
@@ -289,10 +290,22 @@ function matches(node: Node, condition: CardCondition, ctx: MatchContext) {
 				? unresolved.length > 0
 				: unresolved.length === 0;
 		}
-		case "locationId":
+		case "locationId": {
+			// The picker form: in or under any of the picked locations. The
+			// node's own location is *not* in its ancestor chain —
+			// `locationAncestorIds` holds only the ancestors — so the union
+			// with the own location is the whole "in or under".
+			if ("anyOf" in condition) {
+				return (
+					(node.locationId !== null &&
+						condition.anyOf.includes(node.locationId)) ||
+					condition.anyOf.some((id) => node.locationAncestorIds.includes(id))
+				);
+			}
 			return condition.is === "any"
 				? node.locationId !== null
 				: node.locationId === null;
+		}
 		case "visibility":
 			return node.visibility === condition.is;
 		case "createdVia":
@@ -570,10 +583,24 @@ function toCondition(value: unknown): CardCondition | null {
 				: { field: "dueDate", is };
 		}
 		case "blockedBy":
-		case "locationId":
 			return data.is === "any" || data.is === "none"
-				? { field: data.field as "blockedBy", is: data.is }
+				? { field: "blockedBy", is: data.is }
 				: null;
+		case "locationId": {
+			// The picker form travels as an anyOf of ids: junk entries drop,
+			// and an empty list falls back to whatever the is-form says. An
+			// id the home does not have decodes fine — it simply matches
+			// nothing, the rule member references travel by.
+			if ("anyOf" in data) {
+				const anyOf = strings(data.anyOf);
+				if (anyOf.length > 0) {
+					return { field: "locationId", anyOf };
+				}
+			}
+			return data.is === "any" || data.is === "none"
+				? { field: "locationId", is: data.is }
+				: null;
+		}
 		case "visibility":
 			return data.is === "shared" || data.is === "private"
 				? { field: "visibility", is: data.is }

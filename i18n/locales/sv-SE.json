@@ -326,7 +326,8 @@
 				"noPhotos": "Utan foton",
 				"checklist": "Checklista",
 				"withChecklist": "Har en checklista",
-				"noChecklist": "Utan checklista"
+				"noChecklist": "Utan checklista",
+				"inLocation": "i {{location}}"
 			}
 		},
 		"more": "+{{count}} till",

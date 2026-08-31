@@ -14,6 +14,7 @@ import {
 import { AppDialog } from "@/components/ui/AppDialog";
 import { soonInDays } from "@/models/due-date";
 import type { Member } from "@/models/home";
+import type { Location } from "@/models/locations";
 import { titleError } from "@/models/node";
 import { overviewLimit, rowsPerSection } from "@/models/overview";
 import {
@@ -68,6 +69,12 @@ export interface FieldSpec {
 	label: string;
 	kind: "anyOf" | "is";
 	values: ChipValue[];
+	/**
+	 * A second selection inside the one field group — the location picker's
+	 * per-location chips, which ride beside the any/none pair. Selecting
+	 * here writes the anyOf form; selecting an `is` value replaces it.
+	 */
+	extraValues?: ChipValue[];
 }
 
 /**
@@ -78,6 +85,7 @@ export interface FieldSpec {
  */
 export function fieldSpecs(
 	members: readonly Member[],
+	locations: readonly Location[],
 	t: Translate,
 ): FieldSpec[] {
 	return [
@@ -182,6 +190,10 @@ export function fieldSpecs(
 				{ value: "any", label: t("overview.cards.field.hasLocation") },
 				{ value: "none", label: t("overview.cards.field.noLocation") },
 			],
+			extraValues: locations.map((location) => ({
+				value: location.id,
+				label: location.title,
+			})),
 		},
 		{
 			field: "visibility",
@@ -239,6 +251,8 @@ interface CardEditSheetProps {
 	scope: "global" | "home" | "shared";
 	/** The home's members, for the two people fields. */
 	members: readonly Member[];
+	/** The home's locations, for the location picker. */
+	locations: readonly Location[];
 	onDismiss: () => void;
 	onSave: (draft: Card, scope: "global" | "home" | "shared") => void;
 }
@@ -274,6 +288,7 @@ export function CardEditSheet({
 	card,
 	scope: initialScope,
 	members,
+	locations,
 	onDismiss,
 	onSave,
 }: CardEditSheetProps) {
@@ -304,7 +319,7 @@ export function CardEditSheet({
 	const setConditions = (next: CardCondition | null) =>
 		setDraft({ ...draft, conditions: withCondition(draft.conditions, next) });
 
-	const fields = fieldSpecs(members, t);
+	const fields = fieldSpecs(members, locations, t);
 
 	// The clamp lives on the way out rather than in the stepper, so a held
 	// count can be raised above the shown one without the shown one chasing it
@@ -757,6 +772,64 @@ function ConditionValues({
 					);
 				})}
 			</View>
+
+			<PickerChips spec={spec} current={current} onChange={onChange} />
+		</View>
+	);
+}
+
+/**
+ * The location picker: one chip per location, multi-select, riding beside
+ * the any/none pair in the same field group. Selecting writes the anyOf
+ * form; unticking the last one removes the condition — a location filter
+ * with nothing picked says nothing, like every other any-of.
+ */
+function PickerChips({
+	spec,
+	current,
+	onChange,
+}: {
+	spec: FieldSpec;
+	current: CardCondition | null;
+	onChange: (next: CardCondition | null) => void;
+}) {
+	const picker = spec.extraValues ?? [];
+	if (picker.length === 0) return null;
+
+	const currentAnyOf =
+		(current as { anyOf: readonly string[] } | null)?.anyOf ?? [];
+
+	return (
+		<View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+			{picker.map((chip) => {
+				const selected = currentAnyOf.includes(String(chip.value));
+
+				return (
+					<Chip
+						key={String(chip.value)}
+						mode={selected ? "flat" : "outlined"}
+						selected={selected}
+						showSelectedCheck={false}
+						aria-pressed={selected}
+						onPress={() => {
+							const anyOf = selected
+								? currentAnyOf.filter((each) => each !== String(chip.value))
+								: [...currentAnyOf, String(chip.value)];
+							onChange(
+								anyOf.length === 0
+									? null
+									: ({ field: spec.field, anyOf } as CardCondition),
+							);
+						}}
+						style={{
+							minHeight: outlinedTouchTarget,
+							flexGrow: 1,
+						}}
+					>
+						{chip.label}
+					</Chip>
+				);
+			})}
 		</View>
 	);
 }
