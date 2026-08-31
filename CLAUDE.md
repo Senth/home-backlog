@@ -1,8 +1,7 @@
 # CLAUDE.md
 
 Home Backlog: an Expo / React Native web-first PWA on Firebase.
-[Setup and scripts](README.md) · [Vision and architecture](docs/PROJECT.md) ·
-[Infra and deploy](docs/OPERATIONS.md) · [Feature specs](docs/specs/) ·
+[Setup and scripts](README.md) · [Vision and architecture](docs/PROJECT.md) · [Feature specs](docs/specs/) ·
 [Design contract](docs/DESIGN.md)
 
 - Package manager is **yarn**, not npm; imports use the `@/` alias, never relative
@@ -18,12 +17,9 @@ Home Backlog: an Expo / React Native web-first PWA on Firebase.
   exist, and a one-line wrapper around an SDK call is not a domain module. `e2e/` is the
   exception that proves it: those drive a real browser, so asserting layout there is the
   visual check made exact, not a render test.
-- Local development is always the emulators (`yarn emulators`) — there is no dev
-  project, and the alternative is real household data.
+- Local development is always the emulators (`yarn emulators`).
 - Firestore queries must be provably safe, not just rule-safe — one deniable document
   rejects the whole query ([how a board load does it](docs/specs/boards-and-nodes.md)).
-- Constrain every listener; never subscribe to a whole collection — the cost risk here
-  is breadth, not volume.
 - Changing `firestore.rules` or `storage.rules` means updating `tests/rules/` in the
   same change.
 - The console is clean and its exceptions are a closed list — see "The console" in
@@ -31,7 +27,7 @@ Home Backlog: an Expo / React Native web-first PWA on Firebase.
 - After implementing: `yarn lint --write`, `yarn invariants`, `yarn typecheck`,
   `yarn test` — fix everything they report, including pre-existing failures. e2e is
   targeted per phase: `yarn playwright test --project=setup && yarn playwright test
-  --no-deps --grep '\b(<claims>):'` after `scripts/dev-stack.sh up`, for the claim numbers
+--no-deps --grep '\b(<claims>):'` after `scripts/dev-stack.sh up`, for the claim numbers
   the phase owns from the spec's `[test]` tags — `--no-deps` because the `writes` project
   depends on the read-only ones and would drag them all in. The full `yarn e2e` runs once
   at the end of implement and once more after review, before ship; CI runs it on the PR.
@@ -56,5 +52,6 @@ Home Backlog: an Expo / React Native web-first PWA on Firebase.
 - Work lives in **GitHub Issues + the Kanban board** (project 4), not markdown —
   labels `bug` / `feature` / `idea` / `cleanup`, an `idea` moves to the Idea column,
   and the PR closes it with `Closes #NN`.
-- Pushing to `main` deploys to production, so gate every merge on CI
-  ([why](docs/OPERATIONS.md#merging-a-pr)).
+- At the end when you're done; commit, push and run `scripts/create-pr-and-merge.sh`.
+- One off migrations are stored in `node/scripts/<script>.mjs` and be removed before creating a PR.
+  - Always dry-run first, then add --apply, finally dry-run again to confirm 0 changes.

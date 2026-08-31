@@ -27,7 +27,7 @@ import type { ParentFacts } from "./validate.js";
  * Long enough for a retry loop, a rerun after a crash, or a person noticing in
  * the morning; short enough that the collection does not grow forever. A
  * Firestore TTL policy on `expiresAt` does the deleting, and it is configured
- * per collection group rather than by `firebase deploy` — see `OPERATIONS.md`.
+ * per collection group rather than by `firebase deploy`.
  */
 const runTtlHours = 24;
 

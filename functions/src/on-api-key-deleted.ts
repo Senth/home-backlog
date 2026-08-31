@@ -27,8 +27,8 @@ import { region } from "./options.js";
  * it belongs to — and the whole reason a bulk create records its
  * `Idempotency-Key` under the key rather than on the node is that revoking the
  * key takes the history with it. A TTL policy would eventually reach them, but
- * that policy is a manual step (`docs/OPERATIONS.md`) and "eventually" is not
- * what the rules and the spec promise.
+ * that policy is a manual step and "eventually" is not what the rules and the
+ * spec promise.
  *
  * Revocation itself is already complete when this runs: the key document is
  * gone, so verification's `get()` misses and every request with that token is a

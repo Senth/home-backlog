@@ -92,6 +92,4 @@ Google account is needed locally.
 
 Pushing to `main` runs `.github/workflows/deploy.yml`, which authenticates via
 Workload Identity Federation and deploys hosting, Firestore rules and indexes,
-and Storage rules to <https://hb.senth.org>. Service accounts, secrets and the
-rest of the infrastructure detail live in
-[`docs/OPERATIONS.md`](docs/OPERATIONS.md).
+and Storage rules to <https://hb.senth.org>.

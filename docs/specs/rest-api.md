@@ -445,8 +445,8 @@ randomness, not a human-chosen password, so there is no dictionary to run.
 | `createdAt` | `Timestamp` | |
 | `expiresAt` | `Timestamp` | `createdAt + 24 h`; a Firestore TTL policy removes the document |
 
-The TTL policy is configured per collection group and is an `OPERATIONS.md` step, not
-something `firebase deploy` carries.
+The TTL policy is configured per collection group by hand, not something `firebase deploy`
+carries.
 
 ### `homes/{homeId}/apiClients/{keyId}`
 

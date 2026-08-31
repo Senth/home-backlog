@@ -12,7 +12,7 @@ single place that shows what's outstanding, what's due, and what to do next."_
 
 Trello-like boards, but with two things Trello lacks: **arbitrary nesting** (a card can
 become its own board) and a **second, independent hierarchy of places** (rooms, floors,
-garden areas) that projects are anchored to.
+garden areas) that projects are anchored to. **third, an overview dashboard** (what's next, quick wins, upcoming maintenance)
 
 ### Usage plan
 
@@ -72,12 +72,12 @@ multi-tenancy, sharing, or store release.
   Stored as a string id so custom statuses can be added later without migration.
 - **`research`, `planning` and `review` were in it and are not any more**
   ([#99](https://github.com/Senth/home-backlog/issues/99)). Living with them showed that
-  finding out, planning and checking are *cards* — a step you put in progress and finish —
+  finding out, planning and checking are _cards_ — a step you put in progress and finish —
   not stages every card passes through. Nobody dragged a card across them: three of the
   seven columns stood empty on every board and cost the four that were used their width.
 - **`blocked` is not one of them.** A card is in exactly one status, so parking it in
   Blocked destroys the stage it was in and nothing says where it goes when the blocker
-  clears: being blocked is a *condition* a card at any stage can be in, carried by
+  clears: being blocked is a _condition_ a card at any stage can be in, carried by
   `blockedBy[]` ([#66](https://github.com/Senth/home-backlog/issues/66)), not a stage of
   work. The card stays in its real column and shows a mark.
 - A **board configures which statuses it shows**, in what order, with optional relabels.
@@ -118,18 +118,18 @@ multi-tenancy, sharing, or store release.
   (cabin, parents' house) falls out for free.
 - Three questions about people get confused with each other, and they are **three separate
   fields**:
-  - **`participantIds[]`** — *whose project is this?* Set on a root, any number of members.
+  - **`participantIds[]`** — _whose project is this?_ Set on a root, any number of members.
     On a private node it is the access list the read rule consults; on a shared one it is
     read by no rule and only feeds the board's default-hide filter, which keeps everyone
     else's personal projects off your board without ever denying them to you.
-  - **`assigneeIds[]`** — *who is doing this card?* Per node, inherited by nothing, read by
+  - **`assigneeIds[]`** — _who is doing this card?_ Per node, inherited by nothing, read by
     no rule. This is what gives "my tasks" and "unassigned". Folding it into
     `participantIds` would have made assigning somebody a permission change, and would have
     made "my tasks" return every card in every project you are involved in.
-  - **`visibility: 'shared' | 'private'`** — *is this anyone else's business?* Root-only,
+  - **`visibility: 'shared' | 'private'`** — _is this anyone else's business?_ Root-only,
     default shared. Private means only participants can read it; the subtree inherits it.
 - **Query shape matters here.** Firestore rejects an entire query if any matching document
-  would be rule-denied, so private nodes must be excluded *by the query*, not only by
+  would be rule-denied, so private nodes must be excluded _by the query_, not only by
   rules. Each board load fires two provably-safe queries and merges them client-side:
   1. `parentId == X && visibility == 'shared'`
   2. `parentId == X && participantIds array-contains me`
@@ -148,7 +148,7 @@ multi-tenancy, sharing, or store release.
 - **Three rule types**:
   1. Fixed interval from due date — service intervals, filters. Never drifts.
   2. Interval from last completion — mowing, cleaning.
-  3. Season / month window — "every autumn" is a due *window* (e.g. Sep 1 – Nov 30), not
+  3. Season / month window — "every autumn" is a due _window_ (e.g. Sep 1 – Nov 30), not
      an arbitrary day. This is what home maintenance actually needs and what iCal RRULE
      cannot express, which is why RRULE was rejected.
 - **Instances are location-anchored**, `parentId: null`, surfaced as a virtual
@@ -164,12 +164,12 @@ multi-tenancy, sharing, or store release.
 - **Five buckets**, ordinal enum, **on tasks only — not projects**:
   `<30 min`, `<2 h`, `an evening`, `a weekend`, `multi-week`.
 - Drives a "quick wins" section: _top 3 things under 30 minutes_.
-- Drives a split nudge: effort ≥ *a weekend* with no children → suggest breaking it down.
+- Drives a split nudge: effort ≥ _a weekend_ with no children → suggest breaking it down.
 
 ### Suggestions ("what should I do next?")
 
 - **Transparent weighted score**, computed on-device. No LLM. Runs offline, costs nothing,
-  and every suggestion shows *why* it was picked.
+  and every suggestion shows _why_ it was picked.
 - Candidates are actionable nodes only: not done, no unresolved `blockedBy`.
 - Score inputs: overdue amount, deadline proximity, priority, how many other tasks it
   unblocks, staleness, seasonal fit (an outdoor job in July beats it in January), and
@@ -178,7 +178,7 @@ multi-tenancy, sharing, or store release.
 
 ### AI / API
 
-- **No LLM inside the app.** Instead, the app is made drivable *by* agents.
+- **No LLM inside the app.** Instead, the app is made drivable _by_ agents.
 - **REST API on Cloud Functions**, with hashed API keys **scoped to a user, not to a
   home**, plus a `SKILL.md` documenting the verbs and hierarchy rules so an agent can
   populate whole project trees, and a bulk subtree create that commits atomically. A person
@@ -204,8 +204,7 @@ multi-tenancy, sharing, or store release.
   for the least technical person in [`PERSONAS.md`](PERSONAS.md); and a redirect through
   `<project>.firebaseapp.com` relies on cross-site storage that Safari discards. Firebase
   Hosting reserves `/__/auth/` on every domain it serves, so the handler is same-origin.
-  Setup is in [`OPERATIONS.md`](OPERATIONS.md); the full rationale is in
-  [`specs/platform-offline.md`](specs/platform-offline.md).
+  The full rationale is in [`specs/platform-offline.md`](specs/platform-offline.md).
 - **i18next with `en-US` and `sv-SE` from day one.** Every string goes through `t()`.
 
 ### Drag & drop
@@ -233,7 +232,7 @@ multi-tenancy, sharing, or store release.
 ### Beyond the core, roughly in order
 
 1. Overview: ongoing projects, upcoming maintenance, 30-day completed summary. Named
-   *Overview* / *Översikt* rather than "dashboard home", because **home** is the
+   _Overview_ / _Översikt_ rather than "dashboard home", because **home** is the
    household you are in — see [`specs/home-and-members.md`](specs/home-and-members.md).
 2. Next-task suggestion engine (needs real data before its weights mean anything).
 3. Calendar view for recurring tasks.
@@ -246,8 +245,8 @@ multi-tenancy, sharing, or store release.
 - **One node type, many views.** Projects, tasks and subtasks are the same document at
   different depths. Every board screen is one reused component. Resist per-level special
   cases; they multiply.
-- **Two independent trees.** Project structure answers *what*, location structure answers
-  *where*. Neither is a parent of the other, and a node moving in one must never move in
+- **Two independent trees.** Project structure answers _what_, location structure answers
+  _where_. Neither is a parent of the other, and a node moving in one must never move in
   the other.
 - **Denormalize the ancestor paths.** `ancestorIds[]` and `locationAncestorIds[]` are what
   make roll-up queries a single index lookup. Subtree moves must rewrite them — subtree
@@ -269,7 +268,7 @@ multi-tenancy, sharing, or store release.
 
 ## Competitive landscape
 
-The category is crowded with home *maintenance* apps (asset registers, warranty tracking,
+The category is crowded with home _maintenance_ apps (asset registers, warranty tracking,
 seasonal reminders): HomeZada, Homekeepr, HomeKeep, Home Keeper, Homekeeper (Maintenance &
 DIY), MOREPHO Home Project Planner, HomeEc.
 
@@ -314,8 +313,8 @@ a trademark and invisible in store search.
 
 **Homekeeper is rejected outright** — every domain variant is registered, five shipped apps
 use the name or a homophone, and [HOMEKEEPR is a live USPTO application][hk] (serial
-99375065, Homekeepr Inc., filed Sept 2025) covering *"downloadable mobile application
-software for... residential home systems management and care"*, which is this exact
+99375065, Homekeepr Inc., filed Sept 2025) covering _"downloadable mobile application
+software for... residential home systems management and care"_, which is this exact
 product in this exact class.
 
 [hk]: https://trademarks.justia.com/993/75/homekeepr-99375065.html
@@ -334,15 +333,15 @@ conflict.
 
 ### Descriptive — the preferred direction
 
-| Name | Domain | Note |
-|---|---|---|
-| **Homebacklog** | `homebacklog.com` | Strongest fit; see caveat below |
-| **Housebacklog** | `housebacklog.com` | |
-| **Upkeepboard** | `upkeepboard.com` | Covers house and yard without naming either |
-| **Homeprojectboard** | `homeprojectboard.com` | Fully descriptive, long |
-| **Kanbanhome** | `kanbanhome.com` | Leads with the kanban differentiator |
-| **Abodeboard** | `abodeboard.com` | |
-| **Casitaboard** | `casitaboard.com` | |
+| Name                 | Domain                 | Note                                        |
+| -------------------- | ---------------------- | ------------------------------------------- |
+| **Homebacklog**      | `homebacklog.com`      | Strongest fit; see caveat below             |
+| **Housebacklog**     | `housebacklog.com`     |                                             |
+| **Upkeepboard**      | `upkeepboard.com`      | Covers house and yard without naming either |
+| **Homeprojectboard** | `homeprojectboard.com` | Fully descriptive, long                     |
+| **Kanbanhome**       | `kanbanhome.com`       | Leads with the kanban differentiator        |
+| **Abodeboard**       | `abodeboard.com`       |                                             |
+| **Casitaboard**      | `casitaboard.com`      |                                             |
 
 _Caveat on the backlog family: HomeQueue's first line of copy is "one shared household
 backlog" and its staging site was `homeowner-backlog.vercel.app`. No trademark conflict,
@@ -350,16 +349,16 @@ but **Homebacklog** would arrive second into vocabulary a live competitor alread
 
 ### House + yard scope
 
-| Name | Domain | Note |
-|---|---|---|
-| **House & Grounds** | `houseandgrounds.app` | Bare `.com` taken; no app, npm or GitHub collision |
-| **Home & Grounds** | `homeandgrounds.app` | As above, but [a Minnesota landscaping firm](https://homeandgroundsmn.com/) trades under this exact name |
-| **Rooms & Grounds** | `roomsandgrounds.com`, `roomsandgrounds.app` | Both TLDs free |
-| **House & Shed** | `houseandshed.com` | |
-| **Home & Shed** | `homeandshed.com` | |
-| **Roof & Yard** | `roofandyard.com` | |
-| **Walls & Grass** | `wallsandgrass.com` | |
-| **House & Yard Board** | `houseandyardboard.com` | |
+| Name                   | Domain                                       | Note                                                                                                     |
+| ---------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **House & Grounds**    | `houseandgrounds.app`                        | Bare `.com` taken; no app, npm or GitHub collision                                                       |
+| **Home & Grounds**     | `homeandgrounds.app`                         | As above, but [a Minnesota landscaping firm](https://homeandgroundsmn.com/) trades under this exact name |
+| **Rooms & Grounds**    | `roomsandgrounds.com`, `roomsandgrounds.app` | Both TLDs free                                                                                           |
+| **House & Shed**       | `houseandshed.com`                           |                                                                                                          |
+| **Home & Shed**        | `homeandshed.com`                            |                                                                                                          |
+| **Roof & Yard**        | `roofandyard.com`                            |                                                                                                          |
+| **Walls & Grass**      | `wallsandgrass.com`                          |                                                                                                          |
+| **House & Yard Board** | `houseandyardboard.com`                      |                                                                                                          |
 
 _"Grounds" is the most precise word for house-plus-land, but reads slightly grand — it
 suggests an estate rather than a suburban lot. **House & Grounds** is preferred over
@@ -372,15 +371,15 @@ against roughly 1 in 50 for single words. They also self-describe, which removes
 explaining a coined name needs. All seven below hold a free bare `.com`, free npm, free
 GitHub org, and no colliding app.
 
-| Name | Domain | Note |
-|---|---|---|
-| **Plan Fix Grow** | `planfixgrow.com` | Three verbs covering planning, house and garden — the whole app in three words |
-| **Home Grounds Board** | `homegroundsboard.com` | Subject + scope + method |
-| **Home Grounds Planner** | `homegroundsplanner.com` | Same, planning-led |
-| **Rooms Grounds Board** | `roomsgroundsboard.com` | Names the location hierarchy directly |
-| **Inside Outside Board** | `insideoutsideboard.com` | Matches the app's own Inside/Outside view |
-| **Home Yard Backlog** | `homeyardbacklog.com` | |
-| **Rooms Yards Sheds** | `roomsyardssheds.com` | Pure scope triple |
+| Name                     | Domain                   | Note                                                                           |
+| ------------------------ | ------------------------ | ------------------------------------------------------------------------------ |
+| **Plan Fix Grow**        | `planfixgrow.com`        | Three verbs covering planning, house and garden — the whole app in three words |
+| **Home Grounds Board**   | `homegroundsboard.com`   | Subject + scope + method                                                       |
+| **Home Grounds Planner** | `homegroundsplanner.com` | Same, planning-led                                                             |
+| **Rooms Grounds Board**  | `roomsgroundsboard.com`  | Names the location hierarchy directly                                          |
+| **Inside Outside Board** | `insideoutsideboard.com` | Matches the app's own Inside/Outside view                                      |
+| **Home Yard Backlog**    | `homeyardbacklog.com`    |                                                                                |
+| **Rooms Yards Sheds**    | `roomsyardssheds.com`    | Pure scope triple                                                              |
 
 _Alternate: **Sort Fix Grow** (`sortfixgrow.com`). Rejected: **Home Yard Planner** — too
 close to [Yard Planner](https://homeoutside.com/mobile-app/), an existing landscape-design
@@ -389,15 +388,15 @@ Done._
 
 ### Invented — house / garden
 
-| Name | Domain |
-|---|---|
-| **Nails & Soil** | `nailsandsoil.com`, `nailsandsoil.app` |
-| **Saws & Seeds** | `sawsandseeds.com`, `sawsandseeds.app` |
-| **Brick & Bloom** | `brickandbloom.app` |
-| **Housedone** | `housedone.app` |
-| **Sheddy** | `sheddy.app` |
-| **Roundtuit** | `theroundtuit.com` |
-| **Yardworky** | `yardworky.com` |
+| Name              | Domain                                 |
+| ----------------- | -------------------------------------- |
+| **Nails & Soil**  | `nailsandsoil.com`, `nailsandsoil.app` |
+| **Saws & Seeds**  | `sawsandseeds.com`, `sawsandseeds.app` |
+| **Brick & Bloom** | `brickandbloom.app`                    |
+| **Housedone**     | `housedone.app`                        |
+| **Sheddy**        | `sheddy.app`                           |
+| **Roundtuit**     | `theroundtuit.com`                     |
+| **Yardworky**     | `yardworky.com`                        |
 
 _Rejected: **Housify** (Housify AI on Google Play plus several companies),
 **Abodify** (existing home business), **Snagboard** (existing property-inspection app,

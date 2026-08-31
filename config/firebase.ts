@@ -30,7 +30,7 @@ import { Platform } from "react-native";
  *
  * Adding a host means adding it to the Firebase authorized-domain list *and*
  * registering `https://<host>/__/auth/handler` as an authorized redirect URI on
- * the web OAuth client — see `docs/OPERATIONS.md`.
+ * the web OAuth client.
  *
  * The literal is the fallback for a context with no `window`: native, and the
  * static prerender of `expo export`. Neither reaches the web redirect flow.

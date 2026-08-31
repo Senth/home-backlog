@@ -46,8 +46,9 @@ is same-origin with the app.
 `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN` carries it; with the key unset or blank the app falls
 back to its own origin. The host has to be on the Firebase authorized-domain list *and*
 `https://<host>/__/auth/handler` has to be an authorized redirect URI on the web OAuth
-client. See [`OPERATIONS.md`](../OPERATIONS.md), which also covers the `ENV` secret the
-deploy reads.
+client. The deploy reads `.env.local` from the `ENV` secret in the `prod` GitHub
+environment; refresh it with `gh secret set ENV --env prod < .env.local` whenever the
+file changes.
 
 Local development is unaffected. `__DEV__` connects the Auth emulator, which serves its
 own handler and its own account picker, so sign-in works without a real Google account.

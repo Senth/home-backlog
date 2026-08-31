@@ -819,7 +819,7 @@ export async function flipVisibility(
  *
  * A root the #102 backfill has not reached still holds `[]`, and promoting into
  * it is then refused — the same refusal every *other* update to that root
- * already gets. See `OPERATIONS.md` § One-off migrations.
+ * already gets.
  */
 async function movedParticipants(
 	homeId: string,

@@ -148,10 +148,9 @@ individual steps.
 
 *Rejected:* leaving `[]` as a legacy value. Two regimes reading one field, forever: old
 roots meaning *everyone including future members*, new ones meaning *exactly these*. One
-backfill — `functions/scripts/migrate-102-participants.mjs` — removed the branch instead of
-enshrining it. The rule is a **narrowing** one, so that script ran against production
-before this deployed, and again after; see
-[`OPERATIONS.md`](../OPERATIONS.md#one-off-migrations).
+backfill removed the branch instead of enshrining it. The rule is a **narrowing** one, so
+the backfill ran against production before this deployed, and again after the deploy
+landed.
 
 ### A field that is absent can never be queried
 
@@ -230,10 +229,9 @@ first document was written; these three were in production data. The rules check
 lost a value, every node still holding one would have had every update to it denied,
 including the `childCount` bump that adding a step to the project above it performs, and
 there is no admin tooling in this repo to unstick it. So the order is fixed: migrate every
-stored `status` and every stored `columns` entry first, then ship the narrower rules.
-`functions/scripts/migrate-99-statuses.mjs` is that migration, and `OPERATIONS.md` carries
-the runbook, including the second `--apply` after the deploy lands, which catches anything
-the still-live old build wrote in between. `toNode` also maps the three to `execution` on
+stored `status` and every stored `columns` entry first, then ship the narrower rules, then
+run the migration once more after the deploy lands, which catches anything the still-live
+old build wrote in between. `toNode` also maps the three to `execution` on
 read, which costs one lookup and covers the device holding a node it cached before the
 migration; `backlog` would say a card in flight had never been started.
 

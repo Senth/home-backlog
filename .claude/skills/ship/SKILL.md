@@ -78,7 +78,7 @@ GIT_VANILLA=1 gh pr create --draft --fill --body "Closes #<nn>"
 
 **Draft, always.** Marking it ready and merging is yours — merging deploys to production,
 and this repo has no required status checks to hold a merge back
-([why](../../../docs/OPERATIONS.md#merging-a-pr)).
+([how](../../../scripts/create-pr-and-merge.sh)).
 
 The PR body says what changed and why, and closes the issue. If the branch carries earlier
 commits that are not part of this issue, **say so in the body** — they ship with it.
