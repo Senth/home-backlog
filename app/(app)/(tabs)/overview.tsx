@@ -15,6 +15,7 @@ import { boardHref, detailsHref } from "@/components/board/board-href";
 import { DueChip } from "@/components/board/DueChip";
 import { MetaChip } from "@/components/board/MetaChip";
 import { TitleDialog } from "@/components/board/TitleDialog";
+import { useWaitingMark } from "@/components/board/waiting-mark";
 import { BackAction } from "@/components/ui/BackAction";
 import { InstallCard } from "@/components/ui/InstallCard";
 import { useAuth } from "@/contexts/AuthContext";
@@ -54,6 +55,15 @@ export default function Overview() {
 
 	const homeId = activeHome?.id ?? null;
 	const { ongoing, due, done, roots } = useOverview(homeId);
+
+	// What a row resolves its waiting mark against: statuses already in hand —
+	// every root, and both dated sections. No new listener anywhere; a blocker
+	// absent from the map keeps its card waiting, the same not-yet direction
+	// the board and the detail screen take.
+	const blockers = new Map<string, Node | null>();
+	for (const node of [...roots, ...due.nodes, ...done.nodes]) {
+		blockers.set(node.id, node);
+	}
 
 	const [adding, setAdding] = useState(false);
 	const [fabHeight, setFabHeight] = useState(0);
@@ -177,6 +187,7 @@ export default function Overview() {
 							empty={t("overview.ongoing.empty")}
 							section={ongoing}
 							onOpen={open}
+							blockers={blockers}
 							testID="overview-section-ongoing"
 						/>
 						<Section
@@ -184,15 +195,17 @@ export default function Overview() {
 							empty={t("overview.due.empty")}
 							section={due}
 							onOpen={open}
+							blockers={blockers}
 							testID="overview-section-due"
 						/>
 						{/* No empty line. "Nothing completed" is the report card, and a
-						    household that has finished nothing does not need a box
-						    saying so — the section is absent instead. */}
+					    household that has finished nothing does not need a box
+					    saying so — the section is absent instead. */}
 						<Section
 							title={t("overview.done.title")}
 							section={done}
 							onOpen={open}
+							blockers={blockers}
 							testID="overview-section-done"
 						/>
 					</>
@@ -239,6 +252,8 @@ interface SectionProps {
 	empty?: string;
 	section: OverviewSection;
 	onOpen: (node: Node) => void;
+	/** What a row's waiting mark is resolved against. */
+	blockers: ReadonlyMap<string, Node | null>;
 	/** Scopes a claim to its own section — three headings share every row's words. */
 	testID: string;
 }
@@ -250,7 +265,14 @@ interface SectionProps {
  * gap: a heading with nothing under it is indistinguishable from an empty
  * section, and this screen has three of them.
  */
-function Section({ title, empty, section, onOpen, testID }: SectionProps) {
+function Section({
+	title,
+	empty,
+	section,
+	onOpen,
+	blockers,
+	testID,
+}: SectionProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const [expanded, setExpanded] = useState(false);
@@ -293,7 +315,7 @@ function Section({ title, empty, section, onOpen, testID }: SectionProps) {
 						titleNumberOfLines={2}
 						onPress={() => onOpen(node)}
 						style={{ minHeight: touchTarget }}
-						right={() => <RowMeta node={node} />}
+						right={() => <RowMeta node={node} blockers={blockers} />}
 					/>
 				))
 			)}
@@ -348,21 +370,46 @@ function LoadFailed({ onRetry }: { onRetry: () => void }) {
 
 /**
  * The meta a row carries, which is the card face's own: the steps glyph on a
- * project that has children, and `DueChip` on one that is late or due soon —
+ * project that has children, the `DueChip` on one that is late or due soon —
  * the card's own component, so the two surfaces cannot disagree about what a
- * due date says or about the rule that says it in words rather than in colour.
+ * due date says or about the rule that says it in words rather than in colour
+ * — and the waiting mark, so a blocked project answers "is anything on fire"
+ * honestly here too.
  */
-function RowMeta({ node }: { node: Node }) {
+function RowMeta({
+	node,
+	blockers,
+}: {
+	node: Node;
+	blockers: ReadonlyMap<string, Node | null>;
+}) {
 	const { t } = useTranslation();
+	const theme = useAppTheme();
 
 	const due = dueState(node.dueDate, new Date());
 	const showDue = node.dueDate !== null && (due === "late" || due === "soon");
+	// The same derivation the card face makes — the shared `useWaitingMark`,
+	// so the two surfaces cannot disagree about when a card waits.
+	const {
+		isWaiting,
+		label: waitingLabel,
+		a11yLabel,
+	} = useWaitingMark(node, blockers);
 
-	if (!hasSteps(node) && !showDue) return null;
+	if (!hasSteps(node) && !showDue && !isWaiting) return null;
 
 	return (
 		<View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
 			<DueChip node={node} />
+			{isWaiting ? (
+				<MetaChip
+					source="pause-circle-outline"
+					color={theme.colors.warning}
+					accessibilityLabel={a11yLabel}
+				>
+					{waitingLabel}
+				</MetaChip>
+			) : null}
 			{hasSteps(node) ? (
 				<MetaChip
 					source="format-list-checks"

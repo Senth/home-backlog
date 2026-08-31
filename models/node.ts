@@ -214,6 +214,118 @@ export function hasDetails(node: Node): boolean {
 	);
 }
 
+/*
+ * ---------------------------------------------------------------------------
+ * Blocked-by (#66)
+ * ---------------------------------------------------------------------------
+ *
+ * A card can wait on other cards through `blockedBy[]`. Being blocked is a
+ * condition, not a stage — the card stays in its real column and shows a mark —
+ * and the relation is **durable**: nothing in the app ever removes an entry
+ * except a person. A done blocker stops holding the card without being
+ * removed, and reopening it re-blocks the dependents; completing a waiting
+ * card keeps its list as inert history.
+ */
+
+/**
+ * How deep the picker's home-wide search reaches (Q-S1/Q-S2 in
+ * `data/nodes.ts`). The cap is what bounds the search, and the one thing the
+ * capped footer line has to name: a home of thousands of dormant cards can
+ * miss candidates, and the picker says so rather than pretending
+ * completeness.
+ */
+export const pickerLimit = 50;
+
+/**
+ * The entries of `blockedBy` that still hold the card: each id is either
+ * missing from `blockerById` — gone, unreadable, or not read yet — or its
+ * blocker's `status` is anything but `'done'`.
+ *
+ * A missing blocker waits deliberately: honest *not yet* beats a mark that
+ * lies either way. A done blocker stops holding the card without being
+ * removed, which is what makes the relation durable rather than a moment that
+ * passes.
+ *
+ * **Waiting is this list non-empty *and* the node itself not `done`.** A card
+ * completed while waiting keeps its `blockedBy` as inert history and never
+ * marks, whatever its list holds — so the caller composes the two, and this
+ * function answers only "which entries are unresolved".
+ *
+ * The map's values may be `null` — the board's watcher records a blocker the
+ * server confirmed gone, and a `null` reads exactly like a missing entry.
+ */
+export function unresolvedBlockers(
+	node: Node,
+	blockerById: ReadonlyMap<string, Node | null>,
+): string[] {
+	return node.blockedBy.filter((id) => blockerById.get(id)?.status !== "done");
+}
+
+/**
+ * The blocker ids no card on this board carries — the ones its own query pair
+ * cannot see, and so the ones the board's `BlockerWatcher` listens to one
+ * single-document listener apiece.
+ *
+ * A same-board blocker resolves free from the board's merged results, which
+ * carry every status column. Deduped: two cards can wait on the same
+ * off-board blocker, and it is one document.
+ */
+export function crossBoardBlockerIds(nodes: readonly Node[]): string[] {
+	const onBoard = new Set(nodes.map((node) => node.id));
+	const ids = new Set<string>();
+	for (const node of nodes) {
+		for (const id of node.blockedBy) {
+			if (!onBoard.has(id)) ids.add(id);
+		}
+	}
+	return [...ids];
+}
+
+/**
+ * The picker's home-wide search results, merged.
+ *
+ * Dedupe by id — a shared card I participate in matches both queries (Q-S1
+ * and Q-S2) — then filter client-side: a case-insensitive title substring,
+ * and drop self, existing blockers and done. The queries already exclude
+ * done, so the status check is what keeps the function honest whichever
+ * snapshot list reaches it.
+ *
+ * The cap is measured on the *raw* hits, before filtering: it answers "the
+ * home may hold more candidates than the search saw", not "the filtered list
+ * is long". `rawCount` is that raw size, so the footer can say how many hits
+ * the search saw even when every one of them filtered away.
+ */
+export function pickerCandidates(
+	query: string,
+	self: Node,
+	blockedBy: readonly string[],
+	shared: readonly Node[],
+	participating: readonly Node[],
+): { results: Node[]; rawCount: number; capped: boolean } {
+	const seen = new Set<string>();
+	const merged: Node[] = [];
+	for (const node of [...shared, ...participating]) {
+		if (seen.has(node.id)) continue;
+		seen.add(node.id);
+		merged.push(node);
+	}
+
+	const needle = query.toLowerCase();
+	const results = merged.filter(
+		(candidate) =>
+			candidate.id !== self.id &&
+			!blockedBy.includes(candidate.id) &&
+			candidate.status !== "done" &&
+			candidate.title.toLowerCase().includes(needle),
+	);
+
+	return {
+		results,
+		rawCount: merged.length,
+		capped: shared.length >= pickerLimit || participating.length >= pickerLimit,
+	};
+}
+
 /**
  * How a *parent's* two counters move. Zero means the field is not written at
  * all, so a write that changes nothing costs nothing.

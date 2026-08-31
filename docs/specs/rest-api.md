@@ -358,9 +358,13 @@ carries `X-Api-Version`. An agent fetches the contract it is actually talking to
 a copy vendored months ago, and can detect drift from the header alone.
 
 The field table in it marks every field as either shown in the app or stored with no screen
-yet. `checklist` ([#52](https://github.com/Senth/home-backlog/issues/52)) and `blockedBy`
-([#66](https://github.com/Senth/home-backlog/issues/66)) accept writes today and render
-nowhere, and an agent that populates them deserves to know that before it does.
+yet. `checklist` ([#52](https://github.com/Senth/home-backlog/issues/52)) accepts writes
+today and renders nowhere, and an agent that populates it deserves to know that before it
+does. `blockedBy` ([#66](https://github.com/Senth/home-backlog/issues/66)) renders in the
+app as *Waiting*: the app derives the state from the blockers' statuses. Nothing
+auto-clears it — a done blocker stops holding cards, and reopening one re-blocks them.
+Writing a private node's id into a shared card's list leaves the other members a row they
+cannot read and can remove.
 
 ### The contract is a skill, and a vendored copy is the normal case
 

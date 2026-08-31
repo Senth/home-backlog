@@ -32,6 +32,7 @@ import {
 	type Node,
 	type NodeData,
 	newNodeData,
+	pickerLimit,
 	rootIdOf,
 	type Status,
 	toNode,
@@ -249,14 +250,68 @@ export function participatingDoneQuery(
 	);
 }
 
-/**
- * One node by id, or null if it is not there or cannot be read.
+/*
+ * The picker's home-wide search — Q-S1 and Q-S2 (#66). One-shot
+ * `getDocsFromServer` reads, fired debounced on a non-empty query by the
+ * *Waiting on…* picker; nothing fires them until then, and no listener exists
+ * for them.
  *
- * The two answers are deliberately the same one. Participant inheritance runs
- * *downward* — a private child holds all of its parent's participants, not the
- * reverse — so being added to a private subtask does not grant a read on the
- * private project above it, and a breadcrumb for it is a crumb the reader is
- * not allowed to see. Neither case is an error worth surfacing.
+ * `completedAt == null` is how "not done" is spelled, so a blocker's past
+ * stays out of the picker even when custom statuses arrive — the same
+ * spelling Q3 and Q4 use. The 50-cap is `pickerLimit` in `models/node.ts`,
+ * and the two composite indexes the shape needs are declared in
+ * `firestore.indexes.json`.
+ */
+
+/**
+ * Q-S1 — every shared card still going, anywhere in the home.
+ *
+ * Provably safe: `visibility == 'shared'` is the read rule's first disjunct.
+ */
+export function sharedPickerQuery(homeId: string): Query<DocumentData> {
+	return query(
+		nodesRef(homeId),
+		where("archived", "==", false),
+		where("completedAt", "==", null),
+		where("visibility", "==", "shared"),
+		orderBy("updatedAt", "desc"),
+		limit(pickerLimit),
+	);
+}
+
+/**
+ * Q-S2 — the same, through the read rule's second disjunct: my private cards,
+ * and any shared one I am a participant of, which is why the picker's results
+ * are deduped by id rather than concatenated.
+ */
+export function participatingPickerQuery(
+	homeId: string,
+	uid: string,
+): Query<DocumentData> {
+	return query(
+		nodesRef(homeId),
+		where("archived", "==", false),
+		where("completedAt", "==", null),
+		where("participantIds", "array-contains", uid),
+		orderBy("updatedAt", "desc"),
+		limit(pickerLimit),
+	);
+}
+
+/**
+ * One node by id.
+ *
+ * Three answers. The node; `null` when it is not there or cannot be read —
+ * gone, or permission-denied, and those two are deliberately the same one; and
+ * `undefined` when it could not answer at all, which is the offline case: the
+ * caller cannot tell "the server says it is gone" from "I never asked" if this
+ * folded into `null`.
+ *
+ * Participant inheritance runs *downward* — a private child holds all of its
+ * parent's participants, not the reverse — so being added to a private subtask
+ * does not grant a read on the private project above it, and a breadcrumb for
+ * it is a crumb the reader is not allowed to see. Neither case is an error
+ * worth surfacing.
  *
  * One `getDoc` per ancestor rather than `where(documentId(), 'in', ancestorIds)`:
  * that would be one read instead of *n* and is **query-unsafe** — a single
@@ -266,11 +321,16 @@ export function participatingDoneQuery(
 export async function getNode(
 	homeId: string,
 	nodeId: string,
-): Promise<Node | null> {
+): Promise<Node | null | undefined> {
 	try {
 		const snapshot = await getDoc(nodeRef(homeId, nodeId));
 		return snapshot.exists() ? toNode(snapshot) : null;
 	} catch (reason) {
+		// `unavailable` is the network saying it could not ask, not the rules
+		// saying no — answering anything here would be a guess dressed as data.
+		if ((reason as { code?: string } | null)?.code === "unavailable") {
+			return undefined;
+		}
 		// A refusal is the answer, not an error: an unreadable ancestor is the
 		// case this function's own contract is built around, and logging it would
 		// make an ordinary breadcrumb draw a raw `FirebaseError` over the screen

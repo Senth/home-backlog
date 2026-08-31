@@ -426,7 +426,7 @@ failure button, `homes.title` for the back action, `install.*`, and everything
   so they join the section as data, not as code.
 - **A whole-project progress bar**, and **`completedBy` attribution**, both rejected above.
 - **A blocked mark on a row** ([#66](https://github.com/Senth/home-backlog/issues/66)) —
-  `blockedBy` is not built.
+  built there since: a card waiting on another shows the waiting mark on its Overview row.
 - **Suggestions** ([#55](https://github.com/Senth/home-backlog/issues/55)) and the
   **calendar view** ([#67](https://github.com/Senth/home-backlog/issues/67)), the two
   cross-board screens that come after this one.

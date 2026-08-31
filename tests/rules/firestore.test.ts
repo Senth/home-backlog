@@ -2054,6 +2054,106 @@ describe("homes/{homeId}/nodes", () => {
 		});
 	});
 
+	/**
+	 * The picker's two home-wide search queries (Q-S1, Q-S2, #66) — one-shot
+	 * `getDocsFromServer` reads fired debounced from the *Waiting on…* picker.
+	 * Nothing else in the repo makes the claim that they are *permitted*: the
+	 * emulator is the only place a query's safety is decided, as for the board
+	 * and overview queries above.
+	 */
+	describe("the picker search queries", () => {
+		beforeEach(async () => {
+			await seedHome();
+			await seed(env, async (db) => {
+				await setDoc(
+					doc(db, nodesPath, "open-shared"),
+					nodeDoc({ updatedAt: new Date("2026-02-01T00:00:00Z") }),
+				);
+				await setDoc(
+					doc(db, nodesPath, "done-shared"),
+					nodeDoc({
+						status: "done",
+						completedAt: new Date("2026-08-20T00:00:00Z"),
+					}),
+				);
+				await setDoc(
+					doc(db, nodesPath, "archived-shared"),
+					nodeDoc({ archived: true }),
+				);
+				await setDoc(
+					doc(db, nodesPath, "open-private"),
+					nodeDoc({
+						visibility: "private",
+						participantIds: [OWNER.uid],
+						updatedAt: new Date("2026-03-01T00:00:00Z"),
+					}),
+				);
+			});
+		});
+
+		const nodes = (db: ReturnType<typeof dbAs>) => collection(db, nodesPath);
+
+		const ids = (result: { docs: { id: string }[] }) =>
+			result.docs.map((snapshot) => snapshot.id);
+
+		it("runs the shared half of the picker search", async () => {
+			// Q-S1. Provably safe: `visibility == 'shared'` is the read rule's
+			// first disjunct. The done and the archived card stay out, and so does
+			// the private one.
+			const result = await assertSucceeds(
+				getDocs(
+					query(
+						nodes(dbAs(env, MEMBER)),
+						where("archived", "==", false),
+						where("completedAt", "==", null),
+						where("visibility", "==", "shared"),
+						orderBy("updatedAt", "desc"),
+						limit(50),
+					),
+				),
+			);
+
+			expect(ids(result)).toEqual(["open-shared"]);
+		});
+
+		it("runs the participating half of the picker search", async () => {
+			// Q-S2, the rule's second disjunct — which reaches the private card
+			// the shared half cannot see. Newest `updatedAt` first, which is what
+			// the composite index orders.
+			const result = await assertSucceeds(
+				getDocs(
+					query(
+						nodes(dbAs(env, OWNER)),
+						where("archived", "==", false),
+						where("completedAt", "==", null),
+						where("participantIds", "array-contains", OWNER.uid),
+						orderBy("updatedAt", "desc"),
+						limit(50),
+					),
+				),
+			);
+
+			expect(ids(result)).toEqual(["open-private", "open-shared"]);
+		});
+
+		it("refuses the picker search as one unconstrained query", async () => {
+			// What makes the pair necessary rather than stylistic: without one of
+			// the two disjuncts this matches a private node the member cannot
+			// read, and Firestore rejects the whole query rather than filtering it.
+			await assertFails(
+				getDocs(
+					query(
+						nodes(dbAs(env, MEMBER)),
+						where("archived", "==", false),
+						where("completedAt", "==", null),
+						orderBy("updatedAt", "desc"),
+						limit(50),
+					),
+				),
+			);
+		});
+	});
+
 	describe("createdVia", () => {
 		beforeEach(seedHome);
 

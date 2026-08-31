@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Animated, ScrollView, View } from "react-native";
 import {
@@ -10,6 +10,7 @@ import {
 	Surface,
 	Text,
 } from "react-native-paper";
+import { BlockerWatcher } from "@/components/board/BlockerWatcher";
 import { BoardCard } from "@/components/board/BoardCard";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import { boardHref, detailsHref } from "@/components/board/board-href";
@@ -26,6 +27,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { createNode } from "@/data/nodes";
 import {
+	crossBoardBlockerIds,
 	hasSteps,
 	type Node,
 	rankAtEnd,
@@ -124,16 +126,60 @@ export function Board({
 	const [adding, setAdding] = useState<Status | null>(null);
 	const [notice, setNotice] = useState<Notice | null>(null);
 
+	/**
+	 * What the watcher has answered for the blockers this board's own query
+	 * pair cannot see: the loaded documents, and `null` for one the server
+	 * confirmed gone. Absent means *not heard from yet*, which keeps the card
+	 * waiting — the not-yet direction.
+	 */
+	const [watched, setWatched] = useState<Map<string, Node | null>>(new Map());
+	// One identity, so a watcher's report never tears its listener down.
+	const watch = useCallback((id: string, blocker: Node | null) => {
+		setWatched((prev) => {
+			if (prev.get(id) === blocker) return prev;
+			const next = new Map(prev);
+			next.set(id, blocker);
+			return next;
+		});
+	}, []);
+
 	// A board always opens on its first column. Cleared during render, because
 	// one screen can become another board — a breadcrumb re-points the screen it
 	// is on — and carrying the last pane anyone swiped to into a different board
-	// makes it read as the wrong board.
+	// makes it read as the wrong board. The watcher's answers go with it: they
+	// belong to the board they were read for.
 	const board = `${homeId} ${parent?.id ?? ""}`;
 	const [rendered, setRendered] = useState(board);
 	if (rendered !== board) {
 		setRendered(board);
 		setCurrent(0);
+		setWatched(new Map());
 	}
+
+	// The blocker ids the board's own nodes cannot resolve. When the list
+	// shrinks — the last reference to an off-board card went away — its watcher
+	// goes with it, and the stale answer is dropped here in render the way the
+	// pane reset above is.
+	const crossIds = useMemo(() => crossBoardBlockerIds(nodes), [nodes]);
+	const stale = [...watched.keys()].filter((id) => !crossIds.includes(id));
+	if (stale.length > 0) {
+		setWatched((prev) => {
+			const next = new Map(prev);
+			for (const id of stale) next.delete(id);
+			return next;
+		});
+	}
+
+	/**
+	 * What the cards resolve their waiting against: every node on the board,
+	 * plus the watcher's cross-board documents.
+	 */
+	const blockers = useMemo(() => {
+		const map = new Map<string, Node | null>();
+		for (const node of nodes) map.set(node.id, node);
+		for (const [id, blocker] of watched) map.set(id, blocker);
+		return map;
+	}, [nodes, watched]);
 
 	// The frozen set, plus a column for any status that is on this board but not
 	// in it. A card that exists is visible somewhere — including one the filter
@@ -246,6 +292,7 @@ export function Board({
 			parent={parent}
 			columns={columns}
 			nodes={nodes}
+			blockers={blockers}
 			onNotice={setNotice}
 			// The only way in for a card that *is* a board, where a tap drills in.
 			onDetails={() => router.push(detailsHref(node.id))}
@@ -375,6 +422,7 @@ export function Board({
 									onOpen={open}
 									renderMenu={menu}
 									drag={columnDrag(status)}
+									blockers={blockers}
 								/>
 							</View>
 						);
@@ -406,6 +454,7 @@ export function Board({
 							onOpen={open}
 							renderMenu={menu}
 							drag={columnDrag(status)}
+							blockers={blockers}
 						/>
 					))}
 				</ScrollView>
@@ -468,7 +517,12 @@ export function Board({
 							borderRadius: radius.md,
 						}}
 					>
-						<BoardCard node={drag.node} onOpen={noop} wide={!compact} />
+						<BoardCard
+							node={drag.node}
+							onOpen={noop}
+							wide={!compact}
+							blockers={blockers}
+						/>
 					</Surface>
 				</Animated.View>
 			) : null}
@@ -522,6 +576,12 @@ export function Board({
 				onSubmit={add}
 				testID={newCardDialogTestID}
 			/>
+
+			{/* One invisible listener per cross-board blocker id — a card's mark
+			    needs the blocker's status, and a blocker living on another board
+			    is not in anything this screen already holds. Deduped, and torn
+			    down with the screen. */}
+			<BlockerWatcher homeId={homeId} ids={crossIds} onStatus={watch} />
 
 			{/* The destination of a move is off-screen by definition — saying
 			    nothing makes it read as a delete. */}

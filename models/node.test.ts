@@ -6,6 +6,7 @@ import {
 	childLeaves,
 	compareNodes,
 	completionChange,
+	crossBoardBlockerIds,
 	defaultColumns,
 	doneChange,
 	effectiveParticipants,
@@ -17,6 +18,7 @@ import {
 	movedAncestorIds,
 	type Node,
 	newNodeData,
+	pickerCandidates,
 	rankAtEnd,
 	rankBetween,
 	rankSequence,
@@ -25,6 +27,7 @@ import {
 	staleAssignees,
 	titleError,
 	toNode,
+	unresolvedBlockers,
 	visibleColumns,
 } from "@/models/node";
 
@@ -664,6 +667,155 @@ describe("hiddenByParticipants", () => {
 		expect(
 			hiddenByParticipants(node({ participantIds: ["uid-b"] }), "uid-a"),
 		).toBe(true);
+	});
+});
+
+describe("unresolvedBlockers", () => {
+	/**
+	 * The map a screen resolves blockers from — the board's own nodes, or the
+	 * detail screen's per-id reads. Whatever is missing from it is a blocker
+	 * nobody has heard from yet.
+	 */
+	const blockers = new Map([
+		["order-tiles", node({ id: "order-tiles", status: "execution" })],
+		["done-thing", node({ id: "done-thing", status: "done" })],
+	]);
+
+	it("is empty for a card that waits on nothing", () => {
+		expect(unresolvedBlockers(node(), blockers)).toEqual([]);
+		expect(unresolvedBlockers(node({ blockedBy: [] }), blockers)).toEqual([]);
+	});
+
+	it("waits on a blocker that is still going", () => {
+		expect(
+			unresolvedBlockers(node({ blockedBy: ["order-tiles"] }), blockers),
+		).toEqual(["order-tiles"]);
+	});
+
+	it("stops waiting on a done blocker, without the entry being removed", () => {
+		// The relation is durable: the entry stays and the card no longer marks.
+		expect(
+			unresolvedBlockers(
+				node({ blockedBy: ["done-thing", "order-tiles"] }),
+				blockers,
+			),
+		).toEqual(["order-tiles"]);
+	});
+
+	it("waits on a blocker the map has never heard of", () => {
+		// Gone, or not read yet — honest *not yet* beats a mark that lies either
+		// way.
+		expect(
+			unresolvedBlockers(node({ blockedBy: ["deleted-thing"] }), blockers),
+		).toEqual(["deleted-thing"]);
+	});
+
+	it("never waits on a done card, whatever its list holds", () => {
+		// Completing a waiting card keeps its `blockedBy` as inert history, and
+		// a card in Done never marks. The entries stay unresolved — what makes
+		// it *waiting* is the list non-empty and the card itself not done.
+		const card = node({
+			status: "done",
+			blockedBy: ["order-tiles", "deleted-thing"],
+		});
+
+		const unresolved = unresolvedBlockers(card, blockers);
+
+		expect(unresolved).toEqual(["order-tiles", "deleted-thing"]);
+		expect(unresolved.length > 0 && card.status !== "done").toBe(false);
+	});
+});
+
+describe("crossBoardBlockerIds", () => {
+	it("leaves same-board blockers to the board's own query pair", () => {
+		const board = [
+			node({ id: "lay-tiles", blockedBy: ["order-tiles"] }),
+			node({ id: "order-tiles" }),
+		];
+
+		expect(crossBoardBlockerIds(board)).toEqual([]);
+	});
+
+	it("names the blocker no card on the board carries, deduped", () => {
+		const board = [
+			node({ id: "lay-tiles", blockedBy: ["order-tiles", "order-grout"] }),
+			node({ id: "order-tiles" }),
+			node({ id: "seal-grout", blockedBy: ["order-grout"] }),
+		];
+
+		expect(crossBoardBlockerIds(board)).toEqual(["order-grout"]);
+	});
+
+	it("is empty when nothing waits on anything", () => {
+		expect(crossBoardBlockerIds([node()])).toEqual([]);
+	});
+});
+
+describe("pickerCandidates", () => {
+	const self = node({ id: "lay-tiles" });
+	const shared = [
+		node({ id: "order-tiles", title: "Order tiles" }),
+		node({ id: "sweep", title: "Book the chimney sweep" }),
+	];
+
+	it("filters on a case-insensitive title substring", () => {
+		const { results, rawCount } = pickerCandidates(
+			"TILES",
+			self,
+			[],
+			shared,
+			[],
+		);
+
+		expect(results.map((candidate) => candidate.id)).toEqual(["order-tiles"]);
+		// The footer counts what the search saw, before any filtering.
+		expect(rawCount).toBe(2);
+	});
+
+	it("drops self, existing blockers and done", () => {
+		const blocked = [
+			node({ id: "lay-tiles", title: "Lay tiles" }),
+			node({ id: "order-tiles", title: "Order tiles" }),
+			node({ id: "old-roof", title: "Order roof tiles", status: "done" }),
+			node({ id: "spare-tiles", title: "Count the spare tiles" }),
+		];
+
+		const { results } = pickerCandidates(
+			"tiles",
+			self,
+			["order-tiles"],
+			blocked,
+			[],
+		);
+
+		expect(results.map((candidate) => candidate.id)).toEqual(["spare-tiles"]);
+	});
+
+	it("dedupes a card both queries matched", () => {
+		const { results } = pickerCandidates(
+			"tiles",
+			self,
+			[],
+			shared,
+			shared.slice(0, 1),
+		);
+
+		expect(results.map((candidate) => candidate.id)).toEqual(["order-tiles"]);
+	});
+
+	it("reports the cap from the raw hits, before any filtering", () => {
+		const many = Array.from({ length: 50 }, (_, index) =>
+			node({ id: `card-${index}`, title: `Tiles ${index}` }),
+		);
+
+		// Every hit survives the filter, so the flag is the only thing that can
+		// say the home may hold more candidates than the search saw.
+		const seen = pickerCandidates("tiles", self, [], many, []);
+		expect(seen.capped).toBe(true);
+		expect(seen.rawCount).toBe(50);
+		expect(
+			pickerCandidates("tiles", self, [], many.slice(0, 49), []).capped,
+		).toBe(false);
 	});
 });
 
