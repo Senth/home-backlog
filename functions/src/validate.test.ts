@@ -1,10 +1,12 @@
 import type { ApiError } from "./errors.js";
 import {
 	isMember,
+	type LocationContext,
 	type NodeContext,
 	type ParentFacts,
 	refuseEmptyRootParticipants,
 	refuseUnusableParticipants,
+	validateLocation,
 	validateNode,
 } from "./validate.js";
 
@@ -563,5 +565,121 @@ describe("participantIds is honoured on a shared root and nowhere else", () => {
 	it("leaves an empty list on a shared root to refuseEmptyRootParticipants", () => {
 		expect(unusable([], true, "shared")).toBeNull();
 		expect(refusal("shared", true, [])?.code).toBe("participants_required");
+	});
+});
+
+/**
+ * The mirrored `validLocation()` and the locations `structure()`, against the
+ * same case list as the `homes/{homeId}/locations` block of
+ * `tests/rules/firestore.test.ts`. Smaller than a node's: a location carries
+ * no inheritance invariant beyond structure, so there is no `inherits` here.
+ */
+
+function locationDoc(
+	overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+	return {
+		title: "The garden",
+		parentId: null,
+		ancestorIds: [],
+		rank: "a0",
+		createdAt: new Date("2026-01-01T00:00:00Z"),
+		createdBy: "uid-owner",
+		updatedAt: new Date("2026-01-01T00:00:00Z"),
+		...overrides,
+	};
+}
+
+const atLocationRoot: LocationContext = { locationId: "loc-1", parent: null };
+const underLoc1: LocationContext = {
+	locationId: "loc-2",
+	parent: { id: "loc-1", ancestorIds: [] },
+};
+
+function locationCodes(
+	data: Record<string, unknown>,
+	context: LocationContext = atLocationRoot,
+): string[] {
+	return validateLocation(data, context).map((issue) => issue.code);
+}
+
+describe("a location, mirrored from validLocation()", () => {
+	it("accepts a root place with every field written", () => {
+		expect(validateLocation(locationDoc(), atLocationRoot)).toEqual([]);
+	});
+
+	it("accepts a child whose ancestors end at its parent", () => {
+		expect(
+			validateLocation(
+				locationDoc({ parentId: "loc-1", ancestorIds: ["loc-1"] }),
+				underLoc1,
+			),
+		).toEqual([]);
+	});
+
+	it.each([
+		"title",
+		"rank",
+		"createdAt",
+		"createdBy",
+		"updatedAt",
+	])("refuses a location with no %s", (field) => {
+		const data = locationDoc();
+		delete data[field];
+
+		expect(validateLocation(data, atLocationRoot).length).toBeGreaterThan(0);
+	});
+
+	it("refuses an over-long title", () => {
+		expect(locationCodes(locationDoc({ title: "x".repeat(201) }))).toContain(
+			"title_too_long",
+		);
+	});
+
+	it("refuses an empty title", () => {
+		expect(locationCodes(locationDoc({ title: "" }))).toContain(
+			"title_required",
+		);
+	});
+
+	it("refuses a parentId that is neither a string nor null", () => {
+		expect(locationCodes(locationDoc({ parentId: 7 }))).toContain(
+			"invalid_parent",
+		);
+	});
+
+	it("refuses a rank that is not a non-empty string", () => {
+		expect(locationCodes(locationDoc({ rank: "" }))).toContain("invalid_rank");
+		expect(locationCodes(locationDoc({ rank: 3 }))).toContain("invalid_rank");
+	});
+
+	it("refuses ancestors that contain the location's own id", () => {
+		expect(
+			locationCodes(locationDoc({ parentId: "loc-1", ancestorIds: ["loc-1"] })),
+		).toContain("cycle");
+	});
+
+	it("refuses a root with ancestors", () => {
+		expect(locationCodes(locationDoc({ ancestorIds: ["loc-0"] }))).toContain(
+			"invalid_ancestors",
+		);
+	});
+
+	it("refuses ancestors whose last element is not the parent", () => {
+		expect(
+			locationCodes(
+				locationDoc({ parentId: "loc-1", ancestorIds: ["loc-0"] }),
+				underLoc1,
+			),
+		).toContain("invalid_ancestors");
+	});
+
+	it("refuses a parentId that does not match the parent that was resolved", () => {
+		expect(
+			locationCodes(
+				locationDoc({ parentId: "loc-9", ancestorIds: ["loc-9"] }),
+				underLoc1,
+			),
+		).toContain("invalid_parent");
 	});
 });

@@ -15,7 +15,7 @@ import {
 	maxBatchWrites,
 	nodesCollection,
 } from "./firestore.js";
-import { handle } from "./handler.js";
+import { handle, param } from "./handler.js";
 import {
 	childAncestorIds,
 	completionChange,
@@ -49,14 +49,6 @@ import {
 
 function homeNodes(homeId: string) {
 	return db.collection(homesCollection).doc(homeId).collection(nodesCollection);
-}
-
-function param(request: Request, name: string): string {
-	const value = request.params[name];
-	if (typeof value !== "string" || value.length === 0) {
-		throw new ApiError(400, "invalid_path", `Missing ${name} in the path.`);
-	}
-	return value;
 }
 
 function notFound(nodeId: string, homeId: string): ApiError {
@@ -157,7 +149,7 @@ async function descendantsOf(
  * writes at once, and the moved node plus its parents take three of them, so a
  * subtree that will not fit is refused with a number rather than half-written.
  */
-function refuseOversizedSubtree(count: number, operation: string): void {
+export function refuseOversizedSubtree(count: number, operation: string): void {
 	if (count + 3 <= maxBatchWrites) return;
 	throw new ApiError(
 		409,
@@ -167,14 +159,14 @@ function refuseOversizedSubtree(count: number, operation: string): void {
 }
 
 /**
- * `If-Match`, checked against the node's `updatedAt`.
+ * `If-Match`, checked against the document's `updatedAt`.
  *
  * Optional, and the only concurrency control the API has: an agent that read a
  * card, thought about it, and comes back to write can find out that somebody
- * edited it in between rather than silently overwriting them. Every node
- * response carries the same value as its `ETag`.
+ * edited it in between rather than silently overwriting them. Every node and
+ * location response carries the same value as its `ETag`.
  */
-function checkPrecondition(
+export function checkPrecondition(
 	request: Request,
 	snapshot: DocumentSnapshot<DocumentData>,
 ): void {
@@ -186,7 +178,7 @@ function checkPrecondition(
 		throw new ApiError(
 			412,
 			"version_mismatch",
-			`This node has changed since ${expected}. Read it again before writing.`,
+			`This document has changed since ${expected}. Read it again before writing.`,
 		);
 	}
 }

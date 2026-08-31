@@ -1,9 +1,18 @@
-import { parseNodeBody } from "./body.js";
+import { parseLocationBody, parseNodeBody } from "./body.js";
 import type { ApiError } from "./errors.js";
 
 function refusal(body: unknown, mode: "create" | "update"): ApiError {
 	try {
 		parseNodeBody(body, mode);
+	} catch (error) {
+		return error as ApiError;
+	}
+	throw new Error("Expected the body to be refused.");
+}
+
+function locationRefusal(body: unknown, mode: "create" | "update"): ApiError {
+	try {
+		parseLocationBody(body, mode);
 	} catch (error) {
 		return error as ApiError;
 	}
@@ -106,10 +115,11 @@ describe("what the server owns", () => {
 });
 
 /**
- * Nothing can hand an agent a valid location id — the collection has no verbs
- * and no screens — and `locationAncestorIds` is a denormalized path that is
- * unverifiable from outside. An invented one makes "everything in the Basement"
- * return the wrong set permanently, with no screen showing a discrepancy.
+ * Filing work in a place is #51's and has no semantics yet, so a location id a
+ * caller names cannot be checked, and `locationAncestorIds` is a denormalized
+ * path that is unverifiable from outside. An invented one makes "everything in
+ * the Basement" return the wrong set permanently, with no screen showing a
+ * discrepancy.
  */
 describe("location fields", () => {
 	it.each([
@@ -226,5 +236,70 @@ describe("the values that drive a read before the write", () => {
 			"invalid_type",
 		);
 		expect(refusal({ blockedBy: [1] }, "update").code).toBe("invalid_type");
+	});
+});
+
+/**
+ * The places themselves have verbs now (#50). What a caller may still not say
+ * is anything the server derives: `ancestorIds` comes from `parentId`, and a
+ * caller-supplied path is exactly what cannot be verified from outside.
+ */
+describe("a location body", () => {
+	it("takes every field a create writes", () => {
+		expect(
+			parseLocationBody(
+				{ title: "Garden", parentId: "place-1", rank: "a0" },
+				"create",
+			),
+		).toEqual({ title: "Garden", parentId: "place-1", rank: "a0" });
+	});
+
+	it("takes a null parentId, which creates a root place", () => {
+		expect(
+			parseLocationBody({ title: "Garden", parentId: null }, "create"),
+		).toEqual({
+			title: "Garden",
+			parentId: null,
+		});
+	});
+
+	it("takes an empty body, for a rename-less patch", () => {
+		expect(parseLocationBody({}, "update")).toEqual({});
+	});
+
+	it("refuses rank on an update — sibling reorder is #182's", () => {
+		const error = locationRefusal({ rank: "a0" }, "update");
+
+		expect(error.code).toBe("unknown_field");
+		expect(error.message).toContain("title");
+	});
+
+	it.each([
+		"ancestorIds",
+		"createdAt",
+		"createdBy",
+		"updatedAt",
+		"id",
+	])("refuses %s on a create and an update", (field) => {
+		expect(locationRefusal({ [field]: "anything" }, "create").code).toBe(
+			"unknown_field",
+		);
+		expect(locationRefusal({ [field]: "anything" }, "update").code).toBe(
+			"unknown_field",
+		);
+	});
+
+	it("refuses a parentId that is neither a string nor null", () => {
+		expect(locationRefusal({ parentId: 7 }, "create").code).toBe(
+			"invalid_type",
+		);
+	});
+
+	it("refuses a title that is not a string", () => {
+		expect(locationRefusal({ title: 42 }, "create").code).toBe("invalid_type");
+	});
+
+	it("refuses a body that is not an object", () => {
+		expect(locationRefusal([], "create").code).toBe("invalid_body");
 	});
 });

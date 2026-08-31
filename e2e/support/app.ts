@@ -14,7 +14,7 @@ import svSE from "@/i18n/locales/sv-SE.json";
 export const ROUTES = [
 	{ path: "/homes", ready: { text: "Huset" } },
 	{ path: "/projects", ready: { text: "Renovera badrummet" } },
-	{ path: "/locations", ready: { key: "screen.locations.empty" } },
+	{ path: "/locations", ready: { key: "locations.emptyTitle" } },
 	{ path: "/maintenance", ready: { key: "screen.maintenance.empty" } },
 	{ path: "/automations", ready: { text: "research agent" } },
 	// Appended, never inserted: `ROUTES[0]` and `ROUTES[1]` are read as `/homes`

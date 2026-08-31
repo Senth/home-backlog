@@ -1,7 +1,7 @@
 ---
 name: home-backlog-api
 description: Read and write a Home Backlog board over REST — nested kanban nodes where a project, a task and a subtask are the same thing at different depths. Use when asked to research, break down, file or re-prioritise home-improvement work for a household, or when a prompt mentions Home Backlog, hb.senth.org, or an API key beginning hb_. Covers bearer auth, the node verbs, and the atomic bulk create that writes a whole subtree in one undoable call.
-api-version: 1.0.0
+api-version: 1.1.0
 ---
 
 # Home Backlog API
@@ -71,9 +71,9 @@ payload. Messages are not translated, because the app never shows them.
 | --- | --- |
 | `400` | The request is wrong. Fix it and resend; it will not become right. |
 | `401` | The key is missing, malformed or revoked. |
-| `404` | No such home or node, or one you are not allowed to see. Deliberately the same answer. |
+| `404` | No such home, node or location — or a node you are not allowed to see. Deliberately the same answer. |
 | `409` | You asked for something that needs confirming (`has_children`) or does not fit (`subtree_too_large`). |
-| `412` | `If-Match` did not agree. Read the node again. |
+| `412` | `If-Match` did not agree. Read the node or place again. |
 | `413` | The body is over 1 MB. |
 | `500` | Our fault. Retry is reasonable. |
 
@@ -204,6 +204,36 @@ you get every failure at once:
   "details": [ { "index": 1, "field": "title", "code": "title_required", "message": "A node needs a title." } ] } }
 ```
 
+### `GET /v1/homes/{homeId}/locations`
+
+Every place in the home — rooms, floors, the garden — in `rank` order. Locations have no
+privacy: every member sees every place.
+
+### `POST /v1/homes/{homeId}/locations`
+
+One place. `title` is required; `parentId` nests it under another place and `rank` places it
+among its siblings (omit both for a top-level place at the end).
+
+```json
+{ "title": "Garden", "parentId": "wJg9A41tevu4ydzlnZvz" }
+```
+
+Returns `201` and the created location, with its `ETag` in the response headers — there is
+no single-place read verb, so that is where you first get one. Its path is derived from
+`parentId` — send `ancestorIds` and it is refused, like every computed field.
+
+### `PATCH /v1/homes/{homeId}/locations/{locationId}`
+
+One update verb, like the node one: send `title` to rename, `parentId` to move the place and
+everything under it. Moving a place inside its own subtree is `400 cycle`. The response
+carries an `ETag`, and `If-Match` guards the write exactly as it does for nodes.
+
+### `DELETE /v1/homes/{homeId}/locations/{locationId}`
+
+A place with children answers `409 has_children` and tells you how many. Repeat with
+`?cascade=true` to delete the subtree. Work anchored to a deleted place is unfiled — its
+`locationId` becomes `null` — the same state work you create today is in.
+
 ## Fields
 
 Fields you may send are marked ✅. The API computes the rest, and sending one is a
@@ -235,12 +265,12 @@ it helps you, but do not expect a person to see it.
 
 ## What this API cannot do yet
 
-- **Locations.** Home Backlog files work under a second hierarchy of places: rooms, floors,
-  garden areas. It has no verbs here, so everything you create is unfiled, and sending
-  `locationId` or `locationAncestorIds` is refused rather than ignored. Nothing could hand
-  you a valid location id today, and an invented one would make "everything in the bathroom"
-  return the wrong set.
-- **Recurring maintenance.** Same story. No verbs yet.
+- **Filing work in a place.** Places can be created, listed and managed with the location
+  verbs above, but a node cannot be filed in one yet: sending `locationId` or
+  `locationAncestorIds` on a node write is refused rather than ignored, so everything you
+  create is unfiled. Nothing can check a location id you name, and an invented one would
+  make "everything in the bathroom" return the wrong set.
+- **Recurring maintenance.** No verbs yet.
 - **Changing `visibility` or `participantIds`** on anything that exists. A person does that.
 - **Creating a home, inviting, accepting an invitation.** Human-only.
 - **Custom statuses.** The four are the vocabulary.

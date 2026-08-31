@@ -522,3 +522,106 @@ export function refuseEmptyRootParticipants(
 		"A shared root needs at least one participant. Omit participantIds to include every member, or send at least one uid.",
 	);
 }
+
+export interface LocationContext {
+	/**
+	 * The id the document will have. A location is never in its own
+	 * `ancestorIds`, and a body that said otherwise would write a cycle no
+	 * screen could ever escape.
+	 */
+	locationId: string;
+	/** `null` for a root place. */
+	parent: { id: string; ancestorIds: readonly string[] } | null;
+}
+
+/**
+ * The rules' `validLocation()` and their locations `structure()`, re-stated in
+ * TypeScript — the mirror the location verbs write through, exactly as
+ * `validateNode` is the one the node verbs write through.
+ *
+ * A location carries no inheritance invariant beyond structure — no visibility,
+ * no participants — so unlike a node's parent, resolving its parent costs no
+ * `get()` on anybody's behalf and a batched subtree move never approaches the
+ * twenty-document-access budget. The rules need no `get()` either, and the two
+ * check the same fields: title 1–200, `parentId` null or a string, `ancestorIds`
+ * a list ending at `parentId` (empty at the root) and never containing the
+ * location's own id, a non-empty `rank`, and the three timestamps present.
+ */
+export function validateLocation(
+	data: Record<string, unknown>,
+	context: LocationContext,
+): ValidationIssue[] {
+	const issues: ValidationIssue[] = [];
+	const add = (field: string, code: string, message: string) =>
+		issues.push({ field, code, message });
+
+	if (!isString(data.title) || data.title.length < 1) {
+		add("title", "title_required", "A location needs a title.");
+	} else if (data.title.length > maxTitleLength) {
+		add(
+			"title",
+			"title_too_long",
+			`A title is at most ${maxTitleLength} characters.`,
+		);
+	}
+
+	if (data.parentId !== null && !isString(data.parentId)) {
+		add("parentId", "invalid_parent", "parentId must be a string or null.");
+	}
+
+	if (!isStringList(data.ancestorIds)) {
+		add(
+			"ancestorIds",
+			"invalid_ancestors",
+			"ancestorIds must be a list of ids.",
+		);
+	}
+
+	if (!isString(data.rank) || data.rank.length === 0) {
+		add("rank", "invalid_rank", "rank must be a non-empty string.");
+	}
+
+	if (!isString(data.createdBy) || data.createdBy.length === 0) {
+		add("createdBy", "invalid_created_by", "createdBy must be a uid.");
+	}
+	if (data.createdAt == null) {
+		add("createdAt", "invalid_timestamp", "createdAt must be written.");
+	}
+	if (data.updatedAt == null) {
+		add("updatedAt", "invalid_timestamp", "updatedAt must be written.");
+	}
+
+	const parentId = data.parentId;
+	const ancestorIds = data.ancestorIds;
+	if (isStringList(ancestorIds) && (parentId === null || isString(parentId))) {
+		if (parentId === null) {
+			if (ancestorIds.length !== 0) {
+				add(
+					"ancestorIds",
+					"invalid_ancestors",
+					"A location with no parent has no ancestors.",
+				);
+			}
+		} else if (ancestorIds[ancestorIds.length - 1] !== parentId) {
+			add(
+				"ancestorIds",
+				"invalid_ancestors",
+				"The last ancestor must be the parent.",
+			);
+		}
+
+		if (ancestorIds.includes(context.locationId)) {
+			add("ancestorIds", "cycle", "A location cannot be its own ancestor.");
+		}
+
+		if (context.parent !== null && parentId !== context.parent.id) {
+			add(
+				"parentId",
+				"invalid_parent",
+				"parentId does not match the parent that was resolved.",
+			);
+		}
+	}
+
+	return issues;
+}

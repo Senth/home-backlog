@@ -178,6 +178,29 @@ export function nodeDoc(
 	return document;
 }
 
+/**
+ * A location document in the shape the app writes it: every field, with a
+ * value. `validLocation()` requires each of them outright — the collection is
+ * new (#50), so there is no present-only escape hatch to test against.
+ *
+ * The timestamps are real dates so that `immutable()` has a value to hold an
+ * update against, the same reason `nodeDoc`'s are.
+ */
+export function locationDoc(
+	overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+	return {
+		title: "Basement",
+		parentId: null,
+		ancestorIds: [],
+		rank: "a0",
+		createdAt: new Date("2026-01-01T00:00:00Z"),
+		createdBy: OWNER.uid,
+		updatedAt: new Date("2026-01-01T00:00:00Z"),
+		...overrides,
+	};
+}
+
 export async function createTestEnv(): Promise<RulesTestEnvironment> {
 	// The ports come from the allocation `yarn test:rules` sets, so two
 	// worktrees can run the suite at once. Never literals — and deliberately

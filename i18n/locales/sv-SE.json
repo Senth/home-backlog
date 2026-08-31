@@ -63,11 +63,26 @@
 			"offlineHint": "Knappen fungerar igen när du är uppkopplad."
 		},
 		"locations": {
-			"empty": "Inga platser än."
+			"loadFailed": "Kunde inte ladda platserna. Kontrollera din anslutning."
 		},
 		"maintenance": {
 			"empty": "Inget som behöver göras."
 		}
+	},
+	"locations": {
+		"add": "Lägg till plats",
+		"addUnder": "Lägg till under…",
+		"moveUnder": "Flytta under…",
+		"moveUnderTop": "Högsta nivå",
+		"rename": "Byt namn",
+		"renameTitle": "Byt namn på plats",
+		"nameLabel": "Namn",
+		"delete": "Ta bort",
+		"deleteTitle": "Ta bort {{name}}?",
+		"deleteBody": "{{name}} och allt under den tas bort. Det går inte att ångra.",
+		"emptyTitle": "Lägg till platserna runt ditt hem",
+		"emptyBody": "Trädgården, källaren, stugan — bygg trädet nu, lägg in arbetet i det senare.",
+		"actions": "Platsåtgärder"
 	},
 	"homes": {
 		"title": "Mina hem",

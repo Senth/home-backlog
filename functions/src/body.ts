@@ -24,12 +24,13 @@ import {
  *
  * Four fields are refused **by name**, because each deserves its own answer:
  *
- * - `locationId` and `locationAncestorIds` — the `locations` collection has no
- *   verbs and no screens (#50, #51), so nothing can hand an agent a valid
- *   location id, and `locationAncestorIds` is a denormalized path that is
+ * - `locationId` and `locationAncestorIds` on a **node** — filing work in a
+ *   place is #51's and has no semantics yet, so nothing can check a location id
+ *   a caller names, and `locationAncestorIds` is a denormalized path that is
  *   unverifiable from outside. An invented one makes "everything in the
  *   Basement" return the wrong set permanently, with no screen anywhere showing
- *   a discrepancy.
+ *   a discrepancy. The places themselves have verbs (`parseLocationBody`
+ *   below); filing work in them does not.
  * - `visibility` and `participantIds` on an **existing** node — the same
  *   restriction stated twice. A bearer token in an env file must not be able to
  *   change who can see a household's work, and on a private node
@@ -193,7 +194,7 @@ export function parseNodeBody(
 		if (field === "locationId" || field === "locationAncestorIds") {
 			refuse(
 				"locations_unavailable",
-				"Locations have no API yet, so work created here is unfiled. Sending a location id would file it somewhere that cannot be checked.",
+				"Work cannot be filed in a place over the API yet, so it is created unfiled. Sending a location id would file it somewhere that cannot be checked.",
 				field,
 			);
 		}
@@ -255,6 +256,59 @@ export function parseNodeBody(
 	if ("participantIds" in raw) {
 		parsed.participantIds = asStringList(raw.participantIds, "participantIds");
 	}
+
+	return parsed;
+}
+
+export interface LocationBody {
+	title?: string;
+	parentId?: string | null;
+	/**
+	 * Honoured on a create, where it places a new sibling directly; on an
+	 * update it is an unknown field, because sibling reorder is #182's.
+	 */
+	rank?: string;
+}
+
+/** Fields a caller may send when creating a location. */
+const locationCreateFields = ["title", "parentId", "rank"] as const;
+
+/** Fields a caller may send when changing one. Reorder is #182's. */
+const locationUpdateFields = ["title", "parentId"] as const;
+
+/**
+ * Read a location body against the allow-list for this verb.
+ *
+ * `ancestorIds` is derived server-side from `parentId` and never read from the
+ * body — the same rule the node verbs follow, for the same reason: a
+ * caller-supplied path is exactly what cannot be verified from outside. What
+ * *is* allowed is what a person can do from the tree screen once it ships
+ * (#50): name a place, nest it, and — on a create only — place it among its
+ * siblings.
+ */
+export function parseLocationBody(
+	body: unknown,
+	mode: "create" | "update",
+): LocationBody {
+	const raw = asObject(body);
+	const allowed: readonly string[] =
+		mode === "create" ? locationCreateFields : locationUpdateFields;
+
+	for (const field of Object.keys(raw)) {
+		if (allowed.includes(field)) continue;
+		refuse(
+			"unknown_field",
+			`${field} is not a field this endpoint writes. Allowed: ${allowed.join(", ")}.`,
+			field,
+		);
+	}
+
+	const parsed: LocationBody = {};
+	if ("title" in raw) parsed.title = asString(raw.title, "title");
+	if ("parentId" in raw) {
+		parsed.parentId = asStringOrNull(raw.parentId, "parentId");
+	}
+	if ("rank" in raw) parsed.rank = asString(raw.rank, "rank");
 
 	return parsed;
 }

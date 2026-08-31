@@ -150,6 +150,7 @@ def svg(background, ink, *, radius=TILE_RADIUS, scale=1.0):
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{SIZE}" '
         f'height="{SIZE}" viewBox="0 0 {SIZE} {SIZE}">'
+        + "<title>Home Backlog</title>"
         + f"<defs>{mask}</defs>"
         + "".join(layers)
         + "</svg>"
@@ -166,9 +167,12 @@ def render(name, markup, targets):
         subprocess.run(
             [
                 "rsvg-convert",
-                "--width", str(size),
-                "--height", str(size),
-                "--output", str(path),
+                "--width",
+                str(size),
+                "--height",
+                str(size),
+                "--output",
+                str(path),
                 str(source),
             ],
             check=True,
