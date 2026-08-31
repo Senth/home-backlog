@@ -257,7 +257,7 @@
 				"restore": "Restore",
 				"scope": {
 					"global": "All homes",
-					"home": "This home",
+					"home": "Home",
 					"shared": "Everyone"
 				},
 				"hiddenBadge": "Hidden"

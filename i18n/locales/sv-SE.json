@@ -257,7 +257,7 @@
 				"restore": "Återställ",
 				"scope": {
 					"global": "Alla hem",
-					"home": "Detta hem",
+					"home": "Hem",
 					"shared": "Alla här"
 				},
 				"hiddenBadge": "Dold"
