@@ -299,6 +299,7 @@ export default function Overview() {
 									menu={
 										<CardActionsMenu
 											testID={`overview-card-menu-${card.id}`}
+											card={card}
 											scope={scopes[card.id] ?? "global"}
 											onEdit={openEditor}
 											onHide={

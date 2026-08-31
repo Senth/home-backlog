@@ -7,12 +7,14 @@ import {
 	Appbar,
 	Button,
 	List,
+	Snackbar,
 	Surface,
 	Text,
 } from "react-native-paper";
 import { DragArea } from "@/components/board/DragArea";
 import { CardActionsMenu } from "@/components/overview/CardActionsMenu";
 import { CardEditSheet } from "@/components/overview/CardEditSheet";
+import { ImportCardDialog } from "@/components/overview/ImportCardDialog";
 import {
 	listKey,
 	rowKey,
@@ -62,8 +64,9 @@ import {
  *
  * Every write is the data layer's own — a per-user surface is its whole cards
  * map rewritten, a shared card is its own document — so all of it queues
- * offline like any other write. Import lands with phase 4; until then there
- * is no entry for it to fake.
+ * offline like any other write. Import is clipboard-local: the pasted string
+ * is decoded before anything is written, and the card it makes is the
+ * importer's own, in the scope they chose.
  */
 export default function OverviewEditor() {
 	const { t } = useTranslation();
@@ -82,6 +85,8 @@ export default function OverviewEditor() {
 		scope: CardScope;
 	} | null>(null);
 	const [removing, setRemoving] = useState<EditorCard | null>(null);
+	const [importing, setImporting] = useState(false);
+	const [notice, setNotice] = useState<string | null>(null);
 
 	const members = useMemo(
 		() => (activeHome === null ? [] : membersOf(activeHome)),
@@ -153,17 +158,23 @@ export default function OverviewEditor() {
 		removeFrom(from, card.id);
 	};
 
+	/**
+	 * A card the editor just composed or imported: minted here so a later
+	 * scope move keeps it, and it takes the last place on the screen.
+	 */
+	const createIn = (scope: CardScope, draft: Omit<Card, "id" | "rank">) => {
+		addTo(scope, {
+			...draft,
+			id: newCardId(scope, homeId, uid ?? ""),
+			rank: rankAtEnd(editorCards.at(-1)?.card.rank ?? null),
+		});
+	};
+
 	const save = (draft: Card, scope: CardScope) => {
 		if (editing === null) return;
 
 		if (editing.card === null) {
-			// A new card: its id is minted here so a later scope move keeps it,
-			// and it takes the last place on the screen.
-			addTo(scope, {
-				...draft,
-				id: newCardId(scope, homeId, uid ?? ""),
-				rank: rankAtEnd(editorCards.at(-1)?.card.rank ?? null),
-			});
+			createIn(scope, draft);
 			return;
 		}
 
@@ -176,6 +187,12 @@ export default function OverviewEditor() {
 			...seed,
 			rank: rankAtEnd(editorCards.at(-1)?.card.rank ?? null),
 		});
+	};
+
+	/** The pasted string, decoded and added as the importer's own. */
+	const importInto = (draft: Omit<Card, "id" | "rank">, scope: CardScope) => {
+		createIn(scope, draft);
+		setNotice("overview.cards.editor.importAdded");
 	};
 
 	const reorder = (id: string, rank: string) => {
@@ -271,6 +288,12 @@ export default function OverviewEditor() {
 					onPress={() => router.back()}
 				/>
 				<Appbar.Content title={t("overview.cards.editor.title")} />
+				<Appbar.Action
+					icon="import"
+					accessibilityLabel={t("overview.cards.editor.import")}
+					style={{ width: touchTarget, height: touchTarget }}
+					onPress={() => setImporting(true)}
+				/>
 				<Appbar.Action
 					icon="plus"
 					accessibilityLabel={t("overview.cards.editor.add")}
@@ -425,6 +448,19 @@ export default function OverviewEditor() {
 				/>
 			) : null}
 
+			{importing ? (
+				<ImportCardDialog
+					visible
+					members={members}
+					onDismiss={() => setImporting(false)}
+					onAdd={importInto}
+				/>
+			) : null}
+
+			<Snackbar visible={notice !== null} onDismiss={() => setNotice(null)}>
+				{notice === null ? "" : t(notice)}
+			</Snackbar>
+
 			{removing !== null ? (
 				<ConfirmDialog
 					visible
@@ -523,6 +559,7 @@ function EditorRow({
 				right={() => (
 					<CardActionsMenu
 						testID={`overview-editor-menu-${card.id}`}
+						card={card}
 						scope={scope}
 						hidden={hidden}
 						showMove={handlers !== null}

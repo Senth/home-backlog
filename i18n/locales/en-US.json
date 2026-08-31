@@ -249,6 +249,10 @@
 			"editor": {
 				"title": "Edit cards",
 				"add": "Add card",
+				"import": "Import card",
+				"importPaste": "Paste a shared card",
+				"importInvalid": "That doesn't look like a shared card.",
+				"importAdded": "Card added. Open it to make it yours.",
 				"removed": "Removed originals",
 				"restore": "Restore",
 				"scope": {
@@ -262,6 +266,8 @@
 				"edit": "Edit",
 				"hide": "Hide for me",
 				"show": "Show for me",
+				"copy": "Copy as text",
+				"copied": "Copied. Paste it to share the card.",
 				"moveUp": "Move up",
 				"moveDown": "Move down",
 				"remove": "Remove",

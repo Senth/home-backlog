@@ -7,6 +7,8 @@ import {
 	cardScopes,
 	conditionForField,
 	editorList,
+	exportCard,
+	importCard,
 	mergeCards,
 	removedSeeds,
 	type SeedId,
@@ -623,5 +625,104 @@ describe("toCard", () => {
 		expect(
 			toCard("gone", "junk" as unknown as Record<string, unknown>),
 		).toBeNull();
+	});
+});
+
+describe("exportCard / importCard", () => {
+	it("round-trips a card whole, including conditions, sort, shown/max and empty", () => {
+		const source = {
+			...seeded.quickWins,
+			title: null,
+		};
+		// A seed's title is resolved at the surface before export — the
+		// importer's own i18n never travels.
+		const text = exportCard({ ...source, title: "Quick wins" });
+		const back = importCard(text);
+
+		expect(back).toEqual({
+			kind: "filter",
+			seedId: null,
+			title: "Quick wins",
+			conditions: source.conditions,
+			sort: source.sort,
+			shown: source.shown,
+			max: source.max,
+			empty: source.empty,
+		});
+	});
+
+	it("carries member references inside the string", () => {
+		const text = exportCard({
+			...seeded.ongoing,
+			title: "Mine",
+			conditions: [
+				{ field: "assigneeIds", anyOf: ["me", "uid-nadia"] },
+				{ field: "participantIds", anyOf: ["uid-someone-else"] },
+			],
+		});
+		const back = importCard(text);
+
+		expect(back?.conditions).toEqual([
+			{ field: "assigneeIds", anyOf: ["me", "uid-nadia"] },
+			{ field: "participantIds", anyOf: ["uid-someone-else"] },
+		]);
+	});
+
+	it("leaves the id, rank and seedId behind — the importer mints their own", () => {
+		const text = exportCard({ ...seeded.comingUp, title: "Coming up" });
+		const payload = JSON.parse(text) as Record<string, unknown>;
+		expect(Object.keys(payload).sort()).toEqual([
+			"conditions",
+			"empty",
+			"kind",
+			"max",
+			"shown",
+			"sort",
+			"title",
+		]);
+	});
+
+	it("declares nothing about a string that is not a card", () => {
+		expect(importCard("not json at all")).toBeNull();
+		expect(importCard("")).toBeNull();
+		expect(importCard("42")).toBeNull();
+		expect(importCard('"a string"')).toBeNull();
+		expect(importCard("[]")).toBeNull();
+	});
+
+	it("refuses the built-in completed card and a card with no name", () => {
+		expect(
+			importCard(
+				exportCard({ ...seeded.recentlyDone, title: "Recently done" }),
+			),
+		).toBeNull();
+		expect(importCard('{"kind":"filter"}')).toBeNull();
+	});
+
+	it("defaults what it cannot understand instead of throwing", () => {
+		const back = importCard(
+			JSON.stringify({
+				title: "Hand-made",
+				conditions: [
+					{ field: "no-such-field", is: true },
+					{ field: "dueDate", is: "yesterday" },
+					{ field: "effort", anyOf: ["quick"] },
+				],
+				sort: { field: "priority", direction: "sideways" },
+				shown: "many",
+				surprise: true,
+			}),
+		);
+
+		expect(back).toEqual({
+			kind: "filter",
+			seedId: null,
+			title: "Hand-made",
+			conditions: [{ field: "effort", anyOf: ["quick"] }],
+			sort: null,
+			shown: 5,
+			max: 20,
+			empty: { mode: "hide" },
+		});
 	});
 });

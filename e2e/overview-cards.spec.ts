@@ -1054,3 +1054,131 @@ test("18: with another member's private project present that matches a card's co
 	await annaContext.close();
 	await deleteDocAt(`/homes/${home}/dashboardCards/e2ePrivate`);
 });
+
+test("17: Copy as text produces a string; importing it creates a card the importer owns with the same conditions, editable afterwards", async ({
+	page,
+}) => {
+	const home = await homeId();
+	const marcus = await memberUid("Marcus");
+	const configPath = `/users/${marcus}/dashboard/config`;
+
+	const root = await throwawayRoot(home, `${PREFIX}copy root`);
+	await taskOf(home, root, `${PREFIX}copy mine`, { assigneeIds: [marcus] });
+	await taskOf(home, root, `${PREFIX}copy other`, {
+		assigneeIds: [await memberUid("Anna Maria Berg")],
+	});
+
+	// The clipboard is the whole export path — grant it up front, and start
+	// from a seeded config so the only non-seed card is this test's own.
+	await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+	await deleteDocAt(configPath);
+	await gotoOverview(page);
+	await expect(section(page, "ongoing")).toBeVisible();
+
+	// Compose the card the claim shares: assigned to me, and a step.
+	await gotoEditor(page);
+	await page
+		.getByRole("button", { name: enUS.overview.cards.editor.add })
+		.click();
+	const sheet = page.getByTestId("overview-card-edit");
+	await sheet.getByRole("textbox").first().fill(`${PREFIX}copycard`);
+	await sheet.getByRole("button", { name: enUS.detail.assignees }).click();
+	await sheet
+		.getByRole("button", { name: enUS.overview.cards.field.me, exact: true })
+		.click();
+	await sheet
+		.getByRole("button", { name: enUS.overview.cards.field.root })
+		.click();
+	await sheet
+		.getByRole("button", { name: enUS.overview.cards.field.isStep })
+		.click();
+	await sheet.getByRole("button", { name: enUS.manageHome.save }).click();
+
+	// The write reached the config, and it named the id the card landed under.
+	let cardId = "";
+	await expect
+		.poll(async () => {
+			const config = await readDocAt(configPath);
+			const cards = (config?.cards ?? {}) as Record<string, { title?: string }>;
+			cardId =
+				Object.entries(cards).find(
+					([, card]) => card.title === `${PREFIX}copycard`,
+				)?.[0] ?? "";
+			return cardId !== "";
+		})
+		.toBe(true);
+
+	// Copy as text: the string reaches the clipboard, carrying the card —
+	// conditions included — and the Snackbar says so.
+	await openCardMenu(
+		page,
+		page.getByTestId(`overview-editor-menu-${cardId}`),
+		MENU.copy,
+	);
+	await expect(page.getByText(enUS.overview.cards.menu.copied)).toBeVisible();
+	const text = await page.evaluate(() => navigator.clipboard.readText());
+	expect(text).toContain(`${PREFIX}copycard`);
+	expect(JSON.parse(text)).toMatchObject({
+		kind: "filter",
+		title: `${PREFIX}copycard`,
+		conditions: [
+			{ field: "assigneeIds", anyOf: ["me"] },
+			{ field: "isRoot", is: false },
+		],
+	});
+
+	// Import: paste, see what it says, add it as the importer's own.
+	await page
+		.getByRole("button", { name: enUS.overview.cards.editor.import })
+		.click();
+	const dialog = page.getByTestId("overview-card-import");
+	await dialog.getByTestId("overview-card-import-paste").fill(text);
+	await expect(page.getByTestId("overview-card-import-preview")).toContainText(
+		`${PREFIX}copycard`,
+	);
+	await expect(page.getByTestId("overview-card-import-preview")).toContainText(
+		enUS.overview.cards.field.me,
+	);
+	await dialog
+		.getByRole("button", { name: enUS.overview.cards.editor.add })
+		.click();
+	await expect(
+		page.getByText(enUS.overview.cards.editor.importAdded),
+	).toBeVisible();
+
+	// The imported card is a second card in the importer's own global config —
+	// never a copy over the first.
+	let importedId = "";
+	await expect
+		.poll(async () => {
+			const config = await readDocAt(configPath);
+			const cards = (config?.cards ?? {}) as Record<string, { title?: string }>;
+			importedId =
+				Object.entries(cards).find(
+					([id, card]) => card.title === `${PREFIX}copycard` && id !== cardId,
+				)?.[0] ?? "";
+			return importedId !== "";
+		})
+		.toBe(true);
+
+	// …and it is editable afterwards: the title changes under the editor's
+	// own sheet, the way any card of the importer's would.
+	await openCardMenu(
+		page,
+		page.getByTestId(`overview-editor-menu-${importedId}`),
+		MENU.edit,
+	);
+	await page.waitForTimeout(2_500);
+	const editSheet = page.getByTestId("overview-card-edit");
+	await editSheet.getByRole("textbox").first().fill(`${PREFIX}imported`);
+	await editSheet.getByRole("button", { name: enUS.manageHome.save }).click();
+
+	// On the screen it holds the rows its conditions match, for this reader.
+	await gotoOverview(page);
+	const imported = section(page, importedId);
+	await expect(imported).toBeVisible();
+	await expect(imported.getByText(`${PREFIX}copy mine`)).toBeVisible();
+	await expect(imported.getByText(`${PREFIX}copy other`)).toHaveCount(0);
+
+	await deleteDocAt(configPath);
+});

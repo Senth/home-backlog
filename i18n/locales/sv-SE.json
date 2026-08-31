@@ -249,6 +249,10 @@
 			"editor": {
 				"title": "Redigera kort",
 				"add": "Lägg till kort",
+				"import": "Importera kort",
+				"importPaste": "Klistra in ett delat kort",
+				"importInvalid": "Det där ser inte ut som ett delat kort.",
+				"importAdded": "Kortet är tillagt. Öppna det och gör det till ditt.",
 				"removed": "Borttagna original",
 				"restore": "Återställ",
 				"scope": {
@@ -262,6 +266,8 @@
 				"edit": "Redigera",
 				"hide": "Dölj för mig",
 				"show": "Visa för mig",
+				"copy": "Kopiera som text",
+				"copied": "Kopierat. Klistra in det för att dela kortet.",
 				"moveUp": "Flytta upp",
 				"moveDown": "Flytta ner",
 				"remove": "Ta bort",

@@ -629,3 +629,51 @@ export function toCard(
 		rank: typeof data.rank === "string" ? data.rank : "",
 	};
 }
+
+/*
+ * ---------------------------------------------------------------------------
+ * Export/import — one card, one string, clipboard-local
+ * ---------------------------------------------------------------------------
+ */
+
+/**
+ * The card as one pasteable string: the fields a *shared* card needs and
+ * nothing else — no id, no rank (the importer mints their own), no seedId
+ * (an import is never a seed), and the title already resolved, because the
+ * reader's i18n does not travel with it. Plain JSON survives a clipboard
+ * round-trip as-is; there is nothing here to compress or version.
+ */
+export function exportCard(card: Card): string {
+	return JSON.stringify({
+		kind: card.kind,
+		title: card.title,
+		conditions: card.conditions,
+		sort: card.sort,
+		shown: card.shown,
+		max: card.max,
+		empty: card.empty,
+	});
+}
+
+/**
+ * The string back into a card-to-be, or `null` — never a throw. `toCard` does
+ * the defensive reading, so a field the string cannot say falls back exactly
+ * the way a stored document does. A card that claims to be the built-in
+ * completed card, or that has no title at all, is not a card a member can
+ * own — that string is simply not one.
+ */
+export function importCard(text: string): Omit<Card, "id" | "rank"> | null {
+	let data: unknown;
+	try {
+		data = JSON.parse(text);
+	} catch {
+		return null;
+	}
+	if (typeof data !== "object" || data === null) return null;
+	const card = toCard("", data as Record<string, unknown>);
+	if (card === null || card.kind === "completed" || card.title === null) {
+		return null;
+	}
+	const { id: _id, rank: _rank, ...rest } = card;
+	return rest;
+}
