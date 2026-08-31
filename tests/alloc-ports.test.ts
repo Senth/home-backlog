@@ -2,8 +2,7 @@
 // dev-stack.sh drives it: spawned with `node`, with DEV_STACK_REGISTRY pointed
 // at a throwaway directory — no test ever touches the real registry. This is
 // the allocator's only proof, and deliberately so: the allocator is dev
-// tooling, and e2e is for production code and UI (see docs/OPERATIONS.md,
-// "The local stack").
+// tooling, and e2e is for production code and UI.
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";

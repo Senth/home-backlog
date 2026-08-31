@@ -18,8 +18,12 @@
  * They matter because `/review`'s hostile checklist treats the console as a
  * gate. A console that is never quiet teaches the next reviewer, human or agent,
  * to read past it — which is exactly how a real error gets waved through. The
- * rationale, and the noise that is *not* filtered, is written down in
- * `docs/specs/platform-offline.md`.
+ * gate is 0 errors and 0 warnings, and the only exceptions are a real network
+ * cut and a backend the browser cannot reach while it still believes it is
+ * online. Firestore's transport warnings stay in both: `net::ERR_INTERNET_DISCONNECTED`
+ * is Chrome's own line, unreachable from JavaScript, and the `WebChannelConnection`
+ * warning is the same message a genuinely unreachable backend produces, so
+ * silencing it hides the only clue in the failure nobody triggered.
  *
  * The obvious danger of a filter is that it hides a real warning that happens to
  * match, so the matching is deliberately narrow:
@@ -154,7 +158,7 @@ export function installDevConsoleFilter(
 			if (!announced) {
 				announced = true;
 				const ids = warnings.map((known) => known.id).join(", ");
-				const line = `[dev-console] Filtering known react-native-web warnings (${ids}). See docs/specs/platform-offline.md — "The console".`;
+				const line = `[dev-console] Filtering known react-native-web warnings (${ids}). See utils/dev-console.ts.`;
 				// `info` where there is one, so the announcement does not itself
 				// count against the console gate. A console without `info` is not
 				// worth losing the line over.

@@ -1,21 +1,21 @@
 ---
 name: bug
-description: "Use when something in Home Backlog is broken, or when picking up an issue labelled bug. Not for new features, cleanups, or fixing a defect that already has a spec."
+description: "Use when something in Home Backlog is broken, or when picking up an issue labelled bug. Not for new features, cleanups, or fixing a defect that already has a plan."
 ---
 
 # Bug skill
 
-Kickoff only: restate → branch → locate → spec → hand off. This skill ends when the spec is
+Kickoff only: restate → branch → locate → plan → hand off. This skill ends when the plan is
 confirmed. Fixing it is `/continue-work`, in a fresh session. **Do not write the fix here,
 and do not write the test here.**
 
-**The failing test is the repro**, and it is Phase 1 of every spec this skill writes. Write
+**The failing test is the repro**, and it is Phase 1 of every plan this skill writes. Write
 it before the fix, watch it go red, then make it green. One artifact does three jobs: it
 proves the thing that was actually reported got reproduced, it is the acceptance criterion,
 and it stops the bug coming back silently. A fix written first is a fix nobody can prove, and
 the bugs that recur are exactly the ones where nobody wrote the test.
 
-What this skill owes the next session is a spec precise enough that the failing test is
+What this skill owes the next session is a plan precise enough that the failing test is
 obvious: which level it lives at, what it does, and what its failure must say.
 
 Talk to the user in **unslop** prose. Work lives in GitHub Issues and the Kanban board
@@ -60,13 +60,13 @@ Read the code. Do not change it. You are working out two things: where the defec
 lives, and how wide it is.
 
 **Fix the cause, not the symptom.** If the real cause turns out to be out of scope, say so
-plainly, scope the spec to the symptom deliberately, and open an issue for the cause rather
+plainly, scope the plan to the symptom deliberately, and open an issue for the cause rather
 than leaving it implied.
 
 **Grep every caller of the function you are about to touch.** One guard in a shared helper
 beats a guard per caller, and a fix that lands on the path someone reported while its three
 siblings stay broken is a fix that comes back with a new issue number. Name the callers in
-the spec, and say for each whether it is in scope.
+the plan, and say for each whether it is in scope.
 
 Watch for the two shapes this codebase produces:
 
@@ -77,7 +77,7 @@ Watch for the two shapes this codebase produces:
 
 ## Step 4. Pick the test level
 
-The cheapest level that actually reproduces it. This goes in the spec, and Phase 1 builds it:
+The cheapest level that actually reproduces it. This goes in the plan, and Phase 1 builds it:
 
 | The bug is in | Test |
 |---|---|
@@ -86,7 +86,7 @@ The cheapest level that actually reproduces it. This goes in the spec, and Phase
 | behaviour across a screen, a write, offline, navigation | `e2e/*.spec.ts` |
 | **purely visual** — misalignment, a wrong colour in dark mode, a clipped label | no test; see below |
 
-Say in the spec what the test asserts and **what its failure message must say**. It must
+Say in the plan what the test asserts and **what its failure message must say**. It must
 fail, and it must fail for the reported reason: a test that passes before the fix is testing
 something else, and a test that fails with a different error is reproducing a different bug.
 Phase 1 reports which it saw.
@@ -97,36 +97,37 @@ eye after the fix. Say in the report that this bug ships without a regression gu
 why. Do not stretch a geometry assertion around something that is really a judgement — if
 it *can* be measured, it belongs in `e2e/craft.spec.ts` and it is not this exception.
 
-## Step 5. Did the spec lie?
+## Step 5. Did a past decision lie?
 
-A bug is often a spec that was wrong, or a spec that described behaviour nobody built.
-Check the area spec in `docs/specs/` for what you are about to fix:
+A bug is often a wrong decision, or a description of behaviour nobody built. The decisions
+live in the issues — the shipping PR body says `Closes #nn` — and in the code comments that
+record the why:
 
-- **Spec described the correct behaviour, code disagreed** → the code was the bug. Nothing
-  to change.
-- **Spec described the broken behaviour** → the wip spec says which lines of the area spec
-  the fix corrects. It is now documentation of a bug, and `/ship` folds the correction in.
-- **Spec said nothing** → add a line where it belongs, if the behaviour is worth stating.
+- **Decision right, code disagreed** → the code was the bug. Nothing to change.
+- **Decision is the broken behaviour** → say in the plan which decision the fix reverses,
+  and comment the reversal on the issue that made it.
+- **Nothing was ever decided** → add a code comment where it belongs, if the behaviour is
+  worth stating.
 
-## Step 6. Write the spec
+## Step 6. Write the plan
 
-`docs/specs/wip/<nn>-<slug>.md`, the same shape as
+`.tmp/<nn>-plan.md`, the same shape as
 [`new-feature`](../new-feature/SKILL.md)'s, minus the sections a fix has nothing to put in.
-A bug spec is usually one screen of text:
+A bug plan is usually one screen of text:
 
 ```
-# Handoff            (wip only)
+# Handoff            (plan only)
 1. What              the one-line restatement from Step 1
 2. Why               the cause, in one sentence — not the diff, the cause
 3. Data & queries    only when the fix touches a query or a listener
 4. Rules & tests     only when firestore.rules or storage.rules changes
-5. Surface brief     (wip only) — one line, or omitted
+5. Surface brief     (plan only) — one line, or omitted
 6. UI flow           only when a screen changes
 7. Strings           only when a t() key changes
-8. Acceptance        (wip only) numbered, tagged [test] or [eye]
+8. Acceptance        (plan only) numbered, tagged [test] or [eye]
 9. What this does NOT change   the callers from Step 3 that stay as they are
 10. Out of scope     the cause you deliberately did not fix, with its issue number
-11. Phases           (wip only) — Phase 1 is the failing test, always
+11. Phases           (plan only) — Phase 1 is the failing test, always
 ```
 
 **Surface brief.** One line when the fix changes what a household sees — "the drop target
@@ -150,12 +151,13 @@ abstraction is still a deletion.
 
 ## Step 7. Handoff
 
-Only after the spec is written and the user has confirmed it.
+Only after the plan is written and the user has confirmed it.
 
 1. **Ensure a tracking issue exists.** `GIT_VANILLA=1 gh issue create --label bug` if there
-   is none, and rename the wip file to match the number.
-2. **Comment the spec link on the issue.** Do not edit the issue description.
-3. Tell the user to run **`/continue-work docs/specs/wip/<nn>-<slug>.md`** in a fresh
+   is none, and rename the plan file to match the number.
+2. **Paste the plan into a comment on the issue.** The file is untracked, so the comment is
+   the record. Do not edit the issue description.
+3. Tell the user to run **`/continue-work .tmp/<nn>-plan.md`** in a fresh
    session, and stop.
 
 ## What to say
@@ -164,5 +166,5 @@ Only after the spec is written and the user has confirmed it.
 - The cause, in one sentence
 - The test that will reproduce it, and where it lives
 - Every caller you grepped, and which are in scope
-- Whether the spec was wrong too
+- Whether a past decision was wrong too
 - Anything you deliberately scoped out, and the issue number if you filed one

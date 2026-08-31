@@ -209,10 +209,8 @@ describe("installDevConsoleFilter", () => {
 		expect(target.info).toHaveBeenCalledTimes(1);
 		expect(passedThrough(warn)).toEqual([["Could not reach Firestore"]]);
 		// The line has to be findable from the console alone, so it names the
-		// document that explains the decision.
-		expect(target.info.mock.calls[0][0]).toContain(
-			"docs/specs/platform-offline.md",
-		);
+		// file that explains the decision.
+		expect(target.info.mock.calls[0][0]).toContain("utils/dev-console.ts");
 	});
 
 	it("falls back to warn on a console with no info", () => {

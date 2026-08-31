@@ -338,7 +338,7 @@ fi
 #
 # That module swallows two react-native-web deprecations, plus the
 # useNativeDriver notice on web only, so that `/review`'s
-# console gate means something again — see docs/specs/platform-offline.md. The
+# console gate means something again — see utils/dev-console.ts. The
 # whole reason it is safe is that it is *one* narrow, tested, __DEV__-only
 # filter that announces itself. A second one somewhere else, or a widening of
 # this one to console.error, turns "the console is clean" back into a claim
@@ -358,13 +358,13 @@ fi
 # ---------------------------------------------------------------------------
 # 10. Every [test] acceptance claim has a matching e2e test
 #
-# A wip spec's Acceptance section numbers what the feature must do, and tags
+# A plan's Acceptance section numbers what the feature must do, and tags
 # each claim `[test]` (assertable in a browser) or `[eye]` (a judgement, left to
 # browser-review). A `[test]` claim is a promise that an `e2e/` spec asserts it,
 # and that promise is the only reason the review gate stopped walking acceptance
 # by hand — see .claude/skills/review/SKILL.md. The promise is only available to
 # production code and UI: e2e drives a real browser and an app, so a dev-tooling
-# spec proves itself in `yarn test` and tags nothing [test].
+# plan proves itself in `yarn test` and tags nothing [test].
 #
 # The check is deliberately shallow: it matches the claim *number*, as
 # `test("<n>: ...")` or `test("<n> ...")`, not the wording. Whether the test
@@ -372,13 +372,13 @@ fi
 # belongs to diff-review. This catches the claim nobody wrote a test for at all,
 # which is the failure that actually happens.
 #
-# Only wip specs are checked. `/ship` deletes the Acceptance section when it
-# folds a spec into docs/specs/, because by then the tests are the record.
+# Only .tmp/<nn>-plan.md plans are checked, and /ship deletes the plan when the
+# PR opens, because by then the tests are the record. The plans are untracked —
+# `.tmp/` is gitignored — so they are read from the filesystem, not from git.
 # ---------------------------------------------------------------------------
-wip_specs=$(git ls-files --cached --others --exclude-standard 'docs/specs/wip/*.md' |
-	grep -v '/README\.md$' || true)
+plans=$(ls .tmp/*-plan.md 2>/dev/null || true)
 missing=""
-for spec in $wip_specs; do
+for spec in $plans; do
 	[[ -f "$spec" ]] || continue
 	# The Acceptance section: from its heading to the next heading.
 	claims=$(sed -n '/^##[[:space:]].*Acceptance/,/^##[[:space:]]/p' "$spec" |

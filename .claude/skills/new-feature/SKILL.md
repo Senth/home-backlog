@@ -5,14 +5,13 @@ description: "Use when starting a Home Backlog feature, or picking up an issue l
 
 # New feature skill
 
-Kickoff only: identify → branch → ask → personas → grill → spec → hand off. This skill ends
-when the spec is confirmed. Building it is `/continue-work`, in a fresh session. **Do not
+Kickoff only: identify → branch → ask → personas → grill → plan → hand off. This skill ends
+when the plan is confirmed. Building it is `/continue-work`, in a fresh session. **Do not
 start coding here.**
 
 Talk to the user in **unslop** prose. Context:
 [`docs/PROJECT.md`](../../../docs/PROJECT.md),
 [`docs/PERSONAS.md`](../../../docs/PERSONAS.md),
-[`docs/specs/INDEX.md`](../../../docs/specs/INDEX.md),
 [`docs/DESIGN.md`](../../../docs/DESIGN.md).
 
 Not for bugs or cleanups — those have [`bug`](../bug/SKILL.md) and
@@ -22,7 +21,7 @@ and ask whether to run anyway. It happens, and it is allowed; just do not do it 
 ## Step 1. Identify the feature
 
 `GIT_VANILLA=1 gh issue list --state open --label feature`, plus the board's Next Up column.
-Read `docs/PROJECT.md` and `docs/specs/INDEX.md` first.
+Read `docs/PROJECT.md` first.
 
 - Named by the user → confirm it.
 - Nothing named → propose the top of Next Up, falling back to Backlog.
@@ -59,17 +58,12 @@ flattens back into a generic worry, so it stays where the judgement is, and it s
 **unslop** prose rather than caveman.
 
 Invoke it with the issue number (or the description plus the Step 3 answers) and name the two
-or three personas the feature touches. Hand it the **section map** for the area specs it
-should read — the ranges, not the files. `boards-and-nodes.md` is over 1700 lines:
-
-```bash
-grep -n '^## ' docs/specs/<area>.md
-```
+or three personas the feature touches.
 
 Then split its findings:
 
 - **`blocking` and `should-fix`** — mandatory topics in Step 5. Each ends up resolved in the
-  spec body or in **Out of scope** with the reason. None may be ignored.
+  plan body or in **Out of scope** with the reason. None may be ignored.
 - **`idea`** — list them and **ask** which to file. For each yes:
   `GIT_VANILLA=1 gh issue create --label idea`, then move it to the Idea column in the same
   step, and link the number from the spec's **Out of scope**. An idea sitting in Backlog is
@@ -102,34 +96,35 @@ answers.
 Do not invoke `ponytail` here. It belongs at write time, where an unnecessary abstraction is
 still a deletion rather than a rewrite, and `/continue-work` runs it there.
 
-A genuinely unresolvable topic is recorded in the spec as an open decision rather than
+A genuinely unresolvable topic is recorded in the plan as an open decision rather than
 ground on.
 
-## Step 6. Write the spec
+## Step 6. Write the plan
 
-`docs/specs/wip/<nn>-<slug>.md`, where `<nn>` is the issue number. Temporary: `/ship` folds
-it into an area spec and deletes it.
+`.tmp/<nn>-plan.md`, where `<nn>` is the issue number. Untracked — `.tmp/` is gitignored —
+and temporary: the plan text is pasted onto the issue, which is the record, and `/ship`
+deletes the file when the PR opens.
 
 ```
-# Handoff            (wip only)
+# Handoff            (plan only)
 1. What              one sentence
 2. Why               rationale, *including the alternatives rejected and why*
 3. Data & queries    fields, indexes, and the provably-safe queries each screen fires
 4. Rules & tests     firestore.rules / storage.rules changes + tests/rules/ cases
-5. Surface brief     (wip only) — user-visible work only
+5. Surface brief     (plan only) — user-visible work only
 6. UI flow           screens, Paper components, tokens, offline behaviour
 7. Strings           new t() keys with en-US and sv-SE wording
-8. Acceptance        (wip only) numbered, tagged [test] or [eye]
+8. Acceptance        (plan only) numbered, tagged [test] or [eye]
 9. What this does NOT change
 10. Out of scope     explicit exclusions, with issue links where one exists
-11. Phases           (wip only)
+11. Phases           (plan only)
 ```
 
 Query safety lives in **Data & queries**. This repo has no privacy document for a section of
 its own to serve, and a safety argument split from the queries it is about is an argument
 nobody re-reads.
 
-Write behaviour in the present tense, as a description of the app. **Why** is what stops a
+Write behaviour in the present tense, as the app should behave once it ships. **Why** is what stops a
 decision being re-argued later. Never trim it.
 
 ### Surface brief
@@ -154,7 +149,7 @@ Five lines, no more:
 Name the tokens and the Paper components in **UI flow**, not here. This section is intent;
 that one is mechanism.
 
-Skip it only for plumbing, and say in the spec's **What** line that the feature has no
+Skip it only for plumbing, and say in the plan's **What** line that the feature has no
 surface. `browser-review` reads this section to know what the change was trying to be.
 
 ### Acceptance
@@ -189,7 +184,7 @@ how something looks. Visual work is the one people reach for a bigger model on, 
 the wrong reach: what a screen should look like is decided in `docs/DESIGN.md` and in the
 Surface brief, both of which are written before any phase runs. A phase that needs taste
 at dispatch time is a phase whose design was never finished, and finishing it is this
-skill's job, here, before the user confirms the spec.
+skill's job, here, before the user confirms the plan.
 
 ```
 Phase 1  models + rules + tests/rules
@@ -206,22 +201,23 @@ runs them itself.
 
 ## Step 7. Handoff
 
-Only after the spec is written and the user has confirmed it. Present it, loop on changes
+Only after the plan is written and the user has confirmed it. Present it, loop on changes
 until an explicit yes.
 
 1. **Ensure a tracking issue exists.** `GIT_VANILLA=1 gh issue create --label feature` if
-   there is none, and rename the wip file to match the number.
-2. **Comment the spec link on the issue.** Do not edit the issue description.
-3. Tell the user to run **`/continue-work docs/specs/wip/<nn>-<slug>.md`** in a fresh
+   there is none, and rename the plan file to match the number.
+2. **Paste the plan into a comment on the issue.** The file is untracked, so the comment is
+   the record. Do not edit the issue description.
+3. Tell the user to run **`/continue-work .tmp/<nn>-plan.md`** in a fresh
    session, and stop.
 
-## The Handoff section of the spec
+## The Handoff section of the plan
 
 Written for a session with no context but the file. Keep it to four lines:
 
 - This file is the implementation plan; `/continue-work` works the **Phases** in order,
   reviews, and ships.
-- Read `CLAUDE.md`, `docs/DESIGN.md` and the area specs cross-linked above first.
-- Nothing durable may live only in **Handoff**, **Surface brief**, **Acceptance** or
-  **Phases**. `/ship` deletes all four.
+- Read `CLAUDE.md` and `docs/DESIGN.md` first.
+- Nothing durable may live only in this file. `/ship` deletes the whole plan; a fact that
+  must survive lands in a code comment, `CLAUDE.md` or `docs/DESIGN.md`.
 - The run stops at a draft PR. The merge is the user's.

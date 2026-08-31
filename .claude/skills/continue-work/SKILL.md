@@ -1,11 +1,11 @@
 ---
 name: continue-work
-description: "Use when a Home Backlog spec is confirmed and ready to build, or to resume a run that stopped partway. Not for deciding what to build."
+description: "Use when a Home Backlog plan is confirmed and ready to build, or to resume a run that stopped partway. Not for deciding what to build."
 ---
 
 # Continue work — Home Backlog
 
-One session takes a confirmed spec to a draft PR: implement every phase, review, ship.
+One session takes a confirmed plan to a draft PR: implement every phase, review, ship.
 
 This skill **inherits the global `continue-work` skill**. The stage order, the checkpoint
 format, the commit-per-stage rule and the stop rules are all defined there and are not
@@ -15,7 +15,7 @@ escalation ladder, the parallelism rules — live in the global **`glm-dispatch`
 Read both first.
 
 You are the driver, not the worker. Everything that writes code is dispatched to GLM. The
-spec, the dispatch and the PASS/FAIL stay with you.
+plan, the dispatch and the PASS/FAIL stay with you.
 
 Talk to the user in **unslop** prose — plain, direct, no filler. Not caveman: this output is
 small and read every run, so clarity beats compression. The agents are the ones under
@@ -39,7 +39,7 @@ A dirty tree or a mismatched HEAD means somebody worked outside the run. Stop an
 
 On `main`, stop. Pushing to `main` deploys to production.
 
-No checkpoint → this is a fresh run. Read the spec whole. It is short, it is the contract,
+No checkpoint → this is a fresh run. Read the plan whole. It is short, it is the contract,
 and it is the only thing you carry.
 
 ## The gates
@@ -72,24 +72,21 @@ in it. Note which, and report it at the end.
 no tokens and one shell command each, and when your run disagrees with the report, the
 report is wrong: the stage is red and your output is what goes into the next round's prompt.
 
-## Stage 1 — implement, once per spec phase
+## Stage 1 — implement, once per plan phase
 
-For each phase in the spec's **Phases**, in order. One phase, one dispatch, one writer;
+For each phase in the plan's **Phases**, in order. One phase, one dispatch, one writer;
 never two writing processes against this working tree.
 
 1. **Write the prompt to a file** under `.tmp/prompts/`, stable part first so the retry hits
    the cache. It carries:
 
-   - the spec path and **which phase**, not the spec's contents
-   - the **section map** — exact line ranges of the area specs this phase touches, from
-     `grep -n '^## ' docs/specs/<area>.md`, paired with the next heading's line. Never let a
-     phase read a whole area spec; `boards-and-nodes.md` is over 1700 lines
+   - the plan path and **which phase**
    - the gate commands, by pointing at `.ai/config.toml`'s `[gates]`
    - `ponytail` in **full** mode, always, including on a two-phase spec. Catching an
      unnecessary abstraction at write time is a deletion; catching it in diff-review is a
      rewrite, and this repo has paid for the rewrite version
-   - **when the phase touches `[review] visible_paths`**: `docs/DESIGN.md` and the spec's
-     **Surface brief**, plus design-apply's `references/principles.md`,
+    - **when the phase touches `[review] visible_paths`**: `docs/DESIGN.md` and the plan's
+      **Surface brief**, plus design-apply's `references/principles.md`,
      `references/anti-patterns.md` and `references/checklist.md`. The agent skips
      design-apply's Steps 1, 2 and 5 — discovery is answered by the contract, the mode is
      always **conform**, and verification is the gate's job and `browser-review`'s. **It
@@ -113,7 +110,7 @@ never two writing processes against this working tree.
    you just ran prints a path for.
 
    Every phase goes to GLM, including the ones that change how a screen looks, and so does
-   every review stage below. A spec written before that was settled may still hint `Opus`
+   every review stage below. A plan written before that was settled may still hint `Opus`
    on a phase; the hint is stale, and the phase is dispatched here like any other. Nothing
    this skill dispatches runs on Claude.
 
@@ -124,7 +121,7 @@ never two writing processes against this working tree.
    an `e2e` test literally named `test("NN: …")` for every Acceptance claim tagged
    `[test]`, so it stays red for the claims later phases have not written yet. Read which
    claims it names before you treat it as this phase's problem: claims a later phase owns
-   are the spec's phasing, and you carry them in the checkpoint as `red: invariants, owed by
+   are the plan's phasing, and you carry them in the checkpoint as `red: invariants, owed by
    phase n`. A claim **this** phase owns is yours now, because nothing downstream is coming
    for it. Say which of the two when you report.
 
@@ -135,7 +132,7 @@ never two writing processes against this working tree.
    stop. Announce, checkpoint, dispatch the next phase. Never pause to ask whether to
    continue; the stop rules in the global skill are the only stops there are.
 
-A phase that builds a screen owns its `e2e/` tests in the same phase. The spec's `[test]`
+A phase that builds a screen owns its `e2e/` tests in the same phase. The plan's `[test]`
 acceptance claims become real specs whose titles start with the claim's number —
 `test("3: …")` — and `yarn invariants` fails until every claim has one. That failure is the
 feedback; do not work around it by renaming the claim.
@@ -174,7 +171,7 @@ oc-task review      ~/git/home-backlog .tmp/prompts/ponytail-review.md \
 wait
 ```
 
-`diff-review` gets the issue number, the spec path, the section map and the full diff. The
+`diff-review` gets the issue number, the plan path and the full diff. The
 `review` agent gets the diff and one instruction: run the `ponytail-review` skill against it
 and report only over-engineering. Neither one gets your account of what you built or why it
 is correct — that sentence is what turns a reviewer into a rubber stamp.
@@ -223,7 +220,7 @@ oc-task browser-review ~/git/home-backlog .tmp/prompts/browser-review.md \
 ```
 
 Take the URL from what `up` prints, never from memory — `dev-stack.sh status` lists the
-ports too. Hand the agent the issue number, the spec path, the section map, the list of
+ports too. Hand the agent the issue number, the plan path, the list of
 **changed screens** from `diff-review`, and that URL. Not the diff.
 
 Its findings are another fix round under the same commit-then-checkpoint rule. If it comes
@@ -234,16 +231,20 @@ Checkpoint the finished stage even when nothing needed fixing and no round ever 
 
 ## Stage 3 — ship
 
-Run [`/ship`](../ship/SKILL.md) as written: fold the wip spec into its area spec and delete
-it, update the row in `docs/specs/INDEX.md`, refresh `.emulator-seed/` if the work added data
-every future review should see, commit, push, and open a **draft** PR with
-`--fill --body "Closes #<nn>"`. Call out in the body any earlier commits on the branch that
-are not part of this issue — they ship with it.
+Run [`/ship`](../ship/SKILL.md) as written: delete `.tmp/<nn>-plan.md` (its text is already
+in a comment on the issue), refresh `.emulator-seed/` if the work added data every future
+review should see, commit, push, and let the script open the **draft** PR:
 
-`Handoff`, `Surface brief`, `Acceptance` and `Phases` are scaffolding and do not survive the
-fold.
+```bash
+scripts/create-pr-and-merge.sh --no-merge \
+  --title "<type>(<scope>): <what changed>" \
+  --body "Closes #<nn>"
+```
 
-Then watch CI, checkpoint, **delete the checkpoint file**, and give the user the PR URL. The
+Call out in the body any earlier commits on the branch that are not part of this issue —
+they ship with it.
+
+Then checkpoint, **delete the checkpoint file**, and give the user the PR URL. The
 merge is theirs: merging deploys to production, and there are no required status checks
 holding it back.
 
@@ -273,6 +274,6 @@ not replace them.
   round's prompt; it is not yours to debug.
 - Writing code yourself. Everything that writes is dispatched.
 - Marking a stage green on the strength of a report alone.
-- Redesigning mid-run. A spec that turns out to be wrong is a human conversation, not a fix
+- Redesigning mid-run. A plan that turns out to be wrong is a human conversation, not a fix
   round.
 - A non-draft PR, or a merge.

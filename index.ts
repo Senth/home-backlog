@@ -13,8 +13,7 @@
  * warning fires in there. This file is the only place upstream of all of it.
  *
  * Nothing else belongs here. `package.json`'s `main` points at this file rather
- * than at `expo-router/entry`; see `docs/specs/platform-offline.md` — "The
- * console".
+ * than at `expo-router/entry` for exactly that reason.
  */
 import "@/utils/dev-console";
 
