@@ -8,6 +8,7 @@ import {
 	deleteNodesByTitlePrefix,
 	homeId,
 	type Json,
+	lateRanks,
 	memberUid,
 	readDocAt,
 	waitForHomeId,
@@ -173,6 +174,7 @@ test("2: Ongoing projects shows roots in execution in board order — the same r
 }) => {
 	const first = `${PREFIX}ongoing first`;
 	const second = `${PREFIX}ongoing second`;
+	const [firstRank, secondRank] = lateRanks(2);
 	await createFixtureNode({
 		title: first,
 		status: "execution",
@@ -180,7 +182,7 @@ test("2: Ongoing projects shows roots in execution in board order — the same r
 		ancestorIds: [],
 		visibility: "shared",
 		participantIds: [],
-		rank: "zz001",
+		rank: firstRank,
 		dueDate: null,
 		completedAt: null,
 	});
@@ -191,7 +193,7 @@ test("2: Ongoing projects shows roots in execution in board order — the same r
 		ancestorIds: [],
 		visibility: "shared",
 		participantIds: [],
-		rank: "zz002",
+		rank: secondRank,
 		dueDate: null,
 		completedAt: null,
 	});
@@ -321,6 +323,7 @@ test("6: Needs splitting shows tasks with effort a weekend or multi-week, 5 show
 	const home = await waitForHomeId(homeName);
 	const root = await throwawayRoot(home, `${PREFIX}split pool root`);
 	const titles: string[] = [];
+	const ranks = lateRanks(6);
 	for (const [index, title] of [
 		`${PREFIX}split one`,
 		`${PREFIX}split two`,
@@ -332,7 +335,7 @@ test("6: Needs splitting shows tasks with effort a weekend or multi-week, 5 show
 		titles.push(title);
 		await taskOf(home, root, title, {
 			effort: "weekend",
-			rank: `zz00${index + 1}`,
+			rank: ranks[index],
 		});
 	}
 
@@ -362,6 +365,7 @@ test("7: Needs an estimate shows tasks with no effort set, 5 shown and up to 10 
 	const home = await waitForHomeId(homeName);
 	const root = await throwawayRoot(home, `${PREFIX}estimate pool root`);
 	const titles: string[] = [];
+	const ranks = lateRanks(6);
 	for (const [index, title] of [
 		`${PREFIX}estimate one`,
 		`${PREFIX}estimate two`,
@@ -371,7 +375,7 @@ test("7: Needs an estimate shows tasks with no effort set, 5 shown and up to 10 
 		`${PREFIX}estimate six`,
 	].entries()) {
 		titles.push(title);
-		await taskOf(home, root, title, { rank: `zz00${index + 1}` });
+		await taskOf(home, root, title, { rank: ranks[index] });
 	}
 
 	await gotoOverview(page);
@@ -458,6 +462,7 @@ test("10: +N more expands a card in place and Show less collapses it", async ({
 	// Huset's own board already holds two ongoing roots, so four more put the
 	// card at six rows: five shown, one held.
 	const titles: string[] = [];
+	const expandRanks = lateRanks(4);
 	for (const index of [1, 2, 3, 4]) {
 		const title = `${PREFIX}expand ${index}`;
 		titles.push(title);
@@ -468,7 +473,7 @@ test("10: +N more expands a card in place and Show less collapses it", async ({
 			ancestorIds: [],
 			visibility: "shared",
 			participantIds: [],
-			rank: `zz010${index}`,
+			rank: expandRanks[index - 1],
 			dueDate: null,
 			completedAt: null,
 		});
@@ -505,22 +510,28 @@ test("19: a card whose rows have no priority set still renders, and unset priori
 	const urgent = `${PREFIX}sort urgent`;
 	const noPriority = `${PREFIX}sort no priority`;
 	const noEffort = `${PREFIX}sort no effort`;
+	const sortRanks = lateRanks(4);
 	await taskOf(home, root, low, {
 		priority: "low",
 		effort: "quick",
-		rank: "zz001",
+		rank: sortRanks[0],
 	});
 	await taskOf(home, root, urgent, {
 		priority: "urgent",
 		effort: "quick",
-		rank: "zz002",
+		rank: sortRanks[1],
 	});
-	await taskOf(home, root, noPriority, { effort: "quick", rank: "zz003" });
-	await taskOf(home, root, noEffort, { rank: "zz004" });
+	await taskOf(home, root, noPriority, {
+		effort: "quick",
+		rank: sortRanks[2],
+	});
+	await taskOf(home, root, noEffort, { rank: sortRanks[3] });
 
 	// Two cards in the home scope, one per direction: ascending is the one
 	// that would read "unset is lowest" and put it *first*, descending is the
-	// one that would drop it behind everything by luck.
+	// one that would drop it behind everything by luck. Their ranks are
+	// valid keys, late like every fixture rank — see `lateRanks`.
+	const lateCardRanks = lateRanks(2);
 	await writeDocAt(dashPath, {
 		cards: {
 			priorityAsc: {
@@ -533,7 +544,7 @@ test("19: a card whose rows have no priority set still renders, and unset priori
 				shown: 20,
 				max: 20,
 				empty: { mode: "say", key: "overview.cards.empty.generic" },
-				rank: "zz001",
+				rank: lateCardRanks[0],
 			},
 			effortDesc: {
 				id: "effortDesc",
@@ -545,7 +556,7 @@ test("19: a card whose rows have no priority set still renders, and unset priori
 				shown: 20,
 				max: 20,
 				empty: { mode: "say", key: "overview.cards.empty.generic" },
-				rank: "zz002",
+				rank: lateCardRanks[1],
 			},
 		},
 		hiddenSharedIds: [],
@@ -683,6 +694,16 @@ test("11: a card marked All my homes renders in every home the account belongs t
 	// Two global cards, the second ranked below the first. Reorder moves the
 	// second above the first — through the menu, which is the accessible
 	// alternative the editor exists to offer.
+	//
+	// Overview loads **before** the config is written, and the settle gives
+	// the page's first server snapshot time to land: the card-config
+	// listener resumes from whatever token the signed-in state cached, and a
+	// token that predates a config *delete* has been seen replaying the
+	// delete for a write that happened before any page existed — the app
+	// then re-seeds right over it. With the listener live, the write flows
+	// through the same listener the assertions read; no race left to lose.
+	await gotoOverview(page);
+	await page.waitForTimeout(2_500);
 	await writeDocAt(configPath, {
 		cards: {
 			e2eFirst: storedCard("e2eFirst", `${PREFIX}first`, { rank: "VA" }),
@@ -691,10 +712,16 @@ test("11: a card marked All my homes renders in every home the account belongs t
 		seededAt: new Date(),
 	});
 
-	await gotoOverview(page);
-	await expect(section(page, "e2eFirst")).toBeVisible();
+	// A real window, not the 5s default: the config arrives through a
+	// listener the page opens as it mounts, and a warm emulator's boot has
+	// been seen spending more than five seconds before the first snapshot
+	// lands. Every wait in this claim that rides on a backend read gets the
+	// same thirty seconds the reorder poll below already has.
+	await expect(section(page, "e2eFirst")).toBeVisible({ timeout: 30_000 });
 	await expect
-		.poll(() => sectionOrder(page, "e2eFirst", "e2eSecond"))
+		.poll(() => sectionOrder(page, "e2eFirst", "e2eSecond"), {
+			timeout: 30_000,
+		})
 		.toBe(true);
 
 	// Move the second card up, and wait for the write to reach the config the
@@ -719,17 +746,21 @@ test("11: a card marked All my homes renders in every home the account belongs t
 	// The screen agrees, here…
 	await gotoOverview(page);
 	await expect
-		.poll(() => sectionOrder(page, "e2eSecond", "e2eFirst"))
+		.poll(() => sectionOrder(page, "e2eSecond", "e2eFirst"), {
+			timeout: 30_000,
+		})
 		.toBe(true);
 
 	// …and in the other home, because a global card has one rank.
 	const homeName = `${PREFIX}global home ${Date.now()}`;
 	await createThrowawayHome(page, homeName);
 	await gotoOverview(page);
-	await expect(section(page, "e2eSecond")).toBeVisible();
-	await expect(section(page, "e2eFirst")).toBeVisible();
+	await expect(section(page, "e2eSecond")).toBeVisible({ timeout: 30_000 });
+	await expect(section(page, "e2eFirst")).toBeVisible({ timeout: 30_000 });
 	await expect
-		.poll(() => sectionOrder(page, "e2eSecond", "e2eFirst"))
+		.poll(() => sectionOrder(page, "e2eSecond", "e2eFirst"), {
+			timeout: 30_000,
+		})
 		.toBe(true);
 
 	await deleteThrowawayHome(page, homeName);

@@ -19,7 +19,29 @@
  * security check.
  */
 
+import { generateNKeysBetween } from "fractional-indexing";
 import { stackPorts } from "@/e2e/support/stack";
+
+/**
+ * The rank alphabet `models/node.ts` ranks with, spelled out here because
+ * this file stands outside the app build.
+ */
+const RANK_DIGITS =
+	"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+/**
+ * `count` **valid** fractional ranks sorting after every card the fixture
+ * seeds.
+ *
+ * Valid, not merely late-sorting: the app ranks its own creates with
+ * `rankAtEnd(last?.rank)` over whatever it can see, and a card whose rank
+ * `generateKeyBetween` refuses makes every later FAB create crash — the
+ * first draft of this used `zz…` strings, and the run that leaked one left
+ * the board unable to create a card until the leak was swept by hand.
+ */
+export function lateRanks(count: number): string[] {
+	return generateNKeysBetween("Vz", null, count, RANK_DIGITS);
+}
 
 const PROJECT = "home-backlog";
 const EMULATOR_PORT = stackPorts().firestore;
@@ -149,14 +171,13 @@ export async function fillColumn(
 	}
 
 	const titles: string[] = [];
+	const ranks = lateRanks(count);
 	for (let index = 0; index < count; index++) {
 		const title = `${titlePrefix} ${index + 1}`;
 		const fields = {
 			...(template.fields as Record<string, unknown>),
 			title: { stringValue: title },
-			// Lowercase, so it sorts after every fractional-index rank in the
-			// fixture — those start at a capital letter.
-			rank: { stringValue: `zz${String(index).padStart(3, "0")}` },
+			rank: { stringValue: ranks[index] },
 			status: { stringValue: status },
 			parentId: { nullValue: null },
 			ancestorIds: { arrayValue: {} },
