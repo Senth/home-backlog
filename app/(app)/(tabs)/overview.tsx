@@ -128,6 +128,7 @@ export default function Overview() {
 							uid,
 							now,
 							roots: roots.nodes,
+							blockers,
 						}),
 			);
 		}

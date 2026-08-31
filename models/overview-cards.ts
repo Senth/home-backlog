@@ -9,6 +9,7 @@ import {
 	priorityOrder,
 	rankSequence,
 	type Status,
+	unresolvedBlockers,
 	type Visibility,
 } from "@/models/node";
 import { hiddenByRoot, overviewLimit } from "@/models/overview";
@@ -226,6 +227,15 @@ export function seedCards(): Record<string, Card> {
 export interface MatchContext {
 	uid: string;
 	now: Date;
+	/**
+	 * What each blocker id resolves to, so `blockedBy` can mean what #66 made
+	 * "waiting" mean: the *unresolved* entries, never the stored list — a done
+	 * blocker keeps its entry as inert history. A blocker absent from the map
+	 * counts as unresolved, the not-yet direction everywhere else takes; with
+	 * an empty map every entry is unresolved, which is the raw-length
+	 * behaviour the condition shipped with.
+	 */
+	blockers: ReadonlyMap<string, Node | null>;
 }
 
 function matches(node: Node, condition: CardCondition, ctx: MatchContext) {
@@ -268,10 +278,17 @@ function matches(node: Node, condition: CardCondition, ctx: MatchContext) {
 					? node.participantIds.includes(ctx.uid)
 					: node.participantIds.includes(value),
 			);
-		case "blockedBy":
+		case "blockedBy": {
+			// #66's meaning, through `unresolvedBlockers`: a blocker completed
+			// while waiting stays in `blockedBy` as inert history, so the
+			// stored length is not the answer. A blocker absent from the map
+			// — private to another member, gone, or not yet read — counts as
+			// unresolved, which is the privacy-safe not-yet.
+			const unresolved = unresolvedBlockers(node, ctx.blockers);
 			return condition.is === "any"
-				? node.blockedBy.length > 0
-				: node.blockedBy.length === 0;
+				? unresolved.length > 0
+				: unresolved.length === 0;
+		}
 		case "locationId":
 			return condition.is === "any"
 				? node.locationId !== null

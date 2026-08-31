@@ -80,7 +80,12 @@ const me = "uid-me";
 const you = "uid-you";
 /** The project every seeded task sits under — and the only loaded root. */
 const mine = node({ id: "mine", participantIds: [me, you] });
-const ctx = { uid: me, now, roots: [mine] };
+const ctx = {
+	uid: me,
+	now,
+	roots: [mine],
+	blockers: new Map<string, Node | null>(),
+};
 
 /** A card with just these conditions, in board order, over the whole scale. */
 function card(conditions: CardCondition[], sort: CardSort | null = null) {
@@ -306,6 +311,62 @@ describe("matching", () => {
 		).toEqual(["node-1"]);
 	});
 
+	describe("blockedBy means #66's waiting", () => {
+		const waiting = task({ blockedBy: ["blocker-1"] });
+		const withBlocker = (blocker: Node | null) =>
+			new Map<string, Node | null>([["blocker-1", blocker]]);
+		const done = task({ id: "blocker-1", status: "done" });
+		const open = task({ id: "blocker-1", status: "backlog" });
+		const rowsWith = (
+			conditions: CardCondition[],
+			blockers: ReturnType<typeof withBlocker>,
+		) =>
+			cardRows(card(conditions), [waiting], { ...ctx, blockers }).map(
+				(each) => each.id,
+			);
+
+		it("does not match any when the only blocker is done", () => {
+			expect(
+				rowsWith([{ field: "blockedBy", is: "any" }], withBlocker(done)),
+			).toEqual([]);
+		});
+
+		it("matches any while a blocker is open", () => {
+			expect(
+				rowsWith([{ field: "blockedBy", is: "any" }], withBlocker(open)),
+			).toEqual(["node-1"]);
+		});
+
+		it("matches any for a blocker absent from the map — the not-yet direction", () => {
+			expect(rowsWith([{ field: "blockedBy", is: "any" }], new Map())).toEqual([
+				"node-1",
+			]);
+			// A `null` — the watcher's "server confirmed gone" — waits too.
+			expect(
+				rowsWith([{ field: "blockedBy", is: "any" }], withBlocker(null)),
+			).toEqual(["node-1"]);
+		});
+
+		it("answers none the same whatever the map holds, when nothing blocks", () => {
+			const unblocked = [task()];
+			expect(
+				cardRows(card([{ field: "blockedBy", is: "none" }]), unblocked, {
+					...ctx,
+					blockers: withBlocker(done),
+				}).map((each) => each.id),
+			).toEqual(["node-1"]);
+		});
+
+		it("keeps the raw-length behaviour on an empty map", () => {
+			expect(rowsWith([{ field: "blockedBy", is: "any" }], new Map())).toEqual([
+				"node-1",
+			]);
+			expect(rowsWith([{ field: "blockedBy", is: "none" }], new Map())).toEqual(
+				[],
+			);
+		});
+	});
+
 	it("asks locationId about the field the node carries", () => {
 		const placed = task({ locationId: "kitchen" });
 
@@ -317,22 +378,22 @@ describe("matching", () => {
 			"node-1",
 		]);
 	});
+});
 
-	/**
-	 * The privacy predicate is not a condition and not optional: the pool's
-	 * shared arm matches every shared node regardless of participants, so a
-	 * card is exactly one more place a root the household hid from me could
-	 * leak.
-	 */
-	it("never shows a node its root hides from the reader", () => {
-		const theirs = node({ id: "theirs", participantIds: [you] });
-		const ours = node({ id: "ours", participantIds: [me, you] });
-		const scoped = { ...ctx, roots: [theirs, ours] };
+/**
+ * The privacy predicate is not a condition and not optional: the pool's
+ * shared arm matches every shared node regardless of participants, so a
+ * card is exactly one more place a root the household hid from me could
+ * leak.
+ */
+it("never shows a node its root hides from the reader", () => {
+	const theirs = node({ id: "theirs", participantIds: [you] });
+	const ours = node({ id: "ours", participantIds: [me, you] });
+	const scoped = { ...ctx, roots: [theirs, ours] };
 
-		expect(
-			cardRows(card([]), [theirs, ours], scoped).map((each) => each.id),
-		).toEqual(["ours"]);
-	});
+	expect(
+		cardRows(card([]), [theirs, ours], scoped).map((each) => each.id),
+	).toEqual(["ours"]);
 });
 
 describe("sortRows", () => {
