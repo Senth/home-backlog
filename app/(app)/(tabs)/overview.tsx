@@ -77,7 +77,7 @@ export default function Overview() {
 	// absent from the map keeps its card waiting, the same not-yet direction
 	// the board and the detail screen take.
 	const blockers = new Map<string, Node | null>();
-	for (const node of [...roots, ...pool.nodes, ...done.nodes]) {
+	for (const node of [...roots.nodes, ...pool.nodes, ...done.nodes]) {
 		blockers.set(node.id, node);
 	}
 
