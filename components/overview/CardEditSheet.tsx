@@ -22,6 +22,7 @@ import {
 	type CardSort,
 	conditionForField,
 	type SortField,
+	seedTitleKeys,
 	withCondition,
 } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
@@ -311,17 +312,24 @@ export function CardEditSheet({
 	// for it, and saving stores the card's own words.
 	const save = () => {
 		const title = draft.title ?? "";
-		const problem = titleError(title);
-		if (problem !== null) {
-			setTitleProblem(problem);
-			return;
+		// A seed with no title of its own keeps following its i18n key: an
+		// empty box on a seed is the default name, not a missing one. Saving
+		// such a card writes `null` back, and clearing the field reverts a
+		// renamed seed to its default.
+		const keepsDefault = draft.seedId !== null && title.trim() === "";
+		if (!keepsDefault) {
+			const problem = titleError(title);
+			if (problem !== null) {
+				setTitleProblem(problem);
+				return;
+			}
 		}
 
 		const max = Math.min(Math.max(draft.max, 1), overviewLimit);
 		onSave(
 			{
 				...draft,
-				title: title.trim(),
+				title: keepsDefault ? null : title.trim(),
 				max,
 				shown: Math.min(Math.max(draft.shown, 1), max),
 			},
@@ -436,10 +444,21 @@ function SheetBody({
 						onSubmitEditing={() => onTitle(draft.title ?? "")}
 						selectTextOnFocus
 						error={titleProblem !== null}
+						// An untouched seed has no title of its own; the box shows
+						// the name it currently travels under, in grey, rather
+						// than an empty field that reads as lost data.
+						placeholder={
+							draft.seedId === null ? undefined : t(seedTitleKeys[draft.seedId])
+						}
 					/>
 					<HelperText type="error" visible={titleProblem !== null}>
 						{titleProblem === null ? "" : t(titleProblem)}
 					</HelperText>
+					{draft.seedId !== null && (draft.title ?? "") === "" ? (
+						<HelperText type="info" visible>
+							{t("overview.cards.edit.followsDefault")}
+						</HelperText>
+					) : null}
 				</View>
 
 				<SegmentedButtons

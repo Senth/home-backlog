@@ -376,9 +376,17 @@ export default function OverviewEditor() {
 
 					{removed.length > 0 ? (
 						<List.Section testID="overview-editor-removed">
-							<List.Subheader>
+							{/* A section heading is titleMedium per DESIGN § 4 — the
+					    same swap the Overview card headings took. */}
+							<Text
+								variant="titleMedium"
+								style={{
+									paddingHorizontal: space.md,
+									paddingVertical: space.sm,
+								}}
+							>
 								{t("overview.cards.editor.removed")}
-							</List.Subheader>
+							</Text>
 							{removed.map((seed) => (
 								<List.Item
 									key={seed.id}

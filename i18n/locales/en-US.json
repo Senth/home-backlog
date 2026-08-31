@@ -256,9 +256,9 @@
 				"removed": "Removed originals",
 				"restore": "Restore",
 				"scope": {
-					"global": "All my homes",
-					"home": "Only this home",
-					"shared": "Everyone here"
+					"global": "All homes",
+					"home": "This home",
+					"shared": "Everyone"
 				},
 				"hiddenBadge": "Hidden"
 			},
@@ -280,7 +280,8 @@
 				"held": "Rows held",
 				"more": "More",
 				"fewer": "Fewer",
-				"withinDays": "Days ahead"
+				"withinDays": "Days ahead",
+				"followsDefault": "Uses its default name. Type to give it your own."
 			},
 			"due": {
 				"comingUp": "Coming up",

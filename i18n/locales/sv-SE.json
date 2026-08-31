@@ -256,8 +256,8 @@
 				"removed": "Borttagna original",
 				"restore": "Återställ",
 				"scope": {
-					"global": "Alla mina hem",
-					"home": "Bara det här hemmet",
+					"global": "Alla hem",
+					"home": "Detta hem",
 					"shared": "Alla här"
 				},
 				"hiddenBadge": "Dold"
@@ -280,7 +280,8 @@
 				"held": "Dolda rader",
 				"more": "Fler",
 				"fewer": "Färre",
-				"withinDays": "Dagar framåt"
+				"withinDays": "Dagar framåt",
+				"followsDefault": "Använder sitt standardnamn. Skriv för att ge den ett eget."
 			},
 			"due": {
 				"comingUp": "Blir aktuellt",

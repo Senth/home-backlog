@@ -405,10 +405,20 @@ function CardSection({ card, rows, onOpen, blockers, menu }: CardSectionProps) {
 	return (
 		<List.Section testID={`overview-section-${card.id}`}>
 			<View style={{ flexDirection: "row", alignItems: "center" }}>
-				<List.Subheader style={{ flex: 1 }}>
+				{/* The heading is the first thing read, per § 7, and a section
+				    heading is titleMedium per § 4 — Paper's List.Subheader is a
+				    muted bodyMedium that sits *below* the rows it names. */}
+				<Text
+					variant="titleMedium"
+					style={{
+						flex: 1,
+						paddingHorizontal: space.md,
+						paddingVertical: space.sm,
+					}}
+				>
 					{card.title ??
 						(card.seedId !== null ? t(seedTitleKeys[card.seedId]) : card.id)}
-				</List.Subheader>
+				</Text>
 				{menu}
 			</View>
 
