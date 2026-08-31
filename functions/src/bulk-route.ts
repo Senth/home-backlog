@@ -72,8 +72,8 @@ async function bulkCreate(request: Request, response: Response): Promise<void> {
 
 	// The replay, checked before any work. A run is recorded under the key that
 	// made it, so revoking a key takes its history with it — and so the node
-	// document stays exactly what `boards-and-nodes` describes, with no API
-	// concern in a schema every screen and every rule then carries forever.
+	// document keeps the shape every screen and every rule already carries, with
+	// no API concern written into it.
 	if (runRef !== null) {
 		const previous = await runRef.get();
 		if (previous.exists) {

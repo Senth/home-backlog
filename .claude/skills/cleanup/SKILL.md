@@ -11,8 +11,8 @@ statements and refuses to move until both are written down:
 - **What dies.** Named concretely: this component, that column, those three fields.
 - **What must not change.** The behaviour that has to survive, in the user's terms.
 
-Kickoff only: scope → branch → surface check → personas → grill → spec → hand off. This skill
-ends when the spec is confirmed. Making the cut is `/continue-work`, in a fresh session.
+Kickoff only: scope → branch → surface check → personas → grill → plan → hand off. This skill
+ends when the plan is confirmed. Making the cut is `/continue-work`, in a fresh session.
 **Do not delete anything here.**
 
 Talk to the user in **unslop** prose. Work lives in GitHub Issues and the Kanban board
@@ -62,11 +62,11 @@ Branch `cleanup/<nn>-<slug>` from `origin/main`, and move the issue to In progre
 Say which, in one line, with the reason. When unsure, treat it as visible — the cost of a
 needless persona pass is small next to shipping a surprise.
 
-Both answers end at a spec and a handoff. What changes is how much work the spec is.
+Both answers end at a plan and a handoff. What changes is how much work the plan is.
 
-### Invisible → the short spec
+### Invisible → the short plan
 
-There is nothing for personas to react to and no surface to brief. The spec is short, and
+There is nothing for personas to react to and no surface to brief. The plan is short, and
 two of its sections carry everything:
 
 - **Why**, which for a removal means the evidence it is unused. "Nobody uses it" is a claim;
@@ -89,12 +89,12 @@ Omit **Surface brief** and say so in **What**.
    question. Fixed agenda: what happens to data already in the thing being removed; whether
    anything must be migrated; which strings die and whether `sv-SE` loses a key; what the
    screen looks like afterwards; which settled decision in `docs/PROJECT.md` this touches.
-3. **A wip spec**, `docs/specs/wip/<nn>-<slug>.md`, with the same sections as a feature's —
+3. **A plan**, `.tmp/<nn>-plan.md`, with the same sections as a feature's —
    see [`new-feature`](../new-feature/SKILL.md) — **including the Surface brief**. A removal
    has a surface brief like anything else, and its "remove / quiet / sharpen" line is the
    easiest one in the repo to write: the removal *is* the remove.
 
-## The spec
+## The plan
 
 Same shape either way, from [`new-feature`](../new-feature/SKILL.md). Acceptance claims
 tagged `[test]` map to their test by **number** — `test("2: …")` — and `yarn invariants`
@@ -120,15 +120,16 @@ bolted onto work that arrived already scoped.
 
 A cleanup that deletes production code usually deletes tests with it, and that is correct
 when the tests only ever protected the deleted thing. It is **not** correct when a test was
-the only thing asserting behaviour that survives. For every test the spec deletes, say in one
+the only thing asserting behaviour that survives. For every test the plan deletes, say in one
 line what it protected and why nothing needs protecting now.
 
 ## Handoff
 
-Only after the spec is written and the user has confirmed it.
+Only after the plan is written and the user has confirmed it.
 
 1. **Ensure a tracking issue exists.** `GIT_VANILLA=1 gh issue create --label cleanup` if
-   there is none, and rename the wip file to match the number.
-2. **Comment the spec link on the issue.** Do not edit the issue description.
-3. Tell the user to run **`/continue-work docs/specs/wip/<nn>-<slug>.md`** in a fresh
+   there is none, and rename the plan file to match the number.
+2. **Paste the plan into a comment on the issue.** The file is untracked, so the comment is
+   the record. Do not edit the issue description.
+3. Tell the user to run **`/continue-work .tmp/<nn>-plan.md`** in a fresh
    session, and stop.

@@ -1,6 +1,6 @@
 ---
 name: homeowner-review
-description: "Use before a Home Backlog spec is written, to put a planned feature or removal in front of the homeowner personas. Not for code review, bug triage, or judging a screen that already exists."
+description: "Use before a Home Backlog plan is written, to put a planned feature or removal in front of the homeowner personas. Not for code review, bug triage, or judging a screen that already exists."
 role: plan
 mode: subagent
 tools: Read, Grep, Glob, Bash, Skill
@@ -31,12 +31,12 @@ style.
 
 ## Step 0: resolve the input
 
-You may be handed a GitHub issue number, a path to a spec, a plain description, or — from
+You may be handed a GitHub issue number, a path to a plan, a plain description, or — from
 `/cleanup` — a pair of statements naming what dies and what must not change. A removal is
 reviewed exactly like an addition: the question is who was quietly relying on the thing.
 
 - Issue number → `GIT_VANILLA=1 gh issue view <n> --comments`
-- Spec path → read it
+- Plan path → read it
 - Plain text → take it as given
 
 If what you were handed is too thin to review, say what you would need and stop. Do not
@@ -53,13 +53,11 @@ Every run, before speaking:
 1. `docs/PERSONAS.md`, the cast.
 2. `docs/PROJECT.md`, the vision, requirements, architecture principles, **and the
    decisions already rejected**.
-3. The **section map** you were handed: exact line ranges of the area specs adjacent to
-   this feature, read with `sed -n '<a>,<b>p'`. These describe shipped behaviour, so they
-   are how you know what the app already does. Do not read a whole area spec —
-   `boards-and-nodes.md` is over 1700 lines and almost none of it is about this feature. If
-   a slice proves insufficient, read wider and say so in the report.
+3. A plan path, when you were handed one — read it. Shipped behaviour you learn from
+   `docs/PROJECT.md` and the decisions it records as rejected; there is no area-spec
+   document to read wider from.
 
-Do not read application source. If a spec and the code have drifted, that is not the
+Do not read application source. If a decision and the code have drifted, that is not the
 question you were asked.
 
 ## Step 2: applicability check

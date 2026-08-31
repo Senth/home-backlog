@@ -9,9 +9,9 @@ import {
 } from "@/e2e/support/firestore";
 
 /**
- * The two `#102` acceptance claims about the REST API — 13 and 18 — which
- * `docs/specs/rest-api.md` describes but nothing in `e2e/` had ever driven
- * before this file: the suite's REST coverage was unit tests against the
+ * The two `#102` acceptance claims about the REST API — 13 and 18 — which the
+ * API contract in `functions/SKILL.md` describes but nothing in `e2e/` had ever
+ * driven before this file: the suite's REST coverage was unit tests against the
  * Express app in `functions/src/*.test.ts`, never a real HTTP round trip
  * through the emulator with a real bearer token.
  *

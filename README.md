@@ -9,7 +9,7 @@ Web-first PWA via Expo + React Native Web; Android and iOS builds later.
 - **Vision, requirements, decisions, architecture** — [`docs/PROJECT.md`](docs/PROJECT.md)
 - **Working agreements for AI assistants** — [`CLAUDE.md`](CLAUDE.md)
 - **User personas** — [`docs/PERSONAS.md`](docs/PERSONAS.md), the cast used by the
-  `homeowner-review` agent at spec time
+  `homeowner-review` agent at plan time
 - **Workflow** — five stages, each a fresh session:
   [`/new-feature`](.claude/skills/new-feature/SKILL.md) ·
   [`/cleanup`](.claude/skills/cleanup/SKILL.md) · [`/bug`](.claude/skills/bug/SKILL.md)
@@ -25,9 +25,6 @@ Web-first PWA via Expo + React Native Web; Android and iOS builds later.
 
 Expo · React Native · expo-router · react-native-paper (Material 3) ·
 TypeScript · Firebase (Auth, Firestore, Storage, Hosting) · i18next.
-
-There is deliberately **no Tailwind or NativeWind** — see
-[`CLAUDE.md`](CLAUDE.md) for the styling rules that replace it.
 
 ## Getting started
 
@@ -87,9 +84,3 @@ Google account is needed locally.
 | `yarn e2e:report`                        | Open the last `yarn e2e` HTML report                                   |
 | `yarn build:web`                         | Static web export to `dist/`                                           |
 | `yarn icons`                             | Regenerate every app and PWA icon from `scripts/gen-icons.py`          |
-
-## Deployment
-
-Pushing to `main` runs `.github/workflows/deploy.yml`, which authenticates via
-Workload Identity Federation and deploys hosting, Firestore rules and indexes,
-and Storage rules to <https://hb.senth.org>.

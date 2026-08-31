@@ -1,8 +1,7 @@
 # CLAUDE.md
 
 Home Backlog: an Expo / React Native web-first PWA on Firebase.
-[Setup and scripts](README.md) · [Vision and architecture](docs/PROJECT.md) · [Feature specs](docs/specs/) ·
-[Design contract](docs/DESIGN.md)
+[Setup and scripts](README.md), [Design contract](docs/DESIGN.md)
 
 - Package manager is **yarn**, not npm; imports use the `@/` alias, never relative
   paths; platform splits are `.web.tsx` / `.native.tsx`.
@@ -19,11 +18,12 @@ Home Backlog: an Expo / React Native web-first PWA on Firebase.
   visual check made exact, not a render test.
 - Local development is always the emulators (`yarn emulators`).
 - Firestore queries must be provably safe, not just rule-safe — one deniable document
-  rejects the whole query ([how a board load does it](docs/specs/boards-and-nodes.md)).
+  rejects the whole query.
 - Changing `firestore.rules` or `storage.rules` means updating `tests/rules/` in the
   same change.
-- The console is clean and its exceptions are a closed list — see "The console" in
-  [`platform-offline.md`](docs/specs/platform-offline.md).
+- The console is clean and its exceptions are a closed list: the filtered framework
+  warnings in `utils/dev-console.ts` and the expected `info`/`log` prefixes in
+  `e2e/support/app.ts`. Anything else is a finding.
 - After implementing: `yarn lint --write`, `yarn invariants`, `yarn typecheck`,
   `yarn test` — fix everything they report, including pre-existing failures. e2e is
   targeted per phase: `yarn playwright test --project=setup && yarn playwright test
@@ -36,7 +36,8 @@ Home Backlog: an Expo / React Native web-first PWA on Firebase.
   catch goes in that script too.
 - Work runs in two sessions. A kickoff — [`/new-feature`](.claude/skills/new-feature/SKILL.md)
   · [`/cleanup`](.claude/skills/cleanup/SKILL.md) · [`/bug`](.claude/skills/bug/SKILL.md) —
-  ends at a confirmed spec under `docs/specs/wip/` and writes no code. Then
+  ends at a confirmed plan at `.tmp/<issue-id>-plan.md` (untracked; pasted onto the issue)
+  and writes no code. Then
   [`/continue-work`](.claude/skills/continue-work/SKILL.md) takes it to a draft PR:
   [`/implement`](.claude/skills/implement/SKILL.md) →
   [`/review`](.claude/skills/review/SKILL.md) → [`/ship`](.claude/skills/ship/SKILL.md),
@@ -47,11 +48,9 @@ Home Backlog: an Expo / React Native web-first PWA on Firebase.
 - `.ai/config.toml` is what a stage reads for the gate commands, what counts as
   user-visible, the design contract and the report and checkpoint paths.
 - Ship only on a PASS — the session that wrote the code never signs it off, and
-  `/ship` folds the wip spec into [`docs/specs/`](docs/specs/INDEX.md) and opens a
-  **draft** PR.
+  `/ship` opens a **draft** PR through `scripts/create-pr-and-merge.sh --no-merge`.
 - Work lives in **GitHub Issues + the Kanban board** (project 4), not markdown —
   labels `bug` / `feature` / `idea` / `cleanup`, an `idea` moves to the Idea column,
   and the PR closes it with `Closes #NN`.
-- At the end when you're done; commit, push and run `scripts/create-pr-and-merge.sh`.
 - One off migrations are stored in `node/scripts/<script>.mjs` and be removed before creating a PR.
   - Always dry-run first, then add --apply, finally dry-run again to confirm 0 changes.

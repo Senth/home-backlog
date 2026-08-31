@@ -423,7 +423,7 @@ test("17: a home whose projects are all in To do still shows the sections, not t
 	// is gated on the root count rather than on the three sections: everything
 	// in To do, undated, nothing finished this month empties all three while the
 	// house is full. A "nothing here yet" on a home with a project in it is the
-	// lie `boards-and-nodes.md` says people stop trusting a screen for.
+	// kind of lie people stop trusting a screen for.
 	const homeName = `${PREFIX}claim 17 throwaway ${Date.now()}`;
 	const projectTitle = `${PREFIX}untouched project`;
 

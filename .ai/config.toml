@@ -48,7 +48,7 @@ review = "review"
 ship = "ship"
 
 [paths]
-specs = "docs/specs"
+plans = ".tmp" # <issue-id>-plan.md, written by the kickoff skills, deleted by /ship
 dispatch = ".tmp/dispatch"
 prompts = ".tmp/prompts"
 checkpoint = ".tmp/continue-work.state.json"

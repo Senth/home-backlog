@@ -15,9 +15,8 @@ import {
 import enUS from "@/i18n/locales/en-US.json";
 
 /**
- * The blocked-by claims from #66 — `docs/specs/wip/66-blocked-by.md`'s
- * Acceptance section, claims 1–8. Claims 9–10 are `[eye]` and belong to
- * `browser-review`, not here.
+ * The blocked-by claims from #66's Acceptance section, claims 1–8. Claims 9–10
+ * are `[eye]` and belong to `browser-review`, not here.
  *
  * A card waits on other cards through `blockedBy[]`; the mark derives from
  * the blockers' own statuses (`unresolvedBlockers`), so a done blocker stops

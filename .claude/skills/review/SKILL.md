@@ -65,18 +65,12 @@ Only `docs/ .claude/ scripts/ .github/ README.md` changed → say so in two line
 An empty diff stops the run. Everything else continues; `diff-review` decides whether the
 browser pass happens, not you and not a path table.
 
-## Step 2. The section map
+## Step 2. The brief for the agents
 
-The agents must not read whole area specs — `boards-and-nodes.md` alone is over 1700
-lines. Work out which sections this diff touches and hand over exact ranges:
-
-```bash
-grep -n '^## ' docs/specs/<area>.md
-```
-
-Pair each heading with the next heading's line number to get a range, pick the ones the
-diff actually touches, and pass them as `<file> <start>-<end> <heading>`. State the map in
-chat so it is auditable.
+There are no area specs to trim and no section map to build — the plan at
+`.tmp/<nn>-plan.md` is short by design. `diff-review` gets the issue number and the plan
+path; `browser-review`, when it runs, gets the same plus the changed screens. Hand the
+plan's path, never its contents, and state the handoff in chat so it is auditable.
 
 ## Step 3. The cheap gates
 
@@ -96,7 +90,7 @@ oc-task review      ~/git/home-backlog .tmp/prompts/ponytail-review.md --label <
 wait
 ```
 
-`diff-review` gets the issue number, the spec path, the section map and the **full diff**.
+`diff-review` gets the issue number, the plan path and the **full diff**.
 The `review` agent gets the diff and one instruction: run the `ponytail-review` skill against
 it and report only over-engineering. Never hand either one your own account of what you built
 or why it is correct — that sentence is what turns a reviewer into a rubber stamp.
@@ -139,7 +133,7 @@ oc-task browser-review ~/git/home-backlog .tmp/prompts/browser-review.md --label
 Take the URL from what `up` prints, never from memory — `dev-stack.sh status` lists the ports
 too, and a hardcoded port breaks the first time a second checkout runs.
 
-Hand it: the issue number, the spec path, the section map, the list of **changed screens**,
+Hand it: the issue number, the plan path, the list of **changed screens**,
 and that URL. Not the diff, and not your account of the change.
 
 It judges what a test cannot: whether it looks right, whether the wording sounds like a
@@ -200,7 +194,7 @@ Reports and screenshots stay in the dispatch work dirs under `.tmp/dispatch/`. G
 never committed, nothing posted to GitHub.
 
 On a PASS, tell the user to run **`/ship`**, or **`/continue-work`** to pick the arc back
-up. Do not fold the spec, open a PR or merge from here.
+up. Do not retire the plan, open a PR or merge from here.
 
 ## The seed fixture
 
