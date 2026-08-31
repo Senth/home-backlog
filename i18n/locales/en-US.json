@@ -287,7 +287,8 @@
 				"late": "Late",
 				"notLate": "Not late",
 				"none": "No date",
-				"comingUpWithin": "Coming up within {{count}} days"
+				"comingUpWithin_one": "Coming up within {{count}} day",
+				"comingUpWithin_other": "Coming up within {{count}} days"
 			},
 			"sort": {
 				"label": "Sort",

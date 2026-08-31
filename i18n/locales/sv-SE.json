@@ -287,7 +287,8 @@
 				"late": "Försenat",
 				"notLate": "Inte försenat",
 				"none": "Utan datum",
-				"comingUpWithin": "Blir aktuellt inom {{count}} dagar"
+				"comingUpWithin_one": "Blir aktuellt inom {{count}} dag",
+				"comingUpWithin_other": "Blir aktuellt inom {{count}} dagar"
 			},
 			"sort": {
 				"label": "Sortering",
