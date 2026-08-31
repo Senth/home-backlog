@@ -21,15 +21,10 @@ import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { BackAction } from "@/components/ui/BackAction";
 import { InstallCard } from "@/components/ui/InstallCard";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
 import { useHome } from "@/contexts/HomeContext";
-import {
-	deleteSharedCard,
-	saveGlobalCards,
-	saveHiddenShared,
-	saveHomeCards,
-} from "@/data/cards";
+import { deleteScopeCard, saveHiddenShared } from "@/data/cards";
 import { createNode } from "@/data/nodes";
-import { useDashboardCards } from "@/hooks/use-dashboard-cards";
 import { useOverview } from "@/hooks/use-overview";
 import { dueState } from "@/models/due-date";
 import { hasSteps, type Node, rankAtEnd } from "@/models/node";
@@ -54,7 +49,7 @@ import {
  * the app for recording cabin work on the house board, with no breadcrumb to
  * lean on. No `BoardMenu`, because there is no filter here to toggle.
  *
- * Every read is `useOverview` or `useDashboardCards`; this file opens no
+ * Every read is `useOverview` or `useDashboardCardsConfig`; this file opens no
  * listener of its own, and renders every card through the one `CardSection`.
  */
 export default function Overview() {
@@ -75,7 +70,7 @@ export default function Overview() {
 		loading: configLoading,
 		failed: configFailed,
 		retry: retryConfig,
-	} = useDashboardCards(homeId);
+	} = useDashboardCardsConfig();
 
 	// What a row resolves its waiting mark against: statuses already in hand —
 	// every root, and the whole pool. No new listener anywhere; a blocker
@@ -194,26 +189,20 @@ export default function Overview() {
 
 	/**
 	 * Removing deletes: the card leaves its surface's map, or its shared
-	 * document is deleted. A removed seed stays removable only in the sense
-	 * the editor restores it — the seeds, not the member's own cards.
+	 * document is deleted — one write either way, chosen in the data layer.
+	 * A removed seed stays removable only in the sense the editor restores it
+	 * — the seeds, not the member's own cards.
 	 */
 	const removeCard = (card: Card) => {
-		const scope = scopes[card.id];
-		if (scope === "shared") {
-			if (homeId !== null) {
-				deleteSharedCard(homeId, card.id).catch(couldNotSave);
-			}
-			return;
-		}
-		if (uid === null || homeId === null) return;
-		const rest = cards.filter(
-			(each) => scopes[each.id] === scope && each.id !== card.id,
-		);
-		const write =
-			scope === "global"
-				? saveGlobalCards(uid, rest)
-				: saveHomeCards(homeId, uid, rest);
-		write.catch(couldNotSave);
+		const scope = scopes[card.id] ?? "global";
+		if (uid === null || (scope !== "global" && homeId === null)) return;
+		deleteScopeCard(
+			scope,
+			homeId,
+			uid,
+			card.id,
+			cards.filter((each) => scopes[each.id] === scope),
+		).catch(couldNotSave);
 	};
 
 	return (

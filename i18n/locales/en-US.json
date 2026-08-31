@@ -279,13 +279,15 @@
 				"shown": "Rows shown",
 				"held": "Rows held",
 				"more": "More",
-				"fewer": "Fewer"
+				"fewer": "Fewer",
+				"withinDays": "Days ahead"
 			},
 			"due": {
 				"comingUp": "Coming up",
 				"late": "Late",
 				"notLate": "Not late",
-				"none": "No date"
+				"none": "No date",
+				"comingUpWithin": "Coming up within {{count}} days"
 			},
 			"sort": {
 				"label": "Sort",

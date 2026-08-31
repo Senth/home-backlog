@@ -9,7 +9,6 @@ import {
 	editorList,
 	exportCard,
 	importCard,
-	mergeCards,
 	removedSeeds,
 	type SeedId,
 	seedCards,
@@ -218,6 +217,28 @@ describe("matching", () => {
 			expect(rowsOf(only("comingUp"), dated(null))).toEqual([]);
 		});
 
+		it("widens the coming-up window to the condition's own n", () => {
+			const within = (n: number) => [
+				{ field: "dueDate", is: "comingUp", n } as CardCondition,
+			];
+
+			expect(rowsOf(within(14), dated("2026-08-29"))).toEqual(["node-1"]);
+			expect(rowsOf(within(14), dated("2026-08-30"))).toEqual([]);
+			// Late is late at any width.
+			expect(rowsOf(within(14), dated("2026-08-01"))).toEqual(["node-1"]);
+			// A narrower window hides what the default kept.
+			expect(rowsOf(within(1), dated("2026-08-17"))).toEqual([]);
+			// Storage drops a junk n, which is the default window again.
+			expect(
+				rowsOf(
+					toCard("test", {
+						conditions: [{ field: "dueDate", is: "comingUp", n: "soon" }],
+					})?.conditions ?? [],
+					dated("2026-08-22"),
+				),
+			).toEqual(["node-1"]);
+		});
+
 		it("keeps not late and none apart", () => {
 			expect(rowsOf(only("late"), dated("2026-08-14"))).toEqual(["node-1"]);
 			expect(rowsOf(only("notLate"), dated("2026-08-15"))).toEqual(["node-1"]);
@@ -417,47 +438,6 @@ describe("cardRows", () => {
 	});
 });
 
-describe("mergeCards", () => {
-	const made = (id: string, rank: string) =>
-		({ ...seeded.ongoing, id, rank }) as ReturnType<
-			typeof seedCards
-		>[keyof ReturnType<typeof seedCards>];
-
-	it("merges the three scopes and orders by (rank, id)", () => {
-		const merged = mergeCards(
-			[made("global", "a5")],
-			[made("home", "a1")],
-			[made("shared", "a3")],
-			[],
-		);
-
-		expect(merged.map((each) => each.id)).toEqual(["home", "shared", "global"]);
-	});
-
-	it("lets a later scope win an id collision", () => {
-		const merged = mergeCards(
-			[made("same", "a1")],
-			[made("same", "a2")],
-			[],
-			[],
-		);
-
-		expect(merged).toHaveLength(1);
-		expect(merged[0].rank).toBe("a2");
-	});
-
-	it("drops a shared card this member hid, and only shared ones", () => {
-		const merged = mergeCards(
-			[made("global", "a1")],
-			[made("home", "a2")],
-			[made("shared", "a3")],
-			["shared", "global"],
-		);
-
-		expect(merged.map((each) => each.id)).toEqual(["global", "home"]);
-	});
-});
-
 describe("editorList", () => {
 	const made = (id: string, rank: string) =>
 		({ ...seeded.ongoing, id, rank }) as ReturnType<
@@ -469,8 +449,6 @@ describe("editorList", () => {
 
 		expect(list).toHaveLength(1);
 		expect(list[0]).toMatchObject({ scope: "shared", hidden: true });
-
-		expect(mergeCards([], [], [made("shared", "a1")], ["shared"])).toEqual([]);
 	});
 
 	it("names the winning scope of an id collision", () => {

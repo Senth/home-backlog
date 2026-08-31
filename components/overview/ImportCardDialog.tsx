@@ -8,6 +8,7 @@ import {
 	Text,
 	TextInput,
 } from "react-native-paper";
+import { fieldSpecs } from "@/components/overview/CardEditSheet";
 import { AppDialog } from "@/components/ui/AppDialog";
 import type { Member } from "@/models/home";
 import {
@@ -157,109 +158,40 @@ export function ImportCardDialog({
 	);
 }
 
-/** `t` as this module's helper sees it — the hook's own return. */
-type Translate = ReturnType<typeof useTranslation>["t"];
-
-const join = (values: readonly string[]) => values.join(" · ");
-const is = (value: string | boolean, yes: string, no: string) =>
-	value ? yes : no;
-
 /**
- * One condition in plain words, reusing the edit sheet's own vocabulary: the
- * field named once, then its values. A value this app cannot name — a member
- * the string names by uid, a status from a newer version — prints as what it
- * is, so the words still tell the reader there is something to edit.
+ * One condition in plain words, read from the edit sheet's own vocabulary —
+ * `fieldSpecs` is the one list of field and value labels, so the preview
+ * says exactly what the chips would have said. A value this app cannot
+ * name — a member the string names by uid, a status from a newer version —
+ * prints as what it is, so the words still tell the reader there is
+ * something to edit.
  */
 function conditionLine(
 	condition: CardCondition,
 	members: readonly Member[],
-	t: Translate,
+	t: ReturnType<typeof useTranslation>["t"],
 ): string {
-	const nameOf = (uid: string) =>
-		uid === "me"
-			? t("overview.cards.field.me")
-			: uid === "none"
-				? t("overview.cards.field.unassigned")
-				: (members.find((member) => member.uid === uid)?.displayName ?? uid);
+	const spec = fieldSpecs(members, t).find(
+		(each) => each.field === condition.field,
+	);
+	const label = spec?.label ?? condition.field;
 
-	switch (condition.field) {
-		case "status":
-			return `${t("overview.cards.field.status")}: ${join(
-				condition.anyOf.map((value) => t(`status.${value}`)),
-			)}`;
-		case "priority":
-			return `${t("detail.priority")}: ${join(
-				condition.anyOf.map((value) =>
-					value === "none"
-						? t("overview.cards.field.notSet")
-						: t(`priority.${value}`),
-				),
-			)}`;
-		case "effort":
-			return `${t("detail.effort")}: ${join(
-				condition.anyOf.map((value) =>
-					value === "none"
-						? t("overview.cards.field.notSet")
-						: t(`effort.${value}`),
-				),
-			)}`;
-		case "dueDate":
-			return `${t("detail.dueDate")}: ${t(`overview.cards.due.${condition.is}`)}`;
-		case "isRoot":
-			return `${t("overview.cards.field.root")}: ${is(
-				condition.is,
-				t("overview.cards.field.isProject"),
-				t("overview.cards.field.isStep"),
-			)}`;
-		case "hasChildren":
-			return `${t("detail.steps")}: ${is(
-				condition.is,
-				t("overview.cards.field.withSteps"),
-				t("overview.cards.field.noSteps"),
-			)}`;
-		case "assigneeIds":
-			return `${t("detail.assignees")}: ${join(condition.anyOf.map(nameOf))}`;
-		case "participantIds":
-			return `${t("detail.participants")}: ${join(condition.anyOf.map(nameOf))}`;
-		case "blockedBy":
-			return `${t("board.blocked")}: ${t(
-				condition.is === "any"
-					? "overview.cards.field.waiting"
-					: "overview.cards.field.notWaiting",
-			)}`;
-		case "locationId":
-			return `${t("overview.cards.field.location")}: ${t(
-				condition.is === "any"
-					? "overview.cards.field.hasLocation"
-					: "overview.cards.field.noLocation",
-			)}`;
-		case "visibility":
-			return `${t("overview.cards.field.visibility")}: ${t(
-				`overview.cards.field.${condition.is}`,
-			)}`;
-		case "createdVia":
-			return `${t("overview.cards.field.createdVia")}: ${t(
-				condition.is === "app"
-					? "overview.cards.field.inApp"
-					: "detail.createdViaApi",
-			)}`;
-		case "notes":
-			return `${t("detail.notes")}: ${is(
-				condition.is,
-				t("overview.cards.field.withNotes"),
-				t("overview.cards.field.noNotes"),
-			)}`;
-		case "photos":
-			return `${t("overview.cards.field.photos")}: ${is(
-				condition.is,
-				t("overview.cards.field.withPhotos"),
-				t("overview.cards.field.noPhotos"),
-			)}`;
-		case "checklist":
-			return `${t("overview.cards.field.checklist")}: ${is(
-				condition.is,
-				t("overview.cards.field.withChecklist"),
-				t("overview.cards.field.noChecklist"),
-			)}`;
+	if ("anyOf" in condition) {
+		const values = condition.anyOf.map(
+			(value) =>
+				spec?.values.find((each) => each.value === value)?.label ?? value,
+		);
+		return `${label}: ${values.join(" · ")}`;
 	}
+
+	const value =
+		spec?.values.find((each) => each.value === condition.is)?.label ??
+		String(condition.is);
+	const within =
+		condition.field === "dueDate" &&
+		condition.is === "comingUp" &&
+		condition.n !== undefined
+			? ` ${t("overview.cards.due.comingUpWithin", { count: condition.n })}`
+			: "";
+	return `${label}: ${value}${within}`;
 }

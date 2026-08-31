@@ -279,13 +279,15 @@
 				"shown": "Visade rader",
 				"held": "Dolda rader",
 				"more": "Fler",
-				"fewer": "Färre"
+				"fewer": "Färre",
+				"withinDays": "Dagar framåt"
 			},
 			"due": {
 				"comingUp": "Blir aktuellt",
 				"late": "Försenat",
 				"notLate": "Inte försenat",
-				"none": "Utan datum"
+				"none": "Utan datum",
+				"comingUpWithin": "Blir aktuellt inom {{count}} dagar"
 			},
 			"sort": {
 				"label": "Sortering",

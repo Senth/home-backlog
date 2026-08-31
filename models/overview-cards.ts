@@ -1,4 +1,4 @@
-import { dueState } from "@/models/due-date";
+import { dayDifference, dueState, soonInDays } from "@/models/due-date";
 import {
 	type CreatedVia,
 	compareNodes,
@@ -34,13 +34,15 @@ export type DueFilter = "comingUp" | "late" | "notLate" | "none";
  * "effort is quick and hours".
  *
  * People conditions name members by uid, with two reserved words: `"me"` is
- * the reader, and `"none"` (assignee only) is unassigned.
+ * the reader, and `"none"` (assignee only) is unassigned. A `comingUp`
+ * `dueDate` condition carries the window it asks about — late or within `n`
+ * days, `n` editable, defaulting to `soonInDays` when absent.
  */
 export type CardCondition =
 	| { field: "status"; anyOf: Status[] }
 	| { field: "priority"; anyOf: (Priority | "none")[] }
 	| { field: "effort"; anyOf: (Effort | "none")[] }
-	| { field: "dueDate"; is: DueFilter }
+	| { field: "dueDate"; is: DueFilter; n?: number }
 	| { field: "isRoot"; is: boolean }
 	| { field: "hasChildren"; is: boolean }
 	| { field: "assigneeIds"; anyOf: string[] }
@@ -237,7 +239,10 @@ function matches(node: Node, condition: CardCondition, ctx: MatchContext) {
 		case "dueDate": {
 			const state = dueState(node.dueDate, ctx.now);
 			if (condition.is === "comingUp") {
-				return state === "late" || state === "soon";
+				if (state === "late") return true;
+				const days =
+					node.dueDate === null ? null : dayDifference(node.dueDate, ctx.now);
+				return days !== null && days <= (condition.n ?? soonInDays);
 			}
 			if (condition.is === "late") return state === "late";
 			if (condition.is === "notLate") {
@@ -418,27 +423,6 @@ export function cardScopes(
 }
 
 /**
- * The screen's list: global + home + shared, minus `hiddenSharedIds`.
- *
- * A hide only ever reaches a card that *is* shared — the list rides on the
- * member's own doc, and a stale id on it must not be able to remove a global
- * or home card it was never aimed at.
- */
-export function mergeCards(
-	global: readonly Card[],
-	home: readonly Card[],
-	shared: readonly Card[],
-	hiddenSharedIds: readonly string[],
-): Card[] {
-	// A hidden shared card's id could equal a global or home card's only if
-	// somebody crafted the config by hand; the scope check inside `editorList`
-	// is what keeps the stale-id guard honest here too.
-	return editorList(global, home, shared, hiddenSharedIds)
-		.filter((entry) => !entry.hidden)
-		.map((entry) => entry.card);
-}
-
-/**
  * The seeds the member deleted: every seed whose id is nowhere among the
  * cards they still hold, in any scope. These are what *Removed originals*
  * lists, and a restore re-creates one from this exact shape.
@@ -554,10 +538,20 @@ function toCondition(value: unknown): CardCondition | null {
 				field: data.field,
 				anyOf: strings(data.anyOf),
 			} as CardCondition;
-		case "dueDate":
-			return ["comingUp", "late", "notLate", "none"].includes(data.is as string)
-				? { field: "dueDate", is: data.is as DueFilter }
-				: null;
+		case "dueDate": {
+			if (
+				!["comingUp", "late", "notLate", "none"].includes(data.is as string)
+			) {
+				return null;
+			}
+			const is = data.is as DueFilter;
+			// The window rides only on `comingUp`; `whole`'s `0` fallback drops an
+			// absent or junk `n`, which is exactly the default-window case.
+			const n = whole(data.n, 0);
+			return n > 0 && is === "comingUp"
+				? { field: "dueDate", is, n }
+				: { field: "dueDate", is };
+		}
 		case "blockedBy":
 		case "locationId":
 			return data.is === "any" || data.is === "none"

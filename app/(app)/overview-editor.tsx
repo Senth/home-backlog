@@ -23,16 +23,15 @@ import {
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { BackAction } from "@/components/ui/BackAction";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
 import { useHome } from "@/contexts/HomeContext";
 import {
-	deleteSharedCard,
+	deleteScopeCard,
+	moveScopeCard,
 	newCardId,
-	saveGlobalCards,
 	saveHiddenShared,
-	saveHomeCards,
-	saveSharedCard,
+	saveScopeCards,
 } from "@/data/cards";
-import { useDashboardCards } from "@/hooks/use-dashboard-cards";
 import { membersOf } from "@/models/home";
 import { rankAtEnd, rankBetween } from "@/models/node";
 import {
@@ -77,8 +76,11 @@ export default function OverviewEditor() {
 
 	const homeId = activeHome?.id ?? null;
 	const uid = user?.uid ?? null;
+	// The provider's one set of card-config listeners, shared with the read
+	// screen underneath — a second `useDashboardCards` here would double the
+	// `dashboardCards` collection and both config docs against the budget.
 	const { editorCards, hiddenSharedIds, loading, failed, retry } =
-		useDashboardCards(homeId);
+		useDashboardCardsConfig();
 
 	const [editing, setEditing] = useState<{
 		card: Card | null;
@@ -107,55 +109,62 @@ export default function OverviewEditor() {
 			.filter((entry) => entry.scope === scope)
 			.map((entry) => entry.card);
 
+	/**
+	 * The ids a write on this surface needs, or `null` when there is nothing
+	 * to write to: no uid, or no active home for a scope that lives in one.
+	 * `homes//dashboards/{uid}` is not a path Firestore declines politely —
+	 * it is a synchronous crash — so the guard runs before any reference is
+	 * built, which is what a deep link to a homeless editor needs.
+	 */
+	const idsFor = (scope: CardScope): { homeId: string; uid: string } | null => {
+		if (uid === null) return null;
+		if (scope !== "global" && homeId === null) return null;
+		return { homeId: homeId ?? "", uid };
+	};
+
 	const addTo = (scope: CardScope, card: Card) => {
-		if (scope === "shared") {
-			if (homeId !== null) saveSharedCard(homeId, card).catch(couldNotSave);
-			return;
-		}
-		if (uid === null) return;
-		const rest = surfaceCards(scope);
-		const write =
-			scope === "global"
-				? saveGlobalCards(uid, [...rest, card])
-				: saveHomeCards(homeId ?? "", uid, [...rest, card]);
-		write.catch(couldNotSave);
+		const ids = idsFor(scope);
+		if (ids === null) return;
+		saveScopeCards(scope, ids.homeId, ids.uid, [
+			...surfaceCards(scope),
+			card,
+		]).catch(couldNotSave);
 	};
 
 	const removeFrom = (scope: CardScope, id: string) => {
-		if (scope === "shared") {
-			if (homeId !== null) deleteSharedCard(homeId, id).catch(couldNotSave);
-			return;
-		}
-		if (uid === null) return;
-		const rest = surfaceCards(scope).filter((card) => card.id !== id);
-		const write =
-			scope === "global"
-				? saveGlobalCards(uid, rest)
-				: saveHomeCards(homeId ?? "", uid, rest);
-		write.catch(couldNotSave);
+		const ids = idsFor(scope);
+		if (ids === null) return;
+		deleteScopeCard(scope, ids.homeId, ids.uid, id, surfaceCards(scope)).catch(
+			couldNotSave,
+		);
 	};
 
 	/** An edit or a reorder that stays on its own surface. */
 	const replaceIn = (scope: CardScope, card: Card) => {
-		if (scope === "shared") {
-			if (homeId !== null) saveSharedCard(homeId, card).catch(couldNotSave);
-			return;
-		}
-		if (uid === null) return;
-		const rest = surfaceCards(scope).map((each) =>
-			each.id === card.id ? card : each,
-		);
-		const write =
-			scope === "global"
-				? saveGlobalCards(uid, rest)
-				: saveHomeCards(homeId ?? "", uid, rest);
-		write.catch(couldNotSave);
+		const ids = idsFor(scope);
+		if (ids === null) return;
+		saveScopeCards(
+			scope,
+			ids.homeId,
+			ids.uid,
+			surfaceCards(scope).map((each) => (each.id === card.id ? card : each)),
+		).catch(couldNotSave);
 	};
 
 	/** Scope is where the card is stored, so changing scope moves the card. */
 	const moveScope = (card: Card, from: CardScope, to: CardScope) => {
-		addTo(to, card);
-		removeFrom(from, card.id);
+		const fromIds = idsFor(from);
+		const toIds = idsFor(to);
+		if (fromIds === null || toIds === null) return;
+		moveScopeCard(
+			card,
+			from,
+			to,
+			toIds.homeId,
+			toIds.uid,
+			surfaceCards(from).filter((each) => each.id !== card.id),
+			surfaceCards(to),
+		).catch(couldNotSave);
 	};
 
 	/**
@@ -163,9 +172,11 @@ export default function OverviewEditor() {
 	 * scope move keeps it, and it takes the last place on the screen.
 	 */
 	const createIn = (scope: CardScope, draft: Omit<Card, "id" | "rank">) => {
+		const ids = idsFor(scope);
+		if (ids === null) return;
 		addTo(scope, {
 			...draft,
-			id: newCardId(scope, homeId, uid ?? ""),
+			id: newCardId(scope, ids.homeId, ids.uid),
 			rank: rankAtEnd(editorCards.at(-1)?.card.rank ?? null),
 		});
 	};

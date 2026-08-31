@@ -12,6 +12,7 @@ import {
 	TextInput,
 } from "react-native-paper";
 import { AppDialog } from "@/components/ui/AppDialog";
+import { soonInDays } from "@/models/due-date";
 import type { Member } from "@/models/home";
 import { titleError } from "@/models/node";
 import { overviewLimit, rowsPerSection } from "@/models/overview";
@@ -46,7 +47,14 @@ import {
  * spec's own call — three plain words, not a query-builder control. A
  * `completed` card has no conditions and no sort — its rows are the done
  * pair's, not a filter — so those two groups stay hidden for it.
+ *
+ * The field vocabulary is one list, `fieldSpecs`, and the import preview
+ * reads its words from the same list: a condition says what the chips would
+ * have said, or the two surfaces drift.
  */
+
+/** `t` as this module's helpers see it — the hook's own return. */
+export type Translate = ReturnType<typeof useTranslation>["t"];
 
 /** The strings a chip group is read from, in the order the chips render. */
 interface ChipValue {
@@ -54,87 +62,24 @@ interface ChipValue {
 	label: string;
 }
 
-interface FieldSpec {
+export interface FieldSpec {
 	field: CardCondition["field"];
 	label: string;
 	kind: "anyOf" | "is";
 	values: ChipValue[];
 }
 
-interface CardEditSheetProps {
-	visible: boolean;
-	/** The card to edit, or `null` for a new one. */
-	card: Card | null;
-	/** The card's scope, which is where it is stored rather than a field. */
-	scope: "global" | "home" | "shared";
-	/** The home's members, for the two people fields. */
-	members: readonly Member[];
-	onDismiss: () => void;
-	onSave: (draft: Card, scope: "global" | "home" | "shared") => void;
-}
-
-const newCard = (): Card => ({
-	id: "",
-	kind: "filter",
-	seedId: null,
-	title: "",
-	conditions: [],
-	sort: null,
-	shown: rowsPerSection,
-	max: overviewLimit,
-	empty: { mode: "say", key: "overview.cards.empty.generic" },
-	rank: "",
-});
-
-/** The sort a fresh card offers first, and the label each field reads as. */
-const SORT_FIELDS = ["dueDate", "priority", "effort", "status"] as const;
-
-const SORT_LABELS: Record<SortField, string> = {
-	dueDate: "detail.dueDate",
-	priority: "detail.priority",
-	effort: "detail.effort",
-	status: "overview.cards.field.status",
-	// The completed card sorts by completion, and its sheet hides the sort
-	// group — the label exists only so the map is honest about every field.
-	completedAt: "overview.cards.sort.completedAt",
-};
-
-export function CardEditSheet({
-	visible,
-	card,
-	scope: initialScope,
-	members,
-	onDismiss,
-	onSave,
-}: CardEditSheetProps) {
-	const { t } = useTranslation();
-	const theme = useAppTheme();
-
-	const [draft, setDraft] = useState<Card>(() => card ?? newCard());
-	const [scope, setScope] = useState(initialScope);
-	const [field, setField] = useState<CardCondition["field"] | null>(null);
-	const [sortOpen, setSortOpen] = useState(false);
-	const [titleProblem, setTitleProblem] = useState<string | null>(null);
-
-	// Reset when the sheet *opens*, during render, the way `TitleDialog` does.
-	// Not in an effect: a listener refresh mid-edit re-renders the sheet, and
-	// the draft must survive that — only opening it again starts a new one.
-	const [opened, setOpened] = useState(visible);
-	if (opened !== visible) {
-		setOpened(visible);
-		if (visible) {
-			setDraft(card ?? newCard());
-			setScope(initialScope);
-			setField(null);
-			setSortOpen(false);
-			setTitleProblem(null);
-		}
-	}
-
-	const setConditions = (next: CardCondition | null) =>
-		setDraft({ ...draft, conditions: withCondition(draft.conditions, next) });
-
-	const fields: FieldSpec[] = [
+/**
+ * Every condition field the editor offers, in the order the field chips
+ * render, with the words each of their values reads as. The one vocabulary:
+ * the sheet's chips, the "Coming up" window and the import preview's
+ * condition lines are all read from here.
+ */
+export function fieldSpecs(
+	members: readonly Member[],
+	t: Translate,
+): FieldSpec[] {
+	return [
 		{
 			field: "status",
 			label: t("overview.cards.field.status"),
@@ -283,6 +228,82 @@ export function CardEditSheet({
 			],
 		},
 	];
+}
+
+interface CardEditSheetProps {
+	visible: boolean;
+	/** The card to edit, or `null` for a new one. */
+	card: Card | null;
+	/** The card's scope, which is where it is stored rather than a field. */
+	scope: "global" | "home" | "shared";
+	/** The home's members, for the two people fields. */
+	members: readonly Member[];
+	onDismiss: () => void;
+	onSave: (draft: Card, scope: "global" | "home" | "shared") => void;
+}
+
+const newCard = (): Card => ({
+	id: "",
+	kind: "filter",
+	seedId: null,
+	title: "",
+	conditions: [],
+	sort: null,
+	shown: rowsPerSection,
+	max: overviewLimit,
+	empty: { mode: "say", key: "overview.cards.empty.generic" },
+	rank: "",
+});
+
+/** The sort a fresh card offers first, and the label each field reads as. */
+const SORT_FIELDS = ["dueDate", "priority", "effort", "status"] as const;
+
+const SORT_LABELS: Record<SortField, string> = {
+	dueDate: "detail.dueDate",
+	priority: "detail.priority",
+	effort: "detail.effort",
+	status: "overview.cards.field.status",
+	// The completed card sorts by completion, and its sheet hides the sort
+	// group — the label exists only so the map is honest about every field.
+	completedAt: "overview.cards.sort.completedAt",
+};
+
+export function CardEditSheet({
+	visible,
+	card,
+	scope: initialScope,
+	members,
+	onDismiss,
+	onSave,
+}: CardEditSheetProps) {
+	const { t } = useTranslation();
+	const theme = useAppTheme();
+
+	const [draft, setDraft] = useState<Card>(() => card ?? newCard());
+	const [scope, setScope] = useState(initialScope);
+	const [field, setField] = useState<CardCondition["field"] | null>(null);
+	const [sortOpen, setSortOpen] = useState(false);
+	const [titleProblem, setTitleProblem] = useState<string | null>(null);
+
+	// Reset when the sheet *opens*, during render, the way `TitleDialog` does.
+	// Not in an effect: a listener refresh mid-edit re-renders the sheet, and
+	// the draft must survive that — only opening it again starts a new one.
+	const [opened, setOpened] = useState(visible);
+	if (opened !== visible) {
+		setOpened(visible);
+		if (visible) {
+			setDraft(card ?? newCard());
+			setScope(initialScope);
+			setField(null);
+			setSortOpen(false);
+			setTitleProblem(null);
+		}
+	}
+
+	const setConditions = (next: CardCondition | null) =>
+		setDraft({ ...draft, conditions: withCondition(draft.conditions, next) });
+
+	const fields = fieldSpecs(members, t);
 
 	// The clamp lives on the way out rather than in the stepper, so a held
 	// count can be raised above the shown one without the shown one chasing it
@@ -493,6 +514,13 @@ function SheetBody({
 							/>
 						)}
 
+						{field === "dueDate" ? (
+							<ComingUpWindow
+								condition={conditionForField(draft.conditions, "dueDate")}
+								onChange={onConditions}
+							/>
+						) : null}
+
 						<View style={{ gap: space.sm }}>
 							<Text
 								variant="labelLarge"
@@ -602,6 +630,48 @@ function DirectionChips({
 				);
 			})}
 		</View>
+	);
+}
+
+/**
+ * The "Coming up" window: late is always late, and *soon* is within `n` days
+ * — the spec's one editable number on a condition. The stepper shows the
+ * effective window, `soonInDays` while the condition carries no `n` of its
+ * own, and writing the default back drops it, so a card the reader never
+ * widened stores no window at all.
+ */
+function ComingUpWindow({
+	condition,
+	onChange,
+}: {
+	condition: CardCondition | null;
+	onChange: (next: CardCondition | null) => void;
+}) {
+	const { t } = useTranslation();
+
+	if (
+		condition === null ||
+		condition.field !== "dueDate" ||
+		condition.is !== "comingUp"
+	) {
+		return null;
+	}
+
+	const write = (n: number) =>
+		onChange(
+			n === soonInDays
+				? { field: "dueDate", is: "comingUp" }
+				: { field: "dueDate", is: "comingUp", n },
+		);
+
+	return (
+		<Stepper
+			label={t("overview.cards.edit.withinDays")}
+			value={condition.n ?? soonInDays}
+			min={1}
+			max={30}
+			onChange={write}
+		/>
 	);
 }
 

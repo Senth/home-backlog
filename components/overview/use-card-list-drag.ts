@@ -1,7 +1,10 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Animated, type View } from "react-native";
 import type { DragPoint } from "@/components/board/DragArea.types";
-import type { CardDragHandlers } from "@/components/board/use-board-drag";
+import type {
+	CardDragHandlers,
+	Overlay,
+} from "@/components/board/use-board-drag";
 import { type Box, landingSlot, tieSafeBelow } from "@/models/drag";
 import { rankBetween } from "@/models/node";
 
@@ -25,14 +28,6 @@ import { rankBetween } from "@/models/node";
  * here reorders in every home. A tie in the neighbours is `tieSafeBelow`'s,
  * the same break the board makes.
  */
-
-/** Where the lifted card is drawn, relative to the list container. */
-export interface Overlay {
-	left: number;
-	top: number;
-	width: number;
-	height: number;
-}
 
 interface Session {
 	id: string;
