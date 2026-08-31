@@ -2200,9 +2200,12 @@ time a native build happens, which `PROJECT.md` schedules rather than rules out.
   stays derived, and the endpoint maintains both counters itself. Of the two people-fields
   a key may write `assigneeIds` and may not write `participantIds`, which is an ACL on a
   private node, so writing it would let a bearer token revoke a member's read.
-- **Locations**, [#50](https://github.com/Senth/home-backlog/issues/50),
-  [#51](https://github.com/Senth/home-backlog/issues/51). The two location fields are
-  written and inherited, but nothing maintains them when a *location* moves.
+- **Locations.** The second tree shipped, with the trigger that keeps both node fields
+  true when a location moves or is deleted —
+  [location-tree](location-tree.md) is its spec. What stays out of scope here is
+  anchoring *work* to places, [#51](https://github.com/Senth/home-backlog/issues/51):
+  the two fields are written and inherited, but nothing in the board UI offers them
+  yet, and every write path that carries a `locationId` is still refused.
 - **Nesting by dropping a card onto a card.** *Move under…* stays the only way to nest, and
   the drag has no drop-onto-card target at all rather than an affordance that does nothing.
   Its missing Undo is [#79](https://github.com/Senth/home-backlog/issues/79).
