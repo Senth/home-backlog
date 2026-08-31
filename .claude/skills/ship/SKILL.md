@@ -63,16 +63,6 @@ scripts/create-pr-and-merge.sh --no-merge \
   --body "Closes #<nn>"
 ```
 
-**Draft, always.** `--no-merge` is what makes this a ship: the script opens the PR as a
-draft — or reuses the branch's open PR, applying the title and body to it — polls for the
-CI run, watches it, and stops. The merge is yours. Call out in the body any earlier commits
-on the branch that are not part of this issue — they ship with it.
-
-The script's other mode is the one a work session ends with (`CLAUDE.md`: "commit, push and
-run `scripts/create-pr-and-merge.sh`"): the same create and watch, then it marks the PR
-ready and squashes once CI is green. Never `gh pr merge --auto`, and never either mode on a
-red run.
-
 ## Step 4. Report, and stop
 
 The script has already watched CI. Green → report the PR URL, whether the fixture was
