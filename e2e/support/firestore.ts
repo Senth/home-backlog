@@ -98,10 +98,13 @@ export async function deleteNodesByTitlePrefix(prefix: string): Promise<void> {
 		// A delete that quietly fails is the worst outcome available here: the
 		// card stays on the board and the run that pays for it is a later spec in
 		// a different project, failing on a card count with nothing in its output
-		// to say where the extra card came from. Fail where the leak is instead.
+		// to say where the extra card came from. Fail where the leak is instead,
+		// with the body — the emulator's status line alone (a bare 409) says
+		// nothing about why it refused.
 		if (!response.ok) {
+			const body = await response.text().catch(() => "");
 			throw new Error(
-				`emulator REST could not delete "${title}": ${response.status} ${response.statusText}`,
+				`emulator REST could not delete "${title}": ${response.status} ${response.statusText}${body ? ` — ${body}` : ""}`,
 			);
 		}
 	}
