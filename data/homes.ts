@@ -157,8 +157,37 @@ export async function createHome(user: User, name: string): Promise<string> {
 	return created.id;
 }
 
-export function renameHome(homeId: string, name: string): Promise<void> {
-	return updateDoc(homeRef(homeId), { name: name.trim() });
+/**
+ * Renames the home, and — for the owner — refreshes the name every pending
+ * invitation carries. The card is the only thing an invitee ever sees (#43),
+ * so a rename that left it reading the old name would leave the one trust
+ * line stale. Bounded: usually zero documents, one per outstanding invite.
+ *
+ * The invite patch is owner-only because listing that collection is
+ * query-safe for an owner alone; a member who is not the owner renames the
+ * home and leaves the invites to the owner's next visit. It is best-effort,
+ * like the invite clear in `acceptInvite`: offline there is nothing to read
+ * the invites from, and a card this could not reach is what #43 found —
+ * not a rename that failed.
+ */
+export async function renameHome(
+	homeId: string,
+	name: string,
+	isOwner: boolean,
+): Promise<void> {
+	const trimmed = name.trim();
+	await updateDoc(homeRef(homeId), { name: trimmed });
+
+	if (!isOwner) return;
+
+	const invites = await getDocs(homeInvitesQuery(homeId));
+	await Promise.all(
+		invites.docs
+			.filter((invite) => invite.data().homeName !== trimmed)
+			.map((invite) => updateDoc(invite.ref, { homeName: trimmed })),
+	).catch((reason) => {
+		console.warn("Could not refresh pending invitations:", reason);
+	});
 }
 
 /** Keeps my own name and photo current, in a home I am already in. */
