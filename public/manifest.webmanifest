@@ -1,6 +1,6 @@
 {
 	"name": "Home Backlog",
-	"short_name": "Backlog",
+	"short_name": "Home Backlog",
 	"start_url": "/",
 	"scope": "/",
 	"display": "standalone",
