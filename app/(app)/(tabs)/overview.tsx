@@ -99,13 +99,14 @@ export default function Overview() {
 	// Not while anything failed: "add the first project" and "could not load" are
 	// contradictory instructions, and only one of them is true.
 	//
-	// And not while the home holds any open node at all. Seven empty cards are
-	// not the same claim as an empty house: every project sitting in To do,
-	// undated and with nothing finished this month empties them all, and so does
-	// being on none of the household's roots. `boards-and-nodes.md` settled that
-	// a "nothing here yet" a household can disprove is the kind of lie people
-	// stop trusting a screen for, and Overview has no filter control to disprove
-	// it with.
+	// And not while the home holds a root at all. Seven empty cards are not the
+	// same claim as an empty house: every project sitting in To do, undated and
+	// with nothing finished this month empties them all, and so does being on
+	// none of the household's roots. A "nothing here yet" a household can
+	// disprove is the kind of lie people stop trusting a screen for, and Overview
+	// has no filter control to disprove it with. `roots` is every unarchived root
+	// the pair returned — before the hide predicate, which is what makes the
+	// second case say "nothing in progress" rather than "add the first project".
 	const nothingAtAll =
 		!loading &&
 		!failed &&

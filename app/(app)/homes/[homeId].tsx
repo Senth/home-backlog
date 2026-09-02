@@ -73,7 +73,7 @@ export default function ManageHome() {
 			return;
 		}
 
-		renameHome(home.id, nameValue).catch((reason) => {
+		renameHome(home.id, nameValue, isOwner).catch((reason) => {
 			console.error("Could not rename the home:", reason);
 			setNotice("error.saveFailed");
 		});

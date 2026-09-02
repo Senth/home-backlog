@@ -72,7 +72,6 @@ jobs:
         #
         # `functions` carries the REST API. Its TypeScript is compiled by the
         # `predeploy` hook in firebase.json, against the dependencies the root
-        # `postinstall` installed into functions/node_modules. The roles it needs
-        # are listed in docs/OPERATIONS.md — there are five of them, and a
-        # missing one fails the deploy after hosting has already gone out.
+        # `postinstall` installed into functions/node_modules. A missing deploy
+        # role fails the deploy after hosting has already gone out.
         run: firebase deploy --only hosting,functions,firestore:rules,firestore:indexes,storage --project home-backlog

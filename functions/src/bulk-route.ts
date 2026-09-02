@@ -27,7 +27,7 @@ import type { ParentFacts } from "./validate.js";
  * Long enough for a retry loop, a rerun after a crash, or a person noticing in
  * the morning; short enough that the collection does not grow forever. A
  * Firestore TTL policy on `expiresAt` does the deleting, and it is configured
- * per collection group rather than by `firebase deploy` — see `OPERATIONS.md`.
+ * per collection group rather than by `firebase deploy`.
  */
 const runTtlHours = 24;
 
@@ -72,8 +72,8 @@ async function bulkCreate(request: Request, response: Response): Promise<void> {
 
 	// The replay, checked before any work. A run is recorded under the key that
 	// made it, so revoking a key takes its history with it — and so the node
-	// document stays exactly what `boards-and-nodes` describes, with no API
-	// concern in a schema every screen and every rule then carries forever.
+	// document keeps the shape every screen and every rule already carries, with
+	// no API concern written into it.
 	if (runRef !== null) {
 		const previous = await runRef.get();
 		if (previous.exists) {

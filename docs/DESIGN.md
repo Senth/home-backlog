@@ -1,133 +1,8 @@
----
-name: Home Backlog
-source_of_truth: theme/tokens.ts, theme/index.ts
-colors:
-  light:
-    primary: "#2E7D32"
-    onPrimary: "#FFFFFF"
-    primaryContainer: "#C8E6C9"
-    onPrimaryContainer: "#0B2E12"
-    secondary: "#4E6A52"
-    onSecondary: "#FFFFFF"
-    secondaryContainer: "#D1E8D5"
-    onSecondaryContainer: "#0C1F10"
-    tertiary: "#37656B"
-    onTertiary: "#FFFFFF"
-    tertiaryContainer: "#BCEBF1"
-    onTertiaryContainer: "#002023"
-    warning: "#B45309"
-    onWarning: "#FFFFFF"
-    warningContainer: "#FEF3C7"
-    onWarningContainer: "#78350F"
-    success: "#047857"
-    onSuccess: "#FFFFFF"
-    successContainer: "#D1FAE5"
-    onSuccessContainer: "#064E3B"
-    background: "#F4FFF6"
-    onBackground: "#161D17"
-    surface: "#F4FFF6"
-    onSurface: "#161D17"
-    surfaceVariant: "#DBE6DD"
-    onSurfaceVariant: "#404942"
-    outline: "#6F7871"
-    outlineVariant: "#BFC9C0"
-    inverseSurface: "#2B332C"
-    inverseOnSurface: "#E9F4EB"
-    surfaceDisabled: "rgba(22, 29, 23, 0.12)"
-    onSurfaceDisabled: "rgba(22, 29, 23, 0.38)"
-    backdrop: "rgba(42, 50, 44, 0.4)"
-    elevation: { level1: "#EDF7EF", level2: "#E7F2E9", level3: "#E2EDE4" }
-    boardColumn: "#E4EEE6"
-    boardCard: "#F8FFFA"
-    boardCardBorder: "#889289"
-    onCardMuted: "#636C64"
-  dark:
-    primary: "#A5D6A7"
-    onPrimary: "#0B2E12"
-    primaryContainer: "#1B5E20"
-    onPrimaryContainer: "#C8E6C9"
-    secondary: "#B5CCB8"
-    onSecondary: "#203524"
-    secondaryContainer: "#364B39"
-    onSecondaryContainer: "#D1E8D5"
-    tertiary: "#A0CFD5"
-    onTertiary: "#00363B"
-    tertiaryContainer: "#1E4D53"
-    onTertiaryContainer: "#BCEBF1"
-    warning: "#FCD34D"
-    onWarning: "#78350F"
-    warningContainer: "#92400E"
-    onWarningContainer: "#FEF3C7"
-    success: "#34D399"
-    onSuccess: "#064E3B"
-    successContainer: "#065F46"
-    onSuccessContainer: "#D1FAE5"
-    background: "#161D17"
-    onBackground: "#DBE6DD"
-    surface: "#161D17"
-    onSurface: "#DBE6DD"
-    surfaceVariant: "#404942"
-    onSurfaceVariant: "#BFC9C0"
-    outline: "#8A948B"
-    outlineVariant: "#404942"
-    inverseSurface: "#DBE6DD"
-    inverseOnSurface: "#2B332C"
-    surfaceDisabled: "rgba(219, 230, 221, 0.12)"
-    onSurfaceDisabled: "rgba(219, 230, 221, 0.38)"
-    backdrop: "rgba(42, 50, 44, 0.4)"
-    elevation: { level1: "#1E2620", level2: "#242B25", level3: "#283029" }
-    boardColumn: "#080F0A"
-    boardCard: "#28302A"
-    boardCardBorder: "#636C64"
-    onCardMuted: "#98A199"
-typography:
-  displaySmall: { fontFamily: &sans 'Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif', fontSize: 36, lineHeight: 44, fontWeight: 400 }
-  titleMedium:  { fontFamily: *sans, fontSize: 16, lineHeight: 24, fontWeight: 500, letterSpacing: 0.15 }
-  bodyLarge:    { fontFamily: *sans, fontSize: 16, lineHeight: 24, fontWeight: 400, letterSpacing: 0.15 }
-  bodyMedium:   { fontFamily: *sans, fontSize: 14, lineHeight: 20, fontWeight: 400, letterSpacing: 0.25 }
-  bodySmall:    { fontFamily: *sans, fontSize: 12, lineHeight: 16, fontWeight: 400, letterSpacing: 0.4 }
-  labelLarge:   { fontFamily: *sans, fontSize: 14, lineHeight: 20, fontWeight: 500, letterSpacing: 0.1 }
-  labelMedium:  { fontFamily: *sans, fontSize: 12, lineHeight: 16, fontWeight: 500, letterSpacing: 0.5 }
-spacing: { none: 0, xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 }
-radius: { none: 0, sm: 8, md: 12, lg: 16, xl: 28, full: 999 }
-elevation: { none: 0, low: 1, medium: 2, high: 3 }
-contentWidth: { form: 400, dialog: 560, snackbar: 600 }
-size:
-  avatarXs: 24
-  avatarSm: 32
-  avatarMd: 48
-  brandMark: 96
-  boardColumnMin: 300
-  boardColumnMax: 400
-  dot: 8
-icon: { sm: 16, md: 24 }
-border: { hairline: 1 }
-drag: { lift: 1.04, landing: 72, edgeZone: 36 }
-fab: { widthShare: 0.6 }
-touchTarget: 48
-outlinedTouchTarget: 50
-segmentedLabelLineHeight: 30
-focusRing: { width: 2, offset: 2 }
-breakpoints: { dense: 320, appBarStack: 360, compact: 720 }
-density: comfortable
----
-
 # Design contract
 
 **`theme/tokens.ts` and `theme/index.ts` are the source of truth. This file is the rules.**
-The front matter above is a transcription of those two files; when it disagrees with them,
-they are right and this file is stale — say so rather than editing the code to match. It
-mirrors their key names on purpose, so the two can be diffed by eye: `colors` is split into
-`light` and `dark` because the app has two palettes and neither is derived from the other,
-and the scale is `radius` rather than `rounded` because that is what the code calls it.
-`npx @google/design.md lint` warns about both. Ignore it on those two, and read the code.
-
-Two documents carry the reasoning behind the values and are not repeated here. Read them
-before proposing a change to either:
-
-- the `theme/index.ts` docblocks, for why each palette is what it is;
-- [`platform-offline.md` § The palette](specs/platform-offline.md#the-palette), for the
-  re-hued neutral ramp, the tone-by-tone table, and the keyboard focus ring.
+The docblocks in `theme/index.ts` carry the reasoning behind the values and are not repeated
+here. Read them before proposing a change to either.
 
 **Nobody edits this file mid-run.** A review finding cites a rule here or says in words that
 it is a taste call. Proposed rule changes are collected as one diff for the human. Widening
@@ -136,9 +11,16 @@ prevent.
 
 ## 1. Identity
 
-Home Backlog is one household's list of everything the house and garden need, on nested
-kanban boards anchored to a second hierarchy of places. Two or more people use it, and they
-use it *irregularly* — Marcus opens it mid-project, Ingrid opens it when the chimney sweep
+A **home improvement project manager** built around nested kanban boards. The core
+problem: _"We have far more house and garden work than we can hold in our heads, and no
+single place that shows what's outstanding, what's due, and what to do next."_
+
+Trello-like boards, but with two things Trello lacks: **arbitrary nesting** (a card can
+become its own board) and a **second, independent hierarchy of places** (rooms, floors,
+garden areas) that projects are anchored to. **third, an overview dashboard** (what's next, quick wins, upcoming maintenance)
+
+Two or more people use it, and they
+use it _irregularly_ — Marcus opens it mid-project, Ingrid opens it when the chimney sweep
 has been. It is not a tool anyone lives in all day.
 
 That irregularity sets the density. Someone who has not opened the app for three weeks has
@@ -154,7 +36,7 @@ group from another.
 
 That is a different job from the one MD3's palette is built for. `primary` / `secondary` /
 `tertiary` are three accents for one product's voice; what this app needs on top is a
-**categorical ramp** — many hues that mean *different*, not *more important*. Custom labels
+**categorical ramp** — many hues that mean _different_, not _more important_. Custom labels
 will carry colours, and cards may well be coloured by the project they belong to. Neither
 the axis nor the form is decided; both are a later issue, and section 3 says what is already
 binding on whatever they turn out to be.
@@ -184,13 +66,13 @@ raised control is separated by elevation and shadow, not by fill contrast agains
 
 **Status is `warning` and `success`, and it is always carried with words.** This is the
 rule the app is most opinionated about, and `components/board/DueChip.tsx` is where it is
-implemented: *overdue is words, never colour*. Nothing in the app acts on a due date yet, so
+implemented: _overdue is words, never colour_. Nothing in the app acts on a due date yet, so
 a red card is guilt for a deadline nothing will remind anyone about — and words survive
 200% text and colour blindness, which a colour alone does not. A colour may sit beside the
 words. It may never replace them.
 
 `error` and its `on`/container roles are Paper's MD3 defaults, deliberately not overridden.
-Red means a failure the app is reporting. It does not mean *late*.
+Red means a failure the app is reporting. It does not mean _late_.
 
 **Surfaces separate by fill, not by shadow.** Paper renders elevation as opaque colour on
 web, so a shadow is not available and is not wanted. The board's rule, in both schemes, is
@@ -211,12 +93,12 @@ dimmer than the title in dark and 3× in light, and still clears 5.1:1 against t
 
 ### Identity colour, and what is already binding on it
 
-The categorical ramp does not exist yet. When it lands, these hold, and a spec that proposes
+The categorical ramp does not exist yet. When it lands, these hold, and a change that proposes
 otherwise is proposing a change to this file:
 
 - **It is a named scale in `theme/tokens.ts` like every other**, with both schemes given
   explicitly. A hue that only exists in light is not a token.
-- **It means *different*, never *worse* or *sooner*.** Status stays `warning` / `success` /
+- **It means _different_, never _worse_ or _sooner_.** Status stays `warning` / `success` /
   `error` and stays carried with words. A ramp spent on urgency is a ramp that can no longer
   tell two projects apart, which is the whole reason for having it.
 - **Every hue clears 4.5:1 against whatever text sits on it**, in both schemes, and
@@ -239,15 +121,15 @@ defect, whichever scheme it was written in.
 Seven Paper variants are in use and no more should be introduced without a reason written
 into the Decisions section below:
 
-| Variant | Means |
-|---|---|
-| `displaySmall` | the app name on the login screen. One use, and it stays one |
-| `titleMedium` | a card title, a section heading, a dialog title |
-| `bodyLarge` | primary reading text: a node's notes, an empty state's sentence |
-| `bodyMedium` | secondary text and list rows |
-| `bodySmall` | metadata: dates, counts, footnotes |
-| `labelLarge` | button and chip labels |
-| `labelMedium` | tab labels and the smallest chips |
+| Variant        | Means                                                           |
+| -------------- | --------------------------------------------------------------- |
+| `displaySmall` | the app name on the login screen. One use, and it stays one     |
+| `titleMedium`  | a card title, a section heading, a dialog title                 |
+| `bodyLarge`    | primary reading text: a node's notes, an empty state's sentence |
+| `bodyMedium`   | secondary text and list rows                                    |
+| `bodySmall`    | metadata: dates, counts, footnotes                              |
+| `labelLarge`   | button and chip labels                                          |
+| `labelMedium`  | tab labels and the smallest chips                               |
 
 Two weights: 400 and 500. Paper owns the typescale — `theme/` overrides no font — so a
 custom `fontSize` in a style prop is both a numeric literal and a variant that should have
@@ -256,7 +138,7 @@ existed. Use the variant.
 ## 5. Layout and spacing
 
 The 4pt scale in `space`, and nothing between its steps. `space.none` exists so that
-*removing* a Paper component's own default margin is still a token.
+_removing_ a Paper component's own default margin is still a token.
 
 **Content clamps rather than stretching.** `contentWidth.form` (400) for a form,
 `.dialog` (560) and `.snackbar` (600) for the two Paper components that do not clamp
@@ -283,18 +165,18 @@ a taste call.
 
 Extend the canonical implementation. Restyling a copy is a defect.
 
-| Component | Canonical file | Notes |
-|---|---|---|
-| Board card | `components/board/BoardCard.tsx` | the raised surface; reads `boardCard` |
-| Board column | `components/board/BoardColumn.tsx` | the recessed surface |
-| Breadcrumbs | `components/board/Breadcrumbs.tsx` | *Projects › Bathroom › Tiling*; an unreadable ancestor renders as a neutral unlinked crumb, never a gap |
-| Due chip | `components/board/DueChip.tsx` | the words-not-colour rule, in one place |
-| Meta chip | `components/board/MetaChip.tsx` | every count and glyph on a card face |
-| Dialog | `components/ui/AppDialog.tsx` | clamps to `contentWidth.dialog` |
-| Row | `components/ui/Row.tsx` | the list row used across Overview and detail |
-| Avatar | `components/ui/PersonAvatar.tsx` | `avatarXs` on a card, `avatarSm` in the app bar |
-| Empty screen | `components/ui/PlaceholderScreen.tsx` | **scaffolding for screens that have not landed.** Not the pattern for a real empty state |
-| Back action | `components/ui/BackAction.tsx` | carries `touchTargetStyle`; Paper's is 40dp |
+| Component    | Canonical file                        | Notes                                                                                                   |
+| ------------ | ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Board card   | `components/board/BoardCard.tsx`      | the raised surface; reads `boardCard`                                                                   |
+| Board column | `components/board/BoardColumn.tsx`    | the recessed surface                                                                                    |
+| Breadcrumbs  | `components/board/Breadcrumbs.tsx`    | _Projects › Bathroom › Tiling_; an unreadable ancestor renders as a neutral unlinked crumb, never a gap |
+| Due chip     | `components/board/DueChip.tsx`        | the words-not-colour rule, in one place                                                                 |
+| Meta chip    | `components/board/MetaChip.tsx`       | every count and glyph on a card face                                                                    |
+| Dialog       | `components/ui/AppDialog.tsx`         | clamps to `contentWidth.dialog`                                                                         |
+| Row          | `components/ui/Row.tsx`               | the list row used across Overview and detail                                                            |
+| Avatar       | `components/ui/PersonAvatar.tsx`      | `avatarXs` on a card, `avatarSm` in the app bar                                                         |
+| Empty screen | `components/ui/PlaceholderScreen.tsx` | **scaffolding for screens that have not landed.** Not the pattern for a real empty state                |
+| Back action  | `components/ui/BackAction.tsx`        | carries `touchTargetStyle`; Paper's is 40dp                                                             |
 
 Reach for a `react-native-paper` component before building one. A hand-rolled control where
 Paper has one is a finding, and so is a Paper component used against its own semantics.
@@ -317,8 +199,8 @@ The reading order on a board is:
 2. **The card titles**, in the column you are looking at.
 3. **The meta on each card** — status, due, counts, people.
 
-On Overview it is: the section heading (*Ongoing projects*), the node title, then its meta.
-Overview is named Overview and never "home", because *home* is the household you are in and
+On Overview it is: the section heading (_Ongoing projects_), the node title, then its meta.
+Overview is named Overview and never "home", because _home_ is the household you are in and
 the screen that shows which home you are in is the one place the app cannot spend that word
 twice.
 
@@ -359,7 +241,7 @@ they shrink below `touchTarget`.
 
 Almost nothing animates, and that is deliberate for an app opened once a fortnight.
 
-The exception is the drag: `drag.lift` 1.04 is enough for a card to read as *off the board*
+The exception is the drag: `drag.lift` 1.04 is enough for a card to read as _off the board_
 without the title reflowing under the finger; `drag.landing` 72 is the room every column
 keeps free for a drop, including an empty one; `drag.edgeZone` 36 is how far the
 pane-switching strip reaches, kept narrow because a thumb rests near the right edge of a
@@ -388,11 +270,11 @@ Forbidden vocabulary, specific to this app:
 
 - **Never Trello or Jira**, and the line is precise: no card whose **status** is a colour,
   no swimlane tinted by urgency, no red card for late. Colour that says which project or
-  which label a card belongs to is wanted and is coming. Colour that says *how you should
-  feel about this card* is not. A card's meaning is its words.
+  which label a card belongs to is wanted and is coming. Colour that says _how you should
+  feel about this card_ is not. A card's meaning is its words.
 - **Never a productivity dashboard.** No charts, no streaks, no completion percentage, no
-  progress ring, no number that grades the household. Overview answers *is anything on fire,
-  did we get anywhere* with three lists and no metrics.
+  progress ring, no number that grades the household. Overview answers _is anything on fire,
+  did we get anywhere_ with three lists and no metrics.
 - **Never an app that nags.** No badge counts, no red dot on a tab, no urgency banner, no
   empty state that implies you are behind. `size.dot` is a mark that something is there, and
   it stays a mark.
@@ -403,58 +285,3 @@ Forbidden vocabulary, specific to this app:
 - **No `StyleSheet.create`, no Tailwind, no NativeWind.** Rejected on the record in
   `PROJECT.md`; not a preference to revisit inside a feature.
 - No nested card on card. No gradient. No emoji in the UI.
-
-## 12. Verification
-
-- **Run the app:** `scripts/dev-stack.sh up` → the URL it prints.
-  `scripts/dev-stack.sh status` lists the ports.
-- **Representative routes:** `/overview`, `/projects`, a drilled-in board, a node's
-  `/details`, `/homes`, `/login`.
-- **Viewports:** 390×844 always; desktop only where a layout genuinely differs above
-  `compactBreakpoint`.
-- **Schemes:** light and dark, both, every time.
-- **Measured, not judged:** `e2e/craft.spec.ts` owns contrast, touch targets, horizontal
-  scroll, clipped labels, axe violations and raw `t()` keys. If a check can be measured it
-  belongs there and never in an agent's turn.
-
-## Decisions
-
-Append-only. Date, decision, rationale, and which surface prompted it.
-
-- **2026-08-28** — Contract written, largely as transcription. The token values and the
-  palette reasoning already existed in `theme/` and `platform-offline.md`; what did not
-  exist was a citable rule for a reviewer to quote. (from: the whole app)
-- **2026-08-28** — The signature is the content and its labels, not the FAB. An app of
-  boards inside boards has to answer *where am I* before it does anything else, and the
-  extended `primaryContainer` FAB currently competes with the card titles for the eye.
-  Recorded as intent; the gap is the design-debt issue's to close. (from: /projects)
-- **2026-08-28** — Anti-references fixed as Trello/Jira, the productivity dashboard, and
-  the app that nags. The dense enterprise tool was considered and rejected as an
-  anti-reference: `contentWidth` and the one-primary-action rule already defend against it.
-  (from: interview)
-- **2026-08-28** — **Open: the categorical card palette.** The app will carry a lot of
-  colour, for scanning. Custom labels will have colours, and cards may be coloured by the
-  project they belong to. Neither the axis (project, location, or household choice) nor the
-  form (edge, full tint, or chip) is decided; both belong to the issue that builds it. What
-  is binding in the meantime is in § 3 — a named scale in both schemes, identity never
-  status, AA against its own text, and the title still louder than the colour. Recorded
-  rather than guessed, so the spec that lands it is not arguing with a rule invented here.
-  (from: interview)
-- **2026-08-29** — § 7's FAB rule is about room, not colour. The 3:1 fill-vs-page floor
-  proposed for the FAB was measured at 1.31:1 in light and 2.18:1 in dark and then
-  withdrawn: it was a threshold this contract invented, not one MD3 imposes —
-  `primaryContainer` on `surface` is MD3's own FAB pairing, and a raised control is
-  separated by elevation and shadow, not fill contrast. What made the FAB dominate was
-  width (91.8% of a 195px screen in Swedish at 200% text), so the rule caps the footprint
-  at `fab.widthShare` 0.6 and below `denseBreakpoint` the plus glyph yields so the label
-  wraps. The fill stays `primaryContainer` in both schemes. (from: /projects)
-- **2026-08-29** — Proximity is per route. `/overview` and a node's `/details` use
-  `space.lg` between groups and `space.md` within; a board column keeps `space.md`
-  throughout. A column's whole job is cards per screen, and its density is deliberate —
-  recorded so it is not re-argued as a finding on the next review. (from: /projects)
-- **2026-08-29** — `PAPER_INTERNALS` in `e2e/craft.spec.ts` is a closed, named list of
-  third-party internals that the on-scale spacing sweep exempts, carrying an `owner` column
-  that names the Paper component owning each value. The rule: an entry may name a Paper
-  internal and never one of our screens. Adding an entry when Paper grows a control is one
-  line; adding one to make our own change pass is the failure the table exists to prevent.
-  (from: e2e/craft.spec.ts)

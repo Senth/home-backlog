@@ -15,8 +15,7 @@ import {
 
 /**
  * The people, disclosure, promotion and rename claims from #102 — the phase-6
- * e2e pass over `docs/specs/wip/102-details-participants-rename.md`'s
- * Acceptance section. Claims 13, 18 (the REST API) live in
+ * e2e pass over #102's Acceptance section. Claims 13, 18 (the REST API) live in
  * `rest-api.spec.ts`, and claim 19 (an invite, ticked or not) lives in
  * `invite.spec.ts` — both need machinery this file's claims do not.
  *

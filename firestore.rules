@@ -359,8 +359,7 @@ service cloud.firestore {
         //
         // **Narrowing.** A stored root still holding `[]` has every update to
         // it denied afterwards, including the childCount bump that adding a
-        // step to it performs, so the backfill runs before this deploys. See
-        // OPERATIONS.md § One-off migrations.
+        // step to it performs, so the backfill ran before this deployed.
         function rootHasParticipants(data) {
           return data.parentId != null || data.participantIds.size() > 0;
         }

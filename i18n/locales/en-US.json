@@ -160,6 +160,8 @@
 	},
 	"error": {
 		"googleSignIn": "Could not sign in with Google. Please try again.",
+		"moveOwnSubtree": "That card cannot be moved under itself or one of its own cards.",
+		"moveVisibility": "A private card cannot live inside a shared project, or the other way around.",
 		"offline": "You are offline. Signing in needs a connection.",
 		"saveFailed": "Could not save that. Please try again."
 	},

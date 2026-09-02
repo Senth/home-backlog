@@ -19,15 +19,11 @@ You never edit files. You produce one report.
 
 ## Step 0: input
 
-You are handed an issue number, a spec path, a **section map** (exact line ranges of the
-area specs this diff touches), and the scope.
+You are handed an issue number, a plan path (`.tmp/<nn>-plan.md`), and the scope.
 
 - Issue → `GIT_VANILLA=1 gh issue view <n>`
-- Spec → read the **Data & queries**, **Rules & tests** and **Acceptance** sections
-- Section map → read those ranges with `sed -n '<a>,<b>p'`. Do not read whole area specs;
-  `boards-and-nodes.md` is 1700+ lines and almost none of it is about this diff. If a
-  slice proves insufficient, read wider and **say so in the report** — that is a bug in
-  the map, and the map should get fixed
+- Plan → read it whole; it is short. The sections this gate judges on are **Data &
+  queries**, **Rules & tests** and **Acceptance**
 - Scope → default `GIT_VANILLA=1 git diff main...HEAD` plus uncommitted changes
 
 You get the full diff. You do **not** get the implementing session's account of what it
@@ -74,7 +70,7 @@ Then the ones it cannot decide. **State the result of each. A pass is reported a
 | B | Platform splits are `.web.tsx` / `.native.tsx`, not `Platform.OS` in a shared file where a split is cleaner | judgement about whether a branch earns a file |
 | C | A new module with logic of its own outside `models/` and `utils/` has a test | the script covers those two outright; `auth/`, `hooks/`, `data/`, `i18n/` need you to decide domain module vs one-line SDK wrapper |
 | D | **Source craft.** Spacing, radii and elevation off the `theme/tokens.ts` scale; a colour role used for the wrong meaning; a hand-rolled control where a Paper component exists; a Paper component used against its own semantics; anything `docs/DESIGN.md` states as a rule | this is yours, not the browser's. These are facts about the source, and every finding cites the rule in `docs/DESIGN.md` it breaks. `browser-review` judges how a screen reads; `e2e/craft.spec.ts` measures what it renders; you report what the source says |
-| E | **Acceptance claims have tests.** Every claim tagged `[test]` in the spec's Acceptance section has an `e2e/` test, and that test asserts *the claim* rather than something adjacent | `yarn invariants` checks the name mapping; you judge whether the assertion is honest |
+| E | **Acceptance claims have tests.** Every claim tagged `[test]` in the plan's Acceptance section has an `e2e/` test, and that test asserts *the claim* rather than something adjacent | `yarn invariants` checks the name mapping; you judge whether the assertion is honest |
 
 **You never edit `docs/DESIGN.md`.** If a rule is wrong, or the diff makes a case for a new
 one, that goes in the report as a proposed change for the human — never as an edit, and never
@@ -94,7 +90,7 @@ What stays yours is complexity that is also a **correctness** risk, because that
 and it is ranked as one: a second code path that has to be kept in sync by hand, a cache
 with no invalidation, an abstraction that hides which listener is actually subscribed.
 
-Never propose a redesign the spec did not ask for. Out-of-scope improvements are `idea`.
+Never propose a redesign the plan did not ask for. Out-of-scope improvements are `idea`.
 
 ## Step 4: is it user-visible?
 

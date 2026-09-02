@@ -1,6 +1,6 @@
 ---
 name: ship
-description: "Folds a Home Backlog wip spec into its area spec, refreshes the review fixture if needed, and opens a draft PR. Use in a fresh session after /review returns a PASS. Does not merge — you do that. Not for planning, implementing or reviewing."
+description: "Retires the plan, refreshes the review fixture if needed, and opens a draft PR through scripts/create-pr-and-merge.sh. Use in a fresh session after /review returns a PASS. Does not merge — you do that. Not for planning, implementing or reviewing."
 ---
 
 # Ship skill
@@ -8,7 +8,7 @@ description: "Folds a Home Backlog wip spec into its area spec, refreshes the re
 The last stage. `/review` reached a PASS; this turns the work into something mergeable and
 leaves the merge to you.
 
-Talk to the user in **unslop** prose.
+Load the unslop skill.
 
 ## Preconditions
 
@@ -22,34 +22,19 @@ Refuse to start unless all three hold, and say which failed:
    scripts/dev-stack.sh up && yarn e2e
    ```
 
-## Step 1. Fold the wip spec
+## Step 1. Retire the plan
 
-Every kickoff skill writes one, so there is normally a wip spec to fold. Skip to Step 3 only
-when there genuinely is none.
-
-**Choose the home.** Extend the existing area spec whenever the work changes behaviour that
-spec already describes. Write a new area spec only for a genuinely new area with its own
-data model and screens. Work spanning two areas updates both and cross-links; never a third
-file that reads as a diff against the others.
-
-**Rewrite, never append.** The area spec must read as one description of current behaviour,
-not a stack of feature chapters. Delete what is no longer true. Keep everything that
-matters: the *why*, the rejected alternatives, formulas, thresholds, tables.
-
-Four sections are **wip-only and do not survive the fold** — `Handoff`, `Surface brief`,
-`Acceptance` and `Phases`. All four were scaffolding. Acceptance's `[test]` claims now live
-in `e2e/` as real tests, and the area spec states the behaviour in the present tense
-instead. The Surface brief was the brief the implement stage built against; what it asked
-for is now either in the screen or it is not, and `docs/DESIGN.md` is where a durable rule
-about surfaces belongs.
-
-Then:
+The kickoff skills write `.tmp/<nn>-plan.md`. By now its `[test]` claims live in `e2e/` as
+real tests and its `[eye]` claims were judged by `browser-review`; the plan text itself is
+already in a comment on the issue, which is the record. Delete the file:
 
 ```bash
-rm docs/specs/wip/<nn>-<slug>.md
+rm .tmp/<nn>-plan.md
 ```
 
-Git history keeps it. Update the row in [`docs/specs/INDEX.md`](../../../docs/specs/INDEX.md).
+Nothing durable may live only in the plan. Anything that must survive has already landed in
+a code comment, `CLAUDE.md` or `docs/DESIGN.md` by the time the plan is confirmed — if you
+found something still only in the plan, stop and ask where it belongs.
 
 ## Step 2. Refresh the fixture, if the feature earned it
 
@@ -67,42 +52,22 @@ yarn emulators:export
 `Renovera badrummet`. **A regenerated fixture means re-running `yarn e2e` before you go
 further**, and updating those markers if the data moved.
 
-## Step 3. Commit and open the PR
+## Step 3. Commit, push, and open the PR through the script
 
 ```bash
 GIT_VANILLA=1 git add -A
 GIT_VANILLA=1 git commit -m "<type>(<scope>): <what changed>"
 GIT_VANILLA=1 git push -u origin HEAD
-GIT_VANILLA=1 gh pr create --draft --fill --body "Closes #<nn>"
+scripts/create-pr-and-merge.sh --no-merge \
+  --title "<type>(<scope>): <what changed>" \
+  --body "Closes #<nn>"
 ```
 
-**Draft, always.** Marking it ready and merging is yours — merging deploys to production,
-and this repo has no required status checks to hold a merge back
-([why](../../../docs/OPERATIONS.md#merging-a-pr)).
+## Step 4. Report, and stop
 
-The PR body says what changed and why, and closes the issue. If the branch carries earlier
-commits that are not part of this issue, **say so in the body** — they ship with it.
-
-## Step 4. Watch CI, then stop
-
-```bash
-for _ in $(seq 30); do
-  RUN=$(GIT_VANILLA=1 gh run list --branch "$(GIT_VANILLA=1 git branch --show-current)" \
-          --workflow "PR - Lint, typecheck, test and build" \
-          --limit 1 --json databaseId --jq '.[0].databaseId')
-  [ -n "$RUN" ] && break || sleep 2
-done
-GIT_VANILLA=1 gh run watch "$RUN" --exit-status
-```
-
-The poll matters: `gh run list` returns an empty array for a few seconds after
-`gh pr create`, and an empty `$RUN` makes `gh run watch` open an interactive picker that
-hangs forever in a non-interactive session.
-
-Then **stop**. Report the PR URL, whether CI is green, what was folded and where, and
-whether the fixture was refreshed. Tell the user the PR is a draft and the merge is theirs.
-
-Red CI → report the failing job and stop. Do not mark a red PR ready.
+The script has already watched CI. Green → report the PR URL, whether the fixture was
+refreshed, and that the PR is a draft and the merge is the user's. Red → report the failing
+job and stop. Do not mark a red PR ready.
 
 ## Step 5. Tear down
 

@@ -76,7 +76,7 @@ export const ROUTES = [
  * dev runtime announcing itself, and `utils/dev-console.ts` announcing that it
  * is filtering. Nothing at warning level or above belongs in this array; if
  * something needs to be added at that level, it belongs in
- * `docs/specs/platform-offline.md` under "The console" first, with a reason.
+ * `utils/dev-console.ts`'s docblock first, with a reason.
  */
 const EXPECTED_PREFIXES = [
 	"%cDownload the React DevTools",

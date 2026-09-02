@@ -1,11 +1,11 @@
 ---
 name: implement
-description: "Use to build the phases of a confirmed Home Backlog spec, standalone rather than through /continue-work. Not for planning, reviewing or shipping."
+description: "Use to build the phases of a confirmed Home Backlog plan, standalone rather than through /continue-work. Not for planning, reviewing or shipping."
 ---
 
 # Implement skill
 
-Runs the **Phases** of a spec, in order, and nothing else. Planning happened in
+Runs the **Phases** of a plan, in order, and nothing else. Planning happened in
 `/new-feature`, `/cleanup` or `/bug`. Review happens in `/review`. Shipping happens in
 `/ship`.
 
@@ -30,7 +30,7 @@ other's diffs and each other's commits.
 
 ## Step 0: input
 
-A spec path, usually `docs/specs/wip/<nn>-<slug>.md`. Read it whole — it is short, it is
+A plan path, `.tmp/<nn>-plan.md`. Read it whole — it is short, it is
 the contract, and it is the only thing you are carrying.
 
 Confirm the branch is the work's own, not `main`:
@@ -41,24 +41,17 @@ GIT_VANILLA=1 git branch --show-current
 
 If it is `main`, stop and say so. Pushing to `main` deploys to production.
 
-## Step 1: the section map
+## Step 1: the brief
 
-Build it once and hand the same map to every phase, so no agent reads a 1700-line area spec
-to change forty lines:
-
-```bash
-grep -n '^## ' docs/specs/<area>.md
-```
-
-Pair each heading with the next heading's line to get ranges, keep the ones this spec
-touches, and pass them as `<file> <start>-<end> <heading>`.
+There is no section map to build and no area spec to trim — the plan is short by design.
+Hand the plan's path, never its contents; the agent reads the repo itself.
 
 ## Step 2: the phase loop
 
 For each phase, in order:
 
 1. **Write the prompt to a file** under `.tmp/prompts/`, stable part first so a retry hits
-   the prompt cache. It carries the spec path and **which phase**, the section map, the
+   the prompt cache. It carries the plan path and **which phase**, the
    phase's gates — the four cheap commands from `.ai/config.toml`'s `[gates]`, plus the
    targeted e2e command for the claim numbers the phase owns (`scripts/dev-stack.sh up &&
    yarn playwright test --project=setup && yarn playwright test --no-deps --grep
@@ -67,27 +60,27 @@ For each phase, in order:
    - **`ponytail` in `full` mode. Always** — on the largest phase and on a two-phase spec
      alike. The short path is not an exemption. Catching an unnecessary abstraction at
      write time is a deletion; catching it in `diff-review` is a rewrite.
-   - **When the phase touches `[review] visible_paths`:** `docs/DESIGN.md` and the spec's
+   - **When the phase touches `[review] visible_paths`:** `docs/DESIGN.md` and the plan's
      **Surface brief**, plus design-apply's `references/principles.md`,
      `references/anti-patterns.md` and `references/checklist.md`. Steps 1, 2 and 5 of
      design-apply are skipped — discovery is answered by the contract, the mode is always
      **conform**, and verification belongs to the gates and to `browser-review`. **The
      phase never boots a browser.**
 
-   Not the spec's contents, not a file's contents, not your reasoning. The agent reads the
+   Not the plan's contents, not a file's contents, not your reasoning. The agent reads the
    repo itself, and every line you paste is a line paid for twice.
 
-2. **Dispatch.** The spec names a routing hint per phase:
+2. **Dispatch.** Every phase goes to GLM:
 
    ```bash
    oc-task implement ~/git/home-backlog .tmp/prompts/implementation-<n>.md \
      --label <issue>/implementation-<n>
    ```
 
-   Every phase goes to GLM, including the ones that change how a screen looks. A spec
+   Every phase goes to GLM, including the ones that change how a screen looks. A plan
    written before that was settled may still hint `Opus` on a phase; the hint is stale, and
    the phase is dispatched here like any other. Visual judgement is not bought with a
-   bigger model — it is carried by `docs/DESIGN.md` and the spec's Surface brief, which is
+   bigger model — it is carried by `docs/DESIGN.md` and the plan's Surface brief, which is
    why the prompt hands the agent both.
 
 3. **Verify it yourself.** Never take the agent's word for green:
@@ -98,12 +91,12 @@ For each phase, in order:
    yarn playwright test --no-deps --grep '\b(<claims>):'
    ```
 
-   `<claims>` is the claim numbers this phase owns, from the spec's `[test]` tags. A phase
+   `<claims>` is the claim numbers this phase owns, from the plan's `[test]` tags. A phase
    that owns none runs no e2e here. The setup pass renews the signed-in browser state and
    clears leftover cards; `--no-deps` is what keeps the run targeted — `writes` depends on
    the four read-only projects, and without it one claim drags all 163 of them in.
 
-   `yarn invariants` fails until every `[test]` claim in the spec's Acceptance has a test
+   `yarn invariants` fails until every `[test]` claim in the plan's Acceptance has a test
    whose title **starts with its number** — `test("3: …")`. That failure is the feedback,
    not an obstacle: the fix is to write the test, never to reword the claim. The claims
    become real specs in the phase that builds the screen, not later.
@@ -128,17 +121,17 @@ For each phase, in order:
 ## Step 3: stop
 
 When the last implementation phase is green and committed, **stop**. Do not review your own
-work, do not fold the spec, do not open a PR.
+work, do not retire the plan, do not open a PR.
 
 Tell the user to run **`/review`**, or **`/continue-work`** to pick the arc back up. Say
-which phases landed, which commits, and anything the spec left as an open decision.
+which phases landed, which commits, and anything the plan left as an open decision.
 
 ## What does not belong here
 
 - **Reviewing.** The session that wrote the code never signs it off, and dispatching agents
   still counts as writing it.
-- **Folding the wip spec into `docs/specs/`.** That is `/ship`, after a PASS.
-- **Deciding scope.** If a phase turns out to be wrong or the spec is ambiguous, stop and
-  ask. Do not redesign mid-run; a spec changed silently during implementation is a spec
+- **Retiring the plan or opening the PR.** That is `/ship`, after a PASS.
+- **Deciding scope.** If a phase turns out to be wrong or the plan is ambiguous, stop and
+  ask. Do not redesign mid-run; a plan changed silently during implementation is a plan
   nobody agreed to.
 - **Committing anything outside the phase list.** Drive-by fixes belong in their own issue.

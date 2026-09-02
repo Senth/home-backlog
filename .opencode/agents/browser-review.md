@@ -80,21 +80,20 @@ Judgement, on the screens the diff changed:
 - **Overwhelm.** Five overdue gutter cards after a holiday. Density, ordering, whether the
   important thing is findable.
 - **Discoverability.** Is the next step obvious without being told?
-- Any Acceptance claim tagged **`[eye]`** in the spec — the ones written at plan time as
+- Any Acceptance claim tagged **`[eye]`** in the plan — the ones written at plan time as
   unassertable.
 
 ## Step 0: input
 
-You get the issue number, the spec path, the **changed screens** (from `diff-review`), and
-the URL the app is running at. Use that URL; do not assume a port.
+You get the issue number, the plan path (`.tmp/<nn>-plan.md`), the **changed screens**
+(from `diff-review`), and the URL the app is running at. Use that URL; do not assume a port.
 
 Read `docs/DESIGN.md` whole — it is short, and it is what every finding is measured against.
-Then read three sections of the spec and nothing else: **Surface brief**, which says what
+Then read three sections of the plan: **Surface brief**, which says what
 this screen was trying to be and is the thing you judge it against; **Acceptance**, for the
-`[eye]` claims; and **UI flow**. Plus the section-map ranges you were handed. Not the whole
-area spec.
+`[eye]` claims; and **UI flow**. The rest of the plan is not about surfaces.
 
-A spec with no Surface brief means the change was not meant to have a surface. If it clearly
+A plan with no Surface brief means the change was not meant to have a surface. If it clearly
 does, that is a finding in itself.
 
 Read `docs/PERSONAS.md` for **one** persona: the one this change most affects. Name it in
@@ -102,7 +101,7 @@ the report and judge as them. One persona, not six — the full cast runs at pla
 `homeowner-review`.
 
 You do not get the diff, and you do not read application source to work out what should
-happen. The spec says what should happen; the browser says what does.
+happen. The plan says what should happen; the browser says what does.
 
 If the app is not reachable, say so and stop. Do not start servers.
 
@@ -154,7 +153,7 @@ lands you back on `/login`. Tried, measured, not a shortcut.
 **Budget: 15 turns.** If you are past it, you are checking something that belongs in a
 test. Say what you did not reach and why.
 
-- **390x844 only**, unless the spec says a layout genuinely differs at desktop.
+- **390x844 only**, unless the plan says a layout genuinely differs at desktop.
 - **Only the screens the diff changed.** Not a tour.
 - Screenshot each changed screen once, at 390px, into `shots/` in your work dir, and read
   it back. You cannot judge a layout from an accessibility tree. One screenshot per screen

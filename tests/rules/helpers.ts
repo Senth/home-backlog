@@ -219,7 +219,8 @@ export async function createTestEnv(): Promise<RulesTestEnvironment> {
 		// config runs the emulators in `singleProjectMode`, and the Storage
 		// rules reach into Firestore with `firestore.get()` — that lookup
 		// resolves against the emulator's own project, so a different id here
-		// would find no home doc and deny every upload. The `demo-` prefix
+		// would find no home doc and deny every upload with a permission error
+		// that looks like a rules bug and is not. The `demo-` prefix
 		// keeps the SDK from ever reaching a real project.
 		projectId: "demo-home-backlog-rules",
 		firestore: {
