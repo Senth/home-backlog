@@ -163,7 +163,8 @@ multi-tenancy, sharing, or store release.
 
 - **Five buckets**, ordinal enum, **on tasks only — not projects**:
   `<30 min`, `<2 h`, `an evening`, `a weekend`, `multi-week`.
-- Drives a "quick wins" section: _top 3 things under 30 minutes_.
+- Drives Overview's four effort cards, which partition the scale so every estimated
+  task lands in exactly one: quick wins, a few hours, needs splitting, needs an estimate.
 - Drives a split nudge: effort ≥ *a weekend* with no children → suggest breaking it down.
 
 ### Suggestions ("what should I do next?")
@@ -232,9 +233,10 @@ multi-tenancy, sharing, or store release.
 
 ### Beyond the core, roughly in order
 
-1. Overview: ongoing projects, upcoming maintenance, 30-day completed summary. Named
-   *Overview* / *Översikt* rather than "dashboard home", because **home** is the
-   household you are in — see [`specs/home-and-members.md`](specs/home-and-members.md).
+1. Overview: filter cards the household composes over its own open work, seeded with the
+   projects in progress, what is coming up, the four effort cards and a 30-day completed
+   summary. Named *Overview* / *Översikt* rather than "dashboard home", because **home** is
+   the household you are in — see [`specs/home-and-members.md`](specs/home-and-members.md).
 2. Next-task suggestion engine (needs real data before its weights mean anything).
 3. Calendar view for recurring tasks.
 4. Starter location templates and a curated maintenance library.

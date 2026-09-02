@@ -454,7 +454,7 @@ test("12: with an ongoing project but nothing due and nothing completed, Coming 
 	await gotoOverview(page);
 	// Scoped to the Ongoing projects card: the four effort cards partition the
 	// effort scale, so this effort-less root also matches Needs an estimate —
-	// an overlap `166-overview-filter-cards.md` accepts on the record.
+	// an overlap `docs/specs/overview.md` accepts on the record.
 	await expect(
 		page
 			.getByTestId("overview-section-ongoing")
