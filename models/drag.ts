@@ -131,10 +131,10 @@ export function dropPlan({
  * So a card dropped inside a tied run lands just after the run instead of
  * inside it, and the drop that does it breaks the tie permanently.
  */
-function tieSafeBelow(
-	others: readonly Node[],
+export function tieSafeBelow(
+	others: readonly { rank: string }[],
 	index: number,
-	above: Node | null,
+	above: { rank: string } | null,
 ): string | null {
 	if (above === null) return others[index]?.rank ?? null;
 

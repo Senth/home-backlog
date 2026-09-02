@@ -236,6 +236,102 @@
 		"done": {
 			"title": "Recently done"
 		},
+		"cards": {
+			"title": {
+				"quickWins": "Quick wins",
+				"aFewHours": "A few hours",
+				"needsSplitting": "Needs splitting",
+				"needsEstimate": "Needs an estimate"
+			},
+			"empty": {
+				"generic": "Nothing matches this card.",
+				"quickWins": "Set the time needed on a task and the quick ones land here.",
+				"needsSplitting": "Nothing needs splitting up."
+			},
+			"editor": {
+				"title": "Edit cards",
+				"add": "Add card",
+				"import": "Import card",
+				"importPaste": "Paste a shared card",
+				"importInvalid": "That doesn't look like a shared card.",
+				"importAdded": "Card added. Open it to make it yours.",
+				"removed": "Removed originals",
+				"restore": "Restore",
+				"scope": {
+					"global": "All homes",
+					"home": "Home",
+					"shared": "Everyone"
+				},
+				"hiddenBadge": "Hidden"
+			},
+			"menu": {
+				"edit": "Edit",
+				"hide": "Hide for me",
+				"show": "Show for me",
+				"copy": "Copy as text",
+				"copied": "Copied. Paste it to share the card.",
+				"moveUp": "Move up",
+				"moveDown": "Move down",
+				"remove": "Remove",
+				"removeTitle": "Remove this card?",
+				"removeBody": "It disappears from the Overview. The built-in cards can be restored in the editor."
+			},
+			"edit": {
+				"title": "Edit card",
+				"shown": "Rows shown",
+				"held": "Rows held",
+				"more": "More",
+				"fewer": "Fewer",
+				"withinDays": "Days ahead",
+				"followsDefault": "Uses its default name. Type to give it your own."
+			},
+			"due": {
+				"comingUp": "Coming up",
+				"late": "Late",
+				"notLate": "Not late",
+				"none": "No date",
+				"comingUpWithin_one": "Coming up within {{count}} day",
+				"comingUpWithin_other": "Coming up within {{count}} days"
+			},
+			"sort": {
+				"label": "Sort",
+				"boardOrder": "Board order",
+				"ascending": "Ascending",
+				"descending": "Descending",
+				"completedAt": "Completed"
+			},
+			"field": {
+				"conditions": "Conditions",
+				"status": "Status",
+				"notSet": "Not set",
+				"me": "Me",
+				"unassigned": "Unassigned",
+				"root": "Project or step",
+				"isProject": "Is a project",
+				"isStep": "Is a step",
+				"withSteps": "Has steps",
+				"noSteps": "No steps",
+				"waiting": "Waiting on something",
+				"notWaiting": "Not waiting",
+				"location": "Location",
+				"hasLocation": "Has a location",
+				"noLocation": "No location",
+				"visibility": "Visibility",
+				"shared": "Shared",
+				"private": "Private",
+				"createdVia": "Source",
+				"inApp": "In the app",
+				"withNotes": "Has notes",
+				"noNotes": "No notes",
+				"photos": "Photos",
+				"withPhotos": "Has photos",
+				"noPhotos": "No photos",
+				"checklist": "Checklist",
+				"withChecklist": "Has a checklist",
+				"noChecklist": "No checklist",
+				"inLocation": "in {{location}}"
+			}
+		},
 		"more": "+{{count}} more",
 		"less": "Show less",
 		"empty": "Nothing here yet. Add the first project.",

@@ -26,8 +26,7 @@
 			"fields": [
 				{ "fieldPath": "archived", "order": "ASCENDING" },
 				{ "fieldPath": "completedAt", "order": "ASCENDING" },
-				{ "fieldPath": "visibility", "order": "ASCENDING" },
-				{ "fieldPath": "dueDate", "order": "ASCENDING" }
+				{ "fieldPath": "visibility", "order": "ASCENDING" }
 			]
 		},
 		{
@@ -36,8 +35,7 @@
 			"fields": [
 				{ "fieldPath": "archived", "order": "ASCENDING" },
 				{ "fieldPath": "completedAt", "order": "ASCENDING" },
-				{ "fieldPath": "participantIds", "arrayConfig": "CONTAINS" },
-				{ "fieldPath": "dueDate", "order": "ASCENDING" }
+				{ "fieldPath": "participantIds", "arrayConfig": "CONTAINS" }
 			]
 		},
 		{

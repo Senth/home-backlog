@@ -188,7 +188,7 @@ export default defineConfig({
 			dependencies: ["en-US", "en-US-desktop", "sv-SE", "sv-SE-desktop"],
 			workers: 1,
 			testMatch:
-				/(blocked-by|board|details|fab|invite|locations|offline|overview|rest-api)\.spec\.ts/,
+				/(blocked-by|board|details|fab|invite|locations|offline|overview|overview-cards|rest-api)\.spec\.ts/,
 			use: {
 				...devices["Desktop Chrome"],
 				viewport: VIEWPORTS.phone,

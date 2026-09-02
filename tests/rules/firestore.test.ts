@@ -1858,12 +1858,11 @@ describe("homes/{homeId}/nodes", () => {
 		});
 	});
 	/**
-	 * Overview's four dated queries. Nothing else in the repo makes the claim
+	 * Overview's two query pairs. Nothing else in the repo makes the claim
 	 * that they are *permitted* — the app-side tests are pure functions over
 	 * `Node[]`, and the emulator is the only place a query's safety is decided.
 	 */
 	describe("the overview queries", () => {
-		const until = "2026-09-30";
 		const since = new Date("2026-08-01T00:00:00Z");
 
 		beforeEach(async () => {
@@ -1897,7 +1896,8 @@ describe("homes/{homeId}/nodes", () => {
 						participantIds: [OWNER.uid],
 					}),
 				);
-				// No due date and not done: what `dueDate >= ""` exists to exclude.
+				// An undated open shared node: the pool has no date clause, so it
+				// matches — the client's `comingUp()` is what narrows by date.
 				await setDoc(doc(db, nodesPath, "undated"), nodeDoc());
 			});
 		});
@@ -1907,7 +1907,7 @@ describe("homes/{homeId}/nodes", () => {
 		const ids = (result: { docs: { id: string }[] }) =>
 			result.docs.map((snapshot) => snapshot.id);
 
-		it("runs the shared half of Coming up", async () => {
+		it("runs the shared arm of the pool", async () => {
 			// Q3. `visibility == 'shared'` is the read rule's first disjunct, so no
 			// matching document can be denied.
 			const result = await assertSucceeds(
@@ -1917,22 +1917,20 @@ describe("homes/{homeId}/nodes", () => {
 						where("archived", "==", false),
 						where("completedAt", "==", null),
 						where("visibility", "==", "shared"),
-						where("dueDate", ">=", ""),
-						where("dueDate", "<=", until),
-						orderBy("dueDate"),
-						limit(20),
 					),
 				),
 			);
 
-			// The private dated node is not in it, and neither is the undated one.
-			expect(ids(result)).toEqual(["due-shared"]);
+			// The owner's private node matches the same filters but is outside the
+			// arm — the query succeeds with it present rather than being rejected,
+			// and it is not in the result. The done nodes are open but completed.
+			expect(ids(result).sort()).toEqual(["due-shared", "undated"]);
 		});
 
-		it("runs the participating half of Coming up", async () => {
+		it("runs the participating arm of the pool", async () => {
 			// Q4, the rule's second disjunct — which is what reaches the owner's own
-			// private dated node. The shared one is in both halves, which is what
-			// the client's dedupe exists for.
+			// private node. The shared one is in both arms, which is what the
+			// client's dedupe exists for.
 			const result = await assertSucceeds(
 				getDocs(
 					query(
@@ -1940,15 +1938,15 @@ describe("homes/{homeId}/nodes", () => {
 						where("archived", "==", false),
 						where("completedAt", "==", null),
 						where("participantIds", "array-contains", OWNER.uid),
-						where("dueDate", ">=", ""),
-						where("dueDate", "<=", until),
-						orderBy("dueDate"),
-						limit(20),
 					),
 				),
 			);
 
-			expect(ids(result)).toEqual(["due-shared", "due-private"]);
+			expect(ids(result).sort()).toEqual([
+				"due-private",
+				"due-shared",
+				"undated",
+			]);
 		});
 
 		it("runs the shared half of Recently done", async () => {
@@ -1988,53 +1986,17 @@ describe("homes/{homeId}/nodes", () => {
 			expect(ids(result)).toEqual(["done-shared", "done-private"]);
 		});
 
-		/**
-		 * What `dueDate >= ""` is actually worth, asked of the real thing rather
-		 * than of either reading of the docs.
-		 *
-		 * Firestore orders values by *type* before value — `Null < Boolean <
-		 * Number < Timestamp < String` — which is the reason to fear that
-		 * `dueDate <= cutoff` alone returns every undated node in the home. This
-		 * is the only place that fear can be settled, and the answer it gives is
-		 * what the comment on `sharedDueQuery` is allowed to claim.
-		 *
-		 * The bound stays either way: the empty string is the smallest string, so
-		 * it costs nothing and no index, and "every undated card in the house" is
-		 * what this listener degrades to if the type-scoping below ever stops
-		 * holding. This test is what would notice.
-		 */
-		it("excludes the undated node with or without the lower bound", async () => {
-			const withoutBound = await assertSucceeds(
-				getDocs(
-					query(
-						nodes(dbAs(env, MEMBER)),
-						where("archived", "==", false),
-						where("completedAt", "==", null),
-						where("visibility", "==", "shared"),
-						where("dueDate", "<=", until),
-						orderBy("dueDate"),
-						limit(20),
-					),
-				),
-			);
-
-			expect(ids(withoutBound)).toEqual(["due-shared"]);
-		});
-
-		it("refuses Coming up as one query", async () => {
+		it("refuses the pool as one query", async () => {
 			// What makes the pair necessary rather than stylistic: without the
-			// visibility clause this matches a private node the member cannot read,
-			// and Firestore rejects the whole query rather than filtering it.
+			// visibility clause this matches the owner's private node the member
+			// cannot read, and Firestore rejects the whole query rather than
+			// filtering it.
 			await assertFails(
 				getDocs(
 					query(
 						nodes(dbAs(env, MEMBER)),
 						where("archived", "==", false),
 						where("completedAt", "==", null),
-						where("dueDate", ">=", ""),
-						where("dueDate", "<=", until),
-						orderBy("dueDate"),
-						limit(20),
 					),
 				),
 			);
@@ -2604,5 +2566,85 @@ describe("homes/{homeId}/apiClients", () => {
 		);
 		await assertFails(deleteDoc(doc(dbAs(env, OWNER), clientPath)));
 		await assertFails(deleteDoc(doc(dbAs(env, MEMBER), clientPath)));
+	});
+});
+
+/**
+ * #166 phase 2: the three card-config surfaces. Each one is read by id — the
+ * two documents — or as one bounded collection, so a query can never match a
+ * document its caller could not read; what the rules must prove is *who* may
+ * name each path.
+ */
+describe("card config", () => {
+	const card = { cards: {}, seededAt: new Date("2026-01-01T00:00:00Z") };
+
+	describe("users/{uid}/dashboard/config", () => {
+		const configPath = `users/${OWNER.uid}/dashboard/config`;
+
+		it("is the owner's alone, like the apiKeys beside it", async () => {
+			await assertSucceeds(setDoc(doc(dbAs(env, OWNER), configPath), card));
+			await assertSucceeds(getDoc(doc(dbAs(env, OWNER), configPath)));
+		});
+
+		it("denies another signed-in user on the same path", async () => {
+			await assertFails(getDoc(doc(dbAs(env, MEMBER), configPath)));
+			await assertFails(setDoc(doc(dbAs(env, MEMBER), configPath), card));
+			await assertFails(getDoc(doc(dbAnon(env), configPath)));
+		});
+	});
+
+	describe("homes/{homeId}/dashboards/{uid}", () => {
+		const ownPath = `homes/${HOME_ID}/dashboards/${MEMBER.uid}`;
+		const otherPath = `homes/${HOME_ID}/dashboards/${OWNER.uid}`;
+
+		it("lets a member write their own document", async () => {
+			await seedHome();
+
+			await assertSucceeds(
+				setDoc(doc(dbAs(env, MEMBER), ownPath), { cards: {} }),
+			);
+			await assertSucceeds(getDoc(doc(dbAs(env, MEMBER), ownPath)));
+		});
+
+		it("denies a member on another member's document", async () => {
+			await seedHome();
+
+			// Nobody arranges your screen: membership is not enough, the path
+			// must name the writer.
+			await assertFails(
+				setDoc(doc(dbAs(env, MEMBER), otherPath), { cards: {} }),
+			);
+			await assertFails(getDoc(doc(dbAs(env, MEMBER), otherPath)));
+		});
+
+		it("denies a signed-in non-member", async () => {
+			await seedHome();
+
+			await assertFails(
+				setDoc(doc(dbAs(env, OUTSIDER), ownPath), { cards: {} }),
+			);
+			await assertFails(getDoc(doc(dbAs(env, OUTSIDER), ownPath)));
+		});
+	});
+
+	describe("homes/{homeId}/dashboardCards/{cardId}", () => {
+		const cardPath = `${homePath}/dashboardCards/shared-card`;
+
+		it("lets any member read and write", async () => {
+			await seedHome();
+
+			await assertSucceeds(setDoc(doc(dbAs(env, MEMBER), cardPath), card));
+			await assertSucceeds(getDoc(doc(dbAs(env, OWNER), cardPath)));
+			await assertSucceeds(
+				updateDoc(doc(dbAs(env, OWNER), cardPath), { x: 1 }),
+			);
+		});
+
+		it("denies a non-member", async () => {
+			await seedHome();
+
+			await assertFails(getDoc(doc(dbAs(env, OUTSIDER), cardPath)));
+			await assertFails(setDoc(doc(dbAs(env, OUTSIDER), cardPath), card));
+		});
 	});
 });

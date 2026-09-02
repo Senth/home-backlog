@@ -236,6 +236,102 @@
 		"done": {
 			"title": "Nyligen klart"
 		},
+		"cards": {
+			"title": {
+				"quickWins": "Snabba vinster",
+				"aFewHours": "Några timmar",
+				"needsSplitting": "Behöver delas upp",
+				"needsEstimate": "Behöver en uppskattning"
+			},
+			"empty": {
+				"generic": "Inget matchar det här kortet.",
+				"quickWins": "Sätt tidsåtgång på ett jobb så landar de snabba här.",
+				"needsSplitting": "Inget behöver delas upp."
+			},
+			"editor": {
+				"title": "Redigera kort",
+				"add": "Lägg till kort",
+				"import": "Importera kort",
+				"importPaste": "Klistra in ett delat kort",
+				"importInvalid": "Det där ser inte ut som ett delat kort.",
+				"importAdded": "Kortet är tillagt. Öppna det och gör det till ditt.",
+				"removed": "Borttagna original",
+				"restore": "Återställ",
+				"scope": {
+					"global": "Alla hem",
+					"home": "Hem",
+					"shared": "Alla här"
+				},
+				"hiddenBadge": "Dold"
+			},
+			"menu": {
+				"edit": "Redigera",
+				"hide": "Dölj för mig",
+				"show": "Visa för mig",
+				"copy": "Kopiera som text",
+				"copied": "Kopierat. Klistra in det för att dela kortet.",
+				"moveUp": "Flytta upp",
+				"moveDown": "Flytta ner",
+				"remove": "Ta bort",
+				"removeTitle": "Ta bort det här kortet?",
+				"removeBody": "Det försvinner från översikten. Originalen kan återställas i redigeraren."
+			},
+			"edit": {
+				"title": "Redigera kort",
+				"shown": "Visade rader",
+				"held": "Dolda rader",
+				"more": "Fler",
+				"fewer": "Färre",
+				"withinDays": "Dagar framåt",
+				"followsDefault": "Använder sitt standardnamn. Skriv för att ge den ett eget."
+			},
+			"due": {
+				"comingUp": "Blir aktuellt",
+				"late": "Försenat",
+				"notLate": "Inte försenat",
+				"none": "Utan datum",
+				"comingUpWithin_one": "Blir aktuellt inom {{count}} dag",
+				"comingUpWithin_other": "Blir aktuellt inom {{count}} dagar"
+			},
+			"sort": {
+				"label": "Sortering",
+				"boardOrder": "Tavlordning",
+				"ascending": "Stigande",
+				"descending": "Fallande",
+				"completedAt": "Klart"
+			},
+			"field": {
+				"conditions": "Villkor",
+				"status": "Status",
+				"notSet": "Inte satt",
+				"me": "Jag",
+				"unassigned": "Ingen",
+				"root": "Projekt eller steg",
+				"isProject": "Är ett projekt",
+				"isStep": "Är ett steg",
+				"withSteps": "Har steg",
+				"noSteps": "Utan steg",
+				"waiting": "Väntar på något",
+				"notWaiting": "Väntar inte",
+				"location": "Plats",
+				"hasLocation": "Har en plats",
+				"noLocation": "Utan plats",
+				"visibility": "Synlighet",
+				"shared": "Delat",
+				"private": "Privat",
+				"createdVia": "Källa",
+				"inApp": "I appen",
+				"withNotes": "Har anteckningar",
+				"noNotes": "Utan anteckningar",
+				"photos": "Foton",
+				"withPhotos": "Har foton",
+				"noPhotos": "Utan foton",
+				"checklist": "Checklista",
+				"withChecklist": "Har en checklista",
+				"noChecklist": "Utan checklista",
+				"inLocation": "i {{location}}"
+			}
+		},
 		"more": "+{{count}} till",
 		"less": "Visa färre",
 		"empty": "Inget här ännu. Lägg till första projektet.",

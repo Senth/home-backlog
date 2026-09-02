@@ -1,6 +1,7 @@
 import { Redirect, Stack } from "expo-router";
 import { SplashScreen } from "@/components/ui/SplashScreen";
 import { useAuth } from "@/contexts/AuthContext";
+import { DashboardCardsProvider } from "@/contexts/DashboardCardsContext";
 import { HomeProvider, useHome } from "@/contexts/HomeContext";
 
 /**
@@ -40,5 +41,12 @@ function HomeGate() {
 
 	if (loading) return <SplashScreen />;
 
-	return <Stack screenOptions={{ headerShown: false }} />;
+	// One set of card-config listeners above both routes that read them:
+	// Overview stays mounted under the editor, and a second subscription
+	// there would double the budget the spec sets.
+	return (
+		<DashboardCardsProvider>
+			<Stack screenOptions={{ headerShown: false }} />
+		</DashboardCardsProvider>
+	);
 }

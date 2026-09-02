@@ -1,57 +1,55 @@
+import type { DocumentData, Query } from "firebase/firestore";
 import { useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
 	participatingDoneQuery,
-	participatingDueQuery,
+	participatingPoolQuery,
 	sharedDoneQuery,
-	sharedDueQuery,
+	sharedPoolQuery,
 } from "@/data/nodes";
 import { useNodes } from "@/hooks/use-nodes";
-import { type QueryPair, usePairedListener } from "@/hooks/use-paired-listener";
-import type { Node } from "@/models/node";
-import { comingUp, ongoingProjects, recentlyDone } from "@/models/overview";
-
-/** What one section of Overview holds, and how to recover from a failure. */
-export interface OverviewSection {
-	nodes: Node[];
-	loading: boolean;
-	failed: boolean;
-	retry: () => void;
-}
+import {
+	type PairedResult,
+	type QueryPair,
+	usePairedListener,
+} from "@/hooks/use-paired-listener";
 
 /**
- * The three sections of Overview, each independently answered.
+ * The three listener pairs Overview is built from, each independently
+ * answered — **nine listeners in all**, once the card config joins them.
  *
- * Six listeners, not eight: the roots pair — `useNodes(homeId, null)`, the
- * root board's own pair — serves both **Ongoing projects** and the
- * root-scoped hide predicate every section needs, so it is not opened again
- * here. Coming up and Recently done add one pair each, for Q3–Q6 in
- * `data/nodes.ts`.
+ * - the roots pair (`useNodes(homeId, null)`): the root board's own pair,
+ *   which the FAB ranks against and every card's hide predicate reads;
+ * - the pool pair: every open node in the home, unordered and unbounded — the
+ *   open set each filter card is a client-side `.filter().sort().slice()`
+ *   over;
+ * - the done pair: what was completed inside the recent window, which only
+ *   the *completed* card reads, the pool excluding it by definition.
  *
- * A section's own query pair only bounds what *can* arrive; `models/overview.ts`
- * decides what is *shown*, re-filtering with a fresh `now` on every render so a
+ * A pair only bounds what *can* arrive; `models/overview-cards.ts` decides
+ * what is *shown*, re-filtering with a fresh `now` on every render so a
  * listener that has been open for hours still agrees with its own heading.
- *
- * A section holds on `loading` until every pair it depends on has answered —
- * Coming up and Recently done wait on the roots pair too, because the hide
- * predicate they apply needs it. That is also why each section's `retry`
- * retries the roots pair alongside its own.
  */
 export function useOverview(homeId: string | null): {
-	ongoing: OverviewSection;
-	due: OverviewSection;
-	done: OverviewSection;
-	roots: Node[];
+	roots: PairedResult;
+	pool: PairedResult;
+	done: PairedResult;
 } {
 	const { user } = useAuth();
 	const uid = user?.uid ?? null;
 
 	const roots = useNodes(homeId, null);
-	const due = useDatedPair(homeId, uid, sharedDueQuery, participatingDueQuery, {
-		shared: "Could not load what is coming up",
-		participating: "Could not load your own cards coming up",
-	});
-	const done = useDatedPair(
+	const pool = useOverviewPair(
+		homeId,
+		uid,
+		sharedPoolQuery,
+		participatingPoolQuery,
+		{
+			shared: "Could not load the household's open cards",
+			participating: "Could not load your own open cards",
+		},
+	);
+	const done = useOverviewPair(
 		homeId,
 		uid,
 		sharedDoneQuery,
@@ -62,76 +60,30 @@ export function useOverview(homeId: string | null): {
 		},
 	);
 
-	// Fresh every render, like a card face's own due chip — the point is the
-	// section agreeing with its own heading at the moment it is looked at, not
-	// at the moment its listener last fired.
-	const now = new Date();
-
-	const retryDue = useCallback(() => {
-		roots.retry();
-		due.retry();
-	}, [roots, due]);
-	const retryDone = useCallback(() => {
-		roots.retry();
-		done.retry();
-	}, [roots, done]);
-
-	return {
-		// Every unarchived root, in the board's own order — what the FAB ranks a
-		// new project against. Overview shows no column, so "the end" can only
-		// mean after every root there is, which is where the board's own create
-		// would have put it too.
-		roots: roots.nodes,
-		ongoing: {
-			nodes: uid === null ? [] : ongoingProjects(roots.nodes, uid),
-			loading: roots.loading,
-			failed: roots.failed,
-			retry: roots.retry,
-		},
-		due: {
-			nodes: uid === null ? [] : comingUp(due.nodes, roots.nodes, uid, now),
-			loading: roots.loading || due.loading,
-			failed: roots.failed || due.failed,
-			retry: retryDue,
-		},
-		done: {
-			nodes:
-				uid === null ? [] : recentlyDone(done.nodes, roots.nodes, uid, now),
-			loading: roots.loading || done.loading,
-			failed: roots.failed || done.failed,
-			retry: retryDone,
-		},
-	};
+	return { roots, pool, done };
 }
 
 /**
- * One of Overview's two dated pairs, as `usePairedListener` holds every pair.
+ * One of Overview's three pairs, as `usePairedListener` holds every pair.
  *
- * The only thing a dated pair does differently from a board's is *when* its
- * queries are built: Q3–Q6 close over a `now`, and it is taken at subscribe
- * rather than tracked as a dependency. A listener stays open for hours, and
- * rebuilding the query on every tick would tear it down and reopen it just as
- * often — so `now` is whatever it was when this pair last (re)subscribed, which
- * is exactly what `useOverview` re-filters against on every render.
+ * The queries themselves take no arguments beyond the home and, for the
+ * participating arm, the uid: the pool pair has no `now` in it at all — it is
+ * the whole open set, narrowed on screen — and the done pair takes its `now`
+ * when the query is built, which is at subscribe.
  */
-function useDatedPair(
+function useOverviewPair(
 	homeId: string | null,
 	uid: string | null,
-	sharedQuery: (homeId: string, now: Date) => ReturnType<typeof sharedDueQuery>,
-	participatingQuery: (
-		homeId: string,
-		now: Date,
-		uid: string,
-	) => ReturnType<typeof participatingDueQuery>,
+	sharedQuery: (homeId: string) => Query<DocumentData>,
+	participatingQuery: (homeId: string, uid: string) => Query<DocumentData>,
 	labels: { shared: string; participating: string },
 ) {
 	const build = useCallback((): QueryPair => {
 		if (homeId === null || uid === null) return null;
 
-		const now = new Date();
 		return {
-			shared: sharedQuery(homeId, now),
-			participating: participatingQuery(homeId, now, uid),
+			shared: sharedQuery(homeId),
+			participating: participatingQuery(homeId, uid),
 		};
 	}, [homeId, uid, sharedQuery, participatingQuery]);
 
