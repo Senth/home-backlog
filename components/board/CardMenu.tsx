@@ -10,6 +10,7 @@ import {
 	boardOnce,
 	deleteNode,
 	getNode,
+	moveErrorKey,
 	moveNode,
 	reparentNode,
 	updateNode,
@@ -221,7 +222,7 @@ export function CardMenu({
 			});
 		} catch (reason) {
 			failed(reason);
-			onNotice({ text: t("error.saveFailed") });
+			onNotice({ text: t(moveErrorKey(reason)) });
 		}
 	};
 

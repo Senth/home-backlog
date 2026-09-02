@@ -852,6 +852,31 @@ async function movedParticipants(
  * keeps a subtree of any size inside a batched write's twenty-document-access
  * budget. See `privacyUnchanged()` in `firestore.rules`.
  */
+/**
+ * A refusal `reparentNode` makes before it writes anything, carrying the code
+ * the screen maps to a `t()` key — the same shape a Firestore error carries.
+ */
+function refusedMove(code: string, message: string): Error {
+	const error = new Error(message);
+	(error as { code?: string }).code = code;
+	return error;
+}
+
+/**
+ * The i18n key for a refused move; anything else is a plain save failure.
+ */
+export type MoveErrorKey =
+	| "error.moveOwnSubtree"
+	| "error.moveVisibility"
+	| "error.saveFailed";
+
+export function moveErrorKey(reason: unknown): MoveErrorKey {
+	const code = (reason as { code?: string } | null)?.code;
+	if (code === "move-own-subtree") return "error.moveOwnSubtree";
+	if (code === "move-visibility") return "error.moveVisibility";
+	return "error.saveFailed";
+}
+
 export async function reparentNode(
 	homeId: string,
 	node: Node,
@@ -863,7 +888,19 @@ export async function reparentNode(
 		parent !== null &&
 		(parent.id === node.id || parent.ancestorIds.includes(node.id))
 	) {
-		throw new Error("A node cannot be moved inside its own subtree.");
+		throw refusedMove(
+			"move-own-subtree",
+			"A node cannot be moved inside its own subtree.",
+		);
+	}
+	// Uniform visibility is deliberate and non-obvious — a private card cannot
+	// live inside a shared project, or the reverse. Explaining that beats the
+	// bare `permission-denied` the rules would answer with.
+	if (parent !== null && parent.visibility !== node.visibility) {
+		throw refusedMove(
+			"move-visibility",
+			"A card cannot move between a shared and a private project.",
+		);
 	}
 
 	const ancestorIds = childAncestorIds(parent);
