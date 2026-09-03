@@ -337,7 +337,7 @@ fi
 # 9. Only utils/dev-console.ts may replace a console method
 #
 # That module swallows two react-native-web deprecations, plus the
-# useNativeDriver notice on web only, so that `/review`'s
+# useNativeDriver notice on web only, so that the review's
 # console gate means something again — see utils/dev-console.ts. The
 # whole reason it is safe is that it is *one* narrow, tested, __DEV__-only
 # filter that announces itself. A second one somewhere else, or a widening of
@@ -353,48 +353,6 @@ if [[ -n "$hits" ]]; then
 		"utils/dev-console.ts is the only place a console method may be replaced."
 else
 	report 9 "one console filter" ok
-fi
-
-# ---------------------------------------------------------------------------
-# 10. Every [test] acceptance claim has a matching e2e test
-#
-# A plan's Acceptance section numbers what the feature must do, and tags
-# each claim `[test]` (assertable in a browser) or `[eye]` (a judgement, left to
-# browser-review). A `[test]` claim is a promise that an `e2e/` spec asserts it,
-# and that promise is the only reason the review gate stopped walking acceptance
-# by hand — see .claude/skills/review/SKILL.md. The promise is only available to
-# production code and UI: e2e drives a real browser and an app, so a dev-tooling
-# plan proves itself in `yarn test` and tags nothing [test].
-#
-# The check is deliberately shallow: it matches the claim *number*, as
-# `test("<n>: ...")` or `test("<n> ...")`, not the wording. Whether the test
-# asserts the claim rather than something adjacent is a judgement, and that one
-# belongs to diff-review. This catches the claim nobody wrote a test for at all,
-# which is the failure that actually happens.
-#
-# Only .tmp/<nn>-plan.md plans are checked, and /ship deletes the plan when the
-# PR opens, because by then the tests are the record. The plans are untracked —
-# `.tmp/` is gitignored — so they are read from the filesystem, not from git.
-# ---------------------------------------------------------------------------
-plans=$(ls .tmp/*-plan.md 2>/dev/null || true)
-missing=""
-for spec in $plans; do
-	[[ -f "$spec" ]] || continue
-	# The Acceptance section: from its heading to the next heading.
-	claims=$(sed -n '/^##[[:space:]].*Acceptance/,/^##[[:space:]]/p' "$spec" |
-		grep -oE '^[[:space:]]*([0-9]+)\.[[:space:]]*`?\[test\]`?' |
-		grep -oE '[0-9]+' || true)
-	for n in $claims; do
-		if ! grep -rqE "test\(\s*[\"'\`]${n}[:.]?[[:space:]]" e2e/ 2>/dev/null; then
-			missing+="${spec}: claim ${n} is tagged [test] but no e2e test is named for it"$'\n'
-		fi
-	done
-done
-if [[ -n "$missing" ]]; then
-	report 10 "acceptance claims tested" FAIL "${missing%$'\n'}" \
-		"Name the e2e test after the claim number, e.g. test(\"3: a no-op drag writes nothing\"), or retag the claim [eye]. Dev tooling is never [test]: prove it in \`yarn test\`, e2e is for production code and UI."
-else
-	report 10 "acceptance claims tested" ok
 fi
 
 # ---------------------------------------------------------------------------

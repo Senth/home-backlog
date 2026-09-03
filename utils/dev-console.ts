@@ -15,7 +15,7 @@
  * the web those same words report a genuinely missing native module. See
  * `webOnly` below.
  *
- * They matter because `/review`'s hostile checklist treats the console as a
+ * They matter because the review gate treats the console as a
  * gate. A console that is never quiet teaches the next reviewer, human or agent,
  * to read past it — which is exactly how a real error gets waved through. The
  * gate is 0 errors and 0 warnings, and the only exceptions are a real network

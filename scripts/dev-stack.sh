@@ -4,7 +4,7 @@
 # and torn down by one owner instead of by every caller that needs it.
 #
 # Three callers share it: you, `playwright.config.ts` (which points `yarn e2e`
-# here), and the `/review` skill. Each of them used to know how to boot a stack
+# here), and browser review. Each of them used to know how to boot a stack
 # and, more importantly, how to kill one. That knowledge is now in one file,
 # along with the two traps that cost real time to find:
 #

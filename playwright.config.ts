@@ -19,7 +19,7 @@ import { stackPorts } from "@/e2e/support/stack";
  * exact instead of eyeballed.
  *
  * The stack comes from `scripts/dev-stack.sh`, which is also what you and the
- * `/review` skill use. It is idempotent, so a suite run against a stack you
+ * the browser review use. It is idempotent, so a suite run against a stack you
  * already had open reuses it untouched.
  */
 

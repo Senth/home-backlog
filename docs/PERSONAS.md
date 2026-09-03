@@ -1,7 +1,7 @@
 # Personas
 
-> The cast used by the [`homeowner-review`](../.claude/agents/homeowner-review.md)
-> agent, and the reference for anyone writing a spec, a `t()` string or store copy.
+> The cast a review judges as, and the reference for anyone writing a spec, a `t()`
+> string or store copy. A browser review picks the one persona the change most affects.
 
 These are a **review instrument**, not market research. Each persona exists to stress
 one thing this product can plausibly fail at, and no two of them can produce the same

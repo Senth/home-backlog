@@ -25,30 +25,33 @@ Home Backlog: an Expo / React Native web-first PWA on Firebase.
   warnings in `utils/dev-console.ts` and the expected `info`/`log` prefixes in
   `e2e/support/app.ts`. Anything else is a finding.
 - After implementing: `yarn lint --write`, `yarn invariants`, `yarn typecheck`,
-  `yarn test` — fix everything they report, including pre-existing failures. e2e is
-  targeted per phase: `yarn playwright test --project=setup && yarn playwright test
---no-deps --grep '\b(<claims>):'` after `scripts/dev-stack.sh up`, for the claim numbers
-  the phase owns from the spec's `[test]` tags — `--no-deps` because the `writes` project
-  depends on the read-only ones and would drag them all in. The full `yarn e2e` runs once
-  at the end of implement and once more after review, before ship; CI runs it on the PR.
+  `yarn test` — fix everything they report, including pre-existing failures. e2e is the
+  expensive one and runs whole: `scripts/dev-stack.sh up && yarn e2e`, once at the end of
+  implement and once more after review, before ship; CI runs it on the PR. The ordered
+  list is `[gates]` in [`.ai/config.toml`](.ai/config.toml), and that list is what a green
+  report is measured against.
+- Testing policy is [`docs/TESTS.md`](docs/TESTS.md): unit tests by default, **ten e2e
+  spec files, hard cap**, and everything else hand-checked once through the
+  `playwright-cli` skill with no spec left behind. A new spec displaces a named one or it
+  does not get written.
 - `yarn invariants` ([`scripts/check-invariants.sh`](scripts/check-invariants.sh)) is
   where the greppable rules above are enforced; a new rule here that a regex could
   catch goes in that script too.
-- Work runs in two sessions. A kickoff — [`/new-feature`](.claude/skills/new-feature/SKILL.md)
-  · [`/cleanup`](.claude/skills/cleanup/SKILL.md) · [`/bug`](.claude/skills/bug/SKILL.md) —
-  ends at a confirmed plan at `.tmp/<issue-id>-plan.md` (untracked; pasted onto the issue)
-  and writes no code. Then
-  [`/continue-work`](.claude/skills/continue-work/SKILL.md) takes it to a draft PR:
-  [`/implement`](.claude/skills/implement/SKILL.md) →
-  [`/review`](.claude/skills/review/SKILL.md) → [`/ship`](.claude/skills/ship/SKILL.md),
-  checkpointed in `.tmp/continue-work.state.json`. All three remain callable standalone.
-- Everything that writes code is dispatched to GLM through `oc-task`; the spec, the
-  dispatch and the PASS/FAIL stay with Claude. `homeowner-review` is the exception and
-  stays an Opus subagent.
-- `.ai/config.toml` is what a stage reads for the gate commands, what counts as
-  user-visible, the design contract and the report and checkpoint paths.
-- Ship only on a PASS — the session that wrote the code never signs it off, and
-  `/ship` opens a **draft** PR through `scripts/create-pr-and-merge.sh --no-merge`.
+- **The workflow is not in this repo.** The stage logic, the dispatch rules and the review
+  loop live in the global agents. This repo carries `.ai/config.toml` plus the `docs/`
+  addons and nothing else — there are no repo skills and no repo agents, and adding one is
+  the wrong fix.
+  - [`.ai/config.toml`](.ai/config.toml): the ordered gates, what counts as user-visible,
+    how to boot the stack and sign in (`[dev]`), and the design contract.
+  - The `docs/` addons, read when present: [`PROJECT.md`](docs/PROJECT.md) (what this is),
+    [`PERSONAS.md`](docs/PERSONAS.md) (who it is for), [`TESTS.md`](docs/TESTS.md) (how it
+    is tested), [`DESIGN.md`](docs/DESIGN.md) (how it looks).
+- Work you want carried to a PR starts with the `dispatcher` agent. Work that needs more
+  than one phase goes to `planner` first, in its own session, which writes
+  `.tmp/<source>-PLAN.md` — untracked, and pasted onto the issue.
+- Ship only on a green review — the session that wrote the code never signs it off, and
+  the `ship` skill opens a **draft** PR. The merge is the human's;
+  [`scripts/create-pr-and-merge.sh`](scripts/create-pr-and-merge.sh) is the helper for it.
 - Work lives in **GitHub Issues + the Kanban board** (project 4), not markdown —
   labels `bug` / `feature` / `idea` / `cleanup`, an `idea` moves to the Idea column,
   and the PR closes it with `Closes #NN`.
