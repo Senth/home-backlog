@@ -110,29 +110,13 @@ still have different glyphs, so colour is never the only signal.
   the title, the colour is too strong.
 - A setting renders labels as text instead of icons, for anyone who wants the words.
 
-**Position separates system context from custom labels, and nothing else has to.** Both
-families are chips, both may carry a colour, and neither is constrained to a shape the other
-cannot have. What says which family a chip belongs to is **where it sits**: custom labels in
-their own row **above the title**, system context — priority, effort, due, waiting, *Hidden* —
-in the meta row **below** it. A chip in the wrong band is a finding, because position is the
-only thing carrying this distinction and a reader who cannot trust it has lost both families
-at once.
+**Position separates system context from custom labels, and nothing else has to.**
+Both families are chips, both may carry a color and neither is constrained to any shape.
+Position has is still undecided.
 
 That is also what makes two colour systems safe on one card. Above the title, colour is
 categorical and says *which group*. Below it, colour is ordinal and says *how much*. They never
 share a band, so they are never read against each other.
-
-**Priority is icon-led and its glyph is a scale**: `chevron-down` → `minus` → `chevron-up` →
-`chevron-double-up`, one family, readable as an ordering in pure greyscale. Colour rides the
-same scale — the bottom step takes no hue and stays `onSurfaceVariant`, the three above take
-one hue family at rising saturation, none of it more saturated than `primaryContainer`. A board
-of ordinary work therefore carries no priority colour at all. The glyph's name is reachable
-the same way a label's title is: tooltip on desktop, tap on mobile, and the accessible name on
-the wrapper.
-
-**`DueChip` is the one chip whose colour is fixed.** It takes `warning` beside its words and
-nothing else. Nothing in the app acts on a due date yet, so a hue that means *late* is guilt
-for a deadline nothing will remind anyone about.
 
 ## Surfaces and elevation
 
