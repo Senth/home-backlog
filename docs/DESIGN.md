@@ -112,11 +112,7 @@ still have different glyphs, so colour is never the only signal.
 
 **Position separates system context from custom labels, and nothing else has to.**
 Both families are chips, both may carry a color and neither is constrained to any shape.
-Position has is still undecided.
-
-That is also what makes two colour systems safe on one card. Above the title, colour is
-categorical and says *which group*. Below it, colour is ordinal and says *how much*. They never
-share a band, so they are never read against each other.
+Position is still undecided.
 
 ## Surfaces and elevation
 
