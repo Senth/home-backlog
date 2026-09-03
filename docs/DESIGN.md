@@ -23,14 +23,14 @@ notebook someone else in the household can pick up — not a system with opinion
 productive anyone is being.
 
 **Density is not the enemy of calm.** A lot of information in a small space, scannable by
-icon and colour, is the goal. The frame stays quiet so that the colour which does appear
+icon and color, is the goal. The frame stays quiet so that the color which does appear
 means something.
 
 **This must never look like:**
 
-- **Trello or Jira's colour habit.** Not the boards — the boards are the point. No card whose
-  *status* is a hue, no swimlane tinted by urgency, no red card for late. Colour that says
-  which project or which label a card belongs to is wanted. Colour that says how you should
+- **Trello or Jira's color habit.** Not the boards — the boards are the point. No card whose
+  *status* is a hue, no swimlane tinted by urgency, no red card for late. Color that says
+  which project or which label a card belongs to is wanted. Color that says how you should
   feel about a card is not.
 - **A productivity dashboard.** No charts, no streaks, no completion percentage, no progress
   ring, no number that grades the household.
@@ -53,9 +53,9 @@ that the change in front of you passes is the failure this sentence exists to pr
 
 ## Token roles
 
-Colour does three separate jobs, and mixing them is the failure this section prevents:
+Color does three separate jobs, and mixing them is the failure this section prevents:
 **brand** says whose app this is, **status** says something is wrong or done, **identity**
-says which group a thing belongs to. One colour never does two of them.
+says which group a thing belongs to. One color never does two of them.
 
 - **`primary`** — brand, and the way forward. The FAB, the active tab, a link, the focus
   ring, the brand mark. Never a background for a block of content, never a status, never a
@@ -71,30 +71,30 @@ says which group a thing belongs to. One colour never does two of them.
   what you came to read, **`onSurfaceVariant`** for supporting text, and a muted tier for
   metadata that must not compete — **`onCardMuted`** is that tier on a card face. There is no
   fourth tier; if something needs to be louder than `onSurface`, it takes weight.
-- **`warning` / `success`** — status only, and **always carried with words**. A colour may sit
+- **`warning` / `success`** — status only, and **always carried with words**. A color may sit
   beside the words; it may never replace them. `components/board/DueChip.tsx` is where this
-  is implemented: *overdue is words, never colour*.
+  is implemented: *overdue is words, never color*.
 - **`error`** — a failure the app is reporting. It does not mean *late*.
 - **Priority ramp** — ordinal, not categorical. One hue family in three steps of rising
   saturation over a neutral bottom step. It says *more*, never *different*; identity says
   *different*, never *more*. They sit in different bands of the card face and are never read
   against each other.
-- **Label palette** — identity. Twelve named hues, plus user-chosen custom colours. See below.
+- **Label palette** — identity. Twelve named hues, plus user-chosen custom colors. See below.
 
 **Themes.** Both, and they are palettes rather than inversions — a change that looks right in
 one is not verified until it has been looked at in the other. Every role exists in both. A
-style prop that reads a colour from anywhere but `useAppTheme()` is a defect.
+style prop that reads a color from anywhere but `useAppTheme()` is a defect.
 
 ### Labels: the identity palette
 
-**A label is an icon plus a colour. The icon carries the identity; the colour accelerates it.**
+**A label is an icon plus a color. The icon carries the identity; the color accelerates it.**
 That is what makes a large palette safe: two labels whose hues collide under deuteranopia
-still have different glyphs, so colour is never the only signal.
+still have different glyphs, so color is never the only signal.
 
 - **Twelve hues in the token file**, both schemes given explicitly, each shipping its own
-  on-colour. A hue that exists only in light is not a token.
-- **Custom colours are data, not tokens.** A user may pick any colour. The app owns its
-  legibility: derive the on-colour, and clamp the hue so it clears its contrast floor against
+  on-color. A hue that exists only in light is not a token.
+- **Custom colors are data, not tokens.** A user may pick any color. The app owns its
+  legibility: derive the on-color, and clamp the hue so it clears its contrast floor against
   `boardCard` in both schemes. Never render a pasted hex unmodified and hope.
 - **Identity means *different*, never *worse* or *sooner*.** A ramp spent on urgency is a ramp
   that can no longer tell two projects apart, which is the whole reason for having it.
@@ -106,8 +106,8 @@ still have different glyphs, so colour is never the only signal.
   label whose name lives on the glyph has no name at all.
 - **No label hue is more saturated than `primaryContainer`**, so the way forward stays the
   loudest shape even on a board full of labels.
-- **The card title stays the loudest text on the card.** If a reader sees the colour before
-  the title, the colour is too strong.
+- **The card title stays the loudest text on the card.** If a reader sees the color before
+  the title, the color is too strong.
 - A setting renders labels as text instead of icons, for anyone who wants the words.
 
 **Position separates system context from custom labels, and nothing else has to.**
@@ -116,7 +116,7 @@ Position is still undecided.
 
 ## Surfaces and elevation
 
-**Exactly one separation technique: fill.** Paper renders elevation as opaque colour on web,
+**Exactly one separation technique: fill.** Paper renders elevation as opaque color on web,
 so a shadow is not available and is not wanted. No shadow, no glow, no scrim except the one
 behind a dialog.
 
@@ -206,7 +206,7 @@ and every row's controls as dimmed.
   room: at most `fab.widthShare` of the width it is laid out in, and below `denseBreakpoint`
   the plus glyph yields so the label wraps and the words stay — the label names the
   destination, and that is the half that matters. A FAB quieted to `surface` is also a
-  finding: it answers with colour a question colour never asked, and costs the app its one
+  finding: it answers with color a question color never asked, and costs the app its one
   way forward. See Decisions.
 - **Control height** — `touchTarget` is a floor and Paper does not give it to you. `Button` is
   40dp, `Dialog.Actions` 38dp, `IconButton` and `Appbar.Action` render 40dp containers, and
@@ -243,7 +243,7 @@ has to carry itself.
 - The app bar names the **home**, not the screen. The tab bar already names the screen, and
   work on the cabin recorded on the house board is the failure this prevents.
 - A breadcrumb trail is never truncated to nothing. It scrolls.
-- **One primary action per surface.** A second saturated block of brand colour is a finding.
+- **One primary action per surface.** A second saturated block of brand color is a finding.
 - The loudest **shape** is the FAB; the loudest **text** is a card title. Different axes,
   and they do not compete.
 - **More than one route to the same action is wanted**, not redundancy — you should be able
@@ -321,9 +321,9 @@ density overwhelms.
 - **Trusting Paper's touch targets.** They are all under `touchTarget`.
 - **`Appbar.BackAction`.** Its arrow never reaches `settings.icon` and lands as an unnamed
   `role="img"`. Use `BackAction`; invariant 12 catches it.
-- **Letting colour carry something words should.** A hue beside the words is fine; a hue
+- **Letting color carry something words should.** A hue beside the words is fine; a hue
   instead of them is the Trello habit.
-- **Solving a footprint problem with colour** — quieting a control's fill because it feels
+- **Solving a footprint problem with color** — quieting a control's fill because it feels
   loud, when what is loud is the room it takes.
 - **A chip in the wrong band.** Position is the only thing separating system context from a
   custom label, so a priority above the title or a label below it destroys both readings.
@@ -342,7 +342,7 @@ orientation "outranks the FAB", while the extended `primaryContainer` FAB is pla
 prominent thing on every screen. Both could not be true, and changes were being argued from
 whichever half suited them.
 
-**The argument.** The contract had exonerated the FAB's colour by measuring lightness
+**The argument.** The contract had exonerated the FAB's color by measuring lightness
 contrast, which is not the axis the FAB dominates on. Re-measured against the running app, the
 FAB's fill is quiet against the page and a card title is far louder; the FAB stands out
 because it is the only saturated hue in a frame whose neutrals are quiet by design.
@@ -355,5 +355,5 @@ answer to this question.
 **What would overturn it — re-armed.** The original condition was the arrival of a categorical
 identity palette. That palette is now specified above, and the burden was moved onto it rather
 than onto the FAB: no label hue may exceed `primaryContainer` in saturation. This gets
-re-measured the first time real coloured labels are on a real board, and if the FAB has stopped
+re-measured the first time real colored labels are on a real board, and if the FAB has stopped
 reading as the way forward, it is this entry that gets rewritten.
