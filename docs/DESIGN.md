@@ -76,8 +76,9 @@ says which group a thing belongs to. One colour never does two of them.
   is implemented: *overdue is words, never colour*.
 - **`error`** — a failure the app is reporting. It does not mean *late*.
 - **Priority ramp** — ordinal, not categorical. One hue family in three steps of rising
-  saturation over a neutral bottom step. It says *more*, never *different*, which is what
-  keeps it from competing with identity on the same card face.
+  saturation over a neutral bottom step. It says *more*, never *different*; identity says
+  *different*, never *more*. They sit in different bands of the card face and are never read
+  against each other.
 - **Label palette** — identity. Twelve named hues, plus user-chosen custom colours. See below.
 
 **Themes.** Both, and they are palettes rather than inversions — a change that looks right in
@@ -109,20 +110,29 @@ still have different glyphs, so colour is never the only signal.
   the title, the colour is too strong.
 - A setting renders labels as text instead of icons, for anyone who wants the words.
 
-**System meta is a different object from a label, and form is what separates them.** A label
-is filled and takes an identity hue. Priority, effort, due, waiting and *Hidden* are outlined
-`MetaChip`s — no fill, glyph plus word. A `MetaChip` wearing a label hue, or a label wearing
-the outlined form, is a finding.
+**Position separates system context from custom labels, and nothing else has to.** Both
+families are chips, both may carry a colour, and neither is constrained to a shape the other
+cannot have. What says which family a chip belongs to is **where it sits**: custom labels in
+their own row **above the title**, system context — priority, effort, due, waiting, *Hidden* —
+in the meta row **below** it. A chip in the wrong band is a finding, because position is the
+only thing carrying this distinction and a reader who cannot trust it has lost both families
+at once.
+
+That is also what makes two colour systems safe on one card. Above the title, colour is
+categorical and says *which group*. Below it, colour is ordinal and says *how much*. They never
+share a band, so they are never read against each other.
 
 **Priority is icon-led and its glyph is a scale**: `chevron-down` → `minus` → `chevron-up` →
 `chevron-double-up`, one family, readable as an ordering in pure greyscale. Colour rides the
-same scale and is redundant by construction — the bottom step takes no hue and stays
-`onSurfaceVariant`; the three above take one hue family at rising saturation. A board of
-ordinary work therefore carries no priority colour at all. See Decisions.
+same scale — the bottom step takes no hue and stays `onSurfaceVariant`, the three above take
+one hue family at rising saturation, none of it more saturated than `primaryContainer`. A board
+of ordinary work therefore carries no priority colour at all. The glyph's name is reachable
+the same way a label's title is: tooltip on desktop, tap on mobile, and the accessible name on
+the wrapper.
 
-**`DueChip` still takes `warning` and nothing else.** Overdue is words. Nothing in the app
-acts on a due date yet, so a hue that means *late* is guilt for a deadline nothing will
-remind anyone about.
+**`DueChip` is the one chip whose colour is fixed.** It takes `warning` beside its words and
+nothing else. Nothing in the app acts on a due date yet, so a hue that means *late* is guilt
+for a deadline nothing will remind anyone about.
 
 ## Surfaces and elevation
 
@@ -335,6 +345,8 @@ density overwhelms.
   instead of them is the Trello habit.
 - **Solving a footprint problem with colour** — quieting a control's fill because it feels
   loud, when what is loud is the room it takes.
+- **A chip in the wrong band.** Position is the only thing separating system context from a
+  custom label, so a priority above the title or a label below it destroys both readings.
 - **A desktop-only tooltip.** If it is worth saying on hover it is worth reaching by tap.
 
 ## Decisions
@@ -365,29 +377,3 @@ identity palette. That palette is now specified above, and the burden was moved 
 than onto the FAB: no label hue may exceed `primaryContainer` in saturation. This gets
 re-measured the first time real coloured labels are on a real board, and if the FAB has stopped
 reading as the way forward, it is this entry that gets rewritten.
-
-### 2026-09-03 — Priority carries colour, because its glyph is a scale
-
-**Contested.** This contract first made priority icon-led and allowed a `MetaChip` no colour
-but `warning`, on the reasoning recorded in `components/board/BoardCard.tsx`: on a curated
-board a priority is one member's judgement of another member's Saturday, and four red chips on
-the outdoor cards is a persona's stated quit line rendered as UI. #97 asked for coloured
-priority anyway.
-
-**The argument.** The old rule was written against a *word in a pill*, where colour would have
-been the only fast signal and therefore load-bearing. An ordinal glyph set changes the
-premise: `chevron-down` through `chevron-double-up` reads as an ordering with no colour at
-all, in greyscale and under any form of colour blindness. Once the glyph carries the meaning,
-hue is redundant rather than load-bearing — which is the condition this document already
-permits everywhere else. Colour may sit beside the thing that says it; it may not replace it.
-
-**The decision.** Overturned, with a floor. Priority takes one hue family on an ordinal ramp,
-the bottom step neutral so an unflagged board shows no priority colour, and the three above it
-at rising saturation. Identity stays categorical and priority stays ordinal, so the two never
-compete for the same reading. The anti-reference is unchanged and still binding in its own
-terms — no card whose *status* is a hue, no swimlane tinted by urgency, no red card for late.
-A chip on a scale is none of those.
-
-**What would overturn it.** A card face where priority colour and label colour are both dense
-enough to fight. If it stops reading title-first, the priority ramp is the half that yields:
-the glyph survives losing its colour, and a label does not.
