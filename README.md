@@ -8,17 +8,14 @@ Web-first PWA via Expo + React Native Web; Android and iOS builds later.
 
 - **Vision, requirements, decisions, architecture** — [`docs/PROJECT.md`](docs/PROJECT.md)
 - **Working agreements for AI assistants** — [`CLAUDE.md`](CLAUDE.md)
-- **User personas** — [`docs/PERSONAS.md`](docs/PERSONAS.md), the cast used by the
-  `homeowner-review` agent at plan time
-- **Workflow** — five stages, each a fresh session:
-  [`/new-feature`](.claude/skills/new-feature/SKILL.md) ·
-  [`/cleanup`](.claude/skills/cleanup/SKILL.md) · [`/bug`](.claude/skills/bug/SKILL.md)
-  → [`/implement`](.claude/skills/implement/SKILL.md)
-  → [`/review`](.claude/skills/review/SKILL.md)
-  → [`/ship`](.claude/skills/ship/SKILL.md)
-- **Review gate** — [`/review`](.claude/skills/review/SKILL.md) runs the mechanical gates,
-  then `diff-review`, then `browser-review` in a real browser if the change is
-  user-visible — agents that did not write it
+- **User personas** — [`docs/PERSONAS.md`](docs/PERSONAS.md), the cast a review judges as
+- **Testing policy** — [`docs/TESTS.md`](docs/TESTS.md): unit tests by default, ten e2e
+  specs at most, the rest hand-checked
+- **Workflow** — not in this repo. The stages live in the global agents; the repo carries
+  [`.ai/config.toml`](.ai/config.toml) and the `docs/` addons. Hand work to `dispatcher`,
+  or to `planner` first when it needs more than one phase
+- **Review gate** — the gates in `[gates]` run first, then a code review and, when the
+  change is user-visible, a browser review in a real browser — agents that did not write it
 - **Tasks** — GitHub Issues + the Kanban board
 
 ## Stack

@@ -2,7 +2,7 @@
 #
 # Watch the run, then merge. Never `gh pr merge --auto`.
 #
-# Reuses the branch's open PR (a draft from /ship counts) or opens one, polls
+# Reuses the branch's open PR (a draft from `ship` counts) or opens one, polls
 # for the CI run — it is not registered the instant the PR exists, and an empty
 # id makes `gh run watch` open an interactive picker that hangs forever — then
 # watches it. Without --no-merge it marks a draft ready and squashes.

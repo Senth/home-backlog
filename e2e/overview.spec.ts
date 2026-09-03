@@ -23,7 +23,7 @@ import { touchTarget } from "@/theme/tokens";
 /**
  * `#54`'s claims 1–12 and 17 — Overview's own behaviour, over Ongoing projects,
  * Coming up and Recently done. Claims 13–16 are `[eye]` and live in
- * `/review`'s browser pass instead.
+ * the browser review instead.
  *
  * This is a `writes` spec: every claim but 1 and 8 needs a node the seeded
  * board does not carry — an overdue one, one completed 40 days ago, one a

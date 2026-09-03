@@ -1,5 +1,5 @@
-# What this repo considers proof, and where its stage logic lives.
-# Written by `aic init`; the rest is home-backlog's own.
+# What this repo considers proof, and how to boot it.
+# The stage logic lives in the global agents; this file and `docs/` are all the repo carries.
 
 [gates]
 # Ordered, cheapest first. Every one runs, every time.
@@ -18,7 +18,7 @@ commands = [
 # Globs that make a change user-visible, and whether this repo has a browser stage.
 #
 # These are the paths where a household could notice. They are the floor, not the
-# verdict: `diff-review` reads the diff and answers `User-visible: yes | no`, and a
+# verdict: the reviewer reads the diff and answers `User-visible: yes | no`, and a
 # change under `models/` or `data/` that alters what renders is user-visible even
 # though no glob here matches it. A new file under `components/` that nothing routes
 # to yet is not.
@@ -34,21 +34,43 @@ visible_paths = [
 ]
 browser = true
 
+[dev]
+# How `browser-review` brings the app up. Nothing else boots anything.
+#
+# Ports are never literals here: every `up` that actually boots allocates a free
+# block in 7000-7999 and records it in gitignored `.tmp/dev-stack/stack.json`, so
+# two worktrees can each run a full stack. `up` also prints the web URL on its
+# last line.
+start = "scripts/dev-stack.sh up"
+url = "http://localhost:$(jq -r .ports.web .tmp/dev-stack/stack.json)"
+# Sign-in is a **redirect**, not a popup — `GoogleSignIn.web.tsx` uses
+# `signInWithRedirect` on purpose, because a popup dead-ends in an installed PWA.
+# The browser leaves for the Auth emulator's own account picker and comes back,
+# in one tab throughout: click "Continue with Google", then `marcus@example.com`,
+# then pick the home **Huset**. Without an active home, `/projects`, `/locations`
+# and `/maintenance` all redirect to `/homes` and you review the wrong screen.
+# `.tmp/e2e/auth.json` does not shortcut this: Firebase keeps its session in
+# IndexedDB and `state-load` restores cookies and `localStorage` only.
+auth = "click 'Continue with Google' -> marcus@example.com -> home 'Huset'"
+ready = "Huset"
+
+# What `.emulator-seed` holds, so an empty screen is judged and not reported:
+# eighteen nodes, all under Huset, across Backlog / Next Up / Execution / Done —
+# **Stugan is empty on purpose**. Sixteen have no due date and no priority and
+# fifteen have no notes, so anything surfacing "overdue" or "due soon" is
+# legitimately empty. There are **no `recurring` and no `locations` documents at
+# all**: the maintenance screen and the location tree are empty by construction,
+# which is the cold-start shape. Two accounts — Marcus / marcus@example.com and
+# Anna Maria Berg / anna@example.com — one pending invite, two API keys, no
+# attachments. Whether an empty state explains itself is still fair game;
+# reporting the emptiness as data loss is not.
+
 [design]
 # The contract and the values it is written against. `theme/tokens.ts` is ground
 # truth: when the contract and the file disagree, the file is right and the contract
 # is stale. Nobody edits the contract mid-run — a finding cites a rule in it or is
 # flagged a taste call, and proposed rule changes go to the human as one diff.
+# Personal repo: the product-specific taste lives in `docs/DESIGN.md` sections, not
+# in a repo design skill.
 contract = "docs/DESIGN.md"
 tokens = "theme/tokens.ts"
-
-[stages]
-implement = "implement"
-review = "review"
-ship = "ship"
-
-[paths]
-plans = ".tmp" # <issue-id>-plan.md, written by the kickoff skills, deleted by /ship
-dispatch = ".tmp/dispatch"
-prompts = ".tmp/prompts"
-checkpoint = ".tmp/continue-work.state.json"

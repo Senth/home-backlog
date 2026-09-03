@@ -3,7 +3,7 @@
  *
  * It exists for one import. `@/utils/dev-console` replaces `console.warn` so the
  * `react-native-web` deprecations `react-native-paper` provokes stop drowning
- * the console that `/review` treats as a gate — and a filter only ever catches
+ * the console the review gate reads — and a filter only ever catches
  * what is warned *after* it is installed.
  *
  * `app/_layout.tsx` is not early enough, and that is not a detail worth
