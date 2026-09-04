@@ -295,49 +295,6 @@ export async function nodeFields(
 	return decodeFields(document.fields ?? {});
 }
 
-/**
- * Recomputes a node's `childCount` / `doneCount` from its real children and
- * writes them back.
- *
- * Only claim 12 needs this: demoting a node under a real, seeded project (the
- * claim is about a *real* project, not a throwaway one) and then sweeping the
- * demoted node away by title prefix — a raw Firestore delete, the same one
- * `deleteNodesByTitlePrefix` always does — does not run the app's own
- * counter bookkeeping, so the seeded project would otherwise end this file's
- * run one `childCount` too high, forever, for every spec that reads it.
- */
-export async function recountChildren(nodeId: string): Promise<void> {
-	const home = await homeId();
-	const { documents = [] } = await get(`/homes/${home}/nodes?pageSize=300`);
-
-	let childCount = 0;
-	let doneCount = 0;
-	for (const document of documents) {
-		if (document.fields?.parentId?.stringValue !== nodeId) continue;
-		childCount += 1;
-		if (document.fields?.status?.stringValue === "done") doneCount += 1;
-	}
-
-	const response = await fetch(
-		`${BASE}/homes/${home}/nodes/${nodeId}?updateMask.fieldPaths=childCount&updateMask.fieldPaths=doneCount`,
-		{
-			method: "PATCH",
-			headers: { ...HEADERS, "Content-Type": "application/json" },
-			body: JSON.stringify({
-				fields: {
-					childCount: { integerValue: String(childCount) },
-					doneCount: { integerValue: String(doneCount) },
-				},
-			}),
-		},
-	);
-	if (!response.ok) {
-		throw new Error(
-			`emulator REST could not recount ${nodeId}: ${response.status} ${response.statusText}`,
-		);
-	}
-}
-
 /** A node's id, resolved by its title — for a node created through the UI. */
 export async function nodeIdByTitle(title: string): Promise<string> {
 	const home = await homeId();

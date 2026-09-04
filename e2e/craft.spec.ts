@@ -97,9 +97,9 @@ import {
  *
  * The claims that are *not* a width-independent sweep get a test of their own:
  * the desktop column's own strings below, which are not inside an interactive
- * element and so are invisible to the clipped-label sweep, the FAB's width
- * share at 200% text, and the FAB clearance in `fab.spec.ts`, which fills a
- * column and so belongs with the specs that write.
+ * element and so are invisible to the clipped-label sweep, and the FAB's width
+ * share at 200% text. The FAB clearance claim was dropped with #201, together
+ * with the spec that made it.
  */
 
 /**
