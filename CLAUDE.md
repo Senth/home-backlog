@@ -31,9 +31,9 @@ Home Backlog: an Expo / React Native web-first PWA on Firebase.
   list is `[gates]` in [`.ai/config.toml`](.ai/config.toml), and that list is what a green
   report is measured against.
 - Testing policy is [`docs/TESTS.md`](docs/TESTS.md): unit tests by default, **ten e2e
-  spec files, hard cap**, and everything else hand-checked once through the
-  `playwright-cli` skill with no spec left behind. A new spec displaces a named one or it
-  does not get written.
+  spec files, hard cap**, enforced by `yarn invariants`, and everything else
+  hand-checked once through the `playwright-cli` skill with no spec left behind. A new
+  spec displaces a named one or it does not get written.
 - `yarn invariants` ([`scripts/check-invariants.sh`](scripts/check-invariants.sh)) is
   where the greppable rules above are enforced; a new rule here that a regex could
   catch goes in that script too.

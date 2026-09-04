@@ -102,14 +102,13 @@ export default defineConfig({
 		},
 		{
 			// The read-only English phone pass, and the only project that runs
-			// `navigation`, `i18n` and `board-desktop`. The router is the same
-			// router at every width, a raw translation key is raw at every width,
-			// and `board-desktop.spec.ts` sets its own two viewports per test — so
-			// a second run of any of them at another width measures nothing new.
+			// `i18n`. The router is the same router at every width, and a raw
+			// translation key is raw at every width, so a second run of any of
+			// them at another width measures nothing new.
 			name: "en-US",
 			dependencies: ["setup"],
 			fullyParallel: true,
-			testMatch: /(craft|console|navigation|i18n|board-desktop)\.spec\.ts/,
+			testMatch: /(craft|console|i18n)\.spec\.ts/,
 			use: {
 				...devices["Desktop Chrome"],
 				viewport: VIEWPORTS.phone,
@@ -179,16 +178,13 @@ export default defineConfig({
 			// *not* belong here: it is already safe. Phases rather than a
 			// contamination graph is what keeps the rule statable.
 			//
-			// `fab.spec.ts` brings its own locale axis: it is a craft claim that
-			// happens to need a full column built first, so it lives here rather
-			// than in the Swedish projects. `overview.spec.ts` joins it for the
-			// same reason `details.spec.ts` does — its claims need fixture nodes
-			// `createFixtureNode` writes straight past the UI.
+			// `overview.spec.ts` is here for the same reason `details.spec.ts`
+			// is — its claims need fixture nodes `createFixtureNode` writes
+			// straight past the UI.
 			name: "writes",
 			dependencies: ["en-US", "en-US-desktop", "sv-SE", "sv-SE-desktop"],
 			workers: 1,
-			testMatch:
-				/(blocked-by|board|details|fab|invite|locations|offline|overview|overview-cards|rest-api)\.spec\.ts/,
+			testMatch: /(core-loop|nesting|overview|details)\.spec\.ts/,
 			use: {
 				...devices["Desktop Chrome"],
 				viewport: VIEWPORTS.phone,

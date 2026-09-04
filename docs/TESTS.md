@@ -31,28 +31,41 @@ PR forever has to be worth that; most checks are not.
 ## The e2e budget
 
 **Ten spec files in `e2e/`. Hard cap.** Not ten as a target to grow into — ten as a
-ceiling that is reached only by things that cannot be proven anywhere cheaper.
+ceiling that is reached only by things that cannot be proven anywhere cheaper. `yarn
+invariants` enforces the cap: `scripts/check-invariants.sh` counts the specs and an
+eleventh file fails the gate.
 
-Two of the ten are held permanently, because each enforces a rule written down elsewhere
-and there is nowhere cheaper to enforce it:
+The repo holds seven of the ten. Three of them are held permanently, because each
+enforces a rule written down elsewhere and there is nowhere cheaper to enforce it:
 
 - `craft.spec.ts` — the rendered design checks, against the tokens named in
   `.ai/config.toml`'s `[design]`. It owns the measurements; a human judges what a
   measurement cannot.
 - `console.spec.ts` — the clean console, whose exceptions are the closed list in
   `utils/dev-console.ts` and `e2e/support/app.ts`.
+- `i18n.spec.ts` — no raw translation key renders, and `sv-SE` is actually in effect.
 
-The remaining eight cover the **core loop**: sign in and land on a home, see what is
-outstanding on the overview, open a board, create and move and complete a card, and have
-that survive a reload. A spec belongs there if breaking it means the app is unusable, not
-merely wrong somewhere.
+The other four cover the **core loop**: sign in and land on a home, see what is
+outstanding on the overview, open a board, create and move and complete a card, nest a
+card into its own board, and have all of that survive a reload. A spec belongs there if
+breaking it means the app is unusable, not merely wrong somewhere.
+
+- `core-loop.spec.ts` — board CRUD: create, move through the columns, complete, reload.
+- `nesting.spec.ts` — a card becomes a board: drill down, breadcrumb back, re-parent,
+  promote.
+- `overview.spec.ts` — the dashboard renders what is outstanding.
+- `details.spec.ts` — every control on the details screen, waiting-on folded in.
+
+**Three slots are free.** They are headroom, not a target to fill: the next feature that
+genuinely earns e2e coverage takes one without evicting anything.
 
 Setup projects (`auth.setup.ts`, `fixture.setup.ts`) and `support/` are not specs and do
 not count.
 
 ## Adding one
 
-A new spec has to displace an existing one. There is no eleventh slot, and no "just this
+A new spec first takes one of the three free slots; once those are gone, it has to
+displace an existing one. There is no eleventh slot, and no "just this
 once" — the cap is the whole mechanism, and an exception granted twice is not a cap.
 
 So a major feature that wants e2e coverage argues for it, in the PR or the issue, in
@@ -67,9 +80,3 @@ these terms:
 
 Cannot make all three arguments? Then it is a unit test, or a hand-check, and that is the
 normal outcome. Most features do not get e2e coverage. That is the policy working.
-
-## Where this stands today
-
-`e2e/` holds more than ten specs. That is debt, not the policy: it is paid down in #201,
-which converts what converts and deletes the rest. Until that lands, the cap is the
-direction — nothing new is added, and anything touched is asked whether it should exist.

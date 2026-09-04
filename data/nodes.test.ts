@@ -1,3 +1,8 @@
+import type {
+	DocumentData,
+	QueryDocumentSnapshot,
+	QuerySnapshot,
+} from "firebase/firestore";
 import type { Node } from "@/models/node";
 import { newNodeData } from "@/models/node";
 
@@ -5,7 +10,10 @@ jest.mock("@/config/firebase", () => ({ db: {} }));
 
 jest.mock("firebase/firestore", () => ({
 	collection: jest.fn(() => ({})),
-	doc: jest.fn(() => ({ id: "doc" })),
+	doc: jest.fn((...args: unknown[]) => ({
+		id:
+			typeof args[args.length - 1] === "string" ? args[args.length - 1] : "doc",
+	})),
 	getDoc: jest.fn(),
 	getDocs: jest.fn(),
 	getDocsFromServer: jest.fn(),
@@ -19,8 +27,18 @@ jest.mock("firebase/firestore", () => ({
 	writeBatch: jest.fn(),
 }));
 
-import { getDocsFromServer, writeBatch } from "firebase/firestore";
-import { moveErrorKey, reparentNode } from "@/data/nodes";
+import {
+	getDocs,
+	getDocsFromServer,
+	updateDoc,
+	where,
+	writeBatch,
+} from "firebase/firestore";
+import { addToSharedRoots, moveErrorKey, reparentNode } from "@/data/nodes";
+
+beforeEach(() => {
+	jest.clearAllMocks();
+});
 
 function aNode(over: Partial<Node> = {}): Node {
 	return {
@@ -90,5 +108,101 @@ describe("moveErrorKey", () => {
 		[null, "error.saveFailed"],
 	])("maps %p to %p", (reason, key) => {
 		expect(moveErrorKey(reason)).toBe(key);
+	});
+});
+
+/** Only what `toNode` reads for this claim. */
+function stored(
+	id: string,
+	participantIds: string[],
+): QueryDocumentSnapshot<DocumentData> {
+	return {
+		id,
+		data: () => ({ participantIds }),
+	} as unknown as QueryDocumentSnapshot<DocumentData>;
+}
+
+function found(
+	...documents: QueryDocumentSnapshot<DocumentData>[]
+): QuerySnapshot<DocumentData> {
+	return { docs: documents } as unknown as QuerySnapshot<DocumentData>;
+}
+
+describe("addToSharedRoots", () => {
+	it("adds the new member to every shared root that lacks them", async () => {
+		jest
+			.mocked(getDocs)
+			.mockResolvedValueOnce(
+				found(stored("apples", ["marcus"]), stored("shed", ["anna"])),
+			);
+
+		await addToSharedRoots("home-1", "uid-new");
+
+		expect(updateDoc).toHaveBeenCalledWith(
+			{ id: "apples" },
+			{ participantIds: ["marcus", "uid-new"], updatedAt: "server-timestamp" },
+		);
+		expect(updateDoc).toHaveBeenCalledWith(
+			{ id: "shed" },
+			{ participantIds: ["anna", "uid-new"], updatedAt: "server-timestamp" },
+		);
+	});
+
+	it("skips a root the uid is already on, so a rerun writes only what is missing", async () => {
+		jest
+			.mocked(getDocs)
+			.mockResolvedValueOnce(
+				found(
+					stored("apples", ["marcus", "uid-new"]),
+					stored("shed", ["anna"]),
+				),
+			);
+
+		await addToSharedRoots("home-1", "uid-new");
+
+		expect(updateDoc).toHaveBeenCalledTimes(1);
+		expect(updateDoc).toHaveBeenCalledWith(
+			{ id: "shed" },
+			{ participantIds: ["anna", "uid-new"], updatedAt: "server-timestamp" },
+		);
+	});
+
+	it("reads only the home's shared roots — a private root cannot be matched, so none is written", async () => {
+		jest.mocked(getDocs).mockResolvedValueOnce(found());
+
+		await addToSharedRoots("home-1", "uid-new");
+
+		expect(where).toHaveBeenCalledWith("parentId", "==", null);
+		expect(where).toHaveBeenCalledWith("visibility", "==", "shared");
+		expect(updateDoc).not.toHaveBeenCalled();
+	});
+
+	it("never throws on a root that refuses, and reports it to the console", async () => {
+		jest
+			.mocked(getDocs)
+			.mockResolvedValueOnce(found(stored("apples", ["marcus"])));
+		jest
+			.mocked(updateDoc)
+			.mockReturnValueOnce(Promise.reject(new Error("offline")));
+		const consoleError = jest.spyOn(console, "error").mockImplementation();
+
+		await expect(
+			addToSharedRoots("home-1", "uid-new"),
+		).resolves.toBeUndefined();
+
+		expect(consoleError).toHaveBeenCalled();
+		consoleError.mockRestore();
+	});
+
+	it("never throws on a listing that fails, and writes nothing", async () => {
+		jest.mocked(getDocs).mockRejectedValueOnce(new Error("offline"));
+		const consoleError = jest.spyOn(console, "error").mockImplementation();
+
+		await expect(
+			addToSharedRoots("home-1", "uid-new"),
+		).resolves.toBeUndefined();
+
+		expect(updateDoc).not.toHaveBeenCalled();
+		consoleError.mockRestore();
 	});
 });

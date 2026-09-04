@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
  * worktrees can each run a full stack at once. Nothing here may fall back to
  * a literal: a literal is exactly the collision this file exists to kill.
  */
-export type StackPorts = {
+type StackPorts = {
 	ui: number;
 	auth: number;
 	firestore: number;
