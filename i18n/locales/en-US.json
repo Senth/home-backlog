@@ -218,6 +218,7 @@
 		"gone": "That card is gone.",
 		"crumbHidden": "Hidden",
 		"trail": "Where you are",
+		"pathA11y": "In {{path}}",
 		"hidden": "Hidden",
 		"assignedTo_one": "{{names}} is doing this",
 		"assignedTo_other": "{{names}} are doing this",

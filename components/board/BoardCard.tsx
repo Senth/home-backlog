@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Card, Icon, Text } from "react-native-paper";
@@ -39,6 +39,13 @@ interface BoardCardProps {
 	 * statuses it already holds, in the same shape.
 	 */
 	blockers?: ReadonlyMap<string, Node | null>;
+	/**
+	 * The ancestors' titles, root first, `null` for one the node map cannot
+	 * answer — `crumbTitlesOf`'s output. Absent or empty draws nothing: the
+	 * board says where you are in its own trail, and a root has nothing above
+	 * it. Overview passes it; the board never does.
+	 */
+	path?: readonly (string | null)[];
 }
 
 /** What a card resolves its waiting against before its board has said anything. */
@@ -106,6 +113,7 @@ export function BoardCard({
 	menu,
 	wide = false,
 	blockers = noBlockers,
+	path,
 }: BoardCardProps) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
@@ -117,6 +125,17 @@ export function BoardCard({
 	// the warning colour on it, are `DueChip`'s.
 	const showDue = node.dueDate !== null && (due === "late" || due === "soon");
 	const isPrivate = node.visibility === "private";
+	const isDone = node.status === "done";
+
+	// Two projects in one path may share a title, so the key is content plus
+	// position — the trail never reorders, only grows or disappears.
+	const crumbs =
+		path === undefined || path.length === 0
+			? undefined
+			: path.map((crumb, index) => ({
+					id: `${index}:${crumb ?? t("board.crumbHidden")}`,
+					label: crumb ?? t("board.crumbHidden"),
+				}));
 
 	// Waiting is the *unresolved* blockers, never the stored list — the shared
 	// `useWaitingMark` derivation, so the face and Overview cannot disagree.
@@ -165,10 +184,66 @@ export function BoardCard({
 				}}
 			>
 				<View style={{ flex: 1, gap: space.xs }}>
+					{/* Context you consult rather than scan: quiet metadata the title
+					    still owns. One `Text` so the trail end-elides as a whole — the
+					    Swedish 195px case — and one label so a screen reader hears the
+					    crumbs as words rather than chevrons. */}
+					{crumbs === undefined ? null : (
+						<Text
+							variant="labelMedium"
+							numberOfLines={1}
+							accessible
+							accessibilityLabel={t("board.pathA11y", {
+								path: crumbs.map((crumb) => crumb.label).join(", "),
+							})}
+							style={{ color: theme.colors.onCardMuted }}
+						>
+							{crumbs.reduce<ReactNode>(
+								(trail, crumb) => (
+									<Fragment key={crumb.id}>
+										{trail}
+										{trail === null ? null : (
+											<Icon
+												source="chevron-right"
+												size={icon.sm}
+												color={theme.colors.onCardMuted}
+											/>
+										)}
+										{crumb.label}
+									</Fragment>
+								),
+								null,
+							)}
+						</Text>
+					)}
+
 					{/* Smaller on desktop, where a column is read as a list of cards
 					    rather than one card filling the screen. `wide` comes from the
 					    column, not from a measurement taken here. */}
-					<Text variant={wide ? "bodyMedium" : "bodyLarge"}>{node.title}</Text>
+					<View
+						style={{
+							flexDirection: "row",
+							alignItems: "center",
+							gap: space.xs,
+						}}
+					>
+						{/* Quiet by exactly one step: the check says *finished* and the
+						    title steps down a tier with it. The fill, the border and the
+						    chips are untouched — a done card still belongs to its column. */}
+						{isDone ? (
+							<Icon
+								source="check"
+								size={icon.sm}
+								color={theme.colors.onCardMuted}
+							/>
+						) : null}
+						<Text
+							variant={wide ? "bodyMedium" : "bodyLarge"}
+							style={isDone ? { color: theme.colors.onCardMuted } : undefined}
+						>
+							{node.title}
+						</Text>
+					</View>
 
 					{/* One label for the row rather than one per face: a screen reader
 					    reading "M W, N A" learns nothing, and the initials are a visual
