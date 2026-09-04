@@ -81,6 +81,13 @@ export default function Overview() {
 		blockers.set(node.id, node);
 	}
 
+	// Every card's hide predicate asks this one map, so it is built once rather
+	// than scanned per node. A root it cannot answer keeps that card hidden.
+	const rootsById = new Map<string, Node>();
+	for (const node of roots.nodes) {
+		rootsById.set(node.id, node);
+	}
+
 	const [adding, setAdding] = useState(false);
 	const [fabHeight, setFabHeight] = useState(0);
 	/** The card whose *Remove* is waiting for its confirmation. */
@@ -124,11 +131,11 @@ export default function Overview() {
 			rows.set(
 				card.id,
 				card.kind === "completed"
-					? recentlyDone(done.nodes, roots.nodes, uid, now)
+					? recentlyDone(done.nodes, rootsById, uid, now)
 					: cardRows(card, pool.nodes, {
 							uid,
 							now,
-							roots: roots.nodes,
+							roots: rootsById,
 							blockers,
 						}),
 			);

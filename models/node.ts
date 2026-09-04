@@ -692,6 +692,22 @@ export function rootIdOf(node: Node): string {
 }
 
 /**
+ * The ancestors' titles, root first — what a path above the card's title shows.
+ *
+ * An ancestor the map cannot answer is `null` in its own position rather than
+ * skipped, so the array's length always equals `ancestorIds.length` and a hole
+ * never shortens the path. `null` means *unresolvable* — the same case
+ * `Breadcrumbs` draws as a hidden crumb — and the word for it stays with the
+ * component, so i18n stays out of `models/`.
+ */
+export function crumbTitlesOf(
+	node: Node,
+	nodeById: ReadonlyMap<string, Node>,
+): (string | null)[] {
+	return node.ancestorIds.map((id) => nodeById.get(id)?.title ?? null);
+}
+
+/**
  * Whose project this is, from the root — `[]` while the root is still being
  * read, which is the frame every descendant's detail screen opens on.
  */

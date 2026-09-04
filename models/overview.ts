@@ -66,11 +66,10 @@ export function doneSince(now: Date): Date {
  */
 export function hiddenByRoot(
 	node: Node,
-	roots: readonly Node[],
+	rootsById: ReadonlyMap<string, Node>,
 	uid: string,
 ): boolean {
-	const rootId = rootIdOf(node);
-	const root = roots.find((candidate) => candidate.id === rootId);
+	const root = rootsById.get(rootIdOf(node));
 	return root === undefined || hiddenByParticipants(root, uid);
 }
 
@@ -86,7 +85,7 @@ export function hiddenByRoot(
  */
 export function recentlyDone(
 	nodes: readonly Node[],
-	roots: readonly Node[],
+	rootsById: ReadonlyMap<string, Node>,
 	uid: string,
 	now: Date,
 ): Node[] {
@@ -98,7 +97,7 @@ export function recentlyDone(
 			return (
 				completed !== null &&
 				completed.toMillis() >= since &&
-				!hiddenByRoot(node, roots, uid)
+				!hiddenByRoot(node, rootsById, uid)
 			);
 		})
 		.sort((a, b) => {

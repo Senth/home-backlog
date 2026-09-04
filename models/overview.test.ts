@@ -89,10 +89,13 @@ function done(
 const me = "uid-me";
 const you = "uid-you";
 
-/** The root board as Overview holds it: mine, yours, and one nobody owns. */
+/** The roots map as Overview holds it, keyed by id. */
 const mine = node({ id: "mine", participantIds: [me, you], rank: "a0" });
 const yours = node({ id: "yours", participantIds: [you], rank: "a1" });
-const roots = [mine, yours];
+const roots = new Map([
+	["mine", mine],
+	["yours", yours],
+]);
 
 describe("doneSince", () => {
 	it("reaches back exactly the window the section holds", () => {
@@ -124,7 +127,9 @@ describe("hiddenByRoot", () => {
 	it("shows a root nobody is named on", () => {
 		const everyones = node({ id: "everyones", participantIds: [] });
 
-		expect(hiddenByRoot(everyones, [everyones], me)).toBe(false);
+		expect(
+			hiddenByRoot(everyones, new Map([["everyones", everyones]]), me),
+		).toBe(false);
 	});
 
 	/**

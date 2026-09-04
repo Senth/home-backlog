@@ -7,6 +7,7 @@ import {
 	compareNodes,
 	completionChange,
 	crossBoardBlockerIds,
+	crumbTitlesOf,
 	defaultColumns,
 	doneChange,
 	effectiveParticipants,
@@ -560,6 +561,47 @@ describe("rootIdOf", () => {
 		expect(
 			rootIdOf(node({ id: "grout", ancestorIds: ["garage", "tiles"] })),
 		).toBe("garage");
+	});
+});
+
+describe("crumbTitlesOf", () => {
+	const house = node({ id: "house", title: "House", ancestorIds: [] });
+	const project = node({
+		id: "project",
+		title: "Renovation",
+		parentId: "house",
+		ancestorIds: ["house"],
+	});
+	const task = node({
+		id: "task",
+		title: "Tiling",
+		parentId: "project",
+		ancestorIds: ["house", "project"],
+	});
+	const byId = new Map([
+		["house", house],
+		["project", project],
+	]);
+
+	it("is empty for a node with no ancestors", () => {
+		expect(crumbTitlesOf(house, byId)).toEqual([]);
+	});
+
+	it("names the ancestors' titles, root first and the parent last", () => {
+		expect(crumbTitlesOf(task, byId)).toEqual(["House", "Renovation"]);
+	});
+
+	/**
+	 * A private step under a project I cannot read is the real hole: the map
+	 * is every node in hand, not every node in the home. The hole keeps its
+	 * own position — a shorter path would name the wrong project.
+	 */
+	it("reads an ancestor the map cannot answer as null, in place", () => {
+		expect(crumbTitlesOf(task, new Map([["project", project]]))).toEqual([
+			null,
+			"Renovation",
+		]);
+		expect(crumbTitlesOf(task, new Map())).toEqual([null, null]);
 	});
 });
 
