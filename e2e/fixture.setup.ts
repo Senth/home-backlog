@@ -1,18 +1,14 @@
 import { test as setup } from "@playwright/test";
-import {
-	deleteLocationsByTitlePrefix,
-	deleteNodesByTitlePrefix,
-} from "@/e2e/support/firestore";
+import { deleteNodesByTitlePrefix } from "@/e2e/support/firestore";
 
 /**
  * Sweeps the fixture back to the committed seed before the suite starts.
  *
- * Two specs write cards of their own — `offline.spec.ts` creates one to prove a
- * queued write reaches the server, and `craft.spec.ts` fills a column with
- * twelve to make one deep enough to scroll — and both delete what they made.
- * Cleanup that runs after the thing it is cleaning up is cleanup that can be
- * skipped: a crashed worker, a killed run, a `finally` that never ran, and a
- * card is left on the board.
+ * Specs write cards of their own — `overview.spec.ts` fills a column with
+ * throwaway ones to make one deep enough to scroll — and delete what they
+ * made. Cleanup that runs after the thing it is cleaning up is cleanup that
+ * can be skipped: a crashed worker, a killed run, a `finally` that never ran,
+ * and a card is left on the board.
  *
  * That card is not a harmless extra. The counts on the column strip are
  * asserted against the seed's own numbers, and the lifted-card claim counts the
@@ -27,7 +23,6 @@ import {
 /** What every spec-created node's title begins with. */
 const FIXTURE_PREFIX = "E2E ";
 
-setup("clear cards and places left behind by an earlier run", async () => {
+setup("clear cards left behind by an earlier run", async () => {
 	await deleteNodesByTitlePrefix(FIXTURE_PREFIX);
-	await deleteLocationsByTitlePrefix(FIXTURE_PREFIX);
 });

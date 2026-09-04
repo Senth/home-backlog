@@ -39,7 +39,7 @@ const RANK_DIGITS =
  * first draft of this used `zz…` strings, and the run that leaked one left
  * the board unable to create a card until the leak was swept by hand.
  */
-export function lateRanks(count: number): string[] {
+function lateRanks(count: number): string[] {
 	return generateNKeysBetween("Vz", null, count, RANK_DIGITS);
 }
 
@@ -69,7 +69,7 @@ async function get(path: string): Promise<{ documents?: Document[] }> {
 let cachedHomeId: string | undefined;
 
 /** A home's document id, resolved by name — including the throwaway ones. */
-export async function homeIdByName(name: string): Promise<string> {
+async function homeIdByName(name: string): Promise<string> {
 	const { documents = [] } = await get("/homes");
 	const home = documents.find(
 		(document) => document.fields?.name?.stringValue === name,
@@ -86,21 +86,11 @@ export async function homeIdByName(name: string): Promise<string> {
 }
 
 /** The document id of the seeded home, resolved by name and then remembered. */
-export async function homeId(): Promise<string> {
+async function homeId(): Promise<string> {
 	if (cachedHomeId) return cachedHomeId;
 
 	cachedHomeId = await homeIdByName(HOME_NAME);
 	return cachedHomeId;
-}
-
-/** Every node title in the seeded home, straight from the backend. */
-export async function nodeTitles(): Promise<string[]> {
-	const { documents = [] } = await get(
-		`/homes/${await homeId()}/nodes?pageSize=300`,
-	);
-	return documents
-		.map((document) => document.fields?.title?.stringValue)
-		.filter((title): title is string => typeof title === "string");
 }
 
 /**
@@ -478,218 +468,4 @@ export async function memberUid(displayName: string): Promise<string> {
 		throw new Error(`no member named "${displayName}" in ${HOME_NAME}`);
 	}
 	return match[0];
-}
-
-/*
- * ---------------------------------------------------------------------------
- * Locations (#50) — the same three jobs as above, for the place tree.
- * ---------------------------------------------------------------------------
- */
-
-/** Every location title in the seeded home, straight from the backend. */
-export async function locationTitles(): Promise<string[]> {
-	const { documents = [] } = await get(
-		`/homes/${await homeId()}/locations?pageSize=300`,
-	);
-	return documents
-		.map((document) => document.fields?.title?.stringValue)
-		.filter((title): title is string => typeof title === "string");
-}
-
-/** A location's id, resolved by its title — for a place created through the UI. */
-export async function locationIdByTitle(title: string): Promise<string> {
-	const { documents = [] } = await get(
-		`/homes/${await homeId()}/locations?pageSize=300`,
-	);
-	const match = documents.find(
-		(document) => document.fields?.title?.stringValue === title,
-	);
-	if (!match) {
-		throw new Error(`no location titled "${title}" in ${HOME_NAME}`);
-	}
-	return idOf(match.name);
-}
-
-/**
- * A location's id, resolved by its title once the write reaches the backend —
- * the `waitForNodeIdByTitle` story: a UI write is visible optimistically long
- * before the emulator sees it, and `expect.poll` treats a throw as a failure
- * rather than something to retry.
- */
-export async function waitForLocationIdByTitle(
-	title: string,
-	timeoutMs = 30_000,
-): Promise<string> {
-	const deadline = Date.now() + timeoutMs;
-	for (;;) {
-		try {
-			return await locationIdByTitle(title);
-		} catch (reason) {
-			if (Date.now() > deadline) throw reason;
-			await new Promise((resolve) => setTimeout(resolve, 300));
-		}
-	}
-}
-
-/** One location's fields, decoded to plain JSON — for asserting what a write did. */
-export async function locationFields(
-	locationId: string,
-): Promise<Record<string, unknown>> {
-	const home = await homeId();
-	const response = await fetch(
-		`${BASE}/homes/${home}/locations/${locationId}`,
-		{ headers: HEADERS },
-	);
-	if (!response.ok) {
-		throw new Error(
-			`emulator REST could not read location ${locationId}: ${response.status} ${response.statusText}`,
-		);
-	}
-	const document = (await response.json()) as {
-		fields?: Record<string, unknown>;
-	};
-	return decodeFields(document.fields ?? {});
-}
-
-export type { Json };
-
-/**
- * A document's fields, decoded to plain JSON — or `null` when it is not
- * there. Card-config fixtures (#166) read and rewrite whole documents, so a
- * seed a test removes is removed the way the app's own editor would remove
- * it: by writing the map back without it.
- */
-export async function readDocAt(
-	path: string,
-): Promise<Record<string, unknown> | null> {
-	const response = await fetch(`${BASE}${path}`, { headers: HEADERS });
-	if (response.status === 404) return null;
-	if (!response.ok) {
-		throw new Error(
-			`emulator REST ${path} responded ${response.status} ${response.statusText}`,
-		);
-	}
-	const document = (await response.json()) as {
-		fields?: Record<string, unknown>;
-	};
-	return decodeFields(document.fields ?? {});
-}
-
-/**
- * Deletes every location whose title begins with this prefix. Best-effort the
- * same way `deleteNodesByTitlePrefix` is, and failing the same way when a
- * delete is refused — a place left behind empties no tree, and the next run's
- * Locations screen would wait on an empty state that never comes.
- */
-export async function deleteLocationsByTitlePrefix(
-	prefix: string,
-): Promise<void> {
-	const { documents = [] } = await get(
-		`/homes/${await homeId()}/locations?pageSize=300`,
-	);
-
-	for (const document of documents) {
-		const title = document.fields?.title?.stringValue;
-		if (title === undefined || !title.startsWith(prefix)) continue;
-		const response = await fetch(
-			`http://localhost:${EMULATOR_PORT}/v1/${document.name}`,
-			{
-				method: "DELETE",
-				headers: HEADERS,
-			},
-		);
-		if (!response.ok) {
-			throw new Error(
-				`emulator REST could not delete location "${title}": ${response.status} ${response.statusText}`,
-			);
-		}
-	}
-}
-
-/**
- * One location, written straight past the UI the way `createFixtureNode` is.
- *
- * There is no stored location to copy as a template — the seed ships no
- * places, the blank start `PROJECT.md` § Locations commits to — so the
- * document is hand-written here. The fields are exactly the schema of
- * `models/locations.ts`, and `createdAt` / `updatedAt` go in as dates the
- * emulator stores as timestamps.
- */
-export async function createFixtureLocation(
-	overrides: Record<string, Json>,
-): Promise<string> {
-	const home = await homeId();
-	const fields = encodeFields({
-		title: "E2E loc fixture",
-		parentId: null,
-		ancestorIds: [],
-		rank: "e2e",
-		createdAt: new Date(),
-		createdBy: await memberUid("Marcus"),
-		updatedAt: new Date(),
-		...overrides,
-	});
-
-	const response = await fetch(`${BASE}/homes/${home}/locations`, {
-		method: "POST",
-		headers: { ...HEADERS, "Content-Type": "application/json" },
-		body: JSON.stringify({ fields }),
-	});
-	if (!response.ok) {
-		throw new Error(
-			`emulator REST could not create a fixture location: ${response.status} ${response.statusText}`,
-		);
-	}
-	const created = (await response.json()) as { name: string };
-	return idOf(created.name);
-}
-
-/** Writes a whole document, creating or replacing it. Fixture plumbing. */
-export async function writeDocAt(
-	path: string,
-	fields: Record<string, Json>,
-): Promise<void> {
-	const response = await fetch(`${BASE}${path}`, {
-		method: "PATCH",
-		headers: { ...HEADERS, "Content-Type": "application/json" },
-		body: JSON.stringify({ fields: encodeFields(fields) }),
-	});
-	if (!response.ok) {
-		throw new Error(
-			`emulator REST could not write ${path}: ${response.status} ${response.statusText}`,
-		);
-	}
-}
-
-/** Deletes the document at the path; deleting nothing is not an error. */
-export async function deleteDocAt(path: string): Promise<void> {
-	const response = await fetch(`${BASE}${path}`, {
-		method: "DELETE",
-		headers: HEADERS,
-	});
-	if (!response.ok && response.status !== 404) {
-		throw new Error(
-			`emulator REST could not delete ${path}: ${response.status} ${response.statusText}`,
-		);
-	}
-}
-
-/**
- * A home's id, resolved once the write reaches the backend — the same wait
- * `waitForNodeIdByTitle` does for a node: a home made through the UI exists
- * on screen before the emulator this file reads through can see it.
- */
-export async function waitForHomeId(
-	name: string,
-	timeoutMs = 30_000,
-): Promise<string> {
-	const deadline = Date.now() + timeoutMs;
-	for (;;) {
-		try {
-			return await homeIdByName(name);
-		} catch (reason) {
-			if (Date.now() > deadline) throw reason;
-			await new Promise((resolve) => setTimeout(resolve, 300));
-		}
-	}
 }
