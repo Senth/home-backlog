@@ -7,6 +7,7 @@ import {
 	sharedDoneQuery,
 	sharedPoolQuery,
 } from "@/data/nodes";
+import { useCalendarDay } from "@/hooks/use-calendar-day";
 import { useNodes } from "@/hooks/use-nodes";
 import {
 	type PairedResult,
@@ -37,6 +38,8 @@ export function useOverview(homeId: string | null): {
 } {
 	const { user } = useAuth();
 	const uid = user?.uid ?? null;
+	// Only the done pair carries a `now`, so only it moves when the day does.
+	const day = useCalendarDay();
 
 	const roots = useNodes(homeId, null);
 	const pool = useOverviewPair(
@@ -58,6 +61,7 @@ export function useOverview(homeId: string | null): {
 			shared: "Could not load what was recently done",
 			participating: "Could not load your own recently done cards",
 		},
+		day,
 	);
 
 	return { roots, pool, done };
@@ -69,7 +73,10 @@ export function useOverview(homeId: string | null): {
  * The queries themselves take no arguments beyond the home and, for the
  * participating arm, the uid: the pool pair has no `now` in it at all — it is
  * the whole open set, narrowed on screen — and the done pair takes its `now`
- * when the query is built, which is at subscribe.
+ * when the query is built, which is at subscribe. The done pair's `day` rides
+ * in the key and in `build`'s dependencies, which is what re-asks
+ * `doneSince(now)` at the day turnover instead of whenever a render happens
+ * to come.
  */
 function useOverviewPair(
 	homeId: string | null,
@@ -77,7 +84,10 @@ function useOverviewPair(
 	sharedQuery: (homeId: string) => Query<DocumentData>,
 	participatingQuery: (homeId: string, uid: string) => Query<DocumentData>,
 	labels: { shared: string; participating: string },
+	/** Only the done pair carries one; the pool pair takes none, on purpose. */
+	day: string | null = null,
 ) {
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the day never enters a query — it is what re-opens the done pair, so `doneSince` is re-asked at the turnover, not at some render.
 	const build = useCallback((): QueryPair => {
 		if (homeId === null || uid === null) return null;
 
@@ -85,10 +95,14 @@ function useOverviewPair(
 			shared: sharedQuery(homeId),
 			participating: participatingQuery(homeId, uid),
 		};
-	}, [homeId, uid, sharedQuery, participatingQuery]);
+	}, [homeId, uid, sharedQuery, participatingQuery, day]);
 
 	// Same NUL-as-an-escape rule as `useNodes`, and for the same reason: a raw
 	// byte here makes git store this file as binary, and every review of it then
 	// arrives with no diff to read.
-	return usePairedListener(`${homeId ?? ""}\u0000${uid ?? ""}`, build, labels);
+	return usePairedListener(
+		`${homeId ?? ""}\u0000${uid ?? ""}\u0000${day ?? ""}`,
+		build,
+		labels,
+	);
 }
