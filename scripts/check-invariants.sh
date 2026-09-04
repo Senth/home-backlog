@@ -407,6 +407,30 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 13. e2e holds ten spec files or fewer
+#
+# docs/TESTS.md rations e2e because it is the most expensive thing this repo
+# owns: a cap nothing enforces is a suggestion, so the budget is counted here
+# and an eleventh spec fails the gate instead of quietly becoming the new
+# normal.
+#
+# Only `*.spec.ts` counts — the setup projects and `support/` are
+# infrastructure, not specs. Read from TREE so an untracked eleventh file
+# fails here the same way it would fail in CI.
+# ---------------------------------------------------------------------------
+count=0
+for f in "${TREE[@]}"; do
+	[[ "$f" =~ ^e2e/[^/]+\.spec\.ts$ ]] && count=$((count + 1))
+done
+if [[ "$count" -gt 10 ]]; then
+	report 13 "e2e spec budget" FAIL \
+		"e2e/ holds $count spec files; the cap is 10." \
+		"A new spec displaces a named one or it does not get written — see \"Adding one\" in docs/TESTS.md."
+else
+	report 13 "e2e spec budget" ok
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 printf '\ncheck-invariants — %d files\n\n' "${#ALL_TS[@]}"
