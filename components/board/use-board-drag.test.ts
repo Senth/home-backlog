@@ -197,6 +197,28 @@ describe("useBoardDrag", () => {
 		expect(onNotice).not.toHaveBeenCalled();
 	});
 
+	it("puts a card back, and says so, when it is dropped outside every column", async () => {
+		const { view, onNotice, register, measured, gesture } = board({
+			cards: [a, b, c],
+		});
+		// The card is carried over the strip's chip first, so the gap has been
+		// somewhere else before the finger leaves the board — the escape has to
+		// win even then.
+		register(chipKey("next_up"))(box(0, 40, 100, 80));
+		const card = gesture(a);
+
+		card.grab({ x: 10, y: 50 });
+		await measured();
+		card.move({ x: 150, y: 20 });
+		card.move({ x: 500, y: 700 });
+		// The gap is the only indicator, so "nowhere" is shown by it being gone.
+		expect(view.result.current.over).toBeNull();
+		card.drop();
+
+		expect(moved).not.toHaveBeenCalled();
+		expect(onNotice).toHaveBeenCalledWith({ text: "board.putBack" });
+	});
+
 	it("refuses to resurrect a card deleted while it was carried", async () => {
 		const { onNotice, measured, arrive, gesture } = board({
 			cards: [a, b, c],

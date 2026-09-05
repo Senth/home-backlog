@@ -381,14 +381,14 @@ export function useBoardDrag({
 	/** Where the gap is now, if that is somewhere new. */
 	const commit = useCallback((slot: DropSlot | null) => {
 		const held = live.current;
-		if (held === null || slot === null) return;
-		if (
-			slot.status === held.over?.status &&
-			slot.index === held.over?.index &&
-			slot.via === held.over?.via
-		) {
-			return;
-		}
+		if (held === null) return;
+		const same =
+			slot === null
+				? held.over === null
+				: slot.status === held.over?.status &&
+					slot.index === held.over?.index &&
+					slot.via === held.over?.via;
+		if (same) return;
 
 		const next = { ...held, over: slot };
 		live.current = next;
@@ -492,9 +492,12 @@ export function useBoardDrag({
 			at.current = point;
 			offset.setValue({ x: point.x - from.x, y: point.y - from.y });
 
-			// A point outside every column keeps the gap where it was: a card
-			// released off the board is not a cancel — that is #129 — so there is
-			// always somewhere for it to land.
+			// A point outside every column clears the gap — nowhere is a place the
+			// board can show, and dropping out there puts the card back. The gap
+			// is the only landing indicator, so "nowhere" is shown by it being
+			// gone: at 200% text the hand covers the pane, and a gap that kept
+			// the last column while the finger was over the toolbar would promise
+			// a landing the drop below does not make.
 			const slot = slotAt(point, held);
 
 			// The strip wins over the edge. On a 390px phone the leftmost chip and
@@ -532,15 +535,25 @@ export function useBoardDrag({
 		if (held === null) return;
 
 		const target = held.over;
-		const plan =
-			target === null
-				? null
-				: dropPlan({
-						column: held.cards.filter((card) => card.status === target.status),
-						dragged: held.node,
-						toStatus: target.status,
-						toIndex: target.index,
-					});
+
+		// Let go anywhere that is not a column: the escape that needs no aim,
+		// for the person who freezes mid-gesture and would rather not have
+		// committed at all. Nothing is written, the card flies home, and the
+		// board says so in words — the gap already went away under the finger,
+		// so the sentence confirms what the screen showed rather than lying
+		// about a move the way a no-op snackbar would.
+		if (target === null) {
+			settle(held);
+			onNotice({ text: t("board.putBack") });
+			return;
+		}
+
+		const plan = dropPlan({
+			column: held.cards.filter((card) => card.status === target.status),
+			dragged: held.node,
+			toStatus: target.status,
+			toIndex: target.index,
+		});
 
 		// A drop that changes nothing writes nothing and says nothing. A snackbar
 		// for a move that did not happen teaches people that the screen lies.
