@@ -7,9 +7,8 @@ import { type Node, unresolvedBlockers } from "@/models/node";
  * Waiting is the *unresolved* blockers, never the stored list: a done blocker
  * stops holding the card without being removed, and a card in Done never
  * marks, whatever its list holds. The count appears past one blocker, and the
- * a11y label carries the plural form — the card face and Overview's `RowMeta`
- * render it in their own shapes, but the words come from here so the two
- * surfaces cannot disagree.
+ * a11y label carries the plural form, and the words come from here so no
+ * surface that shows the mark can disagree with another.
  */
 export function useWaitingMark(
 	node: Node,

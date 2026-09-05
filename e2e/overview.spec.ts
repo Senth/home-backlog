@@ -260,6 +260,33 @@ test("4: under Coming up, a late node sorts above one due in three days, and one
 		})
 		.toBe(true);
 	await expect(comingUp.getByText(farTitle)).toHaveCount(0);
+
+	// A step under a project names that project on its row: the card face's
+	// path eyebrow, rendered for real. Scoped to Coming up — the undated
+	// parent is a root, so it has rows of its own on other cards, and here
+	// its name appears only as the step's path.
+	const parentId = await createFixtureNode({
+		title: `${PREFIX}nested parent`,
+		status: "backlog",
+		parentId: null,
+		ancestorIds: [],
+		visibility: "shared",
+		participantIds: [],
+		completedAt: null,
+		dueDate: null,
+	});
+	await createFixtureNode({
+		title: `${PREFIX}nested step`,
+		status: "backlog",
+		parentId,
+		ancestorIds: [parentId],
+		visibility: "shared",
+		participantIds: [],
+		completedAt: null,
+		dueDate: calendarDay(2),
+	});
+	await gotoOverview(page);
+	await expect(comingUp.getByText(`${PREFIX}nested parent`)).toBeVisible();
 });
 
 test("5: a node completed yesterday appears under Recently done; one completed 40 days ago does not", async ({
