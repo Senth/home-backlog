@@ -375,7 +375,7 @@ export function sortRows(rows: readonly Node[], sort: CardSort | null): Node[] {
 export function cardRows(
 	card: Card,
 	nodes: readonly Node[],
-	ctx: MatchContext & { roots: readonly Node[] },
+	ctx: MatchContext & { roots: ReadonlyMap<string, Node> },
 ): Node[] {
 	if (card.kind === "completed") return [];
 	return sortRows(

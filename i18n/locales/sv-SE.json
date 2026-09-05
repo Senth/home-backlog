@@ -219,6 +219,7 @@
 		"gone": "Kortet finns inte längre.",
 		"crumbHidden": "Dolt",
 		"trail": "Var du är",
+		"pathA11y": "I {{path}}",
 		"hidden": "Dold",
 		"assignedTo_one": "{{names}} gör det här",
 		"assignedTo_other": "{{names}} gör det här",

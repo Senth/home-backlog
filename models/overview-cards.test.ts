@@ -83,7 +83,7 @@ const mine = node({ id: "mine", participantIds: [me, you] });
 const ctx = {
 	uid: me,
 	now,
-	roots: [mine],
+	roots: new Map([["mine", mine]]),
 	blockers: new Map<string, Node | null>(),
 };
 
@@ -257,7 +257,7 @@ describe("matching", () => {
 	it("asks roots and children about the node, not its title", () => {
 		const root = node({ id: "root", childCount: 2, participantIds: [me, you] });
 		const childless = task();
-		const scoped = { ...ctx, roots: [...ctx.roots, root] };
+		const scoped = { ...ctx, roots: new Map(ctx.roots).set(root.id, root) };
 		const ids = (conditions: CardCondition[]) =>
 			cardRows(card(conditions), [root, childless], scoped).map(
 				(each) => each.id,
@@ -451,7 +451,13 @@ describe("matching", () => {
 it("never shows a node its root hides from the reader", () => {
 	const theirs = node({ id: "theirs", participantIds: [you] });
 	const ours = node({ id: "ours", participantIds: [me, you] });
-	const scoped = { ...ctx, roots: [theirs, ours] };
+	const scoped = {
+		...ctx,
+		roots: new Map([
+			["theirs", theirs],
+			["ours", ours],
+		]),
+	};
 
 	expect(
 		cardRows(card([]), [theirs, ours], scoped).map((each) => each.id),

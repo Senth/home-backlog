@@ -7,15 +7,13 @@ import {
 	Appbar,
 	Button,
 	FAB,
-	List,
 	Text,
 } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
+import { BoardCard } from "@/components/board/BoardCard";
 import { boardHref, detailsHref } from "@/components/board/board-href";
-import { DueChip } from "@/components/board/DueChip";
-import { MetaChip } from "@/components/board/MetaChip";
+import { columnWidth } from "@/components/board/column-width";
 import { TitleDialog } from "@/components/board/TitleDialog";
-import { useWaitingMark } from "@/components/board/waiting-mark";
 import { CardActionsMenu } from "@/components/overview/CardActionsMenu";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { BackAction } from "@/components/ui/BackAction";
@@ -26,12 +24,13 @@ import { useHome } from "@/contexts/HomeContext";
 import { deleteScopeCard, saveHiddenShared } from "@/data/cards";
 import { createNode } from "@/data/nodes";
 import { useOverview } from "@/hooks/use-overview";
-import { dueState } from "@/models/due-date";
-import { hasSteps, type Node, rankAtEnd } from "@/models/node";
+import { crumbTitlesOf, hasSteps, type Node, rankAtEnd } from "@/models/node";
 import { recentlyDone } from "@/models/overview";
 import { type Card, cardRows, seedTitleKeys } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
 import {
+	border,
+	compactBreakpoint,
 	denseBreakpoint,
 	fab as fabTokens,
 	space,
@@ -72,14 +71,38 @@ export default function Overview() {
 		retry: retryConfig,
 	} = useDashboardCardsConfig();
 
-	// What a row resolves its waiting mark against: statuses already in hand —
-	// every root, and the whole pool. No new listener anywhere; a blocker
-	// absent from the map keeps its card waiting, the same not-yet direction
-	// the board and the detail screen take.
-	const blockers = new Map<string, Node | null>();
+	// What a row resolves everything against: nodes already in hand — every
+	// root, the whole pool and the done window. No new listener anywhere; a
+	// blocker absent from the map keeps its card waiting, the same not-yet
+	// direction the board and the detail screen take. The same map answers a
+	// row's path, and an ancestor it cannot answer renders as the hidden
+	// crumb, exactly as the node's own breadcrumbs would.
+	const nodesById = new Map<string, Node>();
 	for (const node of [...roots.nodes, ...pool.nodes, ...done.nodes]) {
-		blockers.set(node.id, node);
+		nodesById.set(node.id, node);
 	}
+
+	// Every card's hide predicate asks this one map, so it is built once rather
+	// than scanned per node. A root it cannot answer keeps that card hidden.
+	const rootsById = new Map<string, Node>();
+	for (const node of roots.nodes) {
+		rootsById.set(node.id, node);
+	}
+
+	// Above the breakpoint the sections flow and wrap, each a column the board
+	// would recognise — the board's own dividing arithmetic, clamped at the
+	// same two ends. Below it, one full-width stack as ever.
+	const flowing = width >= compactBreakpoint;
+	// A failed pair nulls its card's section, so the width divides by what
+	// actually renders, not by what is configured.
+	const sectionWidth = columnWidth(
+		width,
+		cards.filter(
+			(card) =>
+				!(card.kind === "filter" && pool.failed) &&
+				!(card.kind === "completed" && done.failed),
+		).length,
+	);
 
 	const [adding, setAdding] = useState(false);
 	const [fabHeight, setFabHeight] = useState(0);
@@ -92,7 +115,14 @@ export default function Overview() {
 	// keeps under its own FAB.
 	const fabInset = fabHeight > 0 ? fabHeight + space.md + space.md : space.xxl;
 
+	// The spinner covers the screen only while nothing has answered at all:
+	// a pair that has answered shows its section, and is not covered while
+	// another pair is still being asked. The empty claim still waits for
+	// every pair — "no nodes" from one is not the whole story while the
+	// others are silent.
 	const loading =
+		roots.loading && pool.loading && done.loading && configLoading;
+	const anyLoading =
 		roots.loading || pool.loading || done.loading || configLoading;
 	const failed = roots.failed || pool.failed || done.failed || configFailed;
 
@@ -108,7 +138,7 @@ export default function Overview() {
 	// the pair returned — before the hide predicate, which is what makes the
 	// second case say "nothing in progress" rather than "add the first project".
 	const nothingAtAll =
-		!loading &&
+		!anyLoading &&
 		!failed &&
 		roots.nodes.length === 0 &&
 		pool.nodes.length === 0 &&
@@ -124,12 +154,12 @@ export default function Overview() {
 			rows.set(
 				card.id,
 				card.kind === "completed"
-					? recentlyDone(done.nodes, roots.nodes, uid, now)
+					? recentlyDone(done.nodes, rootsById, uid, now)
 					: cardRows(card, pool.nodes, {
 							uid,
 							now,
-							roots: roots.nodes,
-							blockers,
+							roots: rootsById,
+							blockers: nodesById,
 						}),
 			);
 		}
@@ -207,6 +237,35 @@ export default function Overview() {
 		).catch(couldNotSave);
 	};
 
+	// Built once; in the flowing layout it is one wrapping row, in the stack it
+	// is the column the screen has always been.
+	const sections = cards.map((card) => {
+		if (card.kind === "filter" && pool.failed) return null;
+		if (card.kind === "completed" && done.failed) return null;
+		return (
+			<CardSection
+				key={card.id}
+				card={card}
+				rows={rows.get(card.id) ?? []}
+				onOpen={open}
+				nodesById={nodesById}
+				width={flowing ? sectionWidth : null}
+				menu={
+					<CardActionsMenu
+						testID={`overview-card-menu-${card.id}`}
+						card={card}
+						scope={scopes[card.id] ?? "global"}
+						onEdit={openEditor}
+						onHide={
+							scopes[card.id] === "shared" ? () => hideCard(card) : undefined
+						}
+						onRemove={() => setRemoving(card)}
+					/>
+				}
+			/>
+		);
+	});
+
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
 			<Appbar.Header>
@@ -277,33 +336,23 @@ export default function Overview() {
 							   renders. */
 							<LoadFailed onRetry={pool.retry} />
 						) : null}
-						{cards.map((card) => {
-							if (card.kind === "filter" && pool.failed) return null;
-							if (card.kind === "completed" && done.failed) return null;
-							return (
-								<CardSection
-									key={card.id}
-									card={card}
-									rows={rows.get(card.id) ?? []}
-									onOpen={open}
-									blockers={blockers}
-									menu={
-										<CardActionsMenu
-											testID={`overview-card-menu-${card.id}`}
-											card={card}
-											scope={scopes[card.id] ?? "global"}
-											onEdit={openEditor}
-											onHide={
-												scopes[card.id] === "shared"
-													? () => hideCard(card)
-													: undefined
-											}
-											onRemove={() => setRemoving(card)}
-										/>
-									}
-								/>
-							);
-						})}
+						{flowing ? (
+							<View
+								style={{
+									flexDirection: "row",
+									flexWrap: "wrap",
+									// The same gutters `columnWidth` divides with — the pair
+									// at the edges and the gaps between — so the sections
+									// really are columns of the board's shape.
+									gap: space.md,
+									paddingHorizontal: space.md,
+								}}
+							>
+								{sections}
+							</View>
+						) : (
+							sections
+						)}
 						{done.failed ? (
 							/* The done pair is the completed card's alone, so its failure
 							   is said where that card would have been. */
@@ -341,7 +390,7 @@ export default function Overview() {
 				heading={t("overview.add")}
 				confirmLabel={t("board.add")}
 				onSubmit={add}
-				testID={newProjectDialogTestID}
+				testID="new-project-dialog"
 			/>
 
 			{removing !== null ? (
@@ -363,8 +412,6 @@ export default function Overview() {
 	);
 }
 
-const newProjectDialogTestID = "new-project-dialog";
-
 const couldNotSave = (reason: unknown) =>
 	console.error("Could not save the cards:", reason);
 
@@ -373,8 +420,19 @@ interface CardSectionProps {
 	/** What the engine answered for this card, before the shown/max slice. */
 	rows: Node[];
 	onOpen: (node: Node) => void;
-	/** What a row's waiting mark is resolved against. */
-	blockers: ReadonlyMap<string, Node | null>;
+	/**
+	 * Every node the screen holds, by id: what a row's waiting mark resolves
+	 * against, and what its path resolves from — one map, both marks, no new
+	 * read of anything.
+	 */
+	nodesById: ReadonlyMap<string, Node>;
+	/**
+	 * The section's width above `compactBreakpoint`, `null` in the full-width
+	 * stack. Non-null **is** the flowing layout, so the cards' `wide` — the
+	 * title's tier — derives from it rather than riding along as a second
+	 * prop that could disagree.
+	 */
+	width: number | null;
 	/** The card's press menu — the per-card chrome, which appears on press. */
 	menu: React.ReactNode;
 }
@@ -389,11 +447,23 @@ interface CardSectionProps {
  * mode `hide` renders nothing at all, mode `say` keeps the heading and says
  * one sentence — because a card you configured that vanishes reads as broken
  * config, and for several seeds an empty card is the good outcome.
+ *
+ * The rows are the board's own card face, not a second rendering of it: the
+ * marks a row carries — due, waiting, steps, done — are drawn by `BoardCard`,
+ * so this screen and a board cannot disagree about what a card says.
  */
-function CardSection({ card, rows, onOpen, blockers, menu }: CardSectionProps) {
+function CardSection({
+	card,
+	rows,
+	onOpen,
+	nodesById,
+	width,
+	menu,
+}: CardSectionProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const [expanded, setExpanded] = useState(false);
+	const wide = width !== null;
 
 	const emptyLine = card.empty.mode === "say" ? t(card.empty.key) : undefined;
 	if (rows.length === 0 && emptyLine === undefined) return null;
@@ -405,7 +475,10 @@ function CardSection({ card, rows, onOpen, blockers, menu }: CardSectionProps) {
 	const more = held.length - shown.length;
 
 	return (
-		<List.Section testID={`overview-section-${card.id}`}>
+		<View
+			testID={`overview-section-${card.id}`}
+			style={width === null ? undefined : { width }}
+		>
 			<View style={{ flexDirection: "row", alignItems: "center" }}>
 				{/* The heading is the first thing read, per § 7, and a section
 				    heading is titleMedium per § 4 — Paper's List.Subheader is a
@@ -424,6 +497,19 @@ function CardSection({ card, rows, onOpen, blockers, menu }: CardSectionProps) {
 				{menu}
 			</View>
 
+			{/* The section's floor, inset to the cards' own padding so it lines
+			    up with what sits under it — a boundary the stack and the flowing
+			    layout both get, and the only reason a wrapped section reads as
+			    one thing rather than a heading over loose cards. */}
+			<View
+				style={{
+					height: border.hairline,
+					backgroundColor: theme.colors.outlineVariant,
+					marginHorizontal: space.md,
+					marginBottom: space.sm,
+				}}
+			/>
+
 			{rows.length === 0 ? (
 				<Text
 					variant="bodyMedium"
@@ -435,16 +521,18 @@ function CardSection({ card, rows, onOpen, blockers, menu }: CardSectionProps) {
 					{emptyLine}
 				</Text>
 			) : (
-				shown.map((node) => (
-					<List.Item
-						key={node.id}
-						title={node.title}
-						titleNumberOfLines={2}
-						onPress={() => onOpen(node)}
-						style={{ minHeight: touchTarget }}
-						right={() => <RowMeta node={node} blockers={blockers} />}
-					/>
-				))
+				<View style={{ gap: space.sm }}>
+					{shown.map((node) => (
+						<BoardCard
+							key={node.id}
+							node={node}
+							onOpen={() => onOpen(node)}
+							blockers={nodesById}
+							path={crumbTitlesOf(node, nodesById)}
+							wide={wide}
+						/>
+					))}
+				</View>
 			)}
 
 			{/* Expands in place, from rows this screen already holds. There is no
@@ -459,7 +547,7 @@ function CardSection({ card, rows, onOpen, blockers, menu }: CardSectionProps) {
 					{expanded ? t("overview.less") : t("overview.more", { count: more })}
 				</Button>
 			) : null}
-		</List.Section>
+		</View>
 	);
 }
 
@@ -491,66 +579,6 @@ function LoadFailed({ onRetry }: { onRetry: () => void }) {
 			>
 				{t("common.retry")}
 			</Button>
-		</View>
-	);
-}
-
-/**
- * The meta a row carries, which is the card face's own: the steps glyph on a
- * project that has children, the `DueChip` on one that is late or due soon —
- * the card's own component, so the two surfaces cannot disagree about what a
- * due date says or about the rule that says it in words rather than in colour
- * — and the waiting mark, so a blocked project answers "is anything on fire"
- * honestly here too.
- */
-function RowMeta({
-	node,
-	blockers,
-}: {
-	node: Node;
-	blockers: ReadonlyMap<string, Node | null>;
-}) {
-	const { t } = useTranslation();
-	const theme = useAppTheme();
-
-	const due = dueState(node.dueDate, new Date());
-	const showDue = node.dueDate !== null && (due === "late" || due === "soon");
-	// The same derivation the card face makes — the shared `useWaitingMark`,
-	// so the two surfaces cannot disagree about when a card waits.
-	const {
-		isWaiting,
-		label: waitingLabel,
-		a11yLabel,
-	} = useWaitingMark(node, blockers);
-
-	if (!hasSteps(node) && !showDue && !isWaiting) return null;
-
-	return (
-		<View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
-			<DueChip node={node} />
-			{isWaiting ? (
-				<MetaChip
-					source="pause-circle-outline"
-					color={theme.colors.warning}
-					accessibilityLabel={a11yLabel}
-				>
-					{waitingLabel}
-				</MetaChip>
-			) : null}
-			{hasSteps(node) ? (
-				<MetaChip
-					source="format-list-checks"
-					accessibilityLabel={t("detail.stepsDone", {
-						done: node.doneCount,
-						total: node.childCount,
-					})}
-				>
-					{t("board.steps", {
-						done: node.doneCount,
-						total: node.childCount,
-					})}
-				</MetaChip>
-			) : null}
 		</View>
 	);
 }
