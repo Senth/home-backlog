@@ -197,6 +197,7 @@
 		"moved": "Moved to {{column}}",
 		"movedUp": "Moved up",
 		"movedDown": "Moved down",
+		"putBack": "Put back where it was.",
 		"dropHere": "Drop here in {{column}}",
 		"changePosition": "Change position…",
 		"positionTop": "At the top",

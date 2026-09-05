@@ -197,6 +197,7 @@
 		"moved": "Flyttad till {{column}}",
 		"movedUp": "Flyttad uppåt",
 		"movedDown": "Flyttad nedåt",
+		"putBack": "Lade tillbaka den där den stod.",
 		"dropHere": "Släpp här i {{column}}",
 		"changePosition": "Ändra placering…",
 		"positionTop": "Överst",
