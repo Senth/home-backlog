@@ -95,6 +95,20 @@ export const size = {
 	 * marks. The glyph inside it is `icon.sm`.
 	 */
 	labelDot: 20,
+	/**
+	 * The card's left gutter (#100), which carries the priority glyph and the
+	 * label dots. Narrowed below `cardGutterBreakpoint`, where the same 36px is
+	 * a fifth of the card before the title has had a word.
+	 */
+	cardGutter: 36,
+	cardGutterNarrow: 28,
+	/**
+	 * The card's right gutter (#100): the menu at the top, the assignees and the
+	 * step count anchored to the foot. It disappears below
+	 * `cardGutterBreakpoint`, where the menu floats in the card's corner
+	 * instead and the people and the count join the content as a trailing line.
+	 */
+	cardRail: 40,
 } as const;
 
 /**
@@ -257,17 +271,19 @@ export const cardGutterBreakpoint = 250;
  * The priority ramp's ordinal glyphs and colours (#100), indexed with
  * `priorityOrder` from `models/node.ts` — low, normal, high, urgent.
  *
- * Blue carries low so the bottom step is not another grey among greys, and
- * urgent holds one notch of red back from the overdue amber: a colour here may
- * say *more*, never *how you should feel*, and overdue must stay the loudest
- * thing the footer can say. `docs/DESIGN.md` still describes the older
- * single-hue ramp; #100's documentation pass replaces that section.
+ * The dot is the ramp colour with its glyph knocked out in `on`, the way a
+ * label dot is filled with its hue and carries its own on-colour. Blue carries
+ * low so the bottom step is not another grey among greys, and urgent holds one
+ * notch of red back from the overdue amber: a colour here may say *more*,
+ * never *how you should feel*, and overdue must stay the loudest thing the
+ * footer can say. `docs/DESIGN.md` still describes the older single-hue ramp;
+ * #100's documentation pass replaces that section.
  */
 export const priorityRamp = [
-	{ glyph: "thermometer-chevron-down", color: "#4F6BA8" },
-	{ glyph: "thermometer", color: "#636C64" },
-	{ glyph: "thermometer-chevron-up", color: "#CC6565" },
-	{ glyph: "fire", color: "#A32E28" },
+	{ glyph: "thermometer-chevron-down", color: "#4F6BA8", on: "#FFFFFF" },
+	{ glyph: "thermometer", color: "#636C64", on: "#FFFFFF" },
+	{ glyph: "thermometer-chevron-up", color: "#CC6565", on: "#FFFFFF" },
+	{ glyph: "fire", color: "#A32E28", on: "#FFFFFF" },
 ] as const;
 
 export type Space = keyof typeof space;

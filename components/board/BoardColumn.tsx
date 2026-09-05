@@ -31,6 +31,11 @@ interface BoardColumnProps {
 	 */
 	wide: boolean;
 	/**
+	 * Below `cardGutterBreakpoint` (#100) the cards give their gutters' room
+	 * back — the board knows the width, so the card never measures itself.
+	 */
+	narrow?: boolean;
+	/**
 	 * How many cards in this column the default-hide filter is holding back.
 	 *
 	 * A column emptied by the filter otherwise reads exactly like a column with
@@ -64,6 +69,14 @@ interface BoardColumnProps {
 	 * board hands down its own nodes plus the watcher's cross-board documents.
 	 */
 	blockers?: ReadonlyMap<string, Node | null>;
+	/**
+	 * The label ids every card on this board inherits from the trail above it
+	 * (#100) — one chain, shared by the whole board, resolved once by the
+	 * screen. See `BoardCard`.
+	 */
+	ancestorLabelIds?: readonly string[];
+	/** Location id → title, the leaf. See `BoardCard`. */
+	locations?: ReadonlyMap<string, string>;
 }
 
 /**
@@ -79,6 +92,7 @@ export function BoardColumn({
 	nodes,
 	width,
 	wide,
+	narrow = false,
 	hiddenCount = 0,
 	bottomInset = space.xxl,
 	onAdd,
@@ -86,6 +100,8 @@ export function BoardColumn({
 	renderMenu,
 	drag,
 	blockers,
+	ancestorLabelIds,
+	locations,
 }: BoardColumnProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
@@ -262,7 +278,10 @@ export function BoardColumn({
 										onOpen={() => onOpen(node)}
 										menu={renderMenu?.(node)}
 										wide={wide}
+										narrow={narrow}
 										blockers={blockers}
+										ancestorLabelIds={ancestorLabelIds}
+										locations={locations}
 									/>
 								) : (
 									<DragArea {...drag.handlers(node)}>
@@ -271,7 +290,10 @@ export function BoardColumn({
 											onOpen={() => onOpen(node)}
 											menu={renderMenu?.(node)}
 											wide={wide}
+											narrow={narrow}
 											blockers={blockers}
+											ancestorLabelIds={ancestorLabelIds}
+											locations={locations}
 										/>
 									</DragArea>
 								)}

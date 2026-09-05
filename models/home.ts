@@ -1,4 +1,5 @@
 import type { Timestamp } from "firebase/firestore";
+import type { LabelWithId } from "@/models/label";
 import { sha256Hex } from "@/models/sha256";
 
 /**
@@ -36,6 +37,13 @@ export interface Home {
 	 * and "is this me?" without exposing anyone to the rest of the household.
 	 */
 	memberEmailHashes: Record<string, string>;
+	/**
+	 * The household's label definitions (#100), in the home's own order. They
+	 * ride the homes listener `HomeContext` already holds, so every screen that
+	 * draws a card reads them for free — the reason the definitions live on the
+	 * home document at all.
+	 */
+	labels: LabelWithId[];
 	createdAt: Timestamp | null;
 	createdBy: string;
 }

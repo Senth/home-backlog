@@ -13,6 +13,7 @@ import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
 import { useAncestors } from "@/hooks/use-ancestors";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
+import { useLocations } from "@/hooks/use-locations";
 import { useNode } from "@/hooks/use-node";
 import { useNodes } from "@/hooks/use-nodes";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
@@ -20,6 +21,7 @@ import { useAppTheme } from "@/theme";
 import { appBarStackBreakpoint, space } from "@/theme/tokens";
 
 const noAncestors: string[] = [];
+const noLabelIds: string[] = [];
 
 /**
  * A card opened as its own board — the same `Board` component the root uses, at
@@ -52,6 +54,25 @@ export default function NodeBoard() {
 	const { nodes, loading, failed, retry } = useNodes(homeId, board);
 	const { crumbs } = useAncestors(homeId, node?.ancestorIds ?? noAncestors);
 	const filtered = useParticipantFilter(nodes);
+	const { locations } = useLocations(homeId);
+
+	// The labels every card on this board inherits (#100): the board node's own
+	// chain, already held — the board node itself by `useNode`, everything above
+	// it by the crumbs `useAncestors` fetched for the breadcrumbs. One chain,
+	// shared by the whole board, so it is resolved once here rather than per
+	// card. An unreadable ancestor contributes nothing, the same neutral answer
+	// its crumb renders.
+	const ancestorLabelIds =
+		node === null
+			? noLabelIds
+			: [
+					node,
+					...crumbs.flatMap((crumb) => (crumb.node ? [crumb.node] : [])),
+				].flatMap((ancestor) => ancestor.labelIds);
+
+	// The card face's location facts (#100), read from the leaf: id → title,
+	// from the one listener this screen holds.
+	const locationTitles = new Map(locations.map((l) => [l.id, l.title]));
 
 	// The predicate is uniform at every depth and *bites* only where participants
 	// exist, which is roots — a shared descendant carries none, and a private one
@@ -143,6 +164,8 @@ export default function NodeBoard() {
 					failed={failed}
 					onRetry={retry}
 					hidden={filtered.hidden}
+					ancestorLabelIds={ancestorLabelIds}
+					locations={locationTitles}
 				/>
 			) : (
 				<ActivityIndicator

@@ -22,6 +22,7 @@ function home(overrides: Partial<Home> = {}): Home {
 			"uid-b": { displayName: "Nadia", photoURL: null },
 		},
 		memberEmailHashes: {},
+		labels: [],
 		createdAt: null,
 		createdBy: "uid-a",
 		...overrides,

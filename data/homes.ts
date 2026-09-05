@@ -28,7 +28,7 @@ import {
 	normalizeEmail,
 	type Role,
 } from "@/models/home";
-import { type NewLabelInput, newLabel } from "@/models/label";
+import { type NewLabelInput, newLabel, toLabels } from "@/models/label";
 
 /**
  * Every Firestore read and write that touches a home.
@@ -66,6 +66,9 @@ export function toHome(snapshot: QueryDocumentSnapshot<DocumentData>): Home {
 			MemberProfile
 		>,
 		memberEmailHashes: (data.memberEmailHashes ?? {}) as Record<string, string>,
+		// The #100 label definitions, read defensively: a malformed entry is
+		// dropped rather than crashing every screen that draws a card.
+		labels: toLabels(data),
 		createdAt: data.createdAt ?? null,
 		createdBy: typeof data.createdBy === "string" ? data.createdBy : "",
 	};

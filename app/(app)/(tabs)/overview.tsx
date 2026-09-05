@@ -23,6 +23,8 @@ import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
 import { useHome } from "@/contexts/HomeContext";
 import { deleteScopeCard, saveHiddenShared } from "@/data/cards";
 import { createNode } from "@/data/nodes";
+import { useLabelAncestors } from "@/hooks/use-label-ancestors";
+import { useLocations } from "@/hooks/use-locations";
 import { useOverview } from "@/hooks/use-overview";
 import { crumbTitlesOf, hasSteps, type Node, rankAtEnd } from "@/models/node";
 import { recentlyDone } from "@/models/overview";
@@ -30,6 +32,7 @@ import { type Card, cardRows, seedTitleKeys } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
 import {
 	border,
+	cardGutterBreakpoint,
 	compactBreakpoint,
 	denseBreakpoint,
 	fab as fabTokens,
@@ -62,6 +65,7 @@ export default function Overview() {
 	const homeId = activeHome?.id ?? null;
 	const uid = user?.uid ?? null;
 	const { roots, pool, done } = useOverview(homeId);
+	const { locations } = useLocations(homeId);
 	const {
 		cards,
 		scopes,
@@ -89,10 +93,29 @@ export default function Overview() {
 		rootsById.set(node.id, node);
 	}
 
+	// The card face's location facts (#100): id → title, from the one listener
+	// this screen holds.
+	const locationTitles = new Map(locations.map((l) => [l.id, l.title]));
+
+	// The labels a row inherits (#100). Overview draws cards from anywhere, so
+	// their trails reach nodes no listener is holding — the pool pair answers
+	// the ancestors it holds, and `useLabelAncestors` `getDoc`s the rest, one
+	// cached read per id. A *done* project above a still-open card is the case
+	// that exists for it. An ancestor nobody can answer contributes nothing,
+	// the same neutral answer its crumb renders.
+	const ancestorIds = [
+		...new Set([...pool.nodes, ...done.nodes].flatMap((n) => n.ancestorIds)),
+	];
+	const ancestors = useLabelAncestors(homeId, ancestorIds, pool.nodes);
+
 	// Above the breakpoint the sections flow and wrap, each a column the board
 	// would recognise — the board's own dividing arithmetic, clamped at the
 	// same two ends. Below it, one full-width stack as ever.
 	const flowing = width >= compactBreakpoint;
+	// The cards' gutters give their room back below `cardGutterBreakpoint`
+	// (#100) — a 390px phone at 200% text is a 195px viewport, and there the
+	// title outranks both gutters.
+	const narrow = width < cardGutterBreakpoint;
 	// A failed pair nulls its card's section, so the width divides by what
 	// actually renders, not by what is configured.
 	const sectionWidth = columnWidth(
@@ -249,6 +272,9 @@ export default function Overview() {
 				rows={rows.get(card.id) ?? []}
 				onOpen={open}
 				nodesById={nodesById}
+				ancestors={ancestors}
+				locations={locationTitles}
+				narrow={narrow}
 				width={flowing ? sectionWidth : null}
 				menu={
 					<CardActionsMenu
@@ -427,6 +453,16 @@ interface CardSectionProps {
 	 */
 	nodesById: ReadonlyMap<string, Node>;
 	/**
+	 * A row's ancestors, by id — the pool pair's answer for the ones it holds,
+	 * a fetched one for the rest. What each row's inherited labels resolve
+	 * from. See `useLabelAncestors`.
+	 */
+	ancestors: ReadonlyMap<string, Node | null>;
+	/** Location id → title, the leaf. See `BoardCard`. */
+	locations: ReadonlyMap<string, string>;
+	/** Below `cardGutterBreakpoint` the cards give their gutters' room back. */
+	narrow: boolean;
+	/**
 	 * The section's width above `compactBreakpoint`, `null` in the full-width
 	 * stack. Non-null **is** the flowing layout, so the cards' `wide` — the
 	 * title's tier — derives from it rather than riding along as a second
@@ -457,6 +493,9 @@ function CardSection({
 	rows,
 	onOpen,
 	nodesById,
+	ancestors,
+	locations,
+	narrow,
 	width,
 	menu,
 }: CardSectionProps) {
@@ -529,7 +568,12 @@ function CardSection({
 							onOpen={() => onOpen(node)}
 							blockers={nodesById}
 							path={crumbTitlesOf(node, nodesById)}
+							ancestorLabelIds={node.ancestorIds.flatMap(
+								(id) => ancestors.get(id)?.labelIds ?? [],
+							)}
+							locations={locations}
 							wide={wide}
+							narrow={narrow}
 						/>
 					))}
 				</View>

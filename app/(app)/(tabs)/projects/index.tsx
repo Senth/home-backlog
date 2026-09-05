@@ -8,6 +8,7 @@ import { BoardMenu } from "@/components/board/BoardMenu";
 import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
+import { useLocations } from "@/hooks/use-locations";
 import { useNodes } from "@/hooks/use-nodes";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
 import { defaultColumns } from "@/models/node";
@@ -36,6 +37,12 @@ export default function Projects() {
 	const homeId = activeHome?.id ?? null;
 	const { nodes, loading, failed, retry } = useNodes(homeId, null);
 	const board = useParticipantFilter(nodes);
+	const { locations } = useLocations(homeId);
+
+	// The card face's location facts (#100): id → title, from the one listener
+	// this screen holds. Every card here is a root, so the trail passes down no
+	// labels and none are resolved.
+	const locationTitles = new Map(locations.map((l) => [l.id, l.title]));
 
 	// The menu carries one item, so it appears where that item could have
 	// something to do: a household of one has nobody else's projects to hide, so
@@ -74,6 +81,7 @@ export default function Projects() {
 					failed={failed}
 					onRetry={retry}
 					hidden={board.hidden}
+					locations={locationTitles}
 				/>
 			) : null}
 
