@@ -6,14 +6,32 @@ jest.mock("@/config/firebase", () => ({ db: {} }));
 jest.mock("@/data/nodes", () => ({ addToSharedRoots: jest.fn() }));
 
 jest.mock("firebase/firestore", () => ({
-	doc: jest.fn(() => ({})),
+	collection: jest.fn(() => ({})),
+	deleteField: jest.fn(() => "delete-field"),
+	doc: jest.fn((...args: unknown[]) => ({
+		id:
+			typeof args[args.length - 1] === "string"
+				? args[args.length - 1]
+				: "new-label",
+	})),
 	updateDoc: jest.fn(),
 	deleteDoc: jest.fn(() => Promise.resolve()),
 }));
 
 import { deleteDoc, updateDoc } from "firebase/firestore";
-import { acceptInvite } from "@/data/homes";
+import {
+	acceptInvite,
+	createLabel,
+	deleteLabel,
+	recolourLabel,
+	reiconLabel,
+	renameLabel,
+	reorderLabel,
+} from "@/data/homes";
 import { addToSharedRoots } from "@/data/nodes";
+import { toHex } from "@/models/label-color";
+
+const amber = toHex([0xfd, 0xe6, 0x8a]);
 
 beforeEach(() => {
 	jest.clearAllMocks();
@@ -44,7 +62,7 @@ describe("acceptInvite", () => {
 		await acceptInvite(me, anInvite(false));
 
 		expect(updateDoc).toHaveBeenCalledWith(
-			{},
+			{ id: "home-1" },
 			{
 				"members.uid-new": "member",
 				"memberProfiles.uid-new": {
@@ -67,5 +85,70 @@ describe("acceptInvite", () => {
 		await acceptInvite(me, anInvite(false));
 
 		expect(addToSharedRoots).not.toHaveBeenCalled();
+	});
+});
+
+describe("the label writes", () => {
+	it("creates a definition under a generated id and hands the id back", async () => {
+		const id = await createLabel("home-1", {
+			title: "  Electrical  ",
+			icon: "bolt",
+			color: amber,
+			rank: "a0",
+		});
+
+		expect(id).toBe("new-label");
+		expect(updateDoc).toHaveBeenCalledWith(
+			{ id: "home-1" },
+			{
+				"labels.new-label": {
+					title: "Electrical",
+					icon: "bolt",
+					color: amber,
+					rank: "a0",
+				},
+			},
+		);
+	});
+
+	it("edits one field of one definition per write", async () => {
+		await renameLabel("home-1", "bolt", "  Plumbing  ");
+		expect(updateDoc).toHaveBeenLastCalledWith(
+			{ id: "home-1" },
+			{
+				"labels.bolt.title": "Plumbing",
+			},
+		);
+		await recolourLabel("home-1", "bolt", amber);
+		expect(updateDoc).toHaveBeenLastCalledWith(
+			{ id: "home-1" },
+			{
+				"labels.bolt.color": amber,
+			},
+		);
+		await reiconLabel("home-1", "bolt", "water");
+		expect(updateDoc).toHaveBeenLastCalledWith(
+			{ id: "home-1" },
+			{
+				"labels.bolt.icon": "water",
+			},
+		);
+		await reorderLabel("home-1", "bolt", "a5");
+		expect(updateDoc).toHaveBeenLastCalledWith(
+			{ id: "home-1" },
+			{
+				"labels.bolt.rank": "a5",
+			},
+		);
+		expect(updateDoc).toHaveBeenCalledTimes(4);
+	});
+
+	it("deletes only the definition, leaving every card's id in place", async () => {
+		await deleteLabel("home-1", "bolt");
+
+		expect(updateDoc).toHaveBeenCalledWith(
+			{ id: "home-1" },
+			{ "labels.bolt": "delete-field" },
+		);
 	});
 });

@@ -34,7 +34,13 @@ import {
 	where,
 	writeBatch,
 } from "firebase/firestore";
-import { addToSharedRoots, moveErrorKey, reparentNode } from "@/data/nodes";
+import {
+	addToSharedRoots,
+	applyLabel,
+	moveErrorKey,
+	removeLabel,
+	reparentNode,
+} from "@/data/nodes";
 
 beforeEach(() => {
 	jest.clearAllMocks();
@@ -204,5 +210,43 @@ describe("addToSharedRoots", () => {
 
 		expect(updateDoc).not.toHaveBeenCalled();
 		consoleError.mockRestore();
+	});
+});
+
+describe("the label writes", () => {
+	it("applies a label the card does not carry yet", async () => {
+		await applyLabel("home", "card", ["b"], "a");
+
+		expect(updateDoc).toHaveBeenCalledWith(
+			{ id: "card" },
+			{
+				labelIds: ["b", "a"],
+				updatedAt: "server-timestamp",
+			},
+		);
+	});
+
+	it("leaves a label the card already carries exactly where it is", async () => {
+		await applyLabel("home", "card", ["a", "b"], "a");
+
+		expect(updateDoc).toHaveBeenCalledWith(
+			{ id: "card" },
+			{
+				labelIds: ["a", "b"],
+				updatedAt: "server-timestamp",
+			},
+		);
+	});
+
+	it("removes a label and leaves the rest", async () => {
+		await removeLabel("home", "card", ["a", "b", "c"], "b");
+
+		expect(updateDoc).toHaveBeenCalledWith(
+			{ id: "card" },
+			{
+				labelIds: ["a", "c"],
+				updatedAt: "server-timestamp",
+			},
+		);
 	});
 });

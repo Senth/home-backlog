@@ -1175,6 +1175,27 @@ describe("homes/{homeId}/nodes", () => {
 					}),
 				);
 			});
+			it("keeps a card updatable when its label's definition is deleted", async () => {
+				// deleteLabel removes only the home's definition; the rules cannot
+				// cross-read it, and nothing needs them to — a node still naming
+				// the gone id updates as ever, and the id renders as nothing.
+				await seed(env, async (db) => {
+					await setDoc(
+						doc(db, nodesPath, "stale"),
+						nodeDoc({ labelIds: ["ghost"] }),
+					);
+				});
+
+				const db = dbAs(env, MEMBER);
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "stale"), { title: "Renamed" }),
+				);
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "stale"), {
+						labelIds: ["ghost", "bolt"],
+					}),
+				);
+			});
 		});
 
 		it("refuses changing createdAt or createdBy after the fact", async () => {

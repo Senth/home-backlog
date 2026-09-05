@@ -80,6 +80,29 @@ export interface LabelWithId extends Label {
 }
 
 /**
+ * The labels one card answers to: its own unioned with everything its
+ * ancestors pass down (#100), named by the home's definitions.
+ *
+ * `ownIds` are the card's `labelIds`; `ancestorIds` are the ids carried by its
+ * trail, flattened by the caller. The result follows the home's label order —
+ * `toLabels` hands it in already sorted — so a card's dots read in the same
+ * order on every card, own and inherited alike. An id whose definition was
+ * deleted resolves to nothing here, the same defensive drop `toLabels` makes
+ * for a malformed one; the node keeps the id and stays updatable. The cap is
+ * what the gutter is built around.
+ */
+export function effectiveLabels(
+	ownIds: readonly string[],
+	ancestorIds: readonly string[],
+	labels: readonly LabelWithId[],
+): LabelWithId[] {
+	const applied = new Set([...ownIds, ...ancestorIds]);
+	return labels
+		.filter((label) => applied.has(label.id))
+		.slice(0, maxLabelsPerNode);
+}
+
+/**
  * The home's labels, read defensively.
  *
  * Every field is written by this app, but the map is a free-form object in

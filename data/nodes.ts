@@ -539,6 +539,38 @@ export function updateNode(
 	});
 }
 
+/*
+ * The labels a card carries directly (#100). Both are ordinary edits through
+ * `updateNode` — the rules cap the list, the picker refuses to exceed it, and
+ * an id whose definition is gone rides along harmlessly.
+ */
+
+/** Puts one label on a card; a label already there is left as it is. */
+export function applyLabel(
+	homeId: string,
+	nodeId: string,
+	labelIds: readonly string[],
+	labelId: string,
+): Promise<void> {
+	return updateNode(homeId, nodeId, {
+		labelIds: labelIds.includes(labelId)
+			? [...labelIds]
+			: [...labelIds, labelId],
+	});
+}
+
+/** Takes one label off a card. */
+export function removeLabel(
+	homeId: string,
+	nodeId: string,
+	labelIds: readonly string[],
+	labelId: string,
+): Promise<void> {
+	return updateNode(homeId, nodeId, {
+		labelIds: labelIds.filter((id) => id !== labelId),
+	});
+}
+
 /**
  * Puts a uid on every shared project — what a ticked *Add them to every shared
  * project* does the moment its invitee becomes a member.

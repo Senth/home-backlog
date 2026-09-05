@@ -1,8 +1,22 @@
-import { labelError, newLabel, toLabels } from "@/models/label";
+import {
+	effectiveLabels,
+	type LabelWithId,
+	labelError,
+	maxLabelsPerNode,
+	newLabel,
+	toLabels,
+} from "@/models/label";
 import { toHex } from "@/models/label-color";
 
 const amber = toHex([0xfd, 0xe6, 0x8a]);
 const teal = toHex([0x99, 0xf6, 0xe4]);
+
+/** A home's set in its own order, ids a, b, c. */
+const homeLabels: LabelWithId[] = [
+	{ id: "a", title: "Garden", icon: "sprout", color: teal, rank: "a0" },
+	{ id: "b", title: "Electrical", icon: "bolt", color: amber, rank: "a1" },
+	{ id: "c", title: "Water", icon: "water", color: teal, rank: "a2" },
+];
 
 describe("labelError", () => {
 	it("refuses a title that is empty or only spaces", () => {
@@ -32,6 +46,60 @@ describe("newLabel", () => {
 				rank: "a0",
 			}),
 		).toEqual({ title: "Electrical", icon: "bolt", color: amber, rank: "a0" });
+	});
+});
+
+describe("effectiveLabels", () => {
+	it("answers nothing when no label applies and none is defined", () => {
+		expect(effectiveLabels([], [], [])).toEqual([]);
+		expect(effectiveLabels([], [], homeLabels)).toEqual([]);
+	});
+
+	it("answers the card's own labels", () => {
+		expect(effectiveLabels(["b"], [], homeLabels)).toEqual([homeLabels[1]]);
+	});
+
+	it("answers labels passed down by the trail alone", () => {
+		expect(effectiveLabels([], ["c"], homeLabels)).toEqual([homeLabels[2]]);
+	});
+
+	it("answers a label the card owns and inherits exactly once", () => {
+		expect(effectiveLabels(["b", "c"], ["b"], homeLabels)).toEqual([
+			homeLabels[1],
+			homeLabels[2],
+		]);
+	});
+
+	it("drops an id whose definition was deleted, silently", () => {
+		expect(effectiveLabels(["b", "ghost"], ["a"], homeLabels)).toEqual([
+			homeLabels[0],
+			homeLabels[1],
+		]);
+	});
+
+	it("caps the answer at what the gutter is built around", () => {
+		const seven: LabelWithId[] = "abcdefg".split("").map((id, index) => ({
+			id,
+			title: id,
+			icon: "sprout",
+			color: teal,
+			rank: `a${index}`,
+		}));
+
+		const labels = effectiveLabels(
+			seven.map((label) => label.id),
+			[],
+			seven,
+		);
+		expect(labels).toHaveLength(maxLabelsPerNode);
+		expect(labels.map((label) => label.id)).toEqual([
+			"a",
+			"b",
+			"c",
+			"d",
+			"e",
+			"f",
+		]);
 	});
 });
 

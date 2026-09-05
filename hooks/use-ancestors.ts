@@ -70,7 +70,7 @@ export function useAncestors(
 		// Never rejects: `getNode` answers null for every failure, so one
 		// unreadable ancestor cannot take the rest of the trail with it.
 		Promise.all(
-			ids.map(async (id) => ({ id, node: await memoized(uid, homeId, id) })),
+			ids.map(async (id) => ({ id, node: await cachedNode(uid, homeId, id) })),
 		).then((resolved) => {
 			if (!live) return;
 			setCrumbs(resolved);
@@ -104,11 +104,14 @@ export function useAncestors(
  * The cost is a rename by another member not reaching a crumb already resolved;
  * the board's own title comes from a listener, so it is only the trail *above*
  * the current board that can go stale, and only until the next reload.
+ *
+ * Shared with `use-label-ancestors`, which resolves the same kind of read — an
+ * ancestor the pool does not hold — and wants the same per-id caching.
  */
 const cache = new Map<string, Node>();
 let cachedFor: string | null = null;
 
-async function memoized(
+export async function cachedNode(
 	uid: string,
 	homeId: string,
 	nodeId: string,

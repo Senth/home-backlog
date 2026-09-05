@@ -28,6 +28,7 @@ import {
 	normalizeEmail,
 	type Role,
 } from "@/models/home";
+import { type NewLabelInput, newLabel } from "@/models/label";
 
 /**
  * Every Firestore read and write that touches a home.
@@ -213,6 +214,70 @@ export function removeMember(homeId: string, uid: string): Promise<void> {
 		[`memberProfiles.${uid}`]: deleteField(),
 		[`memberEmailHashes.${uid}`]: deleteField(),
 	});
+}
+
+/*
+ * The household's label definitions (#100), each one write to the home
+ * document's `labels` map. Two members editing different labels never collide
+ * — the writes merge at the field path — and `toLabels()` reads whatever shape
+ * results defensively.
+ */
+
+/**
+ * Adds a definition under a client-generated id, handed back so the caller can
+ * select what it just made.
+ */
+export async function createLabel(
+	homeId: string,
+	input: NewLabelInput,
+): Promise<string> {
+	const ref = doc(collection(db, homesCollection, homeId));
+	await updateDoc(homeRef(homeId), { [`labels.${ref.id}`]: newLabel(input) });
+	return ref.id;
+}
+
+export function renameLabel(
+	homeId: string,
+	labelId: string,
+	title: string,
+): Promise<void> {
+	return updateDoc(homeRef(homeId), {
+		[`labels.${labelId}.title`]: title.trim(),
+	});
+}
+
+export function recolourLabel(
+	homeId: string,
+	labelId: string,
+	color: string,
+): Promise<void> {
+	return updateDoc(homeRef(homeId), { [`labels.${labelId}.color`]: color });
+}
+
+export function reiconLabel(
+	homeId: string,
+	labelId: string,
+	icon: string,
+): Promise<void> {
+	return updateDoc(homeRef(homeId), { [`labels.${labelId}.icon`]: icon });
+}
+
+export function reorderLabel(
+	homeId: string,
+	labelId: string,
+	rank: string,
+): Promise<void> {
+	return updateDoc(homeRef(homeId), { [`labels.${labelId}.rank`]: rank });
+}
+
+/**
+ * Removes the definition only. Cards keep the id in their `labelIds` — the
+ * rules cannot cross-read the home to check it, and nothing needs to: the id
+ * resolves to nothing and renders nothing, while the card it sits on stays
+ * fully updatable.
+ */
+export function deleteLabel(homeId: string, labelId: string): Promise<void> {
+	return updateDoc(homeRef(homeId), { [`labels.${labelId}`]: deleteField() });
 }
 
 /**
