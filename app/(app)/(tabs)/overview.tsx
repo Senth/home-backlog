@@ -93,7 +93,16 @@ export default function Overview() {
 	// would recognise — the board's own dividing arithmetic, clamped at the
 	// same two ends. Below it, one full-width stack as ever.
 	const flowing = width >= compactBreakpoint;
-	const sectionWidth = columnWidth(width, cards.length);
+	// A failed pair nulls its card's section, so the width divides by what
+	// actually renders, not by what is configured.
+	const sectionWidth = columnWidth(
+		width,
+		cards.filter(
+			(card) =>
+				!(card.kind === "filter" && pool.failed) &&
+				!(card.kind === "completed" && done.failed),
+		).length,
+	);
 
 	const [adding, setAdding] = useState(false);
 	const [fabHeight, setFabHeight] = useState(0);
@@ -332,9 +341,11 @@ export default function Overview() {
 								style={{
 									flexDirection: "row",
 									flexWrap: "wrap",
-									// The same gutter `columnWidth` divides with, so the
-									// sections really are columns of the board's shape.
+									// The same gutters `columnWidth` divides with — the pair
+									// at the edges and the gaps between — so the sections
+									// really are columns of the board's shape.
 									gap: space.md,
+									paddingHorizontal: space.md,
 								}}
 							>
 								{sections}
