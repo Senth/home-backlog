@@ -51,6 +51,7 @@ function node(overrides: Partial<Node> = {}): Node {
 		dueDate: null,
 		priority: null,
 		blockedBy: [],
+		labelIds: [],
 		notes: "",
 		checklist: [],
 		effort: null,
@@ -403,6 +404,7 @@ describe("newNodeData", () => {
 			dueDate: null,
 			priority: null,
 			blockedBy: [],
+			labelIds: [],
 			notes: "",
 			checklist: [],
 			effort: null,
@@ -1152,6 +1154,19 @@ describe("toNode", () => {
 		expect(result.childCount).toBe(0);
 		expect(result.doneCount).toBe(0);
 		expect(toNode(snapshot("node-9", {})).childCount).toBe(0);
+	});
+
+	/**
+	 * Absent on every node written before #100, and kept whole: a definition
+	 * deleted after a card was labelled leaves its id in place, resolving to
+	 * nothing on the card and rendering as nothing.
+	 */
+	it("reads labelIds as what they are, and as none when the field predates them", () => {
+		expect(toNode(snapshot("node-9", {})).labelIds).toEqual([]);
+		expect(
+			toNode(snapshot("node-9", { labelIds: ["bolt", 42, "garden", null] }))
+				.labelIds,
+		).toEqual(["bolt", "garden"]);
 	});
 
 	/**

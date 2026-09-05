@@ -484,6 +484,13 @@ export interface Node {
 	priority: Priority | null;
 	/** Node ids this is waiting on (#66). */
 	blockedBy: string[];
+	/**
+	 * Labels this card carries directly (#100), each an id in the home's
+	 * `labels` map. Inherited labels are derived, never stored here — the trail
+	 * already answers that. A deleted definition leaves the id in place; it
+	 * resolves to nothing and renders nothing.
+	 */
+	labelIds: string[];
 	notes: string;
 	checklist: ChecklistItem[];
 	effort: Effort | null;
@@ -959,6 +966,9 @@ export function newNodeData(input: NewNodeInput): NodeData {
 		dueDate: input.dueDate ?? null,
 		priority: input.priority ?? null,
 		blockedBy: [],
+		// Written from the first document, and only ever changed by an update:
+		// applying a label is an edit to an existing card, not a creation input.
+		labelIds: [],
 		notes: input.notes ?? "",
 		checklist: [],
 		effort: input.effort ?? null,
@@ -1107,6 +1117,9 @@ export function toNode(snapshot: QueryDocumentSnapshot<DocumentData>): Node {
 		dueDate: stringOrNull(data.dueDate),
 		priority: oneOfOrNull(data.priority, priorities),
 		blockedBy: strings(data.blockedBy),
+		// Absent on every node written before #100, and needing no backfill —
+		// nothing queries it, and the card that carries a stale id still renders.
+		labelIds: strings(data.labelIds),
 		notes: stringOr(data.notes, ""),
 		checklist: checklistItems(data.checklist),
 		effort: oneOfOrNull(data.effort, efforts),

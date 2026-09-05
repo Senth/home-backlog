@@ -25,6 +25,7 @@ function card(id: string, rank: string, status: Status = "backlog"): Node {
 		participantIds: [],
 		assigneeIds: [],
 		blockedBy: [],
+		labelIds: [],
 		checklist: [],
 		photos: [],
 		childCount: 0,

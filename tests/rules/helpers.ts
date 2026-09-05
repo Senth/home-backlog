@@ -156,6 +156,7 @@ export function nodeDoc(
 		dueDate: null,
 		priority: null,
 		blockedBy: [],
+		labelIds: [],
 		notes: "",
 		checklist: [],
 		effort: null,

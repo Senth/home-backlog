@@ -112,6 +112,77 @@ const darkBoard = {
 	onCardMuted: "#98A199",
 };
 
+/**
+ * The label palette (#100) — the identity colours. A label is an icon plus a
+ * colour; the icon carries the identity and the colour accelerates it, which is
+ * what makes a twelfth of the space a hue can live in safe: two labels whose
+ * hues collide under deuteranopia still have different glyphs.
+ *
+ * Twelve named hues, both schemes explicit — a hue that exists only in light is
+ * not a token — and each scheme shipping its own on-colour for the glyph inside
+ * the dot. Seeded from Tailwind's 200 tone in light and its 900 tone in dark
+ * (stone takes its 800 in dark, where 900 is indistinguishable from the card),
+ * with the opposite tone as the on-colour; every pair clears 4.5:1 in both
+ * schemes. Anything else a household wants is a custom colour, stored raw and
+ * clamped at render by `models/label-color.ts`.
+ *
+ * Identity only. No ramp of these means *more* — that is `priorityRamp`'s job —
+ * and none of them is more saturated than `primaryContainer`, so the way
+ * forward stays the loudest shape on a board full of labels.
+ */
+export const labelHues = {
+	red: {
+		light: { fill: "#FECACA", on: "#7F1D1D" },
+		dark: { fill: "#7F1D1D", on: "#FECACA" },
+	},
+	orange: {
+		light: { fill: "#FED7AA", on: "#7C2D12" },
+		dark: { fill: "#7C2D12", on: "#FED7AA" },
+	},
+	amber: {
+		light: { fill: "#FDE68A", on: "#78350F" },
+		dark: { fill: "#78350F", on: "#FDE68A" },
+	},
+	lime: {
+		light: { fill: "#D9F99D", on: "#365314" },
+		dark: { fill: "#365314", on: "#D9F99D" },
+	},
+	green: {
+		light: { fill: "#BBF7D0", on: "#14532D" },
+		dark: { fill: "#14532D", on: "#BBF7D0" },
+	},
+	teal: {
+		light: { fill: "#99F6E4", on: "#134E4A" },
+		dark: { fill: "#134E4A", on: "#99F6E4" },
+	},
+	cyan: {
+		light: { fill: "#A5F3FC", on: "#164E63" },
+		dark: { fill: "#164E63", on: "#A5F3FC" },
+	},
+	blue: {
+		light: { fill: "#BFDBFE", on: "#1E3A8A" },
+		dark: { fill: "#1E3A8A", on: "#BFDBFE" },
+	},
+	indigo: {
+		light: { fill: "#C7D2FE", on: "#312E81" },
+		dark: { fill: "#312E81", on: "#C7D2FE" },
+	},
+	purple: {
+		light: { fill: "#E9D5FF", on: "#581C87" },
+		dark: { fill: "#581C87", on: "#E9D5FF" },
+	},
+	pink: {
+		light: { fill: "#FBCFE8", on: "#831843" },
+		dark: { fill: "#831843", on: "#FBCFE8" },
+	},
+	stone: {
+		light: { fill: "#E7E5E4", on: "#44403C" },
+		dark: { fill: "#44403C", on: "#E7E5E4" },
+	},
+} as const;
+
+export type LabelHueName = keyof typeof labelHues;
+
 const lightColors = {
 	...MD3LightTheme.colors,
 	primary: "#2E7D32",

@@ -89,6 +89,12 @@ export const size = {
 	 * read as a mark rather than a badge, large enough to survive a dark theme.
 	 */
 	dot: 8,
+	/**
+	 * One dot in the card's left gutter (#100) — the priority glyph's dot and a
+	 * label dot are the same size, so a gutter mixing both reads as one column of
+	 * marks. The glyph inside it is `icon.sm`.
+	 */
+	labelDot: 20,
 } as const;
 
 /**
@@ -238,6 +244,31 @@ export const appBarStackBreakpoint = 360;
  * which is exactly when a label most needs somewhere to wrap into.
  */
 export const denseBreakpoint = 320;
+
+/**
+ * Width below which a card's left gutter gives up room it does not have (#100):
+ * the gutter narrows, the right gutter disappears and the menu floats in the
+ * card's top-right corner. A 390px phone at 200 % text is a 195px viewport, so
+ * the gutter's 36px is a fifth of the card before the title has had a word.
+ */
+export const cardGutterBreakpoint = 250;
+
+/**
+ * The priority ramp's ordinal glyphs and colours (#100), indexed with
+ * `priorityOrder` from `models/node.ts` — low, normal, high, urgent.
+ *
+ * Blue carries low so the bottom step is not another grey among greys, and
+ * urgent holds one notch of red back from the overdue amber: a colour here may
+ * say *more*, never *how you should feel*, and overdue must stay the loudest
+ * thing the footer can say. `docs/DESIGN.md` still describes the older
+ * single-hue ramp; #100's documentation pass replaces that section.
+ */
+export const priorityRamp = [
+	{ glyph: "thermometer-chevron-down", color: "#4F6BA8" },
+	{ glyph: "thermometer", color: "#636C64" },
+	{ glyph: "thermometer-chevron-up", color: "#CC6565" },
+	{ glyph: "fire", color: "#A32E28" },
+] as const;
 
 export type Space = keyof typeof space;
 export type Radius = keyof typeof radius;
