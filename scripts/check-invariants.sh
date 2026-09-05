@@ -344,10 +344,22 @@ fi
 # this one to console.error, turns "the console is clean" back into a claim
 # nobody can check.
 #
-# Assignment only: reading console.warn, or calling it, is not a filter.
+# Assignment only: reading console.warn, or calling it, is not a filter. The
+# act has more than one spelling, and every one of them counts: dot
+# assignment (`console.warn =`), computed assignment (`console["warn"] =`),
+# `Object.defineProperty(console, ...)`, React Native's own `LogBox.ignore*`
+# and a value written on the line after the `=`. A console alias (`const c =
+# console`) is not caught — the next reader can see that one — but everything
+# greppable is.
+#
+# The module's own test is exempt too: it replaces `console.warn` on purpose,
+# to prove the replacement works.
 # ---------------------------------------------------------------------------
-PATTERN='(console|target)\.(warn|error|log|info|debug)[[:space:]]*=[^=]'
-hits=$(scan "${ALL_TS[@]}" | strip_comments | grep -v '^utils/dev-console\.tsx\?:' || true)
+PATTERN='console\.(warn|error|log|info|debug)[[:space:]]*=[[:space:]]*($|[^=])'
+PATTERN+='|console\[[^]]*\][[:space:]]*=[[:space:]]*($|[^=])'
+PATTERN+='|defineProperty\([[:space:]]*console'
+PATTERN+='|LogBox\.ignore'
+hits=$(scan "${ALL_TS[@]}" | strip_comments | grep -v '^utils/dev-console\(\.test\)\?\.tsx\?:' || true)
 if [[ -n "$hits" ]]; then
 	report 9 "one console filter" FAIL "$hits" \
 		"utils/dev-console.ts is the only place a console method may be replaced."

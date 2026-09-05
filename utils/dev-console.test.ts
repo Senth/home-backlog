@@ -25,14 +25,23 @@ const REAL_MESSAGES = {
 		"Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation. To resolve this, add `RCTAnimation` module to this app, or remove `useNativeDriver`. Make sure to run `bundle exec pod install` first. Read more about autolinking: https://github.com/react-native-community/cli/blob/master/docs/autolinking.md",
 } as const;
 
-/** Where each message is written, in the installed `react-native-web`. */
+/**
+ * Where each message is written, in the installed `react-native-web`.
+ *
+ * Resolved from this file, not from the working directory: a jest run started
+ * from a subdirectory, or a package that is not hoisted into the root
+ * `node_modules`, must still find the installed source.
+ */
 const UPSTREAM: Record<keyof typeof REAL_MESSAGES, string> = {
-	pointerEvents:
-		"node_modules/react-native-web/dist/modules/createDOMProps/index.js",
-	shadowStyles:
-		"node_modules/react-native-web/dist/exports/StyleSheet/preprocess.js",
-	useNativeDriver:
-		"node_modules/react-native-web/dist/vendor/react-native/Animated/NativeAnimatedHelper.js",
+	pointerEvents: require.resolve(
+		"react-native-web/dist/modules/createDOMProps/index.js",
+	),
+	shadowStyles: require.resolve(
+		"react-native-web/dist/exports/StyleSheet/preprocess.js",
+	),
+	useNativeDriver: require.resolve(
+		"react-native-web/dist/vendor/react-native/Animated/NativeAnimatedHelper.js",
+	),
 };
 
 /**
@@ -272,5 +281,31 @@ describe("installDevConsoleFilter", () => {
 		expect(original).toHaveBeenCalledWith(REAL_MESSAGES.pointerEvents);
 		restore();
 		expect(target.warn).toBe(original);
+	});
+});
+
+describe("module scope", () => {
+	beforeEach(() => setDev(true));
+
+	it("patches the real console.warn when imported", () => {
+		const original = jest.fn();
+		console.warn = original;
+
+		jest.resetModules();
+		const fresh =
+			require("@/utils/dev-console") as typeof import("@/utils/dev-console");
+
+		// `index.ts` imports the module for the side effect and nothing else, so
+		// the self-install is the behaviour the app depends on: the import
+		// itself must have swapped `console.warn`.
+		expect(console.warn).not.toBe(original);
+
+		console.warn(REAL_MESSAGES.pointerEvents);
+		console.warn("Could not reach Firestore");
+		expect(original).toHaveBeenCalledTimes(1);
+		expect(original).toHaveBeenCalledWith("Could not reach Firestore");
+
+		fresh.restoreGlobalConsole();
+		expect(console.warn).toBe(original);
 	});
 });
