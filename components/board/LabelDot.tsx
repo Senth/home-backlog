@@ -61,10 +61,12 @@ export function LabelDot({
 			onHoverIn={() => setOpen(true)}
 			onHoverOut={() => setOpen(false)}
 			style={{
+				// The box fills the gutter's content width, so there is nothing
+				// to center it against and no fractional margin to invent: only
+				// the vertical slop is handed back to the flow.
 				width: box.width,
 				height: box.height,
 				marginVertical: -(box.height - size.labelDot) / 2,
-				marginHorizontal: -(box.width - size.labelDot) / 2,
 				alignItems: "center",
 				justifyContent: "center",
 			}}
