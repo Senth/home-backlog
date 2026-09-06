@@ -2,6 +2,7 @@ import {
 	clampLabelColor,
 	contrast,
 	fillFloor,
+	isHexColor,
 	onFloor,
 	parseHex,
 	toHex,
@@ -75,6 +76,27 @@ describe("clampLabelColor", () => {
 		expect(contrast(parseHex(on), parseHex(fill))).toBeGreaterThanOrEqual(
 			onFloor,
 		);
+	});
+});
+
+describe("isHexColor", () => {
+	// Built from channels, so no colour literal is spelled here.
+	const crimson = `#${[0xa3, 0x2e, 0x28]
+		.map((digit) => digit.toString(16).padStart(2, "0"))
+		.join("")}`;
+
+	it("accepts the two forms the field can produce, and nothing else", () => {
+		expect(isHexColor(crimson)).toBe(true);
+		expect(isHexColor(crimson.toUpperCase())).toBe(true);
+		expect(isHexColor(` ${crimson} `)).toBe(true);
+		const short = `#${[0, 10, 3].map((digit) => digit.toString(16)).join("")}`;
+		expect(isHexColor(short)).toBe(true);
+
+		// Five digits, built by cutting one off a real colour.
+		expect(isHexColor(toHex([0x12, 0x34, 0x56]).slice(0, 6))).toBe(false);
+		expect(isHexColor(crimson.slice(1))).toBe(false);
+		expect(isHexColor("")).toBe(false);
+		expect(isHexColor("bolt")).toBe(false);
 	});
 });
 

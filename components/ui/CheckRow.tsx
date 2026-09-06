@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { View } from "react-native";
 import { Icon, Text, TouchableRipple } from "react-native-paper";
 import { useAppTheme } from "@/theme";
@@ -8,6 +9,11 @@ interface CheckRowProps {
 	checked: boolean;
 	onPress: () => void;
 	disabled?: boolean;
+	/**
+	 * A mark of identity ahead of the checkbox — the label glyph in the label
+	 * picker's rows. Absent for a plain tickable row.
+	 */
+	left?: ReactNode;
 }
 
 /**
@@ -23,7 +29,13 @@ interface CheckRowProps {
  * as nothing and the row announces as an unchecked checkbox for ever. React
  * Native itself accepts the ARIA prop too, so this is not web-only.
  */
-export function CheckRow({ label, checked, onPress, disabled }: CheckRowProps) {
+export function CheckRow({
+	label,
+	checked,
+	onPress,
+	disabled,
+	left,
+}: CheckRowProps) {
 	const theme = useAppTheme();
 
 	return (
@@ -43,6 +55,7 @@ export function CheckRow({ label, checked, onPress, disabled }: CheckRowProps) {
 					paddingVertical: space.sm,
 				}}
 			>
+				{left}
 				<Icon
 					source={checked ? "checkbox-marked" : "checkbox-blank-outline"}
 					size={icon.md}

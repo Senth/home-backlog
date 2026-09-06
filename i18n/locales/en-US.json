@@ -193,6 +193,7 @@
 		"waitingGroupBoard": "On this board",
 		"waitingGroupEverywhere": "Everywhere",
 		"waitingSearch": "Search everywhere…",
+		"labels": "Labels…",
 		"moveTo": "Move to",
 		"moved": "Moved to {{column}}",
 		"movedUp": "Moved up",
@@ -375,6 +376,9 @@
 		"whoSeesStepBody": "A step can only be given to someone who is in on the project. Add them to the project first, and they will show up here.",
 		"dueDate": "Due by",
 		"addDate": "Add a date",
+		"labels": "Labels",
+		"labelsAdd": "Add labels",
+		"labelsChange": "Change",
 		"priority": "Priority",
 		"effort": "Time needed",
 		"notes": "Notes",
@@ -398,6 +402,19 @@
 		"stopWaitingOn": "Stop waiting on {{title}}",
 		"stopWaitingOnGone": "Stop waiting on it",
 		"createdViaApi": "Added by an automation"
+	},
+	"labels": {
+		"pickerTitle": "Labels on this card",
+		"capReached": "A card can carry at most {{count}} labels.",
+		"empty": "The home has no labels yet.",
+		"iconPickerTitle": "Choose an icon",
+		"searchIcons": "Search icons",
+		"iconCount_one": "1 icon",
+		"iconCount_other": "{{count}} icons",
+		"iconSearchEmpty": "No icons match. Try a shorter word.",
+		"viewGrid": "View as grid",
+		"viewList": "View as list",
+		"colorInvalid": "Use a colour like #A32E28 — the hash and six digits."
 	},
 	"priority": {
 		"low": "Low",

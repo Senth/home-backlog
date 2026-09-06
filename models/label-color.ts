@@ -21,6 +21,16 @@ export const onFloor = 4.5;
 
 export type Rgb = [number, number, number];
 
+const HEX_PATTERN = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+/**
+ * Whether a string is a hex colour at all — the test the native colour field
+ * commits against, and the one grammar `parseHex` accepts.
+ */
+export function isHexColor(hex: string): boolean {
+	return HEX_PATTERN.test(hex.trim());
+}
+
 /** Steps the search takes from the picked colour toward black or white. */
 const searchSteps = 64;
 
@@ -34,9 +44,8 @@ const WHITE: Rgb = [255, 255, 255];
  * crashes the board holding it.
  */
 export function parseHex(hex: string): Rgb {
-	const match = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(hex.trim());
-	if (match === null) return BLACK;
-	const digits = match[1];
+	if (!isHexColor(hex)) return BLACK;
+	const digits = HEX_PATTERN.exec(hex.trim())?.[1] ?? "";
 	if (digits.length === 3) {
 		return digits.split("").map((digit) => parseInt(digit + digit, 16)) as Rgb;
 	}
