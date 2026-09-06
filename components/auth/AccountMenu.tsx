@@ -17,7 +17,7 @@ import { type AuthErrorKey, mapAuthError } from "@/auth/errors";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAnchorFocusGuard } from "@/hooks/use-modal-focus";
+import { useAnchorFocusGuard, useTabTrap } from "@/hooks/use-modal-focus";
 import { useAppTheme } from "@/theme";
 import {
 	compactBreakpoint,
@@ -78,6 +78,10 @@ export function AccountMenu() {
 	// Paper's `Menu` focuses this trigger on mount, unasked — see the hook. The
 	// dialog's own focus trap comes with `ConfirmDialog`.
 	useAnchorFocusGuard(triggerRef);
+	// The wrapper below is the trap's surface. Closed menus mount no portal
+	// content, so `account-menu` is unique while it matters: only the open
+	// menu's wrapper is in the DOM at all.
+	useTabTrap(menuOpen, "account-menu");
 
 	if (!user) return null;
 
@@ -153,51 +157,53 @@ export function AccountMenu() {
 					</TouchableRipple>
 				}
 			>
-				<View
-					style={{
-						flexDirection: "row",
-						alignItems: "center",
-						gap: space.md,
-						paddingHorizontal: space.md,
-						paddingVertical: space.sm,
-					}}
-				>
-					<AccountAvatar user={user} px={size.avatarMd} />
-					<View style={{ flexShrink: 1 }}>
-						<Text variant="titleMedium">{name}</Text>
-						<Text
-							variant="bodySmall"
-							style={{ color: theme.colors.onSurfaceVariant }}
-						>
-							{user.email}
-						</Text>
+				<View testID="account-menu">
+					<View
+						style={{
+							flexDirection: "row",
+							alignItems: "center",
+							gap: space.md,
+							paddingHorizontal: space.md,
+							paddingVertical: space.sm,
+						}}
+					>
+						<AccountAvatar user={user} px={size.avatarMd} />
+						<View style={{ flexShrink: 1 }}>
+							<Text variant="titleMedium">{name}</Text>
+							<Text
+								variant="bodySmall"
+								style={{ color: theme.colors.onSurfaceVariant }}
+							>
+								{user.email}
+							</Text>
+						</View>
 					</View>
+
+					{/* The row this menu was left room for. Automations belong here
+					    rather than on a home, because a key is *the person*: one
+					    credential reaches every home its owner is a member of, and gains
+					    a new one the moment they join it. */}
+					<Menu.Item
+						leadingIcon="robot-outline"
+						title={t("account.automations")}
+						onPress={() => {
+							setMenuOpen(false);
+							router.push("/automations");
+						}}
+					/>
+
+					{/* Between a routine row and the one that cannot be undone. */}
+					<Divider />
+
+					<Menu.Item
+						leadingIcon="logout"
+						title={t("common.signOut")}
+						onPress={() => {
+							setMenuOpen(false);
+							setConfirmOpen(true);
+						}}
+					/>
 				</View>
-
-				{/* The row this menu was left room for. Automations belong here
-				    rather than on a home, because a key is *the person*: one
-				    credential reaches every home its owner is a member of, and gains
-				    a new one the moment they join it. */}
-				<Menu.Item
-					leadingIcon="robot-outline"
-					title={t("account.automations")}
-					onPress={() => {
-						setMenuOpen(false);
-						router.push("/automations");
-					}}
-				/>
-
-				{/* Between a routine row and the one that cannot be undone. */}
-				<Divider />
-
-				<Menu.Item
-					leadingIcon="logout"
-					title={t("common.signOut")}
-					onPress={() => {
-						setMenuOpen(false);
-						setConfirmOpen(true);
-					}}
-				/>
 			</Menu>
 
 			{/* `ConfirmDialog`, not a Paper `Dialog` of its own. This screen had

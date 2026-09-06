@@ -101,6 +101,53 @@ interface ModalFocusOptions {
 }
 
 /**
+ * While `active`, a Tab cannot leave the surface named by `testID`.
+ *
+ * Anything outside the surface — the tab bar behind a scrim, the board behind
+ * an open menu — is pulled back in rather than allowed to take the focus, and
+ * Tab and Shift+Tab wrap at the ends of the surface's own focusable items.
+ *
+ * Handles Tab only: Paper attaches its own Escape handler to `document`
+ * inside `Menu.show()`, and a second one calling `preventDefault` would be
+ * two components answering one key. This is the dialog's whole Tab behaviour
+ * and the menus' only piece of focus management — a menu gets the trap but
+ * not `useModalFocus`'s opening pull-in, which would draw a focus ring on the
+ * first item for every pointer click.
+ */
+export function useTabTrap(active: boolean, testID: string): void {
+	useEffect(() => {
+		if (!active || typeof document === "undefined") return;
+
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key !== "Tab") return;
+
+			const node = byTestID(testID);
+			if (!node) return;
+			const items = visibleFocusable(node);
+			if (items.length === 0) return;
+
+			const first = items[0];
+			const last = items[items.length - 1];
+			const focused = document.activeElement;
+
+			if (!node.contains(focused)) {
+				event.preventDefault();
+				(event.shiftKey ? last : first).focus();
+			} else if (event.shiftKey && focused === first) {
+				event.preventDefault();
+				last.focus();
+			} else if (!event.shiftKey && focused === last) {
+				event.preventDefault();
+				first.focus();
+			}
+		};
+
+		document.addEventListener("keydown", onKeyDown, true);
+		return () => document.removeEventListener("keydown", onKeyDown, true);
+	}, [active, testID]);
+}
+
+/**
  * Focus management for a Paper `Modal` / `Dialog` on the web, which Paper does
  * not provide: it renders the surface into a Portal and leaves focus wherever
  * it was.
@@ -133,6 +180,8 @@ export function useModalFocus(
 	const scrimTestID = scrim?.testID;
 	const scrimLabel = scrim?.label;
 
+	useTabTrap(visible, testID);
+
 	useEffect(() => {
 		if (!visible || typeof document === "undefined") return;
 
@@ -156,34 +205,9 @@ export function useModalFocus(
 		frame = requestAnimationFrame(pullFocusIn);
 
 		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key === "Escape") {
-				event.preventDefault();
-				dismiss.current();
-				return;
-			}
-			if (event.key !== "Tab") return;
-
-			const node = byTestID(testID);
-			if (!node) return;
-			const items = visibleFocusable(node);
-			if (items.length === 0) return;
-
-			const first = items[0];
-			const last = items[items.length - 1];
-			const active = document.activeElement;
-
-			// Anything outside the dialog — the tab bar behind the scrim — is
-			// pulled back in rather than allowed to take the focus.
-			if (!node.contains(active)) {
-				event.preventDefault();
-				(event.shiftKey ? last : first).focus();
-			} else if (event.shiftKey && active === first) {
-				event.preventDefault();
-				last.focus();
-			} else if (!event.shiftKey && active === last) {
-				event.preventDefault();
-				first.focus();
-			}
+			if (event.key !== "Escape") return;
+			event.preventDefault();
+			dismiss.current();
 		};
 
 		document.addEventListener("keydown", onKeyDown, true);

@@ -16,7 +16,7 @@ import {
 	reparentNode,
 	updateNode,
 } from "@/data/nodes";
-import { useAnchorFocusGuard } from "@/hooks/use-modal-focus";
+import { useAnchorFocusGuard, useTabTrap } from "@/hooks/use-modal-focus";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { type Node, rankAtEnd, rankBetween, type Status } from "@/models/node";
 import { useAppTheme } from "@/theme";
@@ -129,6 +129,11 @@ export function CardMenu({
 	// Paper focuses the first card's menu button when the board mounts, closed
 	// menus and all — the same unasked focus `useAnchorFocusGuard` exists for.
 	useAnchorFocusGuard(anchor);
+	// The menu is what the user is answering while it is open: Tab stays inside
+	// it instead of walking onto the board behind it. The surface is this
+	// wrapper, not Paper's own — the plan does not rely on `Menu` forwarding a
+	// `testID` to its Surface.
+	useTabTrap(open, `card-menu-${node.id}`);
 
 	const column = nodes.filter((card) => card.status === node.status);
 	const index = column.findIndex((card) => card.id === node.id);
@@ -318,193 +323,195 @@ export function CardMenu({
 					</View>
 				}
 			>
-				{page === "root" ? (
-					<View
-						onLayout={(event) =>
-							setRootPageHeight(event.nativeEvent.layout.height)
-						}
-					>
-						<Menu.Item
-							leadingIcon="information-outline"
-							title={t("board.details")}
-							onPress={() => {
-								close();
-								onDetails();
-							}}
-						/>
-						<Menu.Item
-							leadingIcon="arrow-right-bold-outline"
-							title={t("board.moveTo")}
-							onPress={() => setPage("move")}
-						/>
-						<Menu.Item
-							leadingIcon="sort"
-							title={t("board.changePosition")}
-							onPress={() => setPage("position")}
-							// One card is already in the only position it can be in.
-							disabled={column.length < 2}
-						/>
-						<Menu.Item
-							leadingIcon="file-tree-outline"
-							title={t("board.moveUnder")}
-							onPress={() => setPage("under")}
-							disabled={!online || (hosts.length === 0 && parent === null)}
-						/>
-						<Menu.Item
-							leadingIcon="pause-circle-outline"
-							title={t("board.waitingOn")}
-							onPress={() => setPage("waiting")}
-						/>
-						<Menu.Item
-							leadingIcon="label-multiple-outline"
-							title={t("board.labels")}
-							onPress={() => {
-								close();
-								setLabelling(true);
-							}}
-						/>
-						<Menu.Item
-							leadingIcon="pencil-outline"
-							title={t("board.rename")}
-							onPress={() => {
-								close();
-								setRenaming(true);
-							}}
-						/>
-						<Menu.Item
-							leadingIcon="delete-outline"
-							title={t("board.delete")}
-							onPress={() => {
-								close();
-								setDeleting(true);
-							}}
-							disabled={!online}
-						/>
-						{/* Both of the disabled ones read from the server on purpose, so
+				<View testID={`card-menu-${node.id}`}>
+					{page === "root" ? (
+						<View
+							onLayout={(event) =>
+								setRootPageHeight(event.nativeEvent.layout.height)
+							}
+						>
+							<Menu.Item
+								leadingIcon="information-outline"
+								title={t("board.details")}
+								onPress={() => {
+									close();
+									onDetails();
+								}}
+							/>
+							<Menu.Item
+								leadingIcon="arrow-right-bold-outline"
+								title={t("board.moveTo")}
+								onPress={() => setPage("move")}
+							/>
+							<Menu.Item
+								leadingIcon="sort"
+								title={t("board.changePosition")}
+								onPress={() => setPage("position")}
+								// One card is already in the only position it can be in.
+								disabled={column.length < 2}
+							/>
+							<Menu.Item
+								leadingIcon="file-tree-outline"
+								title={t("board.moveUnder")}
+								onPress={() => setPage("under")}
+								disabled={!online || (hosts.length === 0 && parent === null)}
+							/>
+							<Menu.Item
+								leadingIcon="pause-circle-outline"
+								title={t("board.waitingOn")}
+								onPress={() => setPage("waiting")}
+							/>
+							<Menu.Item
+								leadingIcon="label-multiple-outline"
+								title={t("board.labels")}
+								onPress={() => {
+									close();
+									setLabelling(true);
+								}}
+							/>
+							<Menu.Item
+								leadingIcon="pencil-outline"
+								title={t("board.rename")}
+								onPress={() => {
+									close();
+									setRenaming(true);
+								}}
+							/>
+							<Menu.Item
+								leadingIcon="delete-outline"
+								title={t("board.delete")}
+								onPress={() => {
+									close();
+									setDeleting(true);
+								}}
+								disabled={!online}
+							/>
+							{/* Both of the disabled ones read from the server on purpose, so
 						    the hint says what they need rather than letting the tap fail
 						    after the fact. */}
-						{online ? null : (
-							<Menu.Item disabled title={t("board.offlineHint")} />
-						)}
-					</View>
-				) : (
-					/* One card per row, so these are the pages that outgrow the height
+							{online ? null : (
+								<Menu.Item disabled title={t("board.offlineHint")} />
+							)}
+						</View>
+					) : (
+						/* One card per row, so these are the pages that outgrow the height
 					   Paper measured — see `rootPageHeight`. They scroll inside it
 					   instead of hanging off the bottom of the window. */
-					<ScrollView style={{ maxHeight: rootPageHeight }}>
-						{page === "move"
-							? columns.map((status) => (
-									<Menu.Item
-										key={status}
-										title={t(`status.${status}`)}
-										onPress={() => moveTo(status)}
-										disabled={status === node.status}
-									/>
-								))
-							: null}
+						<ScrollView style={{ maxHeight: rootPageHeight }}>
+							{page === "move"
+								? columns.map((status) => (
+										<Menu.Item
+											key={status}
+											title={t(`status.${status}`)}
+											onPress={() => moveTo(status)}
+											disabled={status === node.status}
+										/>
+									))
+								: null}
 
-						{page === "position" ? (
-							<>
-								<Menu.Item
-									title={t("board.positionTop")}
-									onPress={() =>
-										moveWithin(rankBetween(null, others[0]?.rank ?? null))
-									}
-									disabled={index === 0}
-								/>
-								{others.map((other, position) => (
+							{page === "position" ? (
+								<>
 									<Menu.Item
-										key={other.id}
-										title={t("board.positionAfter", { title: other.title })}
+										title={t("board.positionTop")}
 										onPress={() =>
-											moveWithin(
-												rankBetween(
-													other.rank,
-													others[position + 1]?.rank ?? null,
-												),
-											)
+											moveWithin(rankBetween(null, others[0]?.rank ?? null))
 										}
-										// The slot it is already in.
-										disabled={column[index - 1]?.id === other.id}
+										disabled={index === 0}
 									/>
-								))}
-							</>
-						) : null}
+									{others.map((other, position) => (
+										<Menu.Item
+											key={other.id}
+											title={t("board.positionAfter", { title: other.title })}
+											onPress={() =>
+												moveWithin(
+													rankBetween(
+														other.rank,
+														others[position + 1]?.rank ?? null,
+													),
+												)
+											}
+											// The slot it is already in.
+											disabled={column[index - 1]?.id === other.id}
+										/>
+									))}
+								</>
+							) : null}
 
-						{page === "under" ? (
-							<>
-								{/* Up and Top are the same destination one level down from
+							{page === "under" ? (
+								<>
+									{/* Up and Top are the same destination one level down from
 								    the root, so only one of them is ever offered. */}
-								{parent?.parentId ? (
-									<Menu.Item
-										title={t("board.moveUnderUp")}
-										onPress={() => moveUnder("up")}
-									/>
-								) : null}
-								{parent !== null ? (
-									<Menu.Item
-										title={t("board.moveUnderTop")}
-										onPress={() => moveUnder(null)}
-									/>
-								) : null}
-								{hosts.map((host) => (
-									<Menu.Item
-										key={host.id}
-										title={host.title}
-										onPress={() => moveUnder(host)}
-									/>
-								))}
-							</>
-						) : null}
+									{parent?.parentId ? (
+										<Menu.Item
+											title={t("board.moveUnderUp")}
+											onPress={() => moveUnder("up")}
+										/>
+									) : null}
+									{parent !== null ? (
+										<Menu.Item
+											title={t("board.moveUnderTop")}
+											onPress={() => moveUnder(null)}
+										/>
+									) : null}
+									{hosts.map((host) => (
+										<Menu.Item
+											key={host.id}
+											title={host.title}
+											onPress={() => moveUnder(host)}
+										/>
+									))}
+								</>
+							) : null}
 
-						{page === "waiting" ? (
-							<>
-								{/* The chosen ones first, check-marked; tapping one
+							{page === "waiting" ? (
+								<>
+									{/* The chosen ones first, check-marked; tapping one
 								    unpicks it. Titles come from the board's own nodes and
 								    the watcher, so a cross-board one says its name too. */}
-								{node.blockedBy.map((id) => (
-									<Menu.Item
-										key={id}
-										leadingIcon="check"
-										title={blockerTitle(id)}
-										onPress={() => toggleBlocker(id, false)}
-									/>
-								))}
+									{node.blockedBy.map((id) => (
+										<Menu.Item
+											key={id}
+											leadingIcon="check"
+											title={blockerTitle(id)}
+											onPress={() => toggleBlocker(id, false)}
+										/>
+									))}
 
-								{/* Same-board first, and visibly so — the group header is
+									{/* Same-board first, and visibly so — the group header is
 								    the priority the picker wants seen without any help
 								    text. Hidden when there is nothing to put under it. */}
-								{waitingCandidates.length === 0 ? null : (
-									<MenuLabel>{t("board.waitingGroupBoard")}</MenuLabel>
-								)}
-								{waitingCandidates.map((card) => (
-									<Menu.Item
-										key={card.id}
-										title={card.title}
-										onPress={() => toggleBlocker(card.id, true)}
-									/>
-								))}
+									{waitingCandidates.length === 0 ? null : (
+										<MenuLabel>{t("board.waitingGroupBoard")}</MenuLabel>
+									)}
+									{waitingCandidates.map((card) => (
+										<Menu.Item
+											key={card.id}
+											title={card.title}
+											onPress={() => toggleBlocker(card.id, true)}
+										/>
+									))}
 
-								<MenuLabel>{t("board.waitingGroupEverywhere")}</MenuLabel>
-								<Menu.Item
-									leadingIcon="magnify"
-									title={t("board.waitingSearch")}
-									onPress={() => {
-										close();
-										setSearching(true);
-									}}
-									disabled={!online}
-								/>
-								{/* The search reads the server on purpose, so the hint
+									<MenuLabel>{t("board.waitingGroupEverywhere")}</MenuLabel>
+									<Menu.Item
+										leadingIcon="magnify"
+										title={t("board.waitingSearch")}
+										onPress={() => {
+											close();
+											setSearching(true);
+										}}
+										disabled={!online}
+									/>
+									{/* The search reads the server on purpose, so the hint
 								    says what it needs rather than letting the tap fail
 								    after the fact — exactly *Move under…*'s split. */}
-								{online ? null : (
-									<Menu.Item disabled title={t("board.offlineHint")} />
-								)}
-							</>
-						) : null}
-					</ScrollView>
-				)}
+									{online ? null : (
+										<Menu.Item disabled title={t("board.offlineHint")} />
+									)}
+								</>
+							) : null}
+						</ScrollView>
+					)}
+				</View>
 			</Menu>
 
 			{/* Mounted only while open. Each dialog carries a `Portal`, which
