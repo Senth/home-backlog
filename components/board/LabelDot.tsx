@@ -29,15 +29,24 @@ import {
  * household with dots they cannot interrogate. Tapping again closes it.
  *
  * **The tappable box is `markTouch`, not the mark.** It is one band of the
- * gutter — full width, one pitch tall — so a dot owns its own tap and cannot
- * steal the next one's. A `touchTarget`-sized box around a 20px mark on a
+ * gutter it sits in — that gutter's width, one pitch tall — so a dot owns its
+ * own tap, cannot steal the next one's, and cannot reach over the card body
+ * where the card's own press would win. A `touchTarget`-sized box around a 20px mark on a
  * 24px pitch overlaps its neighbour by half, and the later sibling wins: a tap
  * on one dot opened the one below it. The 20px mark stays where it was, and
  * negative margins hand the box's extra room back to the flow.
  */
-export function LabelDot({ label }: { label: LabelWithId }) {
+export function LabelDot({
+	label,
+	narrow = false,
+}: {
+	label: LabelWithId;
+	/** Which gutter this dot sits in — the box is that gutter's width. */
+	narrow?: boolean;
+}) {
 	const theme = useAppTheme();
 	const [open, setOpen] = useState(false);
+	const box = markTouch(narrow ? size.cardGutterNarrow : size.cardGutter);
 
 	return (
 		<Pressable
@@ -52,10 +61,10 @@ export function LabelDot({ label }: { label: LabelWithId }) {
 			onHoverIn={() => setOpen(true)}
 			onHoverOut={() => setOpen(false)}
 			style={{
-				width: markTouch.width,
-				height: markTouch.height,
-				marginVertical: -(markTouch.height - size.labelDot) / 2,
-				marginHorizontal: -(markTouch.width - size.labelDot) / 2,
+				width: box.width,
+				height: box.height,
+				marginVertical: -(box.height - size.labelDot) / 2,
+				marginHorizontal: -(box.width - size.labelDot) / 2,
 				alignItems: "center",
 				justifyContent: "center",
 			}}
@@ -67,8 +76,8 @@ export function LabelDot({ label }: { label: LabelWithId }) {
 						position: "absolute",
 						// The dot's own top-right corner, measured from the box the
 						// mark is centered in.
-						left: (markTouch.width + size.labelDot) / 2,
-						top: (markTouch.height - size.labelDot) / 2,
+						left: (box.width + size.labelDot) / 2,
+						top: (box.height - size.labelDot) / 2,
 						zIndex: elevation.high,
 						maxWidth: contentWidth.form,
 						borderRadius: radius.sm,

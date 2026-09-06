@@ -218,26 +218,42 @@ export const touchTargetStyle = {
 export const outlinedTouchTarget = touchTarget + border.hairline * 2;
 
 /**
+ * WCAG 2.5.8's target-size floor, and the smallest a **mark** may be.
+ * `touchTarget` (48) is Material's and this project's floor for a *control*;
+ * 24 is the absolute floor below which nothing tappable may go.
+ */
+export const markTargetMinimum = 24;
+
+/**
  * The touch box around a **mark** — a label dot in the card gutter, not a
- * control. It is the gutter's full width by the stack's own pitch, so each
- * mark owns one band of the column exactly: no overlap with the mark above or
- * below, and no spill past the gutter into the card beside it.
+ * control. It is the gutter it actually sits in, by the dot stack's own pitch,
+ * so each mark owns one band of that column exactly: no overlap with the mark
+ * above or below, and no spill sideways into the card body, where the card's
+ * own `onPress` would win the tap.
+ *
+ * **It takes the gutter's width, so it must be told which gutter.** The gutter
+ * narrows to `size.cardGutterNarrow` below `cardGutterBreakpoint`; a box fixed
+ * at the wide width spills ~3.5px over the card there and hands those taps to
+ * the card. The hairline comes off because the gutter's border is drawn inside
+ * its own width, so the content box is that much narrower.
  *
  * **A mark does not get `touchTarget`, and cannot.** Six 20px dots on a
  * `space.xs` pitch put 24px between their centers; a 48px box around each one
  * overlaps its neighbour by 24px, and the later sibling wins the hit test — a
  * tap on one dot opens the next one's disclosure. That was measured in a real
  * browser, not reasoned about. The floor a mark can honestly hold is its own
- * pitch, which clears WCAG 2.5.8's 24px; the tap is a convenience over the
+ * pitch, which meets `markTargetMinimum`; the tap is a convenience over the
  * hover tooltip either way, and nothing in the app is reachable only by it.
  *
  * React Native Web's `Pressable` drops `hitSlop`, so the box is a real box and
  * negative margins hand the room back to the flow.
  */
-export const markTouch = {
-	width: size.cardGutter,
-	height: size.labelDot + space.xs,
-} as const;
+export function markTouch(gutterWidth: number) {
+	return {
+		width: gutterWidth - border.hairline,
+		height: size.labelDot + space.xs,
+	} as const;
+}
 
 /**
  * Line height for a `SegmentedButtons` label, and the only way to make that

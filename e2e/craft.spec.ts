@@ -22,7 +22,7 @@ import {
 	fab,
 	focusRing,
 	icon,
-	markTouch,
+	markTargetMinimum,
 	outlinedTouchTarget,
 	radius,
 	segmentedLabelLineHeight,
@@ -150,9 +150,7 @@ const TOKEN_NUMBERS: number[] = [
 		touchTarget,
 		outlinedTouchTarget,
 		segmentedLabelLineHeight,
-		// A mark's touch band — the gutter's width by the dot stack's pitch.
-		// A mark is exempt from `touchTarget`; see `theme/tokens.ts`.
-		...Object.values(markTouch),
+		markTargetMinimum,
 		compactBreakpoint,
 		appBarStackBreakpoint,
 		denseBreakpoint,
@@ -628,7 +626,7 @@ for (const route of ROUTES) {
 		await gotoAndSettle(page, route);
 
 		const undersized = await page.evaluate(
-			({ selector, minimum }) => {
+			({ selector, minimum, markFloor }) => {
 				const offenders: string[] = [];
 				for (const element of Array.from(document.querySelectorAll(selector))) {
 					const box = element.getBoundingClientRect();
@@ -639,27 +637,35 @@ for (const route of ROUTES) {
 					// larger interactive ancestor is fine: the ancestor is what the
 					// thumb hits.
 					if (element.parentElement?.closest(selector) !== null) continue;
-					// A **mark** is exempt, and only a mark: a label dot says which
-					// group a card belongs to, and its tap duplicates the hover
-					// tooltip. It takes `markTouch` — its own band of the gutter,
-					// which clears WCAG 2.5.8's 24px — because a `touchTarget` box
-					// around a 20px dot on a 24px pitch overlaps its neighbour and
-					// steals its tap. docs/DESIGN.md carries the exemption and its
-					// limit; every real control is still swept against the floor.
-					if (element.getAttribute("data-testid") === "label-mark") continue;
-					if (box.width < minimum || box.height < minimum) {
+					// A **mark** is held to WCAG 2.5.8's 24px instead of the 48px
+					// control floor, and only a mark: a label dot says which group a
+					// card belongs to, and its tap duplicates the hover tooltip. A
+					// `touchTarget` box around a 20px dot on a 24px pitch overlaps
+					// its neighbour and steals its tap, so it takes `markTouch` — its
+					// own band of the gutter. docs/DESIGN.md carries the exemption
+					// and its limit. It is a lower floor, never no floor: an
+					// undersized element wearing this testID still fails here.
+					const floor =
+						element.getAttribute("data-testid") === "label-mark"
+							? markFloor
+							: minimum;
+					if (box.width < floor || box.height < floor) {
 						const label =
 							element.getAttribute("aria-label") ||
 							element.textContent?.trim().slice(0, 40) ||
 							element.className;
 						offenders.push(
-							`${Math.round(box.width)}x${Math.round(box.height)} "${label}"`,
+							`${Math.round(box.width)}x${Math.round(box.height)} "${label}" (floor ${floor})`,
 						);
 					}
 				}
 				return offenders;
 			},
-			{ selector: INTERACTIVE, minimum: touchTarget },
+			{
+				selector: INTERACTIVE,
+				minimum: touchTarget,
+				markFloor: markTargetMinimum,
+			},
 		);
 
 		expect(

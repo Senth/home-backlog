@@ -257,8 +257,10 @@ and every row's controls as dimmed.
   `space.xs` pitch put 24px between their centers, so a `touchTarget` box around each
   overlaps its neighbour by half and the later sibling wins the hit test: a tap on one dot
   opens the next one's name. That was measured in a browser, not argued. A mark therefore
-  takes `markTouch` — its own band of the gutter, which clears WCAG 2.5.8's 24px and
-  overlaps nothing. **This exemption is for marks that duplicate a reachable affordance.**
+  takes `markTouch` — one band of **the gutter it actually sits in**, which meets WCAG
+  2.5.8's `markTargetMinimum` and overlaps neither its neighbours nor the card body. It is
+  a lower floor, never no floor: the craft sweep still measures every mark against 24.
+  **This exemption is for marks that duplicate a reachable affordance.**
   A control a household member must hit to get anywhere still takes `touchTarget`, and
   shrinking a real control to a mark to dodge the floor is the mistake this names.
 - **Forms** — Paper's floating label, so there is no separate label row to misalign or

@@ -103,7 +103,7 @@ export function CardGutter({ node, labels, narrow = false }: CardGutterProps) {
 				/>
 			)}
 			{labels.map((label) => (
-				<LabelDot key={label.id} label={label} />
+				<LabelDot key={label.id} label={label} narrow={narrow} />
 			))}
 		</View>
 	);
