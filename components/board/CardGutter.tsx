@@ -64,6 +64,10 @@ export function CardGutter({ node, labels, narrow = false }: CardGutterProps) {
 			{step === null ? null : (
 				<View
 					accessible
+					// A mark that means "Urgent", not a region: a plain div cannot
+					// carry a name (axe's `aria-prohibited-attr`), so the dot reads
+					// as an image whose name is the priority.
+					accessibilityRole="image"
 					accessibilityLabel={t(`priority.${node.priority}`)}
 					style={{
 						width: size.labelDot,

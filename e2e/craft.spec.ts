@@ -281,6 +281,17 @@ function spacingSweep(args: {
 			const raw = style[prop];
 			// `normal` on unset gaps, `auto` on margins: neither is a length.
 			if (!raw.endsWith("px")) continue;
+			// A resolved `auto` margin reports used pixels here, not the word —
+			// the card's right gutter pins its foot with `marginTop: "auto"`, and
+			// whatever the flexbox algorithm answered is a function of the card's
+			// height, not a spacing decision. The inline style still says `auto`,
+			// and that is what it is.
+			if (
+				prop.startsWith("margin") &&
+				(element as HTMLElement).style?.[prop] === "auto"
+			) {
+				continue;
+			}
 			const value = Math.abs(Number.parseFloat(raw));
 			if (onScale.has(value)) continue;
 			if (paperExcuse(element, value)) continue;
