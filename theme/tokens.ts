@@ -116,6 +116,16 @@ export const size = {
 	 * the foot room to sit inside the card.
 	 */
 	cardRail: 44,
+	/**
+	 * Fallback height for a `CardMenu` page that scrolls, for the frames before
+	 * the root page's own `onLayout` has measured — Paper measures its menu once
+	 * and never again, and an uncapped page hangs off the bottom of the window
+	 * and takes the whole document scroll with it (#96 again). Roughly 6.5 menu
+	 * rows, and it fits a 390x844 phone at 200% text, where the viewport is 422
+	 * CSS px tall. Once the root page has measured, every later page is capped at
+	 * exactly that height and this value is never used.
+	 */
+	menuPage: 320,
 } as const;
 
 /**

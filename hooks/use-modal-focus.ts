@@ -16,4 +16,6 @@ export function useModalFocus(
 	} = {},
 ) {}
 
+export function useTabTrap(_active: boolean, _testID: string): void {}
+
 export function useAnchorFocusGuard(_ref: RefObject<View | null>) {}

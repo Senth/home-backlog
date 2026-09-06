@@ -6,6 +6,7 @@ import { Appbar, Divider, Menu } from "react-native-paper";
 import { detailsHref } from "@/components/board/board-href";
 import { TitleDialog } from "@/components/board/TitleDialog";
 import { updateNode } from "@/data/nodes";
+import { useAnchorFocusGuard, useTabTrap } from "@/hooks/use-modal-focus";
 import { hasDetails, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { radius, size, space, touchTargetStyle } from "@/theme/tokens";
@@ -46,6 +47,11 @@ export function BoardMenu({
 	// while the menu is open leaves it with no way out but the mouse. Same
 	// reasoning, and the same fix, as `components/board/CardMenu.tsx`.
 	const close = useCallback(() => setOpen(false), []);
+
+	// Same unasked mount focus from Paper's closed `Menu` as every card's menu.
+	useAnchorFocusGuard(anchor);
+	// Same trap, same reasoning: while open, the menu is what is being answered.
+	useTabTrap(open, `board-menu-${node?.id ?? "root"}`);
 
 	// Queues offline exactly as `CardMenu`'s rename does. No online gate, no
 	// hint — gating this write would make it the only one on this screen that
@@ -95,47 +101,49 @@ export function BoardMenu({
 					</View>
 				}
 			>
-				{node === null ? null : (
+				<View testID={`board-menu-${node?.id ?? "root"}`}>
+					{node === null ? null : (
+						<Menu.Item
+							leadingIcon="information-outline"
+							title={t("detail.title")}
+							onPress={() => {
+								close();
+								router.push(detailsHref(node.id));
+							}}
+						/>
+					)}
+					{node === null ? null : (
+						<Menu.Item
+							leadingIcon="pencil-outline"
+							title={t("board.rename")}
+							onPress={() => {
+								close();
+								setRenaming(true);
+							}}
+						/>
+					)}
+					{/* The two above act on this card; this one changes what the board
+					    shows. Without the rule they read as one list, and on a project's
+					    own board a bare "show everyone" is heard as "show everyone who is
+					    in on this" — the question the details screen just taught. */}
+					{node === null ? null : <Divider />}
 					<Menu.Item
-						leadingIcon="information-outline"
-						title={t("detail.title")}
+						leadingIcon="account-group-outline"
+						// A check rather than a switch: Paper's menu row is one tappable
+						// surface, and a switch inside it gives the same row two targets that
+						// do the same thing.
+						trailingIcon={showEveryone ? "check" : undefined}
+						// The ARIA prop, not `accessibilityState` — React Native Web 0.21
+						// does not forward the object form, so the check would be visible
+						// and nothing else.
+						aria-checked={showEveryone}
+						title={t("board.showEveryone")}
 						onPress={() => {
-							close();
-							router.push(detailsHref(node.id));
+							onShowEveryone(!showEveryone);
+							setOpen(false);
 						}}
 					/>
-				)}
-				{node === null ? null : (
-					<Menu.Item
-						leadingIcon="pencil-outline"
-						title={t("board.rename")}
-						onPress={() => {
-							close();
-							setRenaming(true);
-						}}
-					/>
-				)}
-				{/* The two above act on this card; this one changes what the board
-				    shows. Without the rule they read as one list, and on a project's
-				    own board a bare "show everyone" is heard as "show everyone who is
-				    in on this" — the question the details screen just taught. */}
-				{node === null ? null : <Divider />}
-				<Menu.Item
-					leadingIcon="account-group-outline"
-					// A check rather than a switch: Paper's menu row is one tappable
-					// surface, and a switch inside it gives the same row two targets that
-					// do the same thing.
-					trailingIcon={showEveryone ? "check" : undefined}
-					// The ARIA prop, not `accessibilityState` — React Native Web 0.21
-					// does not forward the object form, so the check would be visible
-					// and nothing else.
-					aria-checked={showEveryone}
-					title={t("board.showEveryone")}
-					onPress={() => {
-						onShowEveryone(!showEveryone);
-						setOpen(false);
-					}}
-				/>
+				</View>
 			</Menu>
 
 			{/* Mounted only while open — see `CardMenu`'s identical dialog. */}

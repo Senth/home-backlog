@@ -47,6 +47,25 @@ function visibleFocusable(root: HTMLElement): HTMLElement[] {
 	);
 }
 
+/**
+ * Puts Chrome's sequential focus navigation starting point back at the top of
+ * the document.
+ *
+ * The starting point survives a `blur()`: once Paper has focused a menu anchor
+ * on mount, blurring that anchor still leaves the first Tab continuing from
+ * *it* — past the app bar and the column strip — which is the load tab order
+ * this guard exists to fix (#119). Focusing `<body>` is the one move that
+ * resets it, and `<body>` is not a control: nothing is announced, and no
+ * control the user did not ask for takes the focus.
+ */
+function focusDocumentStart() {
+	const body = document.body;
+	if (body.getAttribute("tabindex") === null) {
+		body.setAttribute("tabindex", "-1");
+	}
+	body.focus();
+}
+
 interface ModalFocusOptions {
 	/**
 	 * The element that should get focus back when the modal closes, usually
@@ -82,6 +101,53 @@ interface ModalFocusOptions {
 }
 
 /**
+ * While `active`, a Tab cannot leave the surface named by `testID`.
+ *
+ * Anything outside the surface — the tab bar behind a scrim, the board behind
+ * an open menu — is pulled back in rather than allowed to take the focus, and
+ * Tab and Shift+Tab wrap at the ends of the surface's own focusable items.
+ *
+ * Handles Tab only: Paper attaches its own Escape handler to `document`
+ * inside `Menu.show()`, and a second one calling `preventDefault` would be
+ * two components answering one key. This is the dialog's whole Tab behaviour
+ * and the menus' only piece of focus management — a menu gets the trap but
+ * not `useModalFocus`'s opening pull-in, which would draw a focus ring on the
+ * first item for every pointer click.
+ */
+export function useTabTrap(active: boolean, testID: string): void {
+	useEffect(() => {
+		if (!active || typeof document === "undefined") return;
+
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key !== "Tab") return;
+
+			const node = byTestID(testID);
+			if (!node) return;
+			const items = visibleFocusable(node);
+			if (items.length === 0) return;
+
+			const first = items[0];
+			const last = items[items.length - 1];
+			const focused = document.activeElement;
+
+			if (!node.contains(focused)) {
+				event.preventDefault();
+				(event.shiftKey ? last : first).focus();
+			} else if (event.shiftKey && focused === first) {
+				event.preventDefault();
+				last.focus();
+			} else if (!event.shiftKey && focused === last) {
+				event.preventDefault();
+				first.focus();
+			}
+		};
+
+		document.addEventListener("keydown", onKeyDown, true);
+		return () => document.removeEventListener("keydown", onKeyDown, true);
+	}, [active, testID]);
+}
+
+/**
  * Focus management for a Paper `Modal` / `Dialog` on the web, which Paper does
  * not provide: it renders the surface into a Portal and leaves focus wherever
  * it was.
@@ -114,6 +180,8 @@ export function useModalFocus(
 	const scrimTestID = scrim?.testID;
 	const scrimLabel = scrim?.label;
 
+	useTabTrap(visible, testID);
+
 	useEffect(() => {
 		if (!visible || typeof document === "undefined") return;
 
@@ -137,34 +205,9 @@ export function useModalFocus(
 		frame = requestAnimationFrame(pullFocusIn);
 
 		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key === "Escape") {
-				event.preventDefault();
-				dismiss.current();
-				return;
-			}
-			if (event.key !== "Tab") return;
-
-			const node = byTestID(testID);
-			if (!node) return;
-			const items = visibleFocusable(node);
-			if (items.length === 0) return;
-
-			const first = items[0];
-			const last = items[items.length - 1];
-			const active = document.activeElement;
-
-			// Anything outside the dialog — the tab bar behind the scrim — is
-			// pulled back in rather than allowed to take the focus.
-			if (!node.contains(active)) {
-				event.preventDefault();
-				(event.shiftKey ? last : first).focus();
-			} else if (event.shiftKey && active === first) {
-				event.preventDefault();
-				last.focus();
-			} else if (!event.shiftKey && active === last) {
-				event.preventDefault();
-				first.focus();
-			}
+			if (event.key !== "Escape") return;
+			event.preventDefault();
+			dismiss.current();
 		};
 
 		document.addEventListener("keydown", onKeyDown, true);
@@ -203,6 +246,14 @@ export function useModalFocus(
  * The guard blurs a focus the user did not ask for, and stops as soon as they
  * act: a pointer or key event means any focus that follows is theirs, including
  * Paper's legitimate restore-on-close.
+ *
+ * Listens in the capture phase because the anchor is not always the node Paper
+ * focuses: `focusFirstDOMNode` focuses the first `button` *inside* the anchor
+ * element, and for `CardMenu` that is the `IconButton` in a wrapper `View`.
+ * Focus does not bubble, so a bubble-phase listener on the anchor never hears
+ * about its children being focused — and on a fresh board load the focus ended
+ * up parked on the first card's menu button, skipping everything above it on
+ * the first Tab (#119).
  */
 export function useAnchorFocusGuard(ref: RefObject<View | null>) {
 	useEffect(() => {
@@ -221,20 +272,26 @@ export function useAnchorFocusGuard(ref: RefObject<View | null>) {
 			// so a bare `blur()` would leave a keyboard user with no focus at all
 			// and the next Tab starting again from the top of the document.
 			const previous = event.relatedTarget;
-			node.blur();
+			// Capture-phase listener on the anchor: the target is the anchor or a
+			// descendant of it, and it is the one that has to let go of the focus.
+			if (event.target instanceof HTMLElement) event.target.blur();
 			if (previous instanceof HTMLElement && previous.isConnected) {
 				previous.focus();
+			} else {
+				// No element to restore, as on a fresh load: drop the walk back at
+				// the document start rather than leaving it parked on this anchor.
+				focusDocumentStart();
 			}
 		};
 
 		window.addEventListener("pointerdown", markActed, true);
 		window.addEventListener("keydown", markActed, true);
-		node.addEventListener("focus", onFocus);
+		node.addEventListener("focus", onFocus, true);
 
 		return () => {
 			window.removeEventListener("pointerdown", markActed, true);
 			window.removeEventListener("keydown", markActed, true);
-			node.removeEventListener("focus", onFocus);
+			node.removeEventListener("focus", onFocus, true);
 		};
 	}, [ref]);
 }
