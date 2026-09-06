@@ -36,6 +36,7 @@ describe("what a caller may send", () => {
 					parentId: "project",
 					visibility: "private",
 					participantIds: ["uidMarcus"],
+					labelIds: ["label-1"],
 				},
 				"create",
 			),
@@ -52,6 +53,7 @@ describe("what a caller may send", () => {
 			parentId: "project",
 			visibility: "private",
 			participantIds: ["uidMarcus"],
+			labelIds: ["label-1"],
 		});
 	});
 
@@ -111,6 +113,18 @@ describe("what the server owns", () => {
 		expect(error.message).toContain("rank");
 		expect(error.message).toContain("title");
 		expect(error.details?.[0].field).toBe("rank");
+	});
+
+	/**
+	 * The card names its labels by id; the set itself is curated in the app.
+	 * `labels` is the home document's definitions map, and a body that could
+	 * write one on a node would plant a definition nowhere and render nothing.
+	 */
+	it("takes labelIds and refuses the definitions map", () => {
+		expect(parseNodeBody({ labelIds: ["label-1"] }, "update")).toEqual({
+			labelIds: ["label-1"],
+		});
+		expect(refusal({ labels: {} }, "create").code).toBe("unknown_field");
 	});
 });
 

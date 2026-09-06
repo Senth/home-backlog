@@ -382,6 +382,77 @@ export async function createFixtureNode(
 	return idOf(created.name);
 }
 
+/**
+ * The home's label definitions, decoded to plain JSON (#100): the map the
+ * home document holds, keyed by the id a card's `labelIds` names.
+ */
+async function homeLabels(): Promise<Record<string, Record<string, unknown>>> {
+	const home = await homeId();
+	const response = await fetch(`${BASE}/homes/${home}`, { headers: HEADERS });
+	if (!response.ok) {
+		throw new Error(
+			`emulator REST could not read home ${home}: ${response.status} ${response.statusText}`,
+		);
+	}
+	const document = (await response.json()) as {
+		fields?: Record<string, unknown>;
+	};
+	const labels = decodeFields(document.fields ?? {}).labels;
+	return (labels ?? {}) as Record<string, Record<string, unknown>>;
+}
+
+/** One label definition, joined back with its id — resolved by its title. */
+export async function labelByTitle(
+	title: string,
+): Promise<{ id: string } & Record<string, unknown>> {
+	const labels = await homeLabels();
+	const match = Object.entries(labels).find(
+		([, label]) => label.title === title,
+	);
+	if (!match) throw new Error(`no label titled "${title}" in ${HOME_NAME}`);
+	return { id: match[0], ...match[1] };
+}
+
+/**
+ * Deletes every label definition whose title begins with this prefix, by
+ * rewriting the home's `labels` map without them.
+ *
+ * The same plumbing `deleteNodesByTitlePrefix` is, one level up: a definition
+ * left behind outlives every card that referenced it, so a run killed before
+ * its cleanup would leave two strays on the home for every later run to see.
+ * Finding nothing is a normal outcome.
+ */
+export async function deleteLabelsByTitlePrefix(prefix: string): Promise<void> {
+	const labels = await homeLabels();
+	const kept = Object.fromEntries(
+		Object.entries(labels).filter(([, label]) => {
+			const title = typeof label.title === "string" ? label.title : "";
+			return !title.startsWith(prefix);
+		}),
+	);
+	if (Object.keys(kept).length === Object.keys(labels).length) return;
+
+	const home = await homeId();
+	const response = await fetch(`${BASE}/homes/${home}?updateMask=labels`, {
+		method: "PATCH",
+		headers: { ...HEADERS, "Content-Type": "application/json" },
+		body: JSON.stringify({
+			fields: {
+				labels:
+					Object.keys(kept).length === 0
+						? { mapValue: {} }
+						: encodeValue(kept as Record<string, Json>),
+			},
+		}),
+	});
+	if (!response.ok) {
+		const body = await response.text().catch(() => "");
+		throw new Error(
+			`emulator REST could not rewrite the home's labels: ${response.status} ${response.statusText}${body ? ` — ${body}` : ""}`,
+		);
+	}
+}
+
 /** Every current member's uid, from the seeded home's `members` map. */
 export async function homeMemberUids(): Promise<string[]> {
 	const home = await homeId();

@@ -244,6 +244,24 @@ describe("POST /homes/:homeId/nodes", () => {
 
 		expect(writtenDocument().participantIds).toEqual(["uidAnna"]);
 	});
+
+	it("writes the labelIds the body names, so a labelled card round-trips", async () => {
+		await route("POST", "/homes/:homeId/nodes")(
+			aRequest({ title: "Card", labelIds: ["label-1", "label-2"] }),
+			aResponse(),
+		);
+
+		expect(writtenDocument().labelIds).toEqual(["label-1", "label-2"]);
+	});
+
+	it("defaults labelIds to none, the shape every pre-label node shares", async () => {
+		await route("POST", "/homes/:homeId/nodes")(
+			aRequest({ title: "Card" }),
+			aResponse(),
+		);
+
+		expect(writtenDocument().labelIds).toEqual([]);
+	});
 });
 
 /** Only the fields `validateNode` reads on the merged document. */
@@ -301,5 +319,20 @@ describe("PATCH /homes/:homeId/nodes/:nodeId", () => {
 			participantIds: MEMBERS,
 		});
 		expect(response.status).toHaveBeenCalledWith(200);
+	});
+
+	it("carries labelIds through as an ordinary field write", async () => {
+		storedNode("root", { parentId: null, ancestorIds: [] });
+		storedNode("step");
+
+		await route("PATCH", "/homes/:homeId/nodes/:nodeId")(
+			aRequest({ labelIds: ["label-1"] }, "step"),
+			aResponse(),
+		);
+
+		const update = store.batches[0].update as jest.Mock;
+		expect(update.mock.calls[0][1]).toMatchObject({
+			labelIds: ["label-1"],
+		});
 	});
 });

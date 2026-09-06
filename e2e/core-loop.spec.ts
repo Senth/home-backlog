@@ -7,7 +7,9 @@ import {
 	ROUTES,
 } from "@/e2e/support/app";
 import {
+	deleteLabelsByTitlePrefix,
 	deleteNodesByTitlePrefix,
+	labelByTitle,
 	nodeFields,
 	waitForNodeIdByTitle,
 } from "@/e2e/support/firestore";
@@ -16,9 +18,9 @@ import enUS from "@/i18n/locales/en-US.json";
 /**
  * The Trello part, end to end and nothing else: the FAB, the four columns, and
  * a card completing into Done — with the reload claim from the old navigation
- * spec folded in at the end. The phone affordance is the card menu: drag is
- * `DragArea.web.tsx` and belongs to the desktop path, which the `writes`
- * project never runs.
+ * spec folded in at the end, and the labels a card carries (#100) on top. The
+ * phone affordance is the card menu: drag is `DragArea.web.tsx` and belongs to
+ * the desktop path, which the `writes` project never runs.
  *
  * What is deliberately *not* here: the rank arithmetic behind a move and the
  * `completedAt` bookkeeping are `data/nodes.ts` / `models/node.ts` unit
@@ -33,6 +35,7 @@ const PREFIX = "E2E core-loop ";
 
 test.afterEach(async () => {
 	await deleteNodesByTitlePrefix(PREFIX);
+	await deleteLabelsByTitlePrefix(PREFIX);
 });
 
 /** Adds a card to the pane the board opened on — the FAB names it in words. */
@@ -123,4 +126,64 @@ test("3: a card moves through the four columns, completes into Done, and a reloa
 	await expect(
 		page.locator(columnSelector("done"), { hasText: title }),
 	).toBeVisible();
+});
+
+/**
+ * Labels end to end: two definitions created on the home — one from the
+ * preset hues, one a custom colour typed as a hex — and one of them applied
+ * to a card through the picker. The definition read and the card write are
+ * both settled by the backend, since the screen shows the optimistic copy.
+ */
+test("4: a home grows two labels, and a card carries one", async ({ page }) => {
+	const presetTitle = `${PREFIX}preset`;
+	const customTitle = `${PREFIX}custom`;
+
+	await gotoAndSettle(page, ROUTES[0]);
+	await page.getByRole("button", { name: "Manage Huset" }).click();
+	await page.waitForURL(/\/homes\/[^/]+$/);
+	await page.getByText(enUS.labels.title, { exact: true }).click();
+	await page.waitForURL(/\/homes\/[^/]+\/labels$/);
+
+	// One label from the preset hues — the swatch row the dialog opens on.
+	await page.getByRole("button", { name: enUS.labels.newLabel }).click();
+	await page.getByRole("textbox").fill(presetTitle);
+	await page.getByRole("button", { name: enUS.labels.hue.red }).click();
+	await page
+		.getByRole("button", { name: enUS.labels.add, exact: true })
+		.click();
+	await expect(page.getByText(presetTitle)).toBeVisible();
+
+	// One with a custom colour, typed as a hex into the field the pencil
+	// swatch opens. Stored exactly as picked; the clamp happens at draw time.
+	await page.getByRole("button", { name: enUS.labels.newLabel }).click();
+	await page.getByRole("textbox").fill(customTitle);
+	await page.getByRole("button", { name: enUS.labels.customColour }).click();
+	await page.getByRole("textbox").nth(1).fill("#3366cc");
+	await page
+		.getByRole("button", { name: enUS.labels.add, exact: true })
+		.click();
+	await expect(page.getByText(customTitle)).toBeVisible();
+
+	const preset = await labelByTitle(presetTitle);
+	const custom = await labelByTitle(customTitle);
+	expect(custom.color).toBe("#3366cc");
+
+	// And one lands on a real card, through the card menu's picker. The dot
+	// this draws is judged by eye; what is proved here is that the write is
+	// the one the model layer says it is.
+	const title = `${PREFIX}labelled card`;
+	await gotoAndSettle(page, BOARD);
+	await addCardFromFab(page, title);
+
+	const anchor = page
+		.locator(CARD, { hasText: title })
+		.getByRole("button", { name: enUS.board.actions });
+	await clickMenuItem(page, anchor, enUS.board.labels);
+	await page.getByRole("checkbox", { name: presetTitle }).click();
+	await page.getByRole("button", { name: enUS.common.dismiss }).click();
+
+	const id = await waitForNodeIdByTitle(title);
+	await expect
+		.poll(async () => (await nodeFields(id)).labelIds, { timeout: 30_000 })
+		.toContain(preset.id);
 });

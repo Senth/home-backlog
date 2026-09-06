@@ -401,6 +401,7 @@ export function planBulk(context: BulkContext): BulkPlan {
 			dueDate: node.dueDate ?? null,
 			priority: node.priority ?? null,
 			blockedBy: node.blockedBy ?? [],
+			labelIds: node.labelIds ?? [],
 			notes: node.notes ?? "",
 			checklist: node.checklist ?? [],
 			effort: node.effort ?? null,

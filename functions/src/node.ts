@@ -86,6 +86,14 @@ export const maxNotesLength = 10000;
 export const maxChecklistItems = 200;
 export const maxPhotos = 50;
 
+/**
+ * How many labels one card may carry, mirrored from `models/label.ts`'s
+ * `maxLabelsPerNode` — a duplicated bound, not duplicated code, for the same
+ * reason `maxKeyNameLength` is stated on both sides. It is what the card
+ * face's gutter is built around.
+ */
+export const maxLabelsPerNode = 6;
+
 /** `'YYYY-MM-DD'` — a calendar day, not an instant. */
 export const dueDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 

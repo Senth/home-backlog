@@ -65,6 +65,12 @@ export interface NodeBody {
 	 * able to change who can see a household's work.
 	 */
 	participantIds?: string[];
+	/**
+	 * The ids of the home's label definitions the card carries. The
+	 * definitions themselves are curated in the app — there is no field a
+	 * caller could send that writes one, and no verb that lists them.
+	 */
+	labelIds?: string[];
 }
 
 /** Fields a caller may send when creating a node. */
@@ -81,6 +87,7 @@ const createFields = [
 	"parentId",
 	"visibility",
 	"participantIds",
+	"labelIds",
 ] as const;
 
 /**
@@ -108,6 +115,7 @@ const updateFields = [
 	"blockedBy",
 	"checklist",
 	"parentId",
+	"labelIds",
 ] as const;
 
 function refuse(code: string, message: string, field: string): never {
@@ -255,6 +263,9 @@ export function parseNodeBody(
 	}
 	if ("participantIds" in raw) {
 		parsed.participantIds = asStringList(raw.participantIds, "participantIds");
+	}
+	if ("labelIds" in raw) {
+		parsed.labelIds = asStringList(raw.labelIds, "labelIds");
 	}
 
 	return parsed;

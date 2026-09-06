@@ -81,6 +81,7 @@ describe("a node on the wire", () => {
 		priority: "high",
 		effort: "evening",
 		blockedBy: [],
+		labelIds: ["label-1", "label-2"],
 		notes: "Brackets are in the shed.",
 		checklist: [{ id: "c1", text: "Buy brackets", done: false }],
 		photos: [],
