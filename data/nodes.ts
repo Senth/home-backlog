@@ -1,4 +1,6 @@
 import {
+	arrayRemove,
+	arrayUnion,
 	collection,
 	type DocumentData,
 	type DocumentReference,
@@ -535,6 +537,40 @@ export function updateNode(
 ): Promise<void> {
 	return updateDoc(nodeRef(homeId, nodeId), {
 		...changes,
+		updatedAt: serverTimestamp(),
+	});
+}
+
+/*
+ * The labels a card carries directly (#100). Written as **transforms**, not as
+ * the whole array from a caller's snapshot: `arrayUnion` and `arrayRemove` are
+ * server-side and commute, so two people toggling labels at once — or one
+ * person tapping twice before the listener has caught up — cannot drop a label
+ * the other write applied. The rules still cap the list at six, the picker
+ * refuses to exceed it, and an id whose definition is gone rides along
+ * harmlessly.
+ */
+
+/** Puts one label on a card; a label already there is left as it is. */
+export function applyLabel(
+	homeId: string,
+	nodeId: string,
+	labelId: string,
+): Promise<void> {
+	return updateDoc(nodeRef(homeId, nodeId), {
+		labelIds: arrayUnion(labelId),
+		updatedAt: serverTimestamp(),
+	});
+}
+
+/** Takes one label off a card; a label not there leaves the rest alone. */
+export function removeLabel(
+	homeId: string,
+	nodeId: string,
+	labelId: string,
+): Promise<void> {
+	return updateDoc(nodeRef(homeId, nodeId), {
+		labelIds: arrayRemove(labelId),
 		updatedAt: serverTimestamp(),
 	});
 }

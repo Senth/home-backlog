@@ -7,10 +7,10 @@ import {
 /**
  * Material 3 palettes for Home Backlog.
  *
- * Green is the brand colour, deliberately unlike the sibling project's purple
+ * Green is the brand color, deliberately unlike the sibling project's purple
  * so the two apps are distinguishable in a tab strip or app switcher. It also
  * leaves red and amber free to mean *overdue* and *waiting* on a board, which
- * matters once seven statuses need colours.
+ * matters once seven statuses need colors.
  *
  * `warning` and `success` are additions, not part of MD3. They are read through
  * `useAppTheme()` below, which carries their types; plain `useTheme()` from
@@ -59,7 +59,7 @@ const neutral = {
 } as const;
 
 /**
- * Paper's elevation levels are opaque colours rather than shadows on web, so
+ * Paper's elevation levels are opaque colors rather than shadows on web, so
  * they are part of the ramp too. Levels 4 and 5 are left as Paper ships them:
  * `elevation` in `tokens.ts` stops at `high: 3`, so nothing in this app can
  * reach them.
@@ -82,7 +82,7 @@ const darkElevation = {
  * The board's own surfaces, named once and read everywhere they matter.
  *
  * The rule they encode is **column recessed, page in the middle, card raised**,
- * in both schemes. Before this, a dark card was `surface` — the same colour as
+ * in both schemes. Before this, a dark card was `surface` — the same color as
  * the page — on a column of `elevation.level1`, so the board read dark → grey →
  * dark with the card darker than the thing it sat on.
  *
@@ -111,6 +111,83 @@ const darkBoard = {
 	boardCardBorder: "#636C64",
 	onCardMuted: "#98A199",
 };
+
+/**
+ * The label palette (#100) — the identity colors. A label is an icon plus a
+ * color; the icon carries the identity and the color accelerates it, which is
+ * what makes a twelfth of the space a hue can live in safe: two labels whose
+ * hues collide under deuteranopia still have different glyphs.
+ *
+ * Twelve named hues, both schemes explicit — a hue that exists only in light is
+ * not a token — and each scheme shipping its own on-color for the glyph inside
+ * the dot. Seeded from Tailwind's 200 tone in light and its 900 tone in dark
+ * (stone takes its 800 in dark, where 900 is indistinguishable from the card),
+ * with the opposite tone as the on-color; every pair clears 4.5:1 in both
+ * schemes. Anything else a household wants is a custom color, stored raw and
+ * clamped at render by `models/label-color.ts`.
+ *
+ * Identity only. No ramp of these means *more* — that is `priorityRamp`'s job —
+ * and none of them is more saturated than `primaryContainer`, so the way
+ * forward stays the loudest shape on a board full of labels.
+ */
+export const labelHues = {
+	red: {
+		light: { fill: "#FECACA", on: "#7F1D1D" },
+		dark: { fill: "#7F1D1D", on: "#FECACA" },
+	},
+	orange: {
+		light: { fill: "#FED7AA", on: "#7C2D12" },
+		dark: { fill: "#7C2D12", on: "#FED7AA" },
+	},
+	amber: {
+		light: { fill: "#FDE68A", on: "#78350F" },
+		dark: { fill: "#78350F", on: "#FDE68A" },
+	},
+	lime: {
+		light: { fill: "#D9F99D", on: "#365314" },
+		dark: { fill: "#365314", on: "#D9F99D" },
+	},
+	green: {
+		light: { fill: "#BBF7D0", on: "#14532D" },
+		dark: { fill: "#14532D", on: "#BBF7D0" },
+	},
+	teal: {
+		light: { fill: "#99F6E4", on: "#134E4A" },
+		dark: { fill: "#134E4A", on: "#99F6E4" },
+	},
+	cyan: {
+		light: { fill: "#A5F3FC", on: "#164E63" },
+		dark: { fill: "#164E63", on: "#A5F3FC" },
+	},
+	blue: {
+		light: { fill: "#BFDBFE", on: "#1E3A8A" },
+		dark: { fill: "#1E3A8A", on: "#BFDBFE" },
+	},
+	indigo: {
+		light: { fill: "#C7D2FE", on: "#312E81" },
+		dark: { fill: "#312E81", on: "#C7D2FE" },
+	},
+	purple: {
+		light: { fill: "#E9D5FF", on: "#581C87" },
+		dark: { fill: "#581C87", on: "#E9D5FF" },
+	},
+	pink: {
+		light: { fill: "#FBCFE8", on: "#831843" },
+		dark: { fill: "#831843", on: "#FBCFE8" },
+	},
+	stone: {
+		light: { fill: "#E7E5E4", on: "#44403C" },
+		dark: { fill: "#44403C", on: "#E7E5E4" },
+	},
+} as const;
+
+export type LabelHueName = keyof typeof labelHues;
+
+/**
+ * The hue a new label starts on (#100). A default from the middle of the set
+ * reads as a choice; the first swatch would read as a bug nobody fixed.
+ */
+export const defaultLabelHue: LabelHueName = "blue";
 
 const lightColors = {
 	...MD3LightTheme.colors,
@@ -213,7 +290,7 @@ export type AppTheme = typeof lightTheme;
 export const useAppTheme = () => usePaperTheme<AppTheme>();
 
 /**
- * The browser tab / status bar colour per scheme. Kept next to the palettes so
+ * The browser tab / status bar color per scheme. Kept next to the palettes so
  * `app/+html.tsx` and `app.json` cannot drift away from `primary`.
  */
 export const themeColor = {

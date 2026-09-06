@@ -55,15 +55,22 @@ auth = "click 'Continue with Google' -> marcus@example.com -> home 'Huset'"
 ready = "Huset"
 
 # What `.emulator-seed` holds, so an empty screen is judged and not reported:
-# eighteen nodes, all under Huset, across Backlog / Next Up / Execution / Done —
-# **Stugan is empty on purpose**. Sixteen have no due date and no priority and
+# eighteen nodes across Backlog / Next Up / Execution / Done — sixteen under
+# Huset and two under Stugan, those two without a due date, a priority or
+# notes. Fifteen of the eighteen have no due date and no priority, and
 # fifteen have no notes, so anything surfacing "overdue" or "due soon" is
-# legitimately empty. There are **no `recurring` and no `locations` documents at
-# all**: the maintenance screen and the location tree are empty by construction,
-# which is the cold-start shape. Two accounts — Marcus / marcus@example.com and
-# Anna Maria Berg / anna@example.com — one pending invite, two API keys, no
-# attachments. Whether an empty state explains itself is still fair game;
-# reporting the emptiness as data loss is not.
+# legitimately empty. Huset holds **six
+# label definitions, all preset hues** (#100), and two of its cards carry
+# labels: "Renovera badrummet" has a priority and **all six** — the
+# full-gutter shape the card face is built around — and "Beställ en tystare
+# fläkt" carries one; no label is a custom color, so the palette sweep can
+# enumerate everything a labelled card paints. There are **no `recurring` and
+# no `locations` documents at all**: the maintenance screen and the location
+# tree are empty by construction, which is the cold-start shape. Two accounts
+# — Marcus / marcus@example.com and Anna Maria Berg / anna@example.com — one
+# pending invite, two API keys, no attachments. Whether an empty state
+# explains itself is still fair game; reporting the emptiness as data loss is
+# not.
 
 [design]
 # The contract and the values it is written against. `theme/tokens.ts` is ground

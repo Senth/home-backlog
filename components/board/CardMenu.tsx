@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ScrollView, View } from "react-native";
 import { IconButton, Menu, Text } from "react-native-paper";
 import { TitleDialog } from "@/components/board/TitleDialog";
+import { LabelPicker } from "@/components/label/LabelPicker";
 import { BlockerSearchDialog } from "@/components/node/BlockerSearchDialog";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { useAuth } from "@/contexts/AuthContext";
@@ -91,6 +92,7 @@ export function CardMenu({
 	const [renaming, setRenaming] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const [searching, setSearching] = useState(false);
+	const [labelling, setLabelling] = useState(false);
 	const anchor = useRef<View | null>(null);
 	/**
 	 * How tall the root page is, which is the only height Paper ever measured.
@@ -349,6 +351,14 @@ export function CardMenu({
 							onPress={() => setPage("waiting")}
 						/>
 						<Menu.Item
+							leadingIcon="label-multiple-outline"
+							title={t("board.labels")}
+							onPress={() => {
+								close();
+								setLabelling(true);
+							}}
+						/>
+						<Menu.Item
 							leadingIcon="pencil-outline"
 							title={t("board.rename")}
 							onPress={() => {
@@ -534,6 +544,16 @@ export function CardMenu({
 					onPick={(id) => toggleBlocker(id, true)}
 					onUnpick={(id) => toggleBlocker(id, false)}
 					testID={`blocker-search-${node.id}`}
+					returnFocusTo={anchor}
+				/>
+			) : null}
+
+			{labelling ? (
+				<LabelPicker
+					homeId={homeId}
+					node={node}
+					onDismiss={() => setLabelling(false)}
+					testID={`label-picker-${node.id}`}
 					returnFocusTo={anchor}
 				/>
 			) : null}

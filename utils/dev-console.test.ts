@@ -23,6 +23,8 @@ const REAL_MESSAGES = {
 	shadowStyles: '"shadow*" style props are deprecated. Use "boxShadow".',
 	useNativeDriver:
 		"Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation. To resolve this, add `RCTAnimation` module to this app, or remove `useNativeDriver`. Make sure to run `bundle exec pod install` first. Read more about autolinking: https://github.com/react-native-community/cli/blob/master/docs/autolinking.md",
+	touchableWithoutFeedback:
+		"TouchableWithoutFeedback is deprecated. Please use Pressable.",
 } as const;
 
 /**
@@ -41,6 +43,9 @@ const UPSTREAM: Record<keyof typeof REAL_MESSAGES, string> = {
 	),
 	useNativeDriver: require.resolve(
 		"react-native-web/dist/vendor/react-native/Animated/NativeAnimatedHelper.js",
+	),
+	touchableWithoutFeedback: require.resolve(
+		"react-native-web/dist/exports/TouchableWithoutFeedback/index.js",
 	),
 };
 
@@ -155,13 +160,16 @@ describe("isKnownFrameworkWarning", () => {
 		expect(
 			isKnownFrameworkWarning([REAL_MESSAGES.useNativeDriver], native),
 		).toBe(false);
-		// The two real react-native-web deprecations stay filtered everywhere.
+		// The three real react-native-web deprecations stay filtered everywhere.
 		expect(isKnownFrameworkWarning([REAL_MESSAGES.shadowStyles], native)).toBe(
 			true,
 		);
 		expect(isKnownFrameworkWarning([REAL_MESSAGES.pointerEvents], native)).toBe(
 			true,
 		);
+		expect(
+			isKnownFrameworkWarning([REAL_MESSAGES.touchableWithoutFeedback], native),
+		).toBe(true);
 	});
 
 	it("passes a non-string first argument", () => {
@@ -296,7 +304,7 @@ describe("module scope", () => {
 			require("@/utils/dev-console") as typeof import("@/utils/dev-console");
 
 		// `index.ts` imports the module for the side effect and nothing else, so
-		// the self-install is the behaviour the app depends on: the import
+		// the self-install is the behavior the app depends on: the import
 		// itself must have swapped `console.warn`.
 		expect(console.warn).not.toBe(original);
 

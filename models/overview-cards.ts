@@ -234,7 +234,7 @@ export interface MatchContext {
 	 * blocker keeps its entry as inert history. A blocker absent from the map
 	 * counts as unresolved, the not-yet direction everywhere else takes; with
 	 * an empty map every entry is unresolved, which is the raw-length
-	 * behaviour the condition shipped with.
+	 * behavior the condition shipped with.
 	 */
 	blockers: ReadonlyMap<string, Node | null>;
 }

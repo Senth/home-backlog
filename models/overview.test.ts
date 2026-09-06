@@ -56,6 +56,7 @@ function node(overrides: Partial<Node> = {}): Node {
 		dueDate: null,
 		priority: null,
 		blockedBy: [],
+		labelIds: [],
 		notes: "",
 		checklist: [],
 		effort: null,

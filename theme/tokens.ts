@@ -3,7 +3,7 @@
  *
  * This project has no Tailwind and no utility classes, so nothing else stops a
  * `padding: 15` from drifting in next to a `padding: 16`. The rule that
- * replaces it: no numeric literal ever appears in a style prop, and no colour
+ * replaces it: no numeric literal ever appears in a style prop, and no color
  * literal appears outside `theme/`. See `CLAUDE.md`.
  */
 
@@ -44,7 +44,7 @@ export const elevation = {
 /**
  * How wide a block of content is allowed to grow before it stops. A form
  * stretched across a desktop monitor is a form nobody can read — the eye loses
- * the line — so it clamps and centres instead. Below the clamp it simply fills
+ * the line — so it clamps and centers instead. Below the clamp it simply fills
  * the screen.
  */
 export const contentWidth = {
@@ -89,6 +89,33 @@ export const size = {
 	 * read as a mark rather than a badge, large enough to survive a dark theme.
 	 */
 	dot: 8,
+	/**
+	 * One dot in the card's left gutter (#100) — the priority glyph's dot and a
+	 * label dot are the same size, so a gutter mixing both reads as one column of
+	 * marks. The glyph inside it is `icon.sm`.
+	 */
+	labelDot: 20,
+	/**
+	 * The card's left gutter (#100), which carries the priority glyph and the
+	 * label dots. Narrowed below `cardGutterBreakpoint`, where the same 36px is
+	 * a fifth of the card before the title has had a word.
+	 */
+	cardGutter: 36,
+	cardGutterNarrow: 28,
+	/**
+	 * The card's right gutter (#100): the menu at the top, the assignees and the
+	 * step count anchored to the foot. It disappears below
+	 * `cardGutterBreakpoint`, where the menu floats in the card's corner
+	 * instead and the people and the count join the content as a trailing
+	 * line.
+	 *
+	 * 44 rather than the 40 the settled card face was first written with: the
+	 * step count's glyph and its `2/5` measure almost exactly 40, and a mark
+	 * that wide in a rail that wide lands flush against the card's rounded
+	 * edge — the review that settled the face reproduced it. Four more give
+	 * the foot room to sit inside the card.
+	 */
+	cardRail: 44,
 } as const;
 
 /**
@@ -125,7 +152,7 @@ export const indent = {
 } as const;
 
 /**
- * The FAB's footprint. The one primary action per surface earns its colour,
+ * The FAB's footprint. The one primary action per surface earns its color,
  * and what it must not take is room: at 200% text a full-label FAB once
  * spanned 91.8% of a 195px window — essentially the whole screen. Capped at
  * this share of the width it is laid out in, the label wraps and the words
@@ -191,6 +218,44 @@ export const touchTargetStyle = {
 export const outlinedTouchTarget = touchTarget + border.hairline * 2;
 
 /**
+ * WCAG 2.5.8's target-size floor, and the smallest a **mark** may be.
+ * `touchTarget` (48) is Material's and this project's floor for a *control*;
+ * 24 is the absolute floor below which nothing tappable may go.
+ */
+export const markTargetMinimum = 24;
+
+/**
+ * The touch box around a **mark** — a label dot in the card gutter, not a
+ * control. It is the gutter it actually sits in, by the dot stack's own pitch,
+ * so each mark owns one band of that column exactly: no overlap with the mark
+ * above or below, and no spill sideways into the card body, where the card's
+ * own `onPress` would win the tap.
+ *
+ * **It takes the gutter's width, so it must be told which gutter.** The gutter
+ * narrows to `size.cardGutterNarrow` below `cardGutterBreakpoint`; a box fixed
+ * at the wide width spills ~3.5px over the card there and hands those taps to
+ * the card. The hairline comes off because the gutter's border is drawn inside
+ * its own width, so the content box is that much narrower.
+ *
+ * **A mark does not get `touchTarget`, and cannot.** Six 20px dots on a
+ * `space.xs` pitch put 24px between their centers; a 48px box around each one
+ * overlaps its neighbour by 24px, and the later sibling wins the hit test — a
+ * tap on one dot opens the next one's disclosure. That was measured in a real
+ * browser, not reasoned about. The floor a mark can honestly hold is its own
+ * pitch, which meets `markTargetMinimum`; the tap is a convenience over the
+ * hover tooltip either way, and nothing in the app is reachable only by it.
+ *
+ * React Native Web's `Pressable` drops `hitSlop`, so the box is a real box and
+ * negative margins hand the room back to the flow.
+ */
+export function markTouch(gutterWidth: number) {
+	return {
+		width: gutterWidth - border.hairline,
+		height: size.labelDot + space.xs,
+	} as const;
+}
+
+/**
  * Line height for a `SegmentedButtons` label, and the only way to make that
  * control meet `touchTarget`.
  *
@@ -238,6 +303,33 @@ export const appBarStackBreakpoint = 360;
  * which is exactly when a label most needs somewhere to wrap into.
  */
 export const denseBreakpoint = 320;
+
+/**
+ * Width below which a card's left gutter gives up room it does not have (#100):
+ * the gutter narrows, the right gutter disappears and the menu floats in the
+ * card's top-right corner. A 390px phone at 200 % text is a 195px viewport, so
+ * the gutter's 36px is a fifth of the card before the title has had a word.
+ */
+export const cardGutterBreakpoint = 250;
+
+/**
+ * The priority ramp's ordinal glyphs and colors (#100), indexed with
+ * `priorityOrder` from `models/node.ts` — low, normal, high, urgent.
+ *
+ * The dot is the ramp color with its glyph knocked out in `on`, the way a
+ * label dot is filled with its hue and carries its own on-color. Blue carries
+ * low so the bottom step is not another grey among greys, and urgent holds one
+ * notch of red back from the overdue amber: a color here may say *more*,
+ * never *how you should feel*, and overdue must stay the loudest thing the
+ * footer can say. `docs/DESIGN.md` still describes the older single-hue ramp;
+ * #100's documentation pass replaces that section.
+ */
+export const priorityRamp = [
+	{ glyph: "thermometer-chevron-down", color: "#4F6BA8", on: "#FFFFFF" },
+	{ glyph: "thermometer", color: "#636C64", on: "#FFFFFF" },
+	{ glyph: "thermometer-chevron-up", color: "#CC6565", on: "#FFFFFF" },
+	{ glyph: "fire", color: "#A32E28", on: "#FFFFFF" },
+] as const;
 
 export type Space = keyof typeof space;
 export type Radius = keyof typeof radius;

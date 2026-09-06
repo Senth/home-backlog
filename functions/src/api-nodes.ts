@@ -123,6 +123,8 @@ export interface ApiNode {
 	priority: Priority | null;
 	effort: Effort | null;
 	blockedBy: string[];
+	/** The ids of the home's label definitions this card carries (#100). */
+	labelIds: string[];
 	notes: string;
 	checklist: unknown[];
 	photos: unknown[];
@@ -167,6 +169,7 @@ export function apiNode(id: string, data: Record<string, unknown>): ApiNode {
 		priority: oneOfOrNull<Priority>(data.priority, priorities),
 		effort: oneOfOrNull<Effort>(data.effort, efforts),
 		blockedBy: strings(data.blockedBy),
+		labelIds: strings(data.labelIds),
 		notes: stringOr(data.notes, ""),
 		checklist: Array.isArray(data.checklist) ? data.checklist : [],
 		photos: Array.isArray(data.photos) ? data.photos : [],

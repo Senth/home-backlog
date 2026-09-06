@@ -6,6 +6,7 @@ import { ScrollView, useWindowDimensions, View } from "react-native";
 import {
 	ActivityIndicator,
 	Appbar,
+	Button,
 	Menu,
 	Snackbar,
 	Text,
@@ -13,6 +14,8 @@ import {
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { boardHref, goneHref } from "@/components/board/board-href";
 import { TitleDialog } from "@/components/board/TitleDialog";
+import { LabelGlyph } from "@/components/label/LabelGlyph";
+import { LabelPicker } from "@/components/label/LabelPicker";
 import { ChoiceField } from "@/components/node/ChoiceField";
 import { DueDateField } from "@/components/node/DueDateField";
 import { FlipDialog, useFlip } from "@/components/node/FlipDialog";
@@ -33,6 +36,7 @@ import {
 	appBarStackBreakpoint,
 	contentWidth,
 	space,
+	touchTarget,
 	touchTargetStyle,
 } from "@/theme/tokens";
 
@@ -92,6 +96,7 @@ export default function NodeDetails() {
 	const [failed, setFailed] = useState(false);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [renaming, setRenaming] = useState(false);
+	const [labelling, setLabelling] = useState(false);
 	const menuAnchor = useRef<View | null>(null);
 
 	// Stable so Paper keeps its Escape handler — see `components/board/CardMenu.tsx`.
@@ -228,6 +233,59 @@ export default function NodeDetails() {
 						value={node.dueDate}
 						onChange={(dueDate) => save({ dueDate })}
 					/>
+
+					{/* Which group this work belongs to — the card's own labels, the
+					    ones this screen can put on and take off. Labels the trail
+					    passes down are not offered here: they are true of the card but
+					    not *of this control*, and un-picking one here would be a lie
+					    about the project above. */}
+					{homeId === null ? null : (
+						<View style={{ gap: space.sm }}>
+							<Text
+								variant="labelLarge"
+								style={{ color: theme.colors.onSurfaceVariant }}
+							>
+								{t("detail.labels")}
+							</Text>
+							<View
+								style={{
+									flexDirection: "row",
+									alignItems: "center",
+									flexWrap: "wrap",
+									gap: space.sm,
+								}}
+							>
+								{(activeHome?.labels ?? [])
+									.filter((label) => node.labelIds.includes(label.id))
+									.map((label) => (
+										<LabelGlyph
+											key={label.id}
+											color={label.color}
+											icon={label.icon}
+										/>
+									))}
+								<Button
+									mode="outlined"
+									onPress={() => setLabelling(true)}
+									contentStyle={{ minHeight: touchTarget }}
+								>
+									{node.labelIds.length === 0
+										? t("detail.labelsAdd")
+										: t("detail.labelsChange")}
+								</Button>
+							</View>
+
+							{/* Mounted only while open — see `CardMenu`'s dialogs. */}
+							{labelling ? (
+								<LabelPicker
+									homeId={homeId}
+									node={node}
+									onDismiss={() => setLabelling(false)}
+									testID={`label-picker-${node.id}`}
+								/>
+							) : null}
+						</View>
+					)}
 
 					<ChoiceField
 						label={t("detail.priority")}

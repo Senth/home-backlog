@@ -5,7 +5,7 @@ import { defaultColumns, type Node, type Status } from "@/models/node";
 jest.mock("react-i18next", () => ({
 	// The keys are asserted rather than the sentences: both locale files are
 	// checked for parity by `yarn invariants`, and a test that pinned the
-	// English would fail on a rewording that is not a behaviour change.
+	// English would fail on a rewording that is not a behavior change.
 	useTranslation: () => ({
 		t: (key: string, values?: Record<string, unknown>) =>
 			values === undefined ? key : `${key}:${JSON.stringify(values)}`,
@@ -31,6 +31,7 @@ function node(overrides: Partial<Node> = {}): Node {
 		dueDate: null,
 		priority: null,
 		blockedBy: [],
+		labelIds: [],
 		notes: "",
 		checklist: [],
 		effort: null,

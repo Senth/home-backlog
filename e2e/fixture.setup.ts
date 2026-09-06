@@ -1,5 +1,8 @@
 import { test as setup } from "@playwright/test";
-import { deleteNodesByTitlePrefix } from "@/e2e/support/firestore";
+import {
+	deleteLabelsByTitlePrefix,
+	deleteNodesByTitlePrefix,
+} from "@/e2e/support/firestore";
 
 /**
  * Sweeps the fixture back to the committed seed before the suite starts.
@@ -23,6 +26,7 @@ import { deleteNodesByTitlePrefix } from "@/e2e/support/firestore";
 /** What every spec-created node's title begins with. */
 const FIXTURE_PREFIX = "E2E ";
 
-setup("clear cards left behind by an earlier run", async () => {
+setup("clear cards and labels left behind by an earlier run", async () => {
 	await deleteNodesByTitlePrefix(FIXTURE_PREFIX);
+	await deleteLabelsByTitlePrefix(FIXTURE_PREFIX);
 });

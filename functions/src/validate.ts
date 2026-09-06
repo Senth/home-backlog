@@ -5,6 +5,7 @@ import {
 	type Effort,
 	efforts,
 	maxChecklistItems,
+	maxLabelsPerNode,
 	maxNotesLength,
 	maxPhotos,
 	maxTitleLength,
@@ -214,6 +215,25 @@ function fieldIssues(data: Record<string, unknown>): ValidationIssue[] {
 			"invalid_blocked_by",
 			"blockedBy must be a list of node ids.",
 		);
+	}
+
+	// The labels a card carries directly (#100). Present-only, exactly as the
+	// rules have it: every node written before #100 lacks the key, and this
+	// validates the full post-write document, so requiring it would deny every
+	// update to them. The ids are not checked against the home's `labels` map —
+	// that would cost a read per node and buy nothing a stale id does not
+	// already survive in the app, where a deleted definition resolves to
+	// nothing and renders nothing.
+	if ("labelIds" in data) {
+		if (!isStringList(data.labelIds)) {
+			add("labelIds", "invalid_labels", "labelIds must be a list of ids.");
+		} else if (data.labelIds.length > maxLabelsPerNode) {
+			add(
+				"labelIds",
+				"too_many_labels",
+				`A card carries at most ${maxLabelsPerNode} labels.`,
+			);
+		}
 	}
 
 	if (!oneOf<Visibility>(data.visibility, visibilities)) {

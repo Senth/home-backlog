@@ -22,6 +22,7 @@ function home(overrides: Partial<Home> = {}): Home {
 			"uid-b": { displayName: "Nadia", photoURL: null },
 		},
 		memberEmailHashes: {},
+		labels: [],
 		createdAt: null,
 		createdBy: "uid-a",
 		...overrides,
@@ -165,7 +166,7 @@ describe("inviteProblem", () => {
 		expect(check("ingrid")).toEqual({ key: "invite.invalidEmail" });
 	});
 
-	it("recognises your own address before it recognises a member's", () => {
+	it("recognizes your own address before it recognizes a member's", () => {
 		// You are also a member, and "you are already in this home" answers a
 		// question nobody asked.
 		expect(check(marcus)).toEqual({ key: "invite.selfError" });

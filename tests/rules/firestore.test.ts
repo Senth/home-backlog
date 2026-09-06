@@ -4,6 +4,8 @@ import {
 	type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
 import {
+	arrayRemove,
+	arrayUnion,
 	collection,
 	collectionGroup,
 	deleteDoc,
@@ -21,6 +23,7 @@ import {
 	where,
 	writeBatch,
 } from "firebase/firestore";
+import { toHex } from "@/models/label-color";
 import {
 	createTestEnv,
 	dbAnon,
@@ -267,6 +270,59 @@ describe("homes/{homeId}", () => {
 				updateDoc(doc(dbAs(env, user), homePath), {
 					[`memberEmailHashes.${user.uid}`]: emailHash(OUTSIDER.email),
 				}),
+			);
+		});
+	});
+
+	describe("the labels map", () => {
+		/** One label definition, in the shape the app writes. */
+		function labelEntry(): Record<string, unknown> {
+			return {
+				title: "Electrical",
+				icon: "bolt",
+				color: toHex([0xa3, 0x2e, 0x28]),
+				rank: "a0",
+			};
+		}
+
+		beforeEach(seedHome);
+
+		it("lets a member write the map", async () => {
+			// The Labels screen edits the home document, and every member may
+			// curate the household's set — same grant as renaming the home.
+			await assertSucceeds(
+				updateDoc(doc(dbAs(env, MEMBER), homePath), {
+					labels: { bolt: labelEntry() },
+				}),
+			);
+		});
+
+		it("refuses a labels value that is not a map", async () => {
+			const db = dbAs(env, MEMBER);
+
+			await assertFails(updateDoc(doc(db, homePath), { labels: "bolt" }));
+			await assertFails(
+				updateDoc(doc(db, homePath), { labels: [labelEntry()] }),
+			);
+		});
+
+		it("refuses a map past the cap", async () => {
+			const labels: Record<string, unknown> = {};
+			for (let index = 0; index < 51; index += 1) {
+				labels[`label-${index}`] = labelEntry();
+			}
+
+			await assertFails(
+				updateDoc(doc(dbAs(env, MEMBER), homePath), { labels }),
+			);
+		});
+
+		it("leaves a home written before the key existed updatable", async () => {
+			// Why the field is validated present-only: request.resource.data is
+			// the full post-update document, so requiring it would deny every
+			// later update to homes that predate #100.
+			await assertSucceeds(
+				updateDoc(doc(dbAs(env, MEMBER), homePath), { name: "Renamed" }),
 			);
 		});
 	});
@@ -1065,6 +1121,126 @@ describe("homes/{homeId}/nodes", () => {
 				await assertSucceeds(
 					updateDoc(doc(dbAs(env, MEMBER), sharedPath), {
 						doneCount: increment(-1),
+					}),
+				);
+			});
+		});
+
+		describe("labelIds", () => {
+			beforeEach(seedHome);
+
+			it("accepts a card carrying up to six label ids", async () => {
+				await assertSucceeds(
+					create(dbAs(env, MEMBER), "six-labels", {
+						labelIds: ["a", "b", "c", "d", "e", "f"],
+					}),
+				);
+			});
+
+			it("refuses a seventh", async () => {
+				// The picker refuses a seventh and the gutter is built for six; the
+				// rules hold the same line against the REST API (#7).
+				await assertFails(
+					create(dbAs(env, MEMBER), "seven-labels", {
+						labelIds: ["a", "b", "c", "d", "e", "f", "g"],
+					}),
+				);
+			});
+
+			it("refuses a labelIds that is not a list", async () => {
+				await assertFails(
+					create(dbAs(env, MEMBER), "bad-labels", { labelIds: "bolt" }),
+				);
+			});
+
+			it("lets a node written before the field existed be updated", async () => {
+				// The reason the field is validated present-only — the same trap
+				// assigneeIds dodged: request.resource.data is the full post-update
+				// document, so requiring it would deny every update to an older
+				// node, including the childCount bump that adding a step performs.
+				await seed(env, async (db) => {
+					const data = nodeDoc();
+					delete data.labelIds;
+					await setDoc(doc(db, nodesPath, "elderly"), data);
+				});
+
+				const db = dbAs(env, MEMBER);
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "elderly"), {
+						childCount: increment(1),
+					}),
+				);
+				// And it gains the field the first time anything writes it.
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "elderly"), {
+						labelIds: ["bolt"],
+					}),
+				);
+			});
+			it("keeps a card updatable when its label's definition is deleted", async () => {
+				// deleteLabel removes only the home's definition; the rules cannot
+				// cross-read it, and nothing needs them to — a node still naming
+				// the gone id updates as ever, and the id renders as nothing.
+				await seed(env, async (db) => {
+					await setDoc(
+						doc(db, nodesPath, "stale"),
+						nodeDoc({ labelIds: ["ghost"] }),
+					);
+				});
+
+				const db = dbAs(env, MEMBER);
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "stale"), { title: "Renamed" }),
+				);
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "stale"), {
+						labelIds: ["ghost", "bolt"],
+					}),
+				);
+			});
+
+			/**
+			 * The picker writes with `arrayUnion` / `arrayRemove`, whose results
+			 * commute — two people picking at once cannot drop a label. The rules
+			 * engine evaluates the transform's *result*, so the cap still reads
+			 * the list the write would leave behind.
+			 */
+			it("accepts an arrayUnion the cap survives, and refuses one that breaks it", async () => {
+				await seed(env, async (db) => {
+					await setDoc(
+						doc(db, nodesPath, "full-ish"),
+						nodeDoc({ labelIds: ["a", "b", "c", "d", "e"] }),
+					);
+					await setDoc(
+						doc(db, nodesPath, "full"),
+						nodeDoc({ labelIds: ["a", "b", "c", "d", "e", "f"] }),
+					);
+				});
+
+				const db = dbAs(env, MEMBER);
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "full-ish"), {
+						labelIds: arrayUnion("g"),
+					}),
+				);
+				await assertFails(
+					updateDoc(doc(db, nodesPath, "full"), {
+						labelIds: arrayUnion("g"),
+					}),
+				);
+			});
+
+			it("accepts an arrayRemove", async () => {
+				await seed(env, async (db) => {
+					await setDoc(
+						doc(db, nodesPath, "labelled"),
+						nodeDoc({ labelIds: ["a", "b"] }),
+					);
+				});
+
+				await assertSucceeds(
+					updateDoc(doc(dbAs(env, MEMBER), nodesPath, "labelled"), {
+						labelIds: arrayRemove("a"),
 					}),
 				);
 			});

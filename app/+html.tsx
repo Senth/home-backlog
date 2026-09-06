@@ -9,7 +9,7 @@ import { focusVisibleCss } from "@/theme/focus-visible";
  *
  * Based on Expo Router's default shell — `ScrollViewStyleReset` and the base
  * metas have to stay, or the root `ScrollView` loses native parity. Everything
- * else here is the PWA layer: manifest, icons, and theme colours.
+ * else here is the PWA layer: manifest, icons, and theme colors.
  */
 export default function Root({ children }: PropsWithChildren) {
 	return (

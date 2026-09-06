@@ -9,7 +9,7 @@ export interface DragPoint {
 /**
  * Shared by the web and native `DragArea`, which are separate files.
  *
- * The two platforms recognise the gesture in genuinely different ways rather
+ * The two platforms recognize the gesture in genuinely different ways rather
  * than in two spellings of the same way — see the comment at the top of each —
  * so this is the only thing they have in common: a card was picked up, it
  * moved, and it was either put down or taken away.

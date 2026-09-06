@@ -157,7 +157,7 @@ export function DragArea({
 		};
 
 		/**
-		 * React Native Web recognises a press through its *responder* system,
+		 * React Native Web recognizes a press through its *responder* system,
 		 * which listens on `document` for the mouse and touch events the browser
 		 * sends alongside pointer events. Held here, in the capture phase, so it
 		 * never reaches that system while a card is up — otherwise the release

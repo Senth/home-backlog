@@ -22,6 +22,7 @@ import {
 	fab,
 	focusRing,
 	icon,
+	markTargetMinimum,
 	outlinedTouchTarget,
 	radius,
 	segmentedLabelLineHeight,
@@ -46,7 +47,7 @@ import {
  *
  * Everything here runs in both locales and at both viewports — Swedish words
  * are longer, and above `compactBreakpoint` the board is a different layout
- * rather than a wider one. The colour-scheme axis is narrower on purpose: only
+ * rather than a wider one. The color-scheme axis is narrower on purpose: only
  * the palette sweep runs in the dark, because that is the only measurement in
  * this file a palette can change.
  *
@@ -107,7 +108,7 @@ import {
  *
  * `wcag2aa` carries the contrast rule, which is the one this project cares most
  * about — `colors.warning` and `colors.success` standing in for each other, or a
- * body colour that never got checked. `best-practice` is deliberately excluded:
+ * body color that never got checked. `best-practice` is deliberately excluded:
  * it flags things like "all page content should be landmarks", which is advice
  * for a document, not for an app shell that React Native Web renders as nested
  * divs. Failing on it would train everyone to ignore this spec.
@@ -149,6 +150,7 @@ const TOKEN_NUMBERS: number[] = [
 		touchTarget,
 		outlinedTouchTarget,
 		segmentedLabelLineHeight,
+		markTargetMinimum,
 		compactBreakpoint,
 		appBarStackBreakpoint,
 		denseBreakpoint,
@@ -281,6 +283,17 @@ function spacingSweep(args: {
 			const raw = style[prop];
 			// `normal` on unset gaps, `auto` on margins: neither is a length.
 			if (!raw.endsWith("px")) continue;
+			// A resolved `auto` margin reports used pixels here, not the word —
+			// the card's right gutter pins its foot with `marginTop: "auto"`, and
+			// whatever the flexbox algorithm answered is a function of the card's
+			// height, not a spacing decision. The inline style still says `auto`,
+			// and that is what it is.
+			if (
+				prop.startsWith("margin") &&
+				(element as HTMLElement).style?.[prop] === "auto"
+			) {
+				continue;
+			}
 			const value = Math.abs(Number.parseFloat(raw));
 			if (onScale.has(value)) continue;
 			if (paperExcuse(element, value)) continue;
@@ -291,9 +304,9 @@ function spacingSweep(args: {
 }
 
 /**
- * The off-palette colour sweep (claim 25), scoped to what actually paints:
+ * The off-palette color sweep (claim 25), scoped to what actually paints:
  * `color` only on an element carrying its own text, `backgroundColor` only
- * where it is not the UA default's transparent, border colours only where a
+ * where it is not the UA default's transparent, border colors only where a
  * border is actually drawn. Anything wider reports `rgb(0, 0, 0)` hundreds
  * of times for text-less divs — a scoping artefact, not a finding.
  */
@@ -472,10 +485,10 @@ async function craftFindings(
 }
 
 /**
- * The scheme axis, and the one check that is about colour.
+ * The scheme axis, and the one check that is about color.
  *
  * Only the palette changes with the scheme — `theme/tokens.ts` is where every
- * colour lives and nothing in it is a size — so contrast is the only
+ * color lives and nothing in it is a size — so contrast is the only
  * measurement below that can come out differently in the dark. The three
  * geometry checks used to run in both schemes too, which was 15 tests per
  * project asserting the same boxes twice.
@@ -507,9 +520,7 @@ for (const scheme of ["light", "dark"] as const) {
 				);
 			});
 
-			test(`25: ${route.path} only paints palette colours`, async ({
-				page,
-			}) => {
+			test(`25: ${route.path} only paints palette colors`, async ({ page }) => {
 				await gotoAndSettle(page, route);
 
 				const offenders = await page.evaluate(paletteSweep, {
@@ -518,7 +529,7 @@ for (const scheme of ["light", "dark"] as const) {
 
 				expect(
 					offenders,
-					`off-palette colour on ${route.path} (${scheme})`,
+					`off-palette color on ${route.path} (${scheme})`,
 				).toEqual([]);
 			});
 		}
@@ -615,7 +626,7 @@ for (const route of ROUTES) {
 		await gotoAndSettle(page, route);
 
 		const undersized = await page.evaluate(
-			({ selector, minimum }) => {
+			({ selector, minimum, markFloor }) => {
 				const offenders: string[] = [];
 				for (const element of Array.from(document.querySelectorAll(selector))) {
 					const box = element.getBoundingClientRect();
@@ -626,19 +637,35 @@ for (const route of ROUTES) {
 					// larger interactive ancestor is fine: the ancestor is what the
 					// thumb hits.
 					if (element.parentElement?.closest(selector) !== null) continue;
-					if (box.width < minimum || box.height < minimum) {
+					// A **mark** is held to WCAG 2.5.8's 24px instead of the 48px
+					// control floor, and only a mark: a label dot says which group a
+					// card belongs to, and its tap duplicates the hover tooltip. A
+					// `touchTarget` box around a 20px dot on a 24px pitch overlaps
+					// its neighbour and steals its tap, so it takes `markTouch` — its
+					// own band of the gutter. docs/DESIGN.md carries the exemption
+					// and its limit. It is a lower floor, never no floor: an
+					// undersized element wearing this testID still fails here.
+					const floor =
+						element.getAttribute("data-testid") === "label-mark"
+							? markFloor
+							: minimum;
+					if (box.width < floor || box.height < floor) {
 						const label =
 							element.getAttribute("aria-label") ||
 							element.textContent?.trim().slice(0, 40) ||
 							element.className;
 						offenders.push(
-							`${Math.round(box.width)}x${Math.round(box.height)} "${label}"`,
+							`${Math.round(box.width)}x${Math.round(box.height)} "${label}" (floor ${floor})`,
 						);
 					}
 				}
 				return offenders;
 			},
-			{ selector: INTERACTIVE, minimum: touchTarget },
+			{
+				selector: INTERACTIVE,
+				minimum: touchTarget,
+				markFloor: markTargetMinimum,
+			},
 		);
 
 		expect(

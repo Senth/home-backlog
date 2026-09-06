@@ -22,7 +22,7 @@ describe("chooseStrategy", () => {
 	});
 
 	it("never touches cross-origin requests", () => {
-		// Firestore, Google auth and fonts manage their own offline behaviour.
+		// Firestore, Google auth and fonts manage their own offline behavior.
 		expect(chooseStrategy({ ...GET, sameOrigin: false })).toBe("passthrough");
 	});
 

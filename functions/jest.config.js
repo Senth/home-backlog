@@ -19,7 +19,7 @@ export default {
 		"^(\\.{1,2}/.*)\\.js$": "$1",
 	},
 	// The suite is the pure modules, not the wiring: `index.ts` and `app.ts` are
-	// route tables whose behaviour is the Firestore they talk to. Without this a
+	// route tables whose behavior is the Firestore they talk to. Without this a
 	// phase that adds only wiring fails `yarn test` for having nothing to run.
 	passWithNoTests: true,
 };

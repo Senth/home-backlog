@@ -5,7 +5,7 @@ import path from "node:path";
 /**
  * `theme/index.ts`'s palettes, loaded in the Playwright process.
  *
- * The craft spec judges rendered colours against `lightTheme.colors` and
+ * The craft spec judges rendered colors against `lightTheme.colors` and
  * `darkTheme.colors`, but the process running the tests is Node — and
  * `theme/index.ts` imports `react-native-paper`, whose entry requires
  * `react-native`, whose entry is Flow, which Node cannot even parse. That is
@@ -35,7 +35,7 @@ const REACT_NATIVE_STUB = {
 };
 
 /**
- * The one colour comparison the browser speaks: `rgba(r, g, b, a)`. Hex and
+ * The one color comparison the browser speaks: `rgba(r, g, b, a)`. Hex and
  * `rgb()` from the theme files, and `rgba()` from `getComputedStyle`, all
  * arrive here before anything is compared.
  */
@@ -50,7 +50,7 @@ function canonicalColor(value: string): string {
 		const [r, g, b, a = "1"] = rgb[1].split(",").map((part) => part.trim());
 		return `rgba(${r}, ${g}, ${b}, ${Number(a)})`;
 	}
-	throw new Error(`unsupported colour value in the theme: ${value}`);
+	throw new Error(`unsupported color value in the theme: ${value}`);
 }
 
 function collectColors(node: unknown, out: Set<string>): void {
@@ -93,56 +93,97 @@ function loadPaperThemes(): { light: ThemeColors; dark: ThemeColors } {
 function loadThemeSource(): {
 	lightTheme: { colors: ThemeColors };
 	darkTheme: { colors: ThemeColors };
+	priorityRamp: readonly string[];
+	labelHues: Record<
+		string,
+		Record<"light" | "dark", { fill: string; on: string }>
+	>;
 } {
 	const ts = NODE_REQUIRE("typescript") as typeof import("typescript");
-	const source = readFileSync(
-		path.join(process.cwd(), "theme", "index.ts"),
-		"utf8",
-	);
-	const js = ts.transpileModule(source, {
-		compilerOptions: {
-			module: ts.ModuleKind.CommonJS,
-			target: ts.ScriptTarget.ES2019,
-		},
-	}).outputText;
-	const themes = loadPaperThemes();
+	const paperThemes = loadPaperThemes();
 	const requireFake = (id: string): unknown => {
 		if (id !== "react-native-paper") {
 			throw new Error(
-				`theme/index.ts imports "${id}", but this loader only supplies react-native-paper`,
+				`theme files import "${id}", but this loader only supplies react-native-paper`,
 			);
 		}
 		return {
-			MD3LightTheme: { colors: themes.light },
-			MD3DarkTheme: { colors: themes.dark },
+			MD3LightTheme: { colors: paperThemes.light },
+			MD3DarkTheme: { colors: paperThemes.dark },
 		};
 	};
-	const moduleShell = { exports: {} };
-	new Function("require", "module", "exports", js)(
-		requireFake,
-		moduleShell,
-		moduleShell.exports,
-	);
-	return moduleShell.exports as {
+	const load = (file: string): unknown => {
+		const source = readFileSync(path.join(process.cwd(), file), "utf8");
+		const js = ts.transpileModule(source, {
+			compilerOptions: {
+				module: ts.ModuleKind.CommonJS,
+				target: ts.ScriptTarget.ES2019,
+			},
+		}).outputText;
+		const moduleShell = { exports: {} };
+		new Function("require", "module", "exports", js)(
+			requireFake,
+			moduleShell,
+			moduleShell.exports,
+		);
+		return moduleShell.exports;
+	};
+	const themes = load(path.join("theme", "index.ts")) as {
 		lightTheme: { colors: ThemeColors };
 		darkTheme: { colors: ThemeColors };
+		labelHues: Record<
+			string,
+			Record<"light" | "dark", { fill: string; on: string }>
+		>;
+	};
+	// `tokens.ts` imports nothing, so the paper-only `require` never fires for
+	// it; its ramp colors are painted by the card face and belong on the
+	// palette the sweeps judge against.
+	const tokens = load(path.join("theme", "tokens.ts")) as {
+		priorityRamp: readonly { color: string; on: string }[];
+	};
+	// Only the two color fields — the ramp also carries glyph names, which
+	// are words, not colors.
+	return {
+		...themes,
+		priorityRamp: tokens.priorityRamp.flatMap((step) => [step.color, step.on]),
 	};
 }
 
 const themes = loadThemeSource();
 
-function paletteOf(colors: ThemeColors): string[] {
+function paletteOf(source: unknown): string[] {
 	const colors_ = new Set<string>();
-	collectColors(colors, colors_);
+	collectColors(source, colors_);
 	return [...colors_];
 }
 
 /**
- * Every colour the two schemes can paint — the MD3 defaults `theme/index.ts`
- * spreads in, its own overrides, the board colours and the elevation ramp —
- * canonicalised for comparison against computed styles.
+ * The label hues of one scheme — the fills and on-colors a preset-hued label
+ * dot paints. Custom colors are user data: `models/label-color.ts` derives
+ * their rendered fill at draw time from any hex, so they cannot be enumerated
+ * here, and the seed carries only preset hues. The clamp that keeps a custom
+ * fill legible is unit-tested rather than swept.
+ */
+function labelColors(scheme: Scheme): string[] {
+	return paletteOf(Object.values(themes.labelHues).map((hue) => hue[scheme]));
+}
+
+/**
+ * Every color the two schemes can paint — the MD3 defaults `theme/index.ts`
+ * spreads in, its own overrides, the board colors, the elevation ramp, the
+ * priority ramp the card gutter paints, and the label hues a labelled card
+ * paints — canonicalised for comparison against computed styles.
  */
 export const PALETTE: Record<Scheme, string[]> = {
-	light: paletteOf(themes.lightTheme.colors),
-	dark: paletteOf(themes.darkTheme.colors),
+	light: [
+		...paletteOf(themes.lightTheme.colors),
+		...paletteOf(themes.priorityRamp),
+		...labelColors("light"),
+	],
+	dark: [
+		...paletteOf(themes.darkTheme.colors),
+		...paletteOf(themes.priorityRamp),
+		...labelColors("dark"),
+	],
 };

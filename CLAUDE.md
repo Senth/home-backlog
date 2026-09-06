@@ -7,7 +7,7 @@ Home Backlog: an Expo / React Native web-first PWA on Firebase.
   paths; platform splits are `.web.tsx` / `.native.tsx`.
 - Reach for a `react-native-paper` component first, else a style prop built from
   `theme/tokens.ts` — no `StyleSheet.create`, and deliberately no Tailwind or NativeWind.
-- **No numeric literal in a style prop and no colour literal outside `theme/`** — use
+- **No numeric literal in a style prop and no color literal outside `theme/`** — use
   `space` / `radius` / `elevation` and `useAppTheme()`, and extend the scale rather
   than inlining.
 - Every user-facing string goes through `t()`, with `en-US.json` and `sv-SE.json`

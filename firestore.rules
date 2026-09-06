@@ -45,11 +45,26 @@ service cloud.firestore {
       return members.values().hasAny(['owner']);
     }
 
+    // The household's label definitions (#100), keyed by id. The rules language
+    // cannot iterate a map's values, so the shape of each entry is held by
+    // `toLabels()`'s defensive read in models/label.ts and by the client that
+    // writes the map; what is enforced here is the container itself.
+    //
+    // Present-only, for the same reason as a node's labelIds: every home written
+    // before #100 lacks the key, and request.resource.data is the full
+    // post-update document — requiring it would deny every later update to
+    // them, and there is no admin tooling in this repo to unstick that.
+    function validLabels(labels) {
+      return labels is map
+        && labels.size() <= 50;
+    }
+
     function validHome(data) {
       return data.name is string
         && data.name.size() > 0
         && data.name.size() <= 60
-        && hasAnOwner(data.members);
+        && hasAnOwner(data.members)
+        && (!('labels' in data) || validLabels(data.labels));
     }
 
     function homeData(homeId) {
@@ -270,6 +285,16 @@ service cloud.firestore {
             // ones gain it the first time anything writes it.
             && (!('assigneeIds' in data) || data.assigneeIds is list)
             && data.blockedBy is list
+            // The labels a card carries directly (#100). Present-only for the
+            // same reason as assigneeIds — every node written before #100 lacks
+            // the key, and requiring it would deny every later update to them,
+            // including the childCount bump that adding a step performs. Capped
+            // at what the picker refuses to exceed and the gutter is built
+            // around (models/label.ts's maxLabelsPerNode). The rules language
+            // cannot type-check a list's entries; toNode reads it defensively.
+            && (!('labelIds' in data)
+                || (data.labelIds is list
+                    && data.labelIds.size() <= 6))
             && data.visibility in ['shared', 'private']
             // A calendar day, not an instant: "by Sep 30" is the same day in
             // every timezone, and lexicographic order is chronological.

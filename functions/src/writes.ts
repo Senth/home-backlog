@@ -295,6 +295,7 @@ async function createNode(request: Request, response: Response): Promise<void> {
 		dueDate: body.dueDate ?? null,
 		priority: body.priority ?? null,
 		blockedBy: body.blockedBy ?? [],
+		labelIds: body.labelIds ?? [],
 		notes: body.notes ?? "",
 		checklist: body.checklist ?? [],
 		effort: body.effort ?? null,
@@ -407,6 +408,7 @@ async function patchNode(request: Request, response: Response): Promise<void> {
 			? { assigneeIds: body.assigneeIds }
 			: {}),
 		...(body.blockedBy !== undefined ? { blockedBy: body.blockedBy } : {}),
+		...(body.labelIds !== undefined ? { labelIds: body.labelIds } : {}),
 		...(body.checklist !== undefined ? { checklist: body.checklist } : {}),
 		...(body.status !== undefined ? { status } : {}),
 		...(completion === "set"

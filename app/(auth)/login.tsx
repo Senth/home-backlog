@@ -17,7 +17,7 @@ import {
 } from "@/theme/tokens";
 
 /**
- * One layout at every width: a card centred in a scroll view and clamped to
+ * One layout at every width: a card centered in a scroll view and clamped to
  * `contentWidth.form`, filling the screen below that.
  *
  * The `ScrollView` is not decoration. At 200 % text scale the card outgrows a

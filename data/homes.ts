@@ -28,6 +28,7 @@ import {
 	normalizeEmail,
 	type Role,
 } from "@/models/home";
+import { type NewLabelInput, newLabel, toLabels } from "@/models/label";
 
 /**
  * Every Firestore read and write that touches a home.
@@ -65,6 +66,9 @@ export function toHome(snapshot: QueryDocumentSnapshot<DocumentData>): Home {
 			MemberProfile
 		>,
 		memberEmailHashes: (data.memberEmailHashes ?? {}) as Record<string, string>,
+		// The #100 label definitions, read defensively: a malformed entry is
+		// dropped rather than crashing every screen that draws a card.
+		labels: toLabels(data),
 		createdAt: data.createdAt ?? null,
 		createdBy: typeof data.createdBy === "string" ? data.createdBy : "",
 	};
@@ -213,6 +217,73 @@ export function removeMember(homeId: string, uid: string): Promise<void> {
 		[`memberProfiles.${uid}`]: deleteField(),
 		[`memberEmailHashes.${uid}`]: deleteField(),
 	});
+}
+
+/*
+ * The household's label definitions (#100), each one write to the home
+ * document's `labels` map. Two members editing different labels never collide
+ * — the writes merge at the field path — and `toLabels()` reads whatever shape
+ * results defensively.
+ */
+
+/**
+ * Adds a definition under a client-generated id, handed back so the caller can
+ * select what it just made.
+ */
+export async function createLabel(
+	homeId: string,
+	input: NewLabelInput,
+): Promise<string> {
+	// A fresh id for the map's key, minted the ordinary way — `doc` under the
+	// homes collection alone. Naming the home as the parent path asks for a
+	// collection at `homes/{homeId}`, a document path, which Firestore refuses.
+	const id = doc(collection(db, homesCollection)).id;
+	await updateDoc(homeRef(homeId), { [`labels.${id}`]: newLabel(input) });
+	return id;
+}
+
+export function renameLabel(
+	homeId: string,
+	labelId: string,
+	title: string,
+): Promise<void> {
+	return updateDoc(homeRef(homeId), {
+		[`labels.${labelId}.title`]: title.trim(),
+	});
+}
+
+export function recolorLabel(
+	homeId: string,
+	labelId: string,
+	color: string,
+): Promise<void> {
+	return updateDoc(homeRef(homeId), { [`labels.${labelId}.color`]: color });
+}
+
+export function reiconLabel(
+	homeId: string,
+	labelId: string,
+	icon: string,
+): Promise<void> {
+	return updateDoc(homeRef(homeId), { [`labels.${labelId}.icon`]: icon });
+}
+
+export function reorderLabel(
+	homeId: string,
+	labelId: string,
+	rank: string,
+): Promise<void> {
+	return updateDoc(homeRef(homeId), { [`labels.${labelId}.rank`]: rank });
+}
+
+/**
+ * Removes the definition only. Cards keep the id in their `labelIds` — the
+ * rules cannot cross-read the home to check it, and nothing needs to: the id
+ * resolves to nothing and renders nothing, while the card it sits on stays
+ * fully updatable.
+ */
+export function deleteLabel(homeId: string, labelId: string): Promise<void> {
+	return updateDoc(homeRef(homeId), { [`labels.${labelId}`]: deleteField() });
 }
 
 /**

@@ -36,6 +36,7 @@ import {
 } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import {
+	cardGutterBreakpoint,
 	compactBreakpoint,
 	contentWidth,
 	denseBreakpoint,
@@ -76,6 +77,14 @@ interface BoardProps {
 	 * which is what a compact pane shows.
 	 */
 	hidden?: Node[];
+	/**
+	 * The label ids every card on this board inherits from the trail above it
+	 * (#100) — the board node and its ancestors, resolved once by the screen
+	 * that already holds them. See `BoardCard`.
+	 */
+	ancestorLabelIds?: readonly string[];
+	/** Location id → title, the leaf. See `BoardCard`. */
+	locations?: ReadonlyMap<string, string>;
 }
 
 /**
@@ -111,6 +120,8 @@ export function Board({
 	failed = false,
 	onRetry,
 	hidden = noneHidden,
+	ancestorLabelIds,
+	locations,
 }: BoardProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
@@ -189,6 +200,14 @@ export function Board({
 		[columns, nodes, hidden],
 	);
 	const compact = boardWidth > 0 && boardWidth < compactBreakpoint;
+	/**
+	 * Below `cardGutterBreakpoint` the card's gutters give back their room: the
+	 * left one narrows, the right one disappears and the menu floats. The board
+	 * width is the viewport's stand-in, the same proxy `compact` rides on — and
+	 * the breakpoint is far under `compactBreakpoint`, so this only ever bites
+	 * a phone at 200% text.
+	 */
+	const narrow = boardWidth > 0 && boardWidth < cardGutterBreakpoint;
 	/**
 	 * How far the last card in a pane has to stop short of the FAB: the band the
 	 * FAB occupies — the height it actually measured, plus the `space.md` it
@@ -416,6 +435,7 @@ export function Board({
 									nodes={visible || carrying ? cardsIn(status) : noCards}
 									width="100%"
 									wide={false}
+									narrow={narrow}
 									bottomInset={fabInset}
 									hiddenCount={visible ? hiddenIn(status) : undefined}
 									onAdd={() => setAdding(status)}
@@ -423,6 +443,8 @@ export function Board({
 									renderMenu={menu}
 									drag={columnDrag(status)}
 									blockers={blockers}
+									ancestorLabelIds={ancestorLabelIds}
+									locations={locations}
 								/>
 							</View>
 						);
@@ -449,12 +471,15 @@ export function Board({
 							// and the board scrolls, as it always did.
 							width={columnWidth(boardWidth, shown.length)}
 							wide
+							narrow={narrow}
 							hiddenCount={hiddenIn(status)}
 							onAdd={() => setAdding(status)}
 							onOpen={open}
 							renderMenu={menu}
 							drag={columnDrag(status)}
 							blockers={blockers}
+							ancestorLabelIds={ancestorLabelIds}
+							locations={locations}
 						/>
 					))}
 				</ScrollView>
@@ -526,7 +551,10 @@ export function Board({
 							onOpen={noop}
 							menu={menu(drag.node)}
 							wide={!compact}
+							narrow={narrow}
 							blockers={blockers}
+							ancestorLabelIds={ancestorLabelIds}
+							locations={locations}
 						/>
 					</Surface>
 				</Animated.View>

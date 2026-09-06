@@ -8,10 +8,10 @@ on purpose. Everything else is cheap and should carry the load.
 ## Three tiers
 
 **Unit tests are the default.** They are where logic is proven: domain modules under
-`models/` and `data/`, hooks, and the components whose behaviour a user can describe.
+`models/` and `data/`, hooks, and the components whose behavior a user can describe.
 `@testing-library/react-native` is already here — render the component, act as the user,
 assert what they would see. Prefer moving the logic out of the component and testing it
-plain; reach for a render test when the behaviour only exists once the pieces are wired.
+plain; reach for a render test when the behavior only exists once the pieces are wired.
 
 Still true, and unchanged: **snapshot tests and layout-only render tests do not exist**.
 A test that asserts a tree shape or a pixel is a test that fails on every restyle and

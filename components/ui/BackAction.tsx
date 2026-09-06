@@ -8,7 +8,7 @@ interface BackActionProps {
 	onPress: () => void;
 	/**
 	 * Injected by `Appbar` itself, not passed by the screens — it clones every
-	 * child it recognises with the bar's own colour and theme. Forwarded rather
+	 * child it recognizes with the bar's own color and theme. Forwarded rather
 	 * than swallowed, or the arrow would miss the white it is given in the dark.
 	 */
 	color?: string;

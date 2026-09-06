@@ -14,6 +14,8 @@ jest.mock("firebase/firestore", () => ({
 		id:
 			typeof args[args.length - 1] === "string" ? args[args.length - 1] : "doc",
 	})),
+	arrayRemove: jest.fn((value: string) => `arrayRemove(${value})`),
+	arrayUnion: jest.fn((value: string) => `arrayUnion(${value})`),
 	getDoc: jest.fn(),
 	getDocs: jest.fn(),
 	getDocsFromServer: jest.fn(),
@@ -34,7 +36,13 @@ import {
 	where,
 	writeBatch,
 } from "firebase/firestore";
-import { addToSharedRoots, moveErrorKey, reparentNode } from "@/data/nodes";
+import {
+	addToSharedRoots,
+	applyLabel,
+	moveErrorKey,
+	removeLabel,
+	reparentNode,
+} from "@/data/nodes";
 
 beforeEach(() => {
 	jest.clearAllMocks();
@@ -204,5 +212,34 @@ describe("addToSharedRoots", () => {
 
 		expect(updateDoc).not.toHaveBeenCalled();
 		consoleError.mockRestore();
+	});
+});
+
+describe("the label writes", () => {
+	it("applies a label with a transform, not a whole array from a snapshot", async () => {
+		// `arrayUnion` is server-side and commutes: a second toggle written
+		// before the listener has caught up cannot drop the first one's label,
+		// which writing `[...snapshot, id]` from the caller's own copy did.
+		await applyLabel("home", "card", "a");
+
+		expect(updateDoc).toHaveBeenCalledWith(
+			{ id: "card" },
+			{
+				labelIds: "arrayUnion(a)",
+				updatedAt: "server-timestamp",
+			},
+		);
+	});
+
+	it("removes a label with a transform, leaving the rest to the server", async () => {
+		await removeLabel("home", "card", "b");
+
+		expect(updateDoc).toHaveBeenCalledWith(
+			{ id: "card" },
+			{
+				labelIds: "arrayRemove(b)",
+				updatedAt: "server-timestamp",
+			},
+		);
 	});
 });

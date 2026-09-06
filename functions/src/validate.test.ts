@@ -213,6 +213,57 @@ describe("the field set", () => {
 		expect(codes(nodeDoc({ [field]: [1, 2] }))).toContain(code);
 	});
 
+	/**
+	 * The same case list as `tests/rules/firestore.test.ts`'s `labelIds`
+	 * block. The ids are not checked against the home's `labels` map, exactly
+	 * as the rules cannot cross-read it: a definition deleted under a card
+	 * leaves the id in place, rendering as nothing.
+	 */
+	describe("labelIds", () => {
+		it("accepts a card carrying up to six label ids", () => {
+			expect(
+				validateNode(
+					nodeDoc({ labelIds: ["a", "b", "c", "d", "e", "f"] }),
+					atRoot,
+				),
+			).toEqual([]);
+		});
+
+		it("refuses a seventh with a field-scoped error", () => {
+			// The picker refuses a seventh and the gutter is built for six; the
+			// rules hold the same line, and this mirrors it for the API.
+			const issues = validateNode(
+				nodeDoc({ labelIds: ["a", "b", "c", "d", "e", "f", "g"] }),
+				atRoot,
+			);
+
+			expect(issues.map((issue) => issue.code)).toContain("too_many_labels");
+			expect(issues[0].field).toBe("labelIds");
+			expect(issues[0].message).toContain("at most 6");
+		});
+
+		it("refuses a labelIds that is not a list", () => {
+			expect(codes(nodeDoc({ labelIds: "bolt" }))).toContain("invalid_labels");
+			expect(codes(nodeDoc({ labelIds: [1, 2] }))).toContain("invalid_labels");
+		});
+
+		it("accepts a node written before the field existed", () => {
+			// The reason the field is validated present-only — the same trap
+			// assigneeIds dodged: this validates the full post-update document,
+			// so requiring it would deny every update to an older node.
+			const data = nodeDoc();
+			delete data.labelIds;
+
+			expect(validateNode(data, atRoot)).toEqual([]);
+		});
+
+		it("accepts an id whose definition is gone", () => {
+			expect(validateNode(nodeDoc({ labelIds: ["ghost"] }), atRoot)).toEqual(
+				[],
+			);
+		});
+	});
+
 	describe("the column set", () => {
 		it("refuses a board with no columns at all", () => {
 			expect(codes(nodeDoc({ columns: [] }))).toContain("invalid_columns");

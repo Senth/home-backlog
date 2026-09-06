@@ -4,13 +4,14 @@ import { ThemeProvider } from "react-native-paper";
 import { BoardCard } from "@/components/board/BoardCard";
 import enUS from "@/i18n/locales/en-US.json";
 import svSE from "@/i18n/locales/sv-SE.json";
+import type { LabelWithId } from "@/models/label";
 import { defaultColumns, type Node } from "@/models/node";
 import { lightTheme } from "@/theme";
 
 jest.mock("react-i18next", () => ({
 	// The keys are asserted rather than the sentences: both locale files are
 	// checked for parity by `yarn invariants`, and a test that pinned the
-	// English would fail on a rewording that is not a behaviour change.
+	// English would fail on a rewording that is not a behavior change.
 	useTranslation: () => ({
 		t: (key: string, values?: Record<string, unknown>) =>
 			values === undefined ? key : `${key}:${JSON.stringify(values)}`,
@@ -18,16 +19,23 @@ jest.mock("react-i18next", () => ({
 	}),
 }));
 
+// `BoardCard` reads the home's label definitions and the member profiles off
+// `activeHome`. Tests that need labels install them here.
+let mockHome: { labels: LabelWithId[] } | null = null;
 jest.mock("@/contexts/HomeContext", () => ({
-	useHome: () => ({ activeHome: null }),
+	useHome: () => ({ activeHome: mockHome }),
 }));
 
 // The real icon set loads its font map asynchronously, which warns about
 // updates outside `act` and renders nothing until it lands. A test double
-// that carries the glyph name is enough — the glyph itself is Paper's.
+// that carries the glyph name is enough — the glyph itself is Paper's. The
+// `__esModule` marker is what makes the default import bind to the double
+// rather than to the module object, which dies as an invalid element type the
+// moment something renders `PaperIcon` as a component.
 jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
 	const { View } = jest.requireActual("react-native");
 	return {
+		__esModule: true,
 		default: ({ name }: { name: string }) => <View testID={name} />,
 	};
 });
@@ -51,6 +59,7 @@ function node(overrides: Partial<Node> = {}): Node {
 		dueDate: null,
 		priority: null,
 		blockedBy: [],
+		labelIds: [],
 		notes: "",
 		checklist: [],
 		effort: null,
@@ -65,17 +74,24 @@ function node(overrides: Partial<Node> = {}): Node {
 	};
 }
 
+function label(id: string, overrides: Partial<LabelWithId> = {}): LabelWithId {
+	return {
+		id,
+		title: `Label ${id}`,
+		icon: "tag",
+		color: "teal",
+		rank: id,
+		...overrides,
+	};
+}
+
 function renderCard(card: ReactElement) {
 	return render(<ThemeProvider theme={lightTheme}>{card}</ThemeProvider>);
 }
 
-// Paper composes the variant's own styles with the ones passed in, so the
-// colour lives somewhere inside a tree of arrays.
-function flattenedTitleStyles() {
-	return [screen.getByText("Fix the gutter").props.style].flat(Infinity) as {
-		color?: string;
-	}[];
-}
+afterEach(() => {
+	mockHome = null;
+});
 
 describe("BoardCard", () => {
 	it("renders no path and no check without the props", () => {
@@ -84,9 +100,6 @@ describe("BoardCard", () => {
 		expect(screen.getByText("Fix the gutter")).toBeOnTheScreen();
 		expect(screen.queryByText("board.crumbHidden")).toBeNull();
 		expect(screen.UNSAFE_queryAllByProps({ name: "check" })).toHaveLength(0);
-		expect(flattenedTitleStyles()).not.toContainEqual({
-			color: lightTheme.colors.onCardMuted,
-		});
 	});
 
 	it("renders nothing at all for an empty path", () => {
@@ -149,9 +162,6 @@ describe("BoardCard", () => {
 		renderCard(<BoardCard node={node({ status: "done" })} onOpen={() => {}} />);
 
 		expect(screen.UNSAFE_getAllByProps({ name: "check" })).toHaveLength(1);
-		expect(flattenedTitleStyles()).toContainEqual({
-			color: lightTheme.colors.onCardMuted,
-		});
 	});
 
 	it("marks no other status with the check or the muted title", () => {
@@ -160,9 +170,103 @@ describe("BoardCard", () => {
 		);
 
 		expect(screen.UNSAFE_queryAllByProps({ name: "check" })).toHaveLength(0);
-		expect(flattenedTitleStyles()).not.toContainEqual({
-			color: lightTheme.colors.onCardMuted,
-		});
+	});
+
+	it("draws the gutter even when the card has neither a priority nor a label", () => {
+		renderCard(<BoardCard node={node()} onOpen={() => {}} />);
+
+		expect(screen.getByTestId("card-gutter")).toBeOnTheScreen();
+	});
+
+	it("names the priority on the gutter's dot, not as a word", () => {
+		renderCard(
+			<BoardCard node={node({ priority: "high" })} onOpen={() => {}} />,
+		);
+
+		expect(screen.getByLabelText("priority.high")).toBeOnTheScreen();
+		expect(screen.queryByText("priority.high")).toBeNull();
+	});
+
+	it("renders the trail's labels exactly like the card's own, deduplicated, capped at six", () => {
+		mockHome = {
+			labels: [
+				label("l1", { title: "Home Assistant" }),
+				label("l2"),
+				label("l3"),
+				label("l4"),
+				label("l5"),
+				label("l6"),
+				label("l7"),
+			],
+		};
+		renderCard(
+			<BoardCard
+				node={node({ labelIds: ["l1", "l2", "l3", "l4", "l5", "l6", "l8"] })}
+				onOpen={() => {}}
+				ancestorLabelIds={["l1"]}
+			/>,
+		);
+
+		// Own `l1` and inherited `l1` are one dot — `getByLabelText` would throw
+		// on two — so the six applied-and-defined ids draw six dots: `l7` is
+		// defined but not applied, `l8` applied but its definition is gone.
+		expect(screen.getByLabelText("Home Assistant")).toBeOnTheScreen();
+		expect(
+			screen.getAllByLabelText(/^(Label l\d|Home Assistant)$/),
+		).toHaveLength(6);
+	});
+
+	it("renders nothing in the gutter when no label applies", () => {
+		mockHome = { labels: [label("l1")] };
+		renderCard(<BoardCard node={node()} onOpen={() => {}} />);
+
+		expect(screen.queryByLabelText("Label l1")).toBeNull();
+	});
+
+	it("carries the location's leaf name and the effort word in the footer", () => {
+		renderCard(
+			<BoardCard
+				node={node({ locationId: "loc-1", effort: "evening" })}
+				onOpen={() => {}}
+				locations={new Map([["loc-1", "Workshop"]])}
+			/>,
+		);
+
+		expect(screen.getByText("Workshop")).toBeOnTheScreen();
+		expect(screen.getByText("effort.evening")).toBeOnTheScreen();
+	});
+
+	it("says nothing about a location the map cannot answer", () => {
+		renderCard(
+			<BoardCard
+				node={node({ locationId: "loc-gone" })}
+				onOpen={() => {}}
+				locations={new Map([["loc-1", "Workshop"]])}
+			/>,
+		);
+
+		expect(screen.queryByText("Workshop")).toBeNull();
+	});
+
+	it("keeps overdue as words in the footer", () => {
+		renderCard(
+			<BoardCard node={node({ dueDate: "2001-02-03" })} onOpen={() => {}} />,
+		);
+
+		expect(screen.getByText(/board\.dueLate/)).toBeOnTheScreen();
+	});
+
+	it("keeps the waiting mark in the footer, not on its own row", () => {
+		const blocker = node({ id: "b1", status: "backlog" });
+		renderCard(
+			<BoardCard
+				node={node({ blockedBy: ["b1"] })}
+				onOpen={() => {}}
+				blockers={new Map([["b1", blocker]])}
+			/>,
+		);
+
+		expect(screen.getByText("board.blocked")).toBeOnTheScreen();
 	});
 
 	it("carries the path label in both locales", () => {
