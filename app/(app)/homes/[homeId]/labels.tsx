@@ -221,11 +221,20 @@ function LabelRow({
 	const [editing, setEditing] = useState(false);
 
 	return (
-		<View>
+		<View
+			style={{
+				flexDirection: "row",
+				alignItems: "center",
+				minHeight: touchTarget,
+			}}
+		>
+			{/* The row tap edits; the handle is its ripple's *sibling*, not a
+			    child — a control inside a pressable renders a `<button>` inside
+			    a `<button>`, which is HTML React refuses to hydrate. */}
 			<TouchableRipple
 				onPress={() => setEditing(true)}
 				accessibilityRole="button"
-				style={{ minHeight: touchTarget }}
+				style={{ flex: 1 }}
 			>
 				<View
 					style={{
@@ -239,50 +248,46 @@ function LabelRow({
 					<Text variant="bodyLarge" style={{ flex: 1 }}>
 						{label.title}
 					</Text>
-					<Menu
-						visible={menuOpen}
-						onDismiss={() => setMenuOpen(false)}
-						overlayAccessibilityLabel={t("common.closeMenu")}
-						anchor={
-							<View ref={anchor}>
-								<IconButton
-									icon="swap-vertical"
-									size={icon.sm}
-									accessibilityLabel={t("labels.reorderHandle", {
-										name: label.title,
-									})}
-									// Without this the row underneath takes the tap as
-									// well and the editor opens behind the menu.
-									onPress={(event) => {
-										event.stopPropagation();
-										setMenuOpen(true);
-									}}
-									style={[touchTargetStyle, { margin: space.none }]}
-								/>
-							</View>
-						}
-					>
-						<Menu.Item
-							leadingIcon="arrow-up"
-							title={t("labels.moveUp")}
-							disabled={index === 0}
-							onPress={() => {
-								setMenuOpen(false);
-								onMove(index, -1);
-							}}
-						/>
-						<Menu.Item
-							leadingIcon="arrow-down"
-							title={t("labels.moveDown")}
-							disabled={index === count - 1}
-							onPress={() => {
-								setMenuOpen(false);
-								onMove(index, 1);
-							}}
-						/>
-					</Menu>
 				</View>
 			</TouchableRipple>
+
+			<Menu
+				visible={menuOpen}
+				onDismiss={() => setMenuOpen(false)}
+				overlayAccessibilityLabel={t("common.closeMenu")}
+				anchor={
+					<View ref={anchor}>
+						<IconButton
+							icon="swap-vertical"
+							size={icon.sm}
+							accessibilityLabel={t("labels.reorderHandle", {
+								name: label.title,
+							})}
+							onPress={() => setMenuOpen(true)}
+							style={[touchTargetStyle, { margin: space.none }]}
+						/>
+					</View>
+				}
+			>
+				<Menu.Item
+					leadingIcon="arrow-up"
+					title={t("labels.moveUp")}
+					disabled={index === 0}
+					onPress={() => {
+						setMenuOpen(false);
+						onMove(index, -1);
+					}}
+				/>
+				<Menu.Item
+					leadingIcon="arrow-down"
+					title={t("labels.moveDown")}
+					disabled={index === count - 1}
+					onPress={() => {
+						setMenuOpen(false);
+						onMove(index, 1);
+					}}
+				/>
+			</Menu>
 
 			{/* Mounted only while open — each dialog carries a `Portal`, and a
 			    list grows without bound. */}

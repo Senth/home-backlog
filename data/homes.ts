@@ -234,9 +234,12 @@ export async function createLabel(
 	homeId: string,
 	input: NewLabelInput,
 ): Promise<string> {
-	const ref = doc(collection(db, homesCollection, homeId));
-	await updateDoc(homeRef(homeId), { [`labels.${ref.id}`]: newLabel(input) });
-	return ref.id;
+	// A fresh id for the map's key, minted the ordinary way — `doc` under the
+	// homes collection alone. Naming the home as the parent path asks for a
+	// collection at `homes/{homeId}`, a document path, which Firestore refuses.
+	const id = doc(collection(db, homesCollection)).id;
+	await updateDoc(homeRef(homeId), { [`labels.${id}`]: newLabel(input) });
+	return id;
 }
 
 export function renameLabel(
