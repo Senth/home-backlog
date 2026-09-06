@@ -16,6 +16,7 @@ import {
 	reparentNode,
 	updateNode,
 } from "@/data/nodes";
+import { useAnchorFocusGuard } from "@/hooks/use-modal-focus";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { type Node, rankAtEnd, rankBetween, type Status } from "@/models/node";
 import { useAppTheme } from "@/theme";
@@ -124,6 +125,10 @@ export function CardMenu({
 		setOpen(false);
 		setPage("root");
 	}, []);
+
+	// Paper focuses the first card's menu button when the board mounts, closed
+	// menus and all — the same unasked focus `useAnchorFocusGuard` exists for.
+	useAnchorFocusGuard(anchor);
 
 	const column = nodes.filter((card) => card.status === node.status);
 	const index = column.findIndex((card) => card.id === node.id);

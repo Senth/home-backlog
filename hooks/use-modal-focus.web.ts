@@ -47,6 +47,25 @@ function visibleFocusable(root: HTMLElement): HTMLElement[] {
 	);
 }
 
+/**
+ * Puts Chrome's sequential focus navigation starting point back at the top of
+ * the document.
+ *
+ * The starting point survives a `blur()`: once Paper has focused a menu anchor
+ * on mount, blurring that anchor still leaves the first Tab continuing from
+ * *it* — past the app bar and the column strip — which is the load tab order
+ * this guard exists to fix (#119). Focusing `<body>` is the one move that
+ * resets it, and `<body>` is not a control: nothing is announced, and no
+ * control the user did not ask for takes the focus.
+ */
+function focusDocumentStart() {
+	const body = document.body;
+	if (body.getAttribute("tabindex") === null) {
+		body.setAttribute("tabindex", "-1");
+	}
+	body.focus();
+}
+
 interface ModalFocusOptions {
 	/**
 	 * The element that should get focus back when the modal closes, usually
@@ -203,6 +222,14 @@ export function useModalFocus(
  * The guard blurs a focus the user did not ask for, and stops as soon as they
  * act: a pointer or key event means any focus that follows is theirs, including
  * Paper's legitimate restore-on-close.
+ *
+ * Listens in the capture phase because the anchor is not always the node Paper
+ * focuses: `focusFirstDOMNode` focuses the first `button` *inside* the anchor
+ * element, and for `CardMenu` that is the `IconButton` in a wrapper `View`.
+ * Focus does not bubble, so a bubble-phase listener on the anchor never hears
+ * about its children being focused — and on a fresh board load the focus ended
+ * up parked on the first card's menu button, skipping everything above it on
+ * the first Tab (#119).
  */
 export function useAnchorFocusGuard(ref: RefObject<View | null>) {
 	useEffect(() => {
@@ -221,20 +248,26 @@ export function useAnchorFocusGuard(ref: RefObject<View | null>) {
 			// so a bare `blur()` would leave a keyboard user with no focus at all
 			// and the next Tab starting again from the top of the document.
 			const previous = event.relatedTarget;
-			node.blur();
+			// Capture-phase listener on the anchor: the target is the anchor or a
+			// descendant of it, and it is the one that has to let go of the focus.
+			if (event.target instanceof HTMLElement) event.target.blur();
 			if (previous instanceof HTMLElement && previous.isConnected) {
 				previous.focus();
+			} else {
+				// No element to restore, as on a fresh load: drop the walk back at
+				// the document start rather than leaving it parked on this anchor.
+				focusDocumentStart();
 			}
 		};
 
 		window.addEventListener("pointerdown", markActed, true);
 		window.addEventListener("keydown", markActed, true);
-		node.addEventListener("focus", onFocus);
+		node.addEventListener("focus", onFocus, true);
 
 		return () => {
 			window.removeEventListener("pointerdown", markActed, true);
 			window.removeEventListener("keydown", markActed, true);
-			node.removeEventListener("focus", onFocus);
+			node.removeEventListener("focus", onFocus, true);
 		};
 	}, [ref]);
 }

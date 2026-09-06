@@ -6,6 +6,7 @@ import { Appbar, Divider, Menu } from "react-native-paper";
 import { detailsHref } from "@/components/board/board-href";
 import { TitleDialog } from "@/components/board/TitleDialog";
 import { updateNode } from "@/data/nodes";
+import { useAnchorFocusGuard } from "@/hooks/use-modal-focus";
 import { hasDetails, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { radius, size, space, touchTargetStyle } from "@/theme/tokens";
@@ -46,6 +47,9 @@ export function BoardMenu({
 	// while the menu is open leaves it with no way out but the mouse. Same
 	// reasoning, and the same fix, as `components/board/CardMenu.tsx`.
 	const close = useCallback(() => setOpen(false), []);
+
+	// Same unasked mount focus from Paper's closed `Menu` as every card's menu.
+	useAnchorFocusGuard(anchor);
 
 	// Queues offline exactly as `CardMenu`'s rename does. No online gate, no
 	// hint — gating this write would make it the only one on this screen that
