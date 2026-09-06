@@ -20,7 +20,7 @@ import { useAnchorFocusGuard, useTabTrap } from "@/hooks/use-modal-focus";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { type Node, rankAtEnd, rankBetween, type Status } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { icon, space, touchTarget } from "@/theme/tokens";
+import { icon, size, space, touchTarget } from "@/theme/tokens";
 
 /** A message the board says after an action, with the way back if there is one. */
 export interface Notice {
@@ -395,9 +395,12 @@ export function CardMenu({
 						</View>
 					) : (
 						/* One card per row, so these are the pages that outgrow the height
-					   Paper measured — see `rootPageHeight`. They scroll inside it
-					   instead of hanging off the bottom of the window. */
-						<ScrollView style={{ maxHeight: rootPageHeight }}>
+				   Paper measured — see `rootPageHeight`. They scroll inside it
+				   instead of hanging off the bottom of the window. The token is
+				   the fallback for the frames before the root page has measured:
+				   layout beats the tap in practice, but the cap must not depend
+				   on winning that race. */
+						<ScrollView style={{ maxHeight: rootPageHeight ?? size.menuPage }}>
 							{page === "move"
 								? columns.map((status) => (
 										<Menu.Item
