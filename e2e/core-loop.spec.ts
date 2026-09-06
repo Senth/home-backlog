@@ -9,8 +9,8 @@ import {
 import {
 	deleteLabelsByTitlePrefix,
 	deleteNodesByTitlePrefix,
-	labelByTitle,
 	nodeFields,
+	waitForLabelByTitle,
 	waitForNodeIdByTitle,
 } from "@/e2e/support/firestore";
 import enUS from "@/i18n/locales/en-US.json";
@@ -164,8 +164,8 @@ test("4: a home grows two labels, and a card carries one", async ({ page }) => {
 		.click();
 	await expect(page.getByText(customTitle)).toBeVisible();
 
-	const preset = await labelByTitle(presetTitle);
-	const custom = await labelByTitle(customTitle);
+	const preset = await waitForLabelByTitle(presetTitle);
+	const custom = await waitForLabelByTitle(customTitle);
 	expect(custom.color).toBe("#3366cc");
 
 	// And one lands on a real card, through the card menu's picker. The dot

@@ -414,6 +414,28 @@ export async function labelByTitle(
 }
 
 /**
+ * The same, once the definition's write reaches the backend.
+ *
+ * The labels screen shows Firestore's optimistic copy, so a row is visible
+ * before the emulator this file reads through has the home document that
+ * carries it — the same race `waitForNodeIdByTitle` waits out for cards.
+ */
+export async function waitForLabelByTitle(
+	title: string,
+	timeoutMs = 30_000,
+): Promise<{ id: string } & Record<string, unknown>> {
+	const deadline = Date.now() + timeoutMs;
+	for (;;) {
+		try {
+			return await labelByTitle(title);
+		} catch (reason) {
+			if (Date.now() > deadline) throw reason;
+			await new Promise((resolve) => setTimeout(resolve, 300));
+		}
+	}
+}
+
+/**
  * Deletes every label definition whose title begins with this prefix, by
  * rewriting the home's `labels` map without them.
  *
