@@ -109,7 +109,7 @@ export default function Overview() {
 	const ancestors = useLabelAncestors(homeId, ancestorIds, pool.nodes);
 
 	// Above the breakpoint the sections flow and wrap, each a column the board
-	// would recognise — the board's own dividing arithmetic, clamped at the
+	// would recognize — the board's own dividing arithmetic, clamped at the
 	// same two ends. Below it, one full-width stack as ever.
 	const flowing = width >= compactBreakpoint;
 	// The cards' gutters give their room back below `cardGutterBreakpoint`

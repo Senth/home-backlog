@@ -61,7 +61,7 @@ export function PaperIcon({
 			testID={testID}
 			aria-hidden
 			// Paper's own renderer mirrors icons in right-to-left layouts. Neither
-			// en-US nor sv-SE is RTL, but dropping the behaviour here would make
+			// en-US nor sv-SE is RTL, but dropping the behavior here would make
 			// this a downgrade rather than a fix.
 			style={direction === "rtl" ? { transform: [{ scaleX: -1 }] } : undefined}
 		/>

@@ -2,7 +2,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { space, touchTarget } from "@/theme/tokens";
 
 /**
- * The glyph catalogue the icon picker searches (#100).
+ * The glyph catalog the icon picker searches (#100).
  *
  * The map is 7,448 entries, so the names are read off the installed
  * MaterialCommunityIcons set once — every name here is a glyph the app can

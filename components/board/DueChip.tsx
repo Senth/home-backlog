@@ -10,10 +10,10 @@ import { icon, space } from "@/theme/tokens";
  * What a node's due date says, when it is worth saying: *3 days late*, or *due
  * in 2 days*. Nothing at all when the date is absent or still far off.
  *
- * **Overdue is words, never colour.** Nothing in the app acts on a due date
+ * **Overdue is words, never color.** Nothing in the app acts on a due date
  * yet, so a red card is pure guilt for a deadline nothing will remind anyone
- * about — and words survive 200% text and colour blindness, which a colour
- * alone does not. The warning colour is carried *with* the words, never
+ * about — and words survive 200% text and color blindness, which a color
+ * alone does not. The warning color is carried *with* the words, never
  * instead of them.
  *
  * **Bare**, on the card face (#100): a leading glyph and the words, no chip

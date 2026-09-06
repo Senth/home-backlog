@@ -99,7 +99,7 @@ export const KNOWN_FRAMEWORK_WARNINGS: readonly KnownWarning[] = [
 /**
  * The warnings filtered on this platform.
  *
- * Takes the platform rather than reading it, so the native behaviour is
+ * Takes the platform rather than reading it, so the native behavior is
  * reachable from a test running under jest-expo's web-ish environment.
  */
 export function activeWarnings(
@@ -130,7 +130,7 @@ export function isKnownFrameworkWarning(
  * A console whose `warn` this module has already replaced.
  *
  * Fast Refresh re-runs module scope, and a second install would wrap the first
- * wrapper — harmless in behaviour, but it makes `restore` a lie and the stack a
+ * wrapper — harmless in behavior, but it makes `restore` a lie and the stack a
  * ladder. The marker rides on the function so it survives a module reload,
  * which a module-scoped boolean would not.
  */

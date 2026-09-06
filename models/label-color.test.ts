@@ -12,7 +12,7 @@ import { darkTheme, lightTheme } from "@/theme";
 const lightCard = lightTheme.colors.boardCard;
 const darkCard = darkTheme.colors.boardCard;
 
-/** A colour a whisker off the card itself — the closest a picker can come to invisible. */
+/** A color a whisker off the card itself — the closest a picker can come to invisible. */
 function nearCard(card: string): string {
 	const [r, g, b] = parseHex(card);
 	return toHex([Math.min(255, r + 2), g, b]);
@@ -23,12 +23,12 @@ const deepGreen = toHex([0x14, 0x53, 0x2d]);
 const midGrey = toHex([0x80, 0x80, 0x80]);
 
 describe("clampLabelColor", () => {
-	it("draws a colour that already clears the floor against the card untouched", () => {
+	it("draws a color that already clears the floor against the card untouched", () => {
 		expect(clampLabelColor(deepGreen, "light", lightCard).fill).toBe(deepGreen);
 		expect(clampLabelColor(midGrey, "dark", darkCard).fill).toBe(midGrey);
 	});
 
-	it("darkens a light-scheme colour until the dot reads against the card", () => {
+	it("darkens a light-scheme color until the dot reads against the card", () => {
 		const { fill } = clampLabelColor(nearCard(lightCard), "light", lightCard);
 
 		expect(
@@ -39,7 +39,7 @@ describe("clampLabelColor", () => {
 		);
 	});
 
-	it("lightens a dark-scheme colour until the dot reads against the card", () => {
+	it("lightens a dark-scheme color until the dot reads against the card", () => {
 		const { fill } = clampLabelColor(nearCard(darkCard), "dark", darkCard);
 
 		expect(contrast(parseHex(fill), parseHex(darkCard))).toBeGreaterThanOrEqual(
@@ -51,15 +51,15 @@ describe("clampLabelColor", () => {
 	});
 
 	const cases: [string, string, "light" | "dark", string][] = [
-		["a near-card colour in light", nearCard(lightCard), "light", lightCard],
-		["a near-card colour in dark", nearCard(darkCard), "dark", darkCard],
+		["a near-card color in light", nearCard(lightCard), "light", lightCard],
+		["a near-card color in dark", nearCard(darkCard), "dark", darkCard],
 		["a mid grey in light", midGrey, "light", lightCard],
 		["a mid grey in dark", midGrey, "dark", darkCard],
-		["an already-deep colour in light", deepGreen, "light", lightCard],
+		["an already-deep color in light", deepGreen, "light", lightCard],
 	];
 	it.each(
 		cases,
-	)("derives an on-colour that clears 4.5:1 against the fill for %s", (_label, picked, scheme, card) => {
+	)("derives an on-color that clears 4.5:1 against the fill for %s", (_label, picked, scheme, card) => {
 		const { fill, on } = clampLabelColor(picked, scheme, card);
 
 		expect(contrast(parseHex(on), parseHex(fill))).toBeGreaterThanOrEqual(
@@ -67,11 +67,11 @@ describe("clampLabelColor", () => {
 		);
 	});
 
-	it("answers a colour the picker could never have stored, without throwing", () => {
+	it("answers a color the picker could never have stored, without throwing", () => {
 		// The rules cannot inspect the map's values, so a corrupt string is the
 		// one input this function can meet; it clamps like any other rather than
 		// crashing the board holding it.
-		const { fill, on } = clampLabelColor("not a colour", "light", lightCard);
+		const { fill, on } = clampLabelColor("not a color", "light", lightCard);
 
 		expect(contrast(parseHex(on), parseHex(fill))).toBeGreaterThanOrEqual(
 			onFloor,
@@ -80,7 +80,7 @@ describe("clampLabelColor", () => {
 });
 
 describe("isHexColor", () => {
-	// Built from channels, so no colour literal is spelled here.
+	// Built from channels, so no color literal is spelled here.
 	const crimson = `#${[0xa3, 0x2e, 0x28]
 		.map((digit) => digit.toString(16).padStart(2, "0"))
 		.join("")}`;
@@ -92,7 +92,7 @@ describe("isHexColor", () => {
 		const short = `#${[0, 10, 3].map((digit) => digit.toString(16)).join("")}`;
 		expect(isHexColor(short)).toBe(true);
 
-		// Five digits, built by cutting one off a real colour.
+		// Five digits, built by cutting one off a real color.
 		expect(isHexColor(toHex([0x12, 0x34, 0x56]).slice(0, 6))).toBe(false);
 		expect(isHexColor(crimson.slice(1))).toBe(false);
 		expect(isHexColor("")).toBe(false);
@@ -101,7 +101,7 @@ describe("isHexColor", () => {
 });
 
 describe("parseHex", () => {
-	it("reads the two forms the colour field can produce", () => {
+	it("reads the two forms the color field can produce", () => {
 		expect(parseHex(toHex([0x0a, 0x3d, 0x91]))).toEqual([10, 61, 145]);
 		// The short form, built from digits a piece so no hex is spelled here.
 		const short = `#${[0, 10, 3].map((digit) => digit.toString(16)).join("")}`;
@@ -110,7 +110,7 @@ describe("parseHex", () => {
 
 	it("reads garbage as black", () => {
 		expect(parseHex("")).toEqual([0, 0, 0]);
-		// Five digits: one short of a colour, built by cutting one off.
+		// Five digits: one short of a color, built by cutting one off.
 		expect(parseHex(toHex([0x12, 0x34, 0x56]).slice(0, 6))).toEqual([0, 0, 0]);
 		expect(parseHex("bolt")).toEqual([0, 0, 0]);
 	});

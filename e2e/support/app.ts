@@ -253,7 +253,7 @@ export async function gotoAndSettle(page: Page, route: Route): Promise<void> {
  * `expo`'s `DevLoadingView` slides a dark `.__expo_fast_refresh` bubble in from
  * the bottom-left whenever Metro pushes a refresh, and it can still be
  * animating when a measurement runs. It is bundler chrome, not the app: its
- * fill and border are not theme colours, and a sweep that catches it reports
+ * fill and border are not theme colors, and a sweep that catches it reports
  * a finding about the dev server, not the household's UI. Stripped at the
  * same point the sweeps consider the page settled.
  */

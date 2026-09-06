@@ -39,7 +39,7 @@ interface ChoiceFieldProps<T extends string> {
  *
  * Filled against outlined rather than Paper's `selected` tint alone: the tint is
  * a slightly different shade of the same green, which is the trap the column
- * strip already documents. Words and weight, never colour on its own — on a
+ * strip already documents. Words and weight, never color on its own — on a
  * curated board a priority is one member's judgement of another member's
  * Saturday.
  */

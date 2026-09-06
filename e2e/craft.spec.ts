@@ -46,7 +46,7 @@ import {
  *
  * Everything here runs in both locales and at both viewports — Swedish words
  * are longer, and above `compactBreakpoint` the board is a different layout
- * rather than a wider one. The colour-scheme axis is narrower on purpose: only
+ * rather than a wider one. The color-scheme axis is narrower on purpose: only
  * the palette sweep runs in the dark, because that is the only measurement in
  * this file a palette can change.
  *
@@ -107,7 +107,7 @@ import {
  *
  * `wcag2aa` carries the contrast rule, which is the one this project cares most
  * about — `colors.warning` and `colors.success` standing in for each other, or a
- * body colour that never got checked. `best-practice` is deliberately excluded:
+ * body color that never got checked. `best-practice` is deliberately excluded:
  * it flags things like "all page content should be landmarks", which is advice
  * for a document, not for an app shell that React Native Web renders as nested
  * divs. Failing on it would train everyone to ignore this spec.
@@ -302,9 +302,9 @@ function spacingSweep(args: {
 }
 
 /**
- * The off-palette colour sweep (claim 25), scoped to what actually paints:
+ * The off-palette color sweep (claim 25), scoped to what actually paints:
  * `color` only on an element carrying its own text, `backgroundColor` only
- * where it is not the UA default's transparent, border colours only where a
+ * where it is not the UA default's transparent, border colors only where a
  * border is actually drawn. Anything wider reports `rgb(0, 0, 0)` hundreds
  * of times for text-less divs — a scoping artefact, not a finding.
  */
@@ -483,10 +483,10 @@ async function craftFindings(
 }
 
 /**
- * The scheme axis, and the one check that is about colour.
+ * The scheme axis, and the one check that is about color.
  *
  * Only the palette changes with the scheme — `theme/tokens.ts` is where every
- * colour lives and nothing in it is a size — so contrast is the only
+ * color lives and nothing in it is a size — so contrast is the only
  * measurement below that can come out differently in the dark. The three
  * geometry checks used to run in both schemes too, which was 15 tests per
  * project asserting the same boxes twice.
@@ -518,9 +518,7 @@ for (const scheme of ["light", "dark"] as const) {
 				);
 			});
 
-			test(`25: ${route.path} only paints palette colours`, async ({
-				page,
-			}) => {
+			test(`25: ${route.path} only paints palette colors`, async ({ page }) => {
 				await gotoAndSettle(page, route);
 
 				const offenders = await page.evaluate(paletteSweep, {
@@ -529,7 +527,7 @@ for (const scheme of ["light", "dark"] as const) {
 
 				expect(
 					offenders,
-					`off-palette colour on ${route.path} (${scheme})`,
+					`off-palette color on ${route.path} (${scheme})`,
 				).toEqual([]);
 			});
 		}

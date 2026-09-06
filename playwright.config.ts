@@ -11,7 +11,7 @@ import { stackPorts } from "@/e2e/support/stack";
  * machine cannot decide: whether the wording sounds like a person, whether the
  * density overwhelms, whether an empty state is honest.
  *
- * These are **behaviour and craft specs driven through a real browser**, which
+ * These are **behavior and craft specs driven through a real browser**, which
  * is a different thing from the component render tests `CLAUDE.md` forbids. The
  * rule there bans asserting layout against a mounted component tree, because
  * that tests React rather than the app. Asserting that a real button in a real
@@ -136,7 +136,7 @@ export default defineConfig({
 		},
 		{
 			// Swedish runs the craft and i18n specs only, and never in the dark. A
-			// second full pass would re-assert behaviour that has nothing to do with
+			// second full pass would re-assert behavior that has nothing to do with
 			// locale; what Swedish actually risks is longer words — a clipped label,
 			// a wrapped button, a key that was never translated — and a word is the
 			// same length in either scheme. `@dark` is the tag `craft.spec.ts` puts

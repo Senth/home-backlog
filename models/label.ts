@@ -17,10 +17,10 @@ export interface Label {
 	/** An `@expo/vector-icons` MaterialCommunityIcons glyph name. */
 	icon: string;
 	/**
-	 * The colour exactly as picked — one of `theme`'s twelve `labelHues` or a
+	 * The color exactly as picked — one of `theme`'s twelve `labelHues` or a
 	 * custom hex. Never rendered raw: `models/label-color.ts` clamps it at
 	 * draw time, so a change to `boardCard` or to the floor re-derives every
-	 * custom colour instead of silently invalidating what was stored.
+	 * custom color instead of silently invalidating what was stored.
 	 */
 	color: string;
 	/** Fractional index, ordered within the home's set — the same scheme as a node's. */

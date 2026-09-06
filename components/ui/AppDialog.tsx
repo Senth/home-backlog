@@ -88,7 +88,7 @@ interface ConfirmDialogProps {
 	title: string;
 	body: string;
 	confirmLabel: string;
-	/** Paints the confirming action in the error colour and never as the default. */
+	/** Paints the confirming action in the error color and never as the default. */
 	destructive?: boolean;
 	testID: string;
 	returnFocusTo?: RefObject<View | null>;

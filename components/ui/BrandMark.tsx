@@ -12,7 +12,7 @@ interface BrandMarkProps {
  * The app icon, on the splash and the login card.
  *
  * It sits on a `primaryContainer` tile of exactly its own size, so a mark that
- * has not arrived yet is a coloured square rather than a hole, and nothing
+ * has not arrived yet is a colored square rather than a hole, and nothing
  * moves when it does arrive. Both screens exist to say *this is not broken*,
  * and an empty gap where the logo belongs is what broken looks like — most of
  * all to the person least sure the app works at all.

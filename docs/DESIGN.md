@@ -80,7 +80,7 @@ says which group a thing belongs to. One color never does two of them.
   `#636C64`, `thermometer-chevron-up` `#CC6565`, `fire` `#A32E28` (`theme/tokens.ts`'s
   `priorityRamp`). It says *more*, never *different*; identity says *different*, never
   *more*. They sit in different bands of the card face and are never read against each other.
-- **Label palette** — identity. Twelve named hues, plus user-chosen custom colours. See below.
+- **Label palette** — identity. Twelve named hues, plus user-chosen custom colors. See below.
 
 **Themes.** Both, and they are palettes rather than inversions — a change that looks right in
 one is not verified until it has been looked at in the other. Every role exists in both. A
@@ -96,7 +96,7 @@ still have different glyphs, so color is never the only signal.
   on-color. A hue that exists only in light is not a token. The twelve as shipped: *red,
   orange, amber, lime, green, teal, cyan, blue, indigo, purple, pink, stone* — Tailwind's
   200 tone as the light fill and its 900 as the dark fill (stone takes 800 there, where 900
-  is indistinguishable from the card), each with the opposite tone as its on-colour. The
+  is indistinguishable from the card), each with the opposite tone as its on-color. The
   values are `theme/index.ts`'s `labelHues`; this document does not repeat them.
 - **Custom colors are data, not tokens.** A user may pick any color. The app owns its
   legibility: derive the on-color, and clamp the hue so it clears its contrast floor against
@@ -394,7 +394,7 @@ than onto the FAB: no label hue may exceed `primaryContainer` in saturation. Thi
 re-measured the first time real colored labels are on a real board, and if the FAB has stopped
 reading as the way forward, it is this entry that gets rewritten.
 
-**Re-measured 2026-09-06 — real coloured labels are on a real board (#100).** Measured from
+**Re-measured 2026-09-06 — real colored labels are on a real board (#100).** Measured from
 the tokens, not the eye. The FAB's fill is 1.31:1 against the light page (2.18:1 in dark) and
 its label 11.05:1 (5.85:1) against that fill; a card title is 16.92:1 (10.59:1) against its
 card. A drawn label dot clears exactly `fillFloor` — 3:1 against `boardCard`, the smallest

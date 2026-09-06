@@ -13,7 +13,7 @@ import { focusRing } from "@/theme/tokens";
  *
  * One rule for the whole app, so every control gets the same ring: Chrome's
  * default is a 1 px near-black outline, which all but disappears against a
- * dark app bar. Colours come from `themeColor` — the same two values the
+ * dark app bar. Colors come from `themeColor` — the same two values the
  * `theme-color` metas use — so they cannot drift from `primary`.
  *
  * Injected by `app/+html.tsx`, which is web-only. Native has no Tab key.

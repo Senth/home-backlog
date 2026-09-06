@@ -86,7 +86,7 @@ jobs:
 
       # The checks that used to be a browser agent's checklist, and are now
       # assertions: the console, an offline write surviving a reload, reload and
-      # back, deep links, contrast in both colour schemes, touch targets, and
+      # back, deep links, contrast in both color schemes, touch targets, and
       # untranslated strings in sv-SE. `browser-review` keeps only what a machine
       # cannot decide. Chromium is cached because the download is ~115 MB.
       - name: Cache Playwright browsers

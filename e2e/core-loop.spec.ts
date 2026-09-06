@@ -132,7 +132,7 @@ test("3: a card moves through the four columns, completes into Done, and a reloa
 
 /**
  * Labels end to end: two definitions created on the home — one from the
- * preset hues, one a custom colour typed as a hex — and one of them applied
+ * preset hues, one a custom color typed as a hex — and one of them applied
  * to a card through the picker. The definition read and the card write are
  * both settled by the backend, since the screen shows the optimistic copy.
  */
@@ -155,11 +155,11 @@ test("4: a home grows two labels, and a card carries one", async ({ page }) => {
 		.click();
 	await expect(page.getByText(presetTitle)).toBeVisible();
 
-	// One with a custom colour, typed as a hex into the field the pencil
+	// One with a custom color, typed as a hex into the field the pencil
 	// swatch opens. Stored exactly as picked; the clamp happens at draw time.
 	await page.getByRole("button", { name: enUS.labels.newLabel }).click();
 	await page.getByRole("textbox").fill(customTitle);
-	await page.getByRole("button", { name: enUS.labels.customColour }).click();
+	await page.getByRole("button", { name: enUS.labels.customColor }).click();
 	await page.getByRole("textbox").nth(1).fill("#3366cc");
 	await page
 		.getByRole("button", { name: enUS.labels.add, exact: true })

@@ -85,7 +85,7 @@ function AuthGate() {
  * The theme the *navigators* read. Without it every Stack and Tabs falls back
  * to react-navigation's `DefaultTheme`, which paints `rgb(242, 242, 242)` as
  * the full-screen background of every route and `rgb(216, 216, 216)` as the
- * desktop tab bar's top border — colours that belong to no palette this app
+ * desktop tab bar's top border — colors that belong to no palette this app
  * has. The mapping is Paper role → navigation role, so the navigator paints
  * the same surfaces the screens under it do.
  */
@@ -118,7 +118,7 @@ export default function RootLayout() {
 	// The gesture root has to be the outermost view in the tree, above the
 	// portals Paper's dialogs and menus render into: a card dragged on a board
 	// is handled by a gesture, and on native a gesture outside this view is
-	// never recognised at all.
+	// never recognized at all.
 	return (
 		<GestureHandlerRootView style={{ flex: 1 }}>
 			{/* Expo Router manages the document title through react-helmet, which

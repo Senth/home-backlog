@@ -10,7 +10,7 @@ import { space } from "@/theme/tokens";
  *
  * It replaces the router rather than covering it, so no route mounts and no
  * wrong screen can appear underneath. That matters more than it sounds: the
- * old behaviour flashed the empty Projects board at a signed-out visitor, and
+ * old behavior flashed the empty Projects board at a signed-out visitor, and
  * on a phone in a garage with no signal that reads as *the app logged me out
  * and my list is gone*.
  *

@@ -3,7 +3,7 @@
  *
  * This project has no Tailwind and no utility classes, so nothing else stops a
  * `padding: 15` from drifting in next to a `padding: 16`. The rule that
- * replaces it: no numeric literal ever appears in a style prop, and no colour
+ * replaces it: no numeric literal ever appears in a style prop, and no color
  * literal appears outside `theme/`. See `CLAUDE.md`.
  */
 
@@ -44,7 +44,7 @@ export const elevation = {
 /**
  * How wide a block of content is allowed to grow before it stops. A form
  * stretched across a desktop monitor is a form nobody can read — the eye loses
- * the line — so it clamps and centres instead. Below the clamp it simply fills
+ * the line — so it clamps and centers instead. Below the clamp it simply fills
  * the screen.
  */
 export const contentWidth = {
@@ -152,7 +152,7 @@ export const indent = {
 } as const;
 
 /**
- * The FAB's footprint. The one primary action per surface earns its colour,
+ * The FAB's footprint. The one primary action per surface earns its color,
  * and what it must not take is room: at 200% text a full-label FAB once
  * spanned 91.8% of a 195px window — essentially the whole screen. Capped at
  * this share of the width it is laid out in, the label wraps and the words
@@ -275,13 +275,13 @@ export const denseBreakpoint = 320;
 export const cardGutterBreakpoint = 250;
 
 /**
- * The priority ramp's ordinal glyphs and colours (#100), indexed with
+ * The priority ramp's ordinal glyphs and colors (#100), indexed with
  * `priorityOrder` from `models/node.ts` — low, normal, high, urgent.
  *
- * The dot is the ramp colour with its glyph knocked out in `on`, the way a
- * label dot is filled with its hue and carries its own on-colour. Blue carries
+ * The dot is the ramp color with its glyph knocked out in `on`, the way a
+ * label dot is filled with its hue and carries its own on-color. Blue carries
  * low so the bottom step is not another grey among greys, and urgent holds one
- * notch of red back from the overdue amber: a colour here may say *more*,
+ * notch of red back from the overdue amber: a color here may say *more*,
  * never *how you should feel*, and overdue must stay the loudest thing the
  * footer can say. `docs/DESIGN.md` still describes the older single-hue ramp;
  * #100's documentation pass replaces that section.

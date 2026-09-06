@@ -24,7 +24,7 @@ interface CardFooterProps {
 
 interface FactProps {
 	source: string;
-	/** Overrides the muted tier — the warning colour, on an overdue card. */
+	/** Overrides the muted tier — the warning color, on an overdue card. */
 	color?: string;
 	/** What a screen reader hears instead of the visual shorthand. */
 	accessibilityLabel?: string;
@@ -96,7 +96,7 @@ export function CardFooter({
 	const { t } = useTranslation();
 
 	// Only to decide whether the second pair exists — the chip itself, and the
-	// warning colour on it, are `DueChip`'s.
+	// warning color on it, are `DueChip`'s.
 	const due = dueState(node.dueDate, new Date());
 	const showDue = node.dueDate !== null && (due === "late" || due === "soon");
 

@@ -190,7 +190,7 @@ export function BoardColumn({
 				// Recessed rather than raised: the column is the darkest surface on
 				// the board, the page sits above it and a card above that. In dark
 				// this column was `elevation.level1` under a card that was the same
-				// colour as the page, so the board read dark → grey → dark with the
+				// color as the page, so the board read dark → grey → dark with the
 				// card *below* the thing it sat on.
 				backgroundColor: wide ? theme.colors.boardColumn : undefined,
 				borderWidth: wide ? border.hairline : undefined,

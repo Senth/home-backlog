@@ -4,7 +4,7 @@ import { useLabelColors } from "@/hooks/use-label-colors";
 import { icon as iconSize, radius, size } from "@/theme/tokens";
 
 interface LabelGlyphProps {
-	/** The label's colour exactly as stored — a preset hue name or a custom hex. */
+	/** The label's color exactly as stored — a preset hue name or a custom hex. */
 	color: string;
 	/** The label's MaterialCommunityIcons glyph name. */
 	icon: string;

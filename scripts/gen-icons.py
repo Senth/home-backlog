@@ -7,7 +7,7 @@ The mark is a house whose interior is a three-column kanban board — the app's
 actual differentiator, and legible down to 32px because it is four shapes and
 six bars, nothing finer.
 
-Every target is drawn from the same geometry with three colours swapped:
+Every target is drawn from the same geometry with three colors swapped:
 
     tile        green square, white house, white cards   (app + PWA icons)
     foreground  transparent, white house, white cards    (Android adaptive)
@@ -119,7 +119,7 @@ def cards(ink):
 
 
 def svg(background, ink, *, radius=TILE_RADIUS, scale=1.0):
-    """One icon. `scale` shrinks the art around the centre for safe zones.
+    """One icon. `scale` shrinks the art around the center for safe zones.
 
     The columns are always *cut out* of the house rather than painted over it.
     On the tile that reveals the green square underneath; on the transparent

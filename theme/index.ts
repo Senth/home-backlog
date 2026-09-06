@@ -7,10 +7,10 @@ import {
 /**
  * Material 3 palettes for Home Backlog.
  *
- * Green is the brand colour, deliberately unlike the sibling project's purple
+ * Green is the brand color, deliberately unlike the sibling project's purple
  * so the two apps are distinguishable in a tab strip or app switcher. It also
  * leaves red and amber free to mean *overdue* and *waiting* on a board, which
- * matters once seven statuses need colours.
+ * matters once seven statuses need colors.
  *
  * `warning` and `success` are additions, not part of MD3. They are read through
  * `useAppTheme()` below, which carries their types; plain `useTheme()` from
@@ -59,7 +59,7 @@ const neutral = {
 } as const;
 
 /**
- * Paper's elevation levels are opaque colours rather than shadows on web, so
+ * Paper's elevation levels are opaque colors rather than shadows on web, so
  * they are part of the ramp too. Levels 4 and 5 are left as Paper ships them:
  * `elevation` in `tokens.ts` stops at `high: 3`, so nothing in this app can
  * reach them.
@@ -82,7 +82,7 @@ const darkElevation = {
  * The board's own surfaces, named once and read everywhere they matter.
  *
  * The rule they encode is **column recessed, page in the middle, card raised**,
- * in both schemes. Before this, a dark card was `surface` — the same colour as
+ * in both schemes. Before this, a dark card was `surface` — the same color as
  * the page — on a column of `elevation.level1`, so the board read dark → grey →
  * dark with the card darker than the thing it sat on.
  *
@@ -113,17 +113,17 @@ const darkBoard = {
 };
 
 /**
- * The label palette (#100) — the identity colours. A label is an icon plus a
- * colour; the icon carries the identity and the colour accelerates it, which is
+ * The label palette (#100) — the identity colors. A label is an icon plus a
+ * color; the icon carries the identity and the color accelerates it, which is
  * what makes a twelfth of the space a hue can live in safe: two labels whose
  * hues collide under deuteranopia still have different glyphs.
  *
  * Twelve named hues, both schemes explicit — a hue that exists only in light is
- * not a token — and each scheme shipping its own on-colour for the glyph inside
+ * not a token — and each scheme shipping its own on-color for the glyph inside
  * the dot. Seeded from Tailwind's 200 tone in light and its 900 tone in dark
  * (stone takes its 800 in dark, where 900 is indistinguishable from the card),
- * with the opposite tone as the on-colour; every pair clears 4.5:1 in both
- * schemes. Anything else a household wants is a custom colour, stored raw and
+ * with the opposite tone as the on-color; every pair clears 4.5:1 in both
+ * schemes. Anything else a household wants is a custom color, stored raw and
  * clamped at render by `models/label-color.ts`.
  *
  * Identity only. No ramp of these means *more* — that is `priorityRamp`'s job —
@@ -290,7 +290,7 @@ export type AppTheme = typeof lightTheme;
 export const useAppTheme = () => usePaperTheme<AppTheme>();
 
 /**
- * The browser tab / status bar colour per scheme. Kept next to the palettes so
+ * The browser tab / status bar color per scheme. Kept next to the palettes so
  * `app/+html.tsx` and `app.json` cannot drift away from `primary`.
  */
 export const themeColor = {

@@ -73,7 +73,7 @@ command -v jq >/dev/null 2>&1 || {
 # What is in scope
 #
 # `theme/` is where the tokens and the palettes live, so it is the one place a
-# number or a colour is allowed to be written down. `functions/` is a separate
+# number or a color is allowed to be written down. `functions/` is a separate
 # TypeScript project with its own module resolution, no `@/` alias and no React
 # at all. `dist/` is build output; `scripts/` is not app code.
 #
@@ -162,28 +162,28 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 2. No colour literal outside theme/
+# 2. No color literal outside theme/
 #
 # Hex is matched quoted only, because `#101` in prose is an issue reference and
-# every real colour in this codebase is written as a string. The named CSS
-# colours are matched too — `"white"` is as much a literal as `"#FFFFFF"`, and
+# every real color in this codebase is written as a string. The named CSS
+# colors are matched too — `"white"` is as much a literal as `"#FFFFFF"`, and
 # it is the spelling a reflex reaches for first. `transparent` is not on the
 # list: it names an absence, and no palette entry could replace it.
 # ---------------------------------------------------------------------------
 PATTERN="([\"'\`])#[0-9a-fA-F]{3,8}\\1|\\b(rgba?|hsla?)\\(|([\"'\`])(white|black|red|green|blue|grey|gray|silver|yellow|orange|purple|pink|brown|cyan|magenta)\\3"
 hits=$(scan "${SRC[@]}" | strip_comments)
 if [[ -n "$hits" ]]; then
-	report 2 "colour literals" FAIL "$hits" \
-		"Read colours from useAppTheme() in @/theme; add the colour to theme/index.ts if it does not exist yet."
+	report 2 "color literals" FAIL "$hits" \
+		"Read colors from useAppTheme() in @/theme; add the color to theme/index.ts if it does not exist yet."
 else
-	report 2 "colour literals" ok
+	report 2 "color literals" ok
 fi
 
 # ---------------------------------------------------------------------------
 # 3. useAppTheme(), never Paper's bare useTheme()
 #
 # Paper's own hook is untyped for `colors.warning` and `colors.success`, so it
-# silently hands back the MD3 type for the two colours this app added.
+# silently hands back the MD3 type for the two colors this app added.
 # `theme/index.ts` is the one file allowed to import it, under an alias.
 # ---------------------------------------------------------------------------
 PATTERN='useTheme'

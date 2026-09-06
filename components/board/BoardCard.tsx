@@ -85,7 +85,7 @@ const noAncestorLabelIds: readonly string[] = [];
  *   where and how long, then due and waiting. Words, never chips: the old
  *   outlined pills put a box around every fact and an edge around every row,
  *   and overdue — the one fact that is a status — is carried by words in the
- *   warning colour, which survives 200% text and colour blindness.
+ *   warning color, which survives 200% text and color blindness.
  * - **The right gutter** — the menu at the top, the assignees and the step
  *   count anchored to the foot. Below `cardGutterBreakpoint` it goes: the
  *   menu floats in the corner and the people and the count become a trailing
@@ -235,8 +235,8 @@ export function BoardCard({
 			mode="outlined"
 			onPress={onOpen}
 			accessibilityHint={steps ? t("board.open") : t("board.openDetails")}
-			// Raised out of its column: the fill is a board colour rather than
-			// `surface`, which in dark was the same colour as the page. Paper draws
+			// Raised out of its column: the fill is a board color rather than
+			// `surface`, which in dark was the same color as the page. Paper draws
 			// the outlined card's hairline itself, in whatever `borderColor` this
 			// style carries — a `borderWidth` here would put a second, coincident
 			// border on the surface underneath it and inset the content by a pixel.

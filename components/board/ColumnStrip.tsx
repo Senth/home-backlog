@@ -83,7 +83,7 @@ export function ColumnStrip({
 					>
 						<Chip
 							// The resting selected chip is *quiet*: outlined, with the
-							// brand colour on its border and its words only — the same
+							// brand color on its border and its words only — the same
 							// primary-as-active-tab role the tab bar uses. It is always
 							// on screen, and a filled chip here competed with the card
 							// titles for the eye whenever nobody was dragging.
@@ -93,7 +93,7 @@ export function ColumnStrip({
 							// "This is where the card would land" is inverted rather than
 							// tinted, because the selected tint is already spoken for by
 							// "this is the pane you are on" — and a household member sorting
-							// one-handed mid-drag reads a colour, not a word. Nothing
+							// one-handed mid-drag reads a color, not a word. Nothing
 							// changes size, so the strip does not shift under the hand.
 							// Paper's chip is 32dp tall, under the project's 48, and it is
 							// the primary way across a board on a phone — exactly the control

@@ -20,7 +20,7 @@ import { useHome } from "@/contexts/HomeContext";
 import {
 	createLabel,
 	deleteLabel,
-	recolourLabel,
+	recolorLabel,
 	reiconLabel,
 	renameLabel,
 } from "@/data/homes";
@@ -59,7 +59,7 @@ const hueNames = Object.keys(labelHues) as LabelHueName[];
 
 /**
  * Creating and editing one label (#100), in one shape — nothing moves between
- * the two: the preview, the name, the icon and the colour hold their places,
+ * the two: the preview, the name, the icon and the color hold their places,
  * and only the actions row grows a Delete on the edit path.
  *
  * The live preview is the point of the dialog. A hue picked from a row of
@@ -94,7 +94,7 @@ export function LabelDialog({
 	);
 	const [pickingIcon, setPickingIcon] = useState(false);
 	const [deleting, setDeleting] = useState(false);
-	// Open from the start when the stored colour is already a custom one —
+	// Open from the start when the stored color is already a custom one —
 	// the field is where its value is visible.
 	const [customOpen, setCustomOpen] = useState(
 		label !== null && !(label.color in labelHues),
@@ -140,7 +140,7 @@ export function LabelDialog({
 			writes.push(renameLabel(homeId, label.id, title));
 		if (icon !== label.icon) writes.push(reiconLabel(homeId, label.id, icon));
 		if (color !== label.color)
-			writes.push(recolourLabel(homeId, label.id, color));
+			writes.push(recolorLabel(homeId, label.id, color));
 		if (writes.length > 0)
 			Promise.all(writes).catch((reason) => {
 				console.error("Could not save the label:", reason);
@@ -296,7 +296,7 @@ export function LabelDialog({
 							</View>
 							{customOpen ? (
 								<ColorField
-									label={t("labels.customColour")}
+									label={t("labels.customColor")}
 									value={color}
 									onChange={setColor}
 								/>
@@ -397,10 +397,10 @@ interface SwatchProps {
 }
 
 /**
- * One colour swatch: the dot inside a full `touchTarget` pressable, with a
- * hairline ring on the chosen one and a check in the dot's own on-colour —
+ * One color swatch: the dot inside a full `touchTarget` pressable, with a
+ * hairline ring on the chosen one and a check in the dot's own on-color —
  * the same mark the icon picker's list rows make. The dot is `avatarSm`, so
- * the ring reads around the colour, not over it.
+ * the ring reads around the color, not over it.
  */
 function Swatch({
 	accessibilityLabel,
@@ -488,7 +488,7 @@ function CustomSwatch({
 
 	return (
 		<Swatch
-			accessibilityLabel={t("labels.customColour")}
+			accessibilityLabel={t("labels.customColor")}
 			selected={selected}
 			onSelect={onOpen}
 		>

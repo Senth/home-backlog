@@ -304,7 +304,7 @@ describe("module scope", () => {
 			require("@/utils/dev-console") as typeof import("@/utils/dev-console");
 
 		// `index.ts` imports the module for the side effect and nothing else, so
-		// the self-install is the behaviour the app depends on: the import
+		// the self-install is the behavior the app depends on: the import
 		// itself must have swapped `console.warn`.
 		expect(console.warn).not.toBe(original);
 

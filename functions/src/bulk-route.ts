@@ -34,7 +34,7 @@ const runTtlHours = 24;
 /**
  * An `Idempotency-Key` has to be a legal Firestore document id, because that is
  * what it becomes. Refusing an unusable one is better than hashing it into
- * something the caller cannot recognise in a later error.
+ * something the caller cannot recognize in a later error.
  */
 const idempotencyKeyPattern = /^[A-Za-z0-9_.:-]{1,200}$/;
 

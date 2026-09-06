@@ -15,7 +15,7 @@ import { statuses } from "./node.js";
  *
  * The Firestore wiring is faked at the module boundary (`firestore.js`,
  * `auth.js`) rather than with an emulator, exactly because these branches are
- * decisions, not I/O behaviour — the same split the bulk and validate suites
+ * decisions, not I/O behavior — the same split the bulk and validate suites
  * draw.
  */
 

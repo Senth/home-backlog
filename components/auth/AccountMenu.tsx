@@ -34,7 +34,7 @@ const signOutDialogTestID = "sign-out-dialog";
  *  dialog gets a ref to this instance instead. */
 const triggerTestID = "account-menu-trigger";
 
-/** The signed-in user's avatar. Same photo-over-initials behaviour the members
+/** The signed-in user's avatar. Same photo-over-initials behavior the members
  *  list uses, which is why it lives in one place. */
 function AccountAvatar({ user, px }: { user: User; px: number }) {
 	return (
@@ -202,7 +202,7 @@ export function AccountMenu() {
 
 			{/* `ConfirmDialog`, not a Paper `Dialog` of its own. This screen had
 			    its own copy of the width clamp, the wrapping action row and the
-			    destructive-button colours — and being a copy is how it kept
+			    destructive-button colors — and being a copy is how it kept
 			    Paper's untranslated "Close modal" on its scrim after every other
 			    dialog in the app had stopped saying it. */}
 			<ConfirmDialog

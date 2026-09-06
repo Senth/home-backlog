@@ -9,7 +9,7 @@ import { lightTheme } from "@/theme";
 jest.mock("react-i18next", () => ({
 	// The keys are asserted rather than the sentences — the parity of the locale
 	// files is `yarn invariants`' job, and pinning English here would fail on a
-	// rewording that is not a behaviour change.
+	// rewording that is not a behavior change.
 	useTranslation: () => ({
 		t: (key: string, values?: Record<string, unknown>) =>
 			values === undefined ? key : `${key}:${JSON.stringify(values)}`,

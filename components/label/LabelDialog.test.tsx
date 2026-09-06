@@ -5,7 +5,7 @@ import { LabelDialog } from "@/components/label/LabelDialog";
 import {
 	createLabel,
 	deleteLabel,
-	recolourLabel,
+	recolorLabel,
 	reiconLabel,
 	renameLabel,
 } from "@/data/homes";
@@ -15,7 +15,7 @@ import { defaultLabelHue, lightTheme } from "@/theme";
 jest.mock("react-i18next", () => ({
 	// The keys are asserted rather than the sentences — the parity of the locale
 	// files is `yarn invariants`' job, and pinning English here would fail on a
-	// rewording that is not a behaviour change.
+	// rewording that is not a behavior change.
 	useTranslation: () => ({
 		t: (key: string, values?: Record<string, unknown>) =>
 			values === undefined ? key : `${key}:${JSON.stringify(values)}`,
@@ -33,14 +33,14 @@ jest.mock("@/contexts/HomeContext", () => ({
 jest.mock("@/data/homes", () => ({
 	createLabel: jest.fn(() => Promise.resolve()),
 	renameLabel: jest.fn(() => Promise.resolve()),
-	recolourLabel: jest.fn(() => Promise.resolve()),
+	recolorLabel: jest.fn(() => Promise.resolve()),
 	reiconLabel: jest.fn(() => Promise.resolve()),
 	deleteLabel: jest.fn(() => Promise.resolve()),
 }));
 
 // The real icon set loads its font map asynchronously — the same double the
 // card face's test uses, with the glyph name as the testID. `icon-search`
-// reads the glyph map once at module scope to build the catalogue, so the
+// reads the glyph map once at module scope to build the catalog, so the
 // double carries a handful of real names.
 jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
 	const { View } = jest.requireActual("react-native");
@@ -139,7 +139,7 @@ describe("LabelDialog", () => {
 		fireEvent.press(screen.getByText("labels.save"));
 
 		expect(renameLabel).toHaveBeenCalledWith("home-1", "l1", "Renamed");
-		expect(recolourLabel).toHaveBeenCalledWith("home-1", "l1", "indigo");
+		expect(recolorLabel).toHaveBeenCalledWith("home-1", "l1", "indigo");
 		expect(reiconLabel).not.toHaveBeenCalled();
 	});
 
@@ -150,7 +150,7 @@ describe("LabelDialog", () => {
 		fireEvent.press(screen.getByText("labels.save"));
 
 		expect(renameLabel).not.toHaveBeenCalled();
-		expect(recolourLabel).not.toHaveBeenCalled();
+		expect(recolorLabel).not.toHaveBeenCalled();
 		expect(reiconLabel).not.toHaveBeenCalled();
 	});
 

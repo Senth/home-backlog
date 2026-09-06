@@ -1,13 +1,13 @@
 /**
- * The label colour clamp (#100).
+ * The label color clamp (#100).
  *
- * A custom label colour is stored exactly as picked and clamped only at draw
- * time: light, dark and the on-colour are derived here, so a change to
- * `boardCard` or to a floor re-derives every stored colour instead of letting
+ * A custom label color is stored exactly as picked and clamped only at draw
+ * time: light, dark and the on-color are derived here, so a change to
+ * `boardCard` or to a floor re-derives every stored color instead of letting
  * stored values go stale.
  *
  * Pure by design — no React, no theme import. The caller hands in the card
- * colour it is drawing against, which keeps this testable without a theme.
+ * color it is drawing against, which keeps this testable without a theme.
  *
  * The rules language cannot inspect a map's values, so the hex this receives is
  * whatever ended up in the document; nothing here may throw a render away.
@@ -24,14 +24,14 @@ export type Rgb = [number, number, number];
 const HEX_PATTERN = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 /**
- * Whether a string is a hex colour at all — the test the native colour field
+ * Whether a string is a hex color at all — the test the native color field
  * commits against, and the one grammar `parseHex` accepts.
  */
 export function isHexColor(hex: string): boolean {
 	return HEX_PATTERN.test(hex.trim());
 }
 
-/** Steps the search takes from the picked colour toward black or white. */
+/** Steps the search takes from the picked color toward black or white. */
 const searchSteps = 64;
 
 const BLACK: Rgb = [0, 0, 0];
@@ -39,7 +39,7 @@ const WHITE: Rgb = [255, 255, 255];
 
 /**
  * `#rgb` or `#rrggbb`, as channels. Anything else reads as black — an
- * unparseable colour is unreachable through the app and the REST API, and a
+ * unparseable color is unreachable through the app and the REST API, and a
  * black dot clamps like any other, so a corrupt document renders rather than
  * crashes the board holding it.
  */
@@ -56,7 +56,7 @@ export function parseHex(hex: string): Rgb {
 	];
 }
 
-/** Channels back to the `#rrggbb` form the theme spells colours in. */
+/** Channels back to the `#rrggbb` form the theme spells colors in. */
 export function toHex([r, g, b]: Rgb): string {
 	const channel = (value: number) =>
 		Math.round(Math.min(255, Math.max(0, value)))
@@ -89,12 +89,12 @@ function mix(from: Rgb, to: Rgb, t: number): Rgb {
 }
 
 /**
- * The colour to draw a label dot in, and the colour of the glyph inside it.
+ * The color to draw a label dot in, and the color of the glyph inside it.
  *
- * The fill is the picked colour moved toward black in light and toward white in
+ * The fill is the picked color moved toward black in light and toward white in
  * dark — the direction away from the card — by the smallest step that clears
- * `fillFloor` against `boardCard`; a colour that already clears it is drawn
- * untouched. The on-colour is whichever of black and white reads better against
+ * `fillFloor` against `boardCard`; a color that already clears it is drawn
+ * untouched. The on-color is whichever of black and white reads better against
  * that fill: one of the two always clears `onFloor`, because black works down
  * to a luminance of 0.175 and white works up to 0.183.
  */

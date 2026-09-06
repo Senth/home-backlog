@@ -8,7 +8,7 @@ interface MetaChipProps {
 	children: ReactNode;
 	/** A Material Community icon name, for the chips that need one. */
 	source?: string;
-	/** Overrides the label colour — the warning colour, on an overdue card. */
+	/** Overrides the label color — the warning color, on an overdue card. */
 	color?: string;
 	/**
 	 * What a screen reader hears instead of the label. For a chip whose text is

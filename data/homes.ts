@@ -252,7 +252,7 @@ export function renameLabel(
 	});
 }
 
-export function recolourLabel(
+export function recolorLabel(
 	homeId: string,
 	labelId: string,
 	color: string,

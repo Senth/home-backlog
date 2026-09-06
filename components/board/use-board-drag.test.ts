@@ -25,7 +25,7 @@ jest.mock("@/data/nodes", () => ({
 jest.mock("react-i18next", () => ({
 	// The keys are asserted rather than the sentences: both locale files are
 	// checked for parity by `yarn invariants`, and a test that pinned the English
-	// would fail on a rewording that is not a behaviour change.
+	// would fail on a rewording that is not a behavior change.
 	useTranslation: () => ({
 		t: (key: string, values?: Record<string, unknown>) =>
 			values === undefined ? key : `${key}:${JSON.stringify(values)}`,

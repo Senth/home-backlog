@@ -252,7 +252,7 @@ filed work you did not file.
 | `parentId` | ✅ | Structure. On `POST` it places the node; on `PATCH` it moves the subtree. |
 | `visibility` | ✅ on create, at the top level only | Shown in the app. `shared` or `private`. |
 | `blockedBy` | ✅ | Rendered in the app as *Waiting*: the app derives the state from the blockers' statuses, and nothing auto-clears it — a done blocker stops holding cards, and reopening one re-blocks them. Writing a private node's id into a shared card's list leaves the other members a row they cannot read and can remove. |
-| `labelIds` | ✅ | The card's labels, as ids of the home's label definitions — at most **6**. Rendered as coloured dots beside the card. The definitions themselves (icon, colour, name) are **not writable here**: the household curates that set in the app, and there is no verb that lists them, so take the ids from a node you have read. A card naming a gone id renders as nothing and stays updatable. |
+| `labelIds` | ✅ | The card's labels, as ids of the home's label definitions — at most **6**. Rendered as colored dots beside the card. The definitions themselves (icon, color, name) are **not writable here**: the household curates that set in the app, and there is no verb that lists them, so take the ids from a node you have read. A card naming a gone id renders as nothing and stays updatable. |
 | `checklist` | ✅ | **Stored, no screen yet.** Up to 200 items. Nothing renders it today. |
 | `participantIds` | ❌ | Shown in the app. Whose project this is. Set by a person. |
 | `archived` | ❌ | Hides a card from every board. Nothing in the app can bring one back yet, so nothing here may hide one. |
@@ -272,7 +272,7 @@ it helps you, but do not expect a person to see it.
   create is unfiled. Nothing can check a location id you name, and an invented one would
   make "everything in the bathroom" return the wrong set.
 - **Recurring maintenance.** No verbs yet.
-- **Label definitions.** A card carries `labelIds`, but the label set itself — the names, icons and colours behind those ids — belongs to the household: there is no verb that reads or writes it, and there never will be a write one.
+- **Label definitions.** A card carries `labelIds`, but the label set itself — the names, icons and colors behind those ids — belongs to the household: there is no verb that reads or writes it, and there never will be a write one.
 - **Changing `visibility` or `participantIds`** on anything that exists. A person does that.
 - **Creating a home, inviting, accepting an invitation.** Human-only.
 - **Custom statuses.** The four are the vocabulary.

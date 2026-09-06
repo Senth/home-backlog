@@ -33,7 +33,7 @@ interface CardGutterProps {
  * **Always drawn**, even when the card has neither a priority nor a label: a
  * gutter that appears and disappears makes every card a different shape, and
  * the whole point of the column is that a board of cards reads as a set. The
- * fill is the column colour — recessed, the one thing on a raised card that
+ * fill is the column color — recessed, the one thing on a raised card that
  * is allowed to be — and the hairline on its right edge is the edge the fill
  * alone cannot make crisp against the card.
  *
@@ -82,7 +82,7 @@ export function CardGutter({ node, labels, narrow = false }: CardGutterProps) {
 						justifyContent: "center",
 					}}
 				>
-					{/* The glyph is knocked out of the dot in the ramp's own on-colour. */}
+					{/* The glyph is knocked out of the dot in the ramp's own on-color. */}
 					<PaperIcon name={step.glyph} size={icon.sm} color={step.on} />
 				</View>
 			)}

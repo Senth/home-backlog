@@ -23,7 +23,7 @@ import {
 	acceptInvite,
 	createLabel,
 	deleteLabel,
-	recolourLabel,
+	recolorLabel,
 	reiconLabel,
 	renameLabel,
 	reorderLabel,
@@ -119,7 +119,7 @@ describe("the label writes", () => {
 				"labels.bolt.title": "Plumbing",
 			},
 		);
-		await recolourLabel("home-1", "bolt", amber);
+		await recolorLabel("home-1", "bolt", amber);
 		expect(updateDoc).toHaveBeenLastCalledWith(
 			{ id: "home-1" },
 			{

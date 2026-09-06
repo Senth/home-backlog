@@ -5,7 +5,7 @@ import path from "node:path";
 /**
  * `theme/index.ts`'s palettes, loaded in the Playwright process.
  *
- * The craft spec judges rendered colours against `lightTheme.colors` and
+ * The craft spec judges rendered colors against `lightTheme.colors` and
  * `darkTheme.colors`, but the process running the tests is Node — and
  * `theme/index.ts` imports `react-native-paper`, whose entry requires
  * `react-native`, whose entry is Flow, which Node cannot even parse. That is
@@ -35,7 +35,7 @@ const REACT_NATIVE_STUB = {
 };
 
 /**
- * The one colour comparison the browser speaks: `rgba(r, g, b, a)`. Hex and
+ * The one color comparison the browser speaks: `rgba(r, g, b, a)`. Hex and
  * `rgb()` from the theme files, and `rgba()` from `getComputedStyle`, all
  * arrive here before anything is compared.
  */
@@ -50,7 +50,7 @@ function canonicalColor(value: string): string {
 		const [r, g, b, a = "1"] = rgb[1].split(",").map((part) => part.trim());
 		return `rgba(${r}, ${g}, ${b}, ${Number(a)})`;
 	}
-	throw new Error(`unsupported colour value in the theme: ${value}`);
+	throw new Error(`unsupported color value in the theme: ${value}`);
 }
 
 function collectColors(node: unknown, out: Set<string>): void {
@@ -129,13 +129,13 @@ function loadThemeSource(): {
 		darkTheme: { colors: ThemeColors };
 	};
 	// `tokens.ts` imports nothing, so the paper-only `require` never fires for
-	// it; its ramp colours are painted by the card face and belong on the
+	// it; its ramp colors are painted by the card face and belong on the
 	// palette the sweeps judge against.
 	const tokens = load(path.join("theme", "tokens.ts")) as {
 		priorityRamp: readonly { color: string; on: string }[];
 	};
-	// Only the two colour fields — the ramp also carries glyph names, which
-	// are words, not colours.
+	// Only the two color fields — the ramp also carries glyph names, which
+	// are words, not colors.
 	return {
 		...themes,
 		priorityRamp: tokens.priorityRamp.flatMap((step) => [step.color, step.on]),
@@ -151,8 +151,8 @@ function paletteOf(source: unknown): string[] {
 }
 
 /**
- * Every colour the two schemes can paint — the MD3 defaults `theme/index.ts`
- * spreads in, its own overrides, the board colours, the elevation ramp, and
+ * Every color the two schemes can paint — the MD3 defaults `theme/index.ts`
+ * spreads in, its own overrides, the board colors, the elevation ramp, and
  * the priority ramp the card gutter paints — canonicalised for comparison
  * against computed styles.
  */

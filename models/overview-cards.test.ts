@@ -358,7 +358,7 @@ describe("matching", () => {
 			).toEqual(["node-1"]);
 		});
 
-		it("keeps the raw-length behaviour on an empty map", () => {
+		it("keeps the raw-length behavior on an empty map", () => {
 			expect(rowsWith([{ field: "blockedBy", is: "any" }], new Map())).toEqual([
 				"node-1",
 			]);
