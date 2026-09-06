@@ -1,14 +1,19 @@
 import "@/i18n";
 
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import {
 	DarkTheme,
 	DefaultTheme,
 	ThemeProvider,
 } from "@react-navigation/native";
+import {
+	isLoaded as isFontLoaded,
+	loadAsync as loadFontAsync,
+} from "expo-font";
 import { Slot } from "expo-router";
 import Head from "expo-router/head";
 import { StatusBar } from "expo-status-bar";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -23,6 +28,35 @@ import { darkTheme, lightTheme, useAppTheme } from "@/theme";
 
 function AuthGate() {
 	const { loading } = useAuth();
+	const [fontsReady, setFontsReady] = useState(false);
+
+	// The icon font is loaded once, here, behind the splash. Every icon that
+	// mounts while it is still arriving starts a load of its own, and
+	// expo-font's web loader abandons any load that takes over 12s with a
+	// rejection nobody catches — one slow font fetch becomes an uncaught
+	// error on every screen that renders a glyph. Gating the router on the
+	// font keeps every mounted icon on expo-font's already-loaded fast path,
+	// and the retry is what turns the 12s rejection into patience: the
+	// failed promise is deleted from expo-font's cache, so the next attempt
+	// starts fresh and the only awaiter that sees a rejection is this one.
+	useEffect(() => {
+		let cancelled = false;
+		void (async () => {
+			while (!cancelled) {
+				if (isFontLoaded(MaterialCommunityIcons.getFontFamily())) break;
+				try {
+					await loadFontAsync(MaterialCommunityIcons.font);
+					break;
+				} catch {
+					await new Promise((resolve) => setTimeout(resolve, 1000));
+				}
+			}
+			if (!cancelled) setFontsReady(true);
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	// Where you are sent is decided by the two group layouts and by
 	// `app/index.tsx`, declaratively during render. This gate only decides
@@ -36,7 +70,7 @@ function AuthGate() {
 	return (
 		<View style={{ flex: 1 }}>
 			<OfflineBar />
-			{loading ? <SplashScreen /> : <Slot />}
+			{loading || !fontsReady ? <SplashScreen /> : <Slot />}
 			<UpdateBanner />
 		</View>
 	);
