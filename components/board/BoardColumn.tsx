@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, View } from "react-native";
 import { Button, Text } from "react-native-paper";
@@ -73,6 +73,13 @@ interface BoardColumnProps {
  * from *where* the button was, so a card typed one-handed in a greenhouse lands
  * where the button said it would. It sits at the bottom because that is where
  * the new card appears — `rankAtEnd` against this column's last card.
+ *
+ * In a column long enough to scroll, the bottom of that list is off-screen, so
+ * the button moves out of the scroll and pins below it (#138): the add affordance
+ * is never a scroll away. A short or empty column keeps it in the list, where the
+ * new card will appear — the pinned row costs no vertical room anywhere it is not
+ * needed. The pinned row is the same button plus padding, so it is always the
+ * taller of the two shapes and a column cannot flip between them.
  */
 export function BoardColumn({
 	status,
@@ -91,6 +98,13 @@ export function BoardColumn({
 	const theme = useAppTheme();
 
 	const label = t(`status.${status}`);
+
+	// The add row pins below the scroll once the content is taller than the
+	// column (#138). Both numbers start at zero — one frame of in-flow is
+	// invisible, because the in-flow button is exactly the one below the fold.
+	const [frameHeight, setFrameHeight] = useState<number>(space.none);
+	const [contentHeight, setContentHeight] = useState<number>(space.none);
+	const pinned = wide && contentHeight > frameHeight;
 
 	// The card in flight is drawn at board level, following the finger — but its
 	// own row **stays mounted**, flattened to nothing. The gesture belongs to that
@@ -112,6 +126,16 @@ export function BoardColumn({
 	});
 
 	const gap = <View style={{ height: drag?.gapHeight ?? space.none }} />;
+
+	const addButton = (
+		<Button
+			icon="plus"
+			onPress={onAdd}
+			contentStyle={{ minHeight: touchTarget }}
+		>
+			{t("board.addTo", { column: label })}
+		</Button>
+	);
 
 	/**
 	 * A column with nothing in it, while a card is up. Two of four columns are
@@ -212,7 +236,9 @@ export function BoardColumn({
 
 			{/* The column's own drop area, measured when a card lifts: what a drag is
 			    hit-tested against is the *viewport*, so a card scrolled out of sight
-			    is above or below it rather than in it. */}
+			    is above or below it rather than in it. The pinned add row lives
+			    inside it too, so a drop on the row still lands at the column's end
+			    rather than reading as a drop outside the board. */}
 			<View
 				ref={drag?.register(columnKey(status))}
 				style={{ flex: 1 }}
@@ -220,6 +246,8 @@ export function BoardColumn({
 			>
 				<ScrollView
 					style={{ flex: 1 }}
+					onLayout={(event) => setFrameHeight(event.nativeEvent.layout.height)}
+					onContentSizeChange={(_, height) => setContentHeight(height)}
 					contentContainerStyle={{
 						gap: space.sm,
 						// One gutter in both layouts: a pane spans the screen and needs
@@ -228,7 +256,7 @@ export function BoardColumn({
 						paddingHorizontal: space.md,
 						// Clear of the FAB, which floats over the bottom-right corner of
 						// a pane. Above the breakpoint there is no FAB and the default
-						// stands: room under the add button rather than a card hard
+						// stands: room under the add row rather than a card hard
 						// against the column's bottom edge.
 						paddingBottom: wide ? space.xxl : bottomInset,
 					}}
@@ -305,16 +333,23 @@ export function BoardColumn({
 						</Text>
 					) : null}
 
-					{wide ? (
-						<Button
-							icon="plus"
-							onPress={onAdd}
-							contentStyle={{ minHeight: touchTarget }}
-						>
-							{t("board.addTo", { column: label })}
-						</Button>
-					) : null}
+					{/* In flow while the column fits, so it sits where the new card
+					    will appear; pinned below the scroll once the column is long
+					    enough to scroll it out of sight. */}
+					{wide && !pinned ? addButton : null}
 				</ScrollView>
+
+				{pinned ? (
+					<View
+						style={{
+							paddingHorizontal: space.md,
+							paddingTop: space.sm,
+							paddingBottom: space.sm,
+						}}
+					>
+						{addButton}
+					</View>
+				) : null}
 			</View>
 		</View>
 	);
