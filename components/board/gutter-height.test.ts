@@ -3,10 +3,14 @@ import { gutterMinHeight } from "@/components/board/gutter-height";
 import { border, size, space } from "@/theme/tokens";
 
 /**
- * The gutter's arithmetic, pinned to the tokens (#100). Both sides of every
- * assertion are derived from the same tokens, so a token change passes here
- * exactly when `gutterMinHeight` follows it — and a change to the formula's
- * *shape* (a dropped hairline, a lost gap, a hardcoded floor) is what fails.
+ * The gutter's arithmetic (#100).
+ *
+ * The token-derived assertions below catch a change to the formula's *shape* —
+ * a dropped hairline, a lost gap — but they cannot catch a token moving,
+ * because both sides move with it. The literal below is what makes a token
+ * change stop and be re-derived by a human: 185px is the shipped floor for a
+ * priority and six labels, and a card that is shorter than its own gutter is
+ * the bug this function exists to make impossible.
  */
 describe("gutterMinHeight", () => {
 	it("is the two paddings alone for an empty gutter", () => {
@@ -27,6 +31,10 @@ describe("gutterMinHeight", () => {
 		expect(gutterMinHeight(7)).toBe(
 			space.sm * 2 + 7 * size.labelDot + border.hairline + 7 * space.xs,
 		);
+	});
+
+	it("is 185px as shipped — change a token and re-derive this by hand", () => {
+		expect(gutterMinHeight(7)).toBe(185);
 	});
 
 	it("grows by one mark and one gap per additional label", () => {

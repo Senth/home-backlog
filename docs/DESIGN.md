@@ -251,6 +251,16 @@ and every row's controls as dimmed.
   `SegmentedButtons` needs `segmentedLabelLineHeight` because that is the only way to reach
   it. Use `touchTargetStyle`, `outlinedTouchTarget` for a `Chip`, and
   `contentStyle={{ minHeight: touchTarget }}` on a Paper button that matters.
+- **A mark is exempt from the floor, and only a mark.** A label dot in the card gutter is
+  identity, not a control: it says *which group*, and its tap is a convenience over the
+  hover tooltip — nothing in the app is reachable only by tapping one. Six dots on a
+  `space.xs` pitch put 24px between their centers, so a `touchTarget` box around each
+  overlaps its neighbour by half and the later sibling wins the hit test: a tap on one dot
+  opens the next one's name. That was measured in a browser, not argued. A mark therefore
+  takes `markTouch` — its own band of the gutter, which clears WCAG 2.5.8's 24px and
+  overlaps nothing. **This exemption is for marks that duplicate a reachable affordance.**
+  A control a household member must hit to get anywhere still takes `touchTarget`, and
+  shrinking a real control to a mark to dodge the floor is the mistake this names.
 - **Forms** — Paper's floating label, so there is no separate label row to misalign or
   translate twice. `HelperText` directly beneath the field, `type="error"` or `type="info"`,
   its slot reserved so the layout does not jump. Nothing is marked required: validation says

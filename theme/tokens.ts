@@ -218,16 +218,26 @@ export const touchTargetStyle = {
 export const outlinedTouchTarget = touchTarget + border.hairline * 2;
 
 /**
- * The slop a mark smaller than `touchTarget` needs around itself — half the
- * difference, so a `size.labelDot`-sized mark reaches the floor in every
- * direction without moving or growing.
+ * The touch box around a **mark** — a label dot in the card gutter, not a
+ * control. It is the gutter's full width by the stack's own pitch, so each
+ * mark owns one band of the column exactly: no overlap with the mark above or
+ * below, and no spill past the gutter into the card beside it.
  *
- * React Native Web's `Pressable` drops `hitSlop`, so the slop rides in the
- * pressable's own box — `touchTarget` square around the centered mark — and
- * negative margins hand the room back to the flow. Same geometry hitSlop
- * would give, and a real box the craft sweep can measure.
+ * **A mark does not get `touchTarget`, and cannot.** Six 20px dots on a
+ * `space.xs` pitch put 24px between their centers; a 48px box around each one
+ * overlaps its neighbour by 24px, and the later sibling wins the hit test — a
+ * tap on one dot opens the next one's disclosure. That was measured in a real
+ * browser, not reasoned about. The floor a mark can honestly hold is its own
+ * pitch, which clears WCAG 2.5.8's 24px; the tap is a convenience over the
+ * hover tooltip either way, and nothing in the app is reachable only by it.
+ *
+ * React Native Web's `Pressable` drops `hitSlop`, so the box is a real box and
+ * negative margins hand the room back to the flow.
  */
-export const touchSlop = (touchTarget - size.labelDot) / 2;
+export const markTouch = {
+	width: size.cardGutter,
+	height: size.labelDot + space.xs,
+} as const;
 
 /**
  * Line height for a `SegmentedButtons` label, and the only way to make that

@@ -7,11 +7,10 @@ import { useAppTheme } from "@/theme";
 import {
 	contentWidth,
 	elevation,
+	markTouch,
 	radius,
 	size,
 	space,
-	touchSlop,
-	touchTarget,
 } from "@/theme/tokens";
 
 /**
@@ -29,10 +28,12 @@ import {
  * Mobile has no hover, so a hover-only affordance would leave half the
  * household with dots they cannot interrogate. Tapping again closes it.
  *
- * **The tappable box is `touchTarget`, not the mark.** A 48px box does not fit
- * the gutter, and react-native-web's `Pressable` drops `hitSlop` — so the box
- * carries the slop and negative margins (`touchSlop`) hand the room back to
- * the flow. The 20px mark stays exactly where it was.
+ * **The tappable box is `markTouch`, not the mark.** It is one band of the
+ * gutter — full width, one pitch tall — so a dot owns its own tap and cannot
+ * steal the next one's. A `touchTarget`-sized box around a 20px mark on a
+ * 24px pitch overlaps its neighbour by half, and the later sibling wins: a tap
+ * on one dot opened the one below it. The 20px mark stays where it was, and
+ * negative margins hand the box's extra room back to the flow.
  */
 export function LabelDot({ label }: { label: LabelWithId }) {
 	const theme = useAppTheme();
@@ -40,6 +41,9 @@ export function LabelDot({ label }: { label: LabelWithId }) {
 
 	return (
 		<Pressable
+			// A mark, not a control: exempt from `touchTarget` and swept as
+			// such — see the exemption in docs/DESIGN.md and `markTouch`.
+			testID="label-mark"
 			accessible
 			accessibilityRole="button"
 			accessibilityLabel={label.title}
@@ -48,9 +52,10 @@ export function LabelDot({ label }: { label: LabelWithId }) {
 			onHoverIn={() => setOpen(true)}
 			onHoverOut={() => setOpen(false)}
 			style={{
-				width: touchTarget,
-				height: touchTarget,
-				margin: -touchSlop,
+				width: markTouch.width,
+				height: markTouch.height,
+				marginVertical: -(markTouch.height - size.labelDot) / 2,
+				marginHorizontal: -(markTouch.width - size.labelDot) / 2,
 				alignItems: "center",
 				justifyContent: "center",
 			}}
@@ -60,10 +65,10 @@ export function LabelDot({ label }: { label: LabelWithId }) {
 				<View
 					style={{
 						position: "absolute",
-						// The dot's own top-right corner: the box is one `touchSlop`
-						// larger than the mark on every side.
-						left: (touchTarget + size.labelDot) / 2,
-						top: touchSlop,
+						// The dot's own top-right corner, measured from the box the
+						// mark is centered in.
+						left: (markTouch.width + size.labelDot) / 2,
+						top: (markTouch.height - size.labelDot) / 2,
 						zIndex: elevation.high,
 						maxWidth: contentWidth.form,
 						borderRadius: radius.sm,
