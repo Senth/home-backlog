@@ -75,11 +75,12 @@ says which group a thing belongs to. One color never does two of them.
   beside the words; it may never replace them. `components/board/DueChip.tsx` is where this
   is implemented: *overdue is words, never color*.
 - **`error`** — a failure the app is reporting. It does not mean *late*.
-- **Priority ramp** — ordinal, not categorical. One hue family in three steps of rising
-  saturation over a neutral bottom step. It says *more*, never *different*; identity says
-  *different*, never *more*. They sit in different bands of the card face and are never read
-  against each other.
-- **Label palette** — identity. Twelve named hues, plus user-chosen custom colors. See below.
+- **Priority ramp** — ordinal, not categorical. Four steps, glyph and hue together, cool at
+  the bottom and deep red at the top: `thermometer-chevron-down` `#4F6BA8`, `thermometer`
+  `#636C64`, `thermometer-chevron-up` `#CC6565`, `fire` `#A32E28` (`theme/tokens.ts`'s
+  `priorityRamp`). It says *more*, never *different*; identity says *different*, never
+  *more*. They sit in different bands of the card face and are never read against each other.
+- **Label palette** — identity. Twelve named hues, plus user-chosen custom colours. See below.
 
 **Themes.** Both, and they are palettes rather than inversions — a change that looks right in
 one is not verified until it has been looked at in the other. Every role exists in both. A
@@ -92,10 +93,19 @@ That is what makes a large palette safe: two labels whose hues collide under deu
 still have different glyphs, so color is never the only signal.
 
 - **Twelve hues in the token file**, both schemes given explicitly, each shipping its own
-  on-color. A hue that exists only in light is not a token.
+  on-color. A hue that exists only in light is not a token. The twelve as shipped: *red,
+  orange, amber, lime, green, teal, cyan, blue, indigo, purple, pink, stone* — Tailwind's
+  200 tone as the light fill and its 900 as the dark fill (stone takes 800 there, where 900
+  is indistinguishable from the card), each with the opposite tone as its on-colour. The
+  values are `theme/index.ts`'s `labelHues`; this document does not repeat them.
 - **Custom colors are data, not tokens.** A user may pick any color. The app owns its
   legibility: derive the on-color, and clamp the hue so it clears its contrast floor against
   `boardCard` in both schemes. Never render a pasted hex unmodified and hope.
+- **A label dot is a mark, not a block.** What holds the way forward safe is
+  `models/label-color.ts`'s clamp: every drawn fill clears `fillFloor` (3:1 against
+  `boardCard`) by the smallest step and never further, and the glyph inside clears
+  `onFloor` (4.5:1). HSL saturation was the wrong ruler for this — a Tailwind-200 pastel
+  reads 100% of it and is still quiet — so the rule is the clamp, not a saturation number.
 - **Identity means *different*, never *worse* or *sooner*.** A ramp spent on urgency is a ramp
   that can no longer tell two projects apart, which is the whole reason for having it.
 - **Every label has a title**, shown as a tooltip on desktop and on tap on mobile. Any
@@ -104,15 +114,41 @@ still have different glyphs, so color is never the only signal.
 - **An icon-only label carries its title as the accessible name on its wrapper.**
   `components/ui/PaperIcon.tsx` hides every glyph from the accessibility tree on purpose, so a
   label whose name lives on the glyph has no name at all.
-- **No label hue is more saturated than `primaryContainer`**, so the way forward stays the
-  loudest shape even on a board full of labels.
 - **The card title stays the loudest text on the card.** If a reader sees the color before
   the title, the color is too strong.
 - A setting renders labels as text instead of icons, for anyone who wants the words.
 
-**Position separates system context from custom labels, and nothing else has to.**
-Both families are chips, both may carry a color and neither is constrained to any shape.
-Position is still undecided.
+### The card face, settled (#100)
+
+**Position is decided: the left gutter is identity, the footer is system context, and
+nothing else has to separate them.** The priority glyph and the label dots sit in the
+gutter; location, effort, due and waiting sit in the footer under the title. Neither family
+is a chip on a card — the gutter is filled dots, the footer is bare text with a leading
+glyph.
+
+The content column reads in one fixed order, top to bottom: **project breadcrumbs → title →
+footer**. Nothing above the crumbs, nothing between the crumbs and the title — the trail
+reads as one unit with what it names.
+
+- **Left gutter — 36px, filled, hairline right border, always drawn**, even on a card with
+  neither a priority nor a label. It carries the priority glyph in a 20px dot, a hairline,
+  then up to six label dots, each 20px in its hue.
+- **Right gutter — 40px, no fill.** The menu at the top; assignee avatars and the step count
+  (`format-list-checks`, *2/5*) anchored to the foot.
+- **Below `cardGutterBreakpoint`** (a 250px card): the left gutter narrows to 28px, the
+  right gutter disappears, the menu floats in the card's top-right corner, and people plus
+  the step count move to a trailing line that wraps.
+- **Spacing 8 / 4 / 8** — `space.sm` edge→crumbs, `space.xs` crumbs→title, `space.sm`
+  title→footer.
+- **The footer is two lines** — `location · time`, then `due · waiting` — bare text with a
+  leading glyph, no chip borders, `column-gap: space.sm` with **`rowGap: 1`** so a wrapped
+  pair spaces exactly like two separate lines. The location is always the leaf: *Workshop*,
+  never *Basement · workshop*. Effort leads `clock-outline`; due keeps `calendar` in
+  `warning`; waiting is `timer-sand` in `onCardMuted` — **quieter than overdue,
+  deliberately**: being blocked is a state the card is in, not an alarm about it.
+- **Inherited labels render exactly like a card's own** — no dimming, no outline variant.
+  A label passed down by the project is as much the card's identity as one put on it
+  directly.
 
 ## Surfaces and elevation
 
@@ -138,7 +174,7 @@ both a banned numeric literal and a variant that should have existed.** Use the 
 | --- | --- |
 | `displaySmall` | the app name on the login screen. One use, and it stays one |
 | `titleMedium` | a card title, a section heading, a dialog title |
-| `bodyLarge` | primary reading text: a node's notes, an empty state's sentence |
+| `bodyLarge` | primary reading text: a card title below `compactBreakpoint`, a node's notes, an empty state's sentence |
 | `bodyMedium` | secondary text, list rows, and a card title above `compactBreakpoint` |
 | `bodySmall` | metadata: dates, counts, footnotes |
 | `labelLarge` | button and chip labels |
@@ -325,8 +361,8 @@ density overwhelms.
   instead of them is the Trello habit.
 - **Solving a footprint problem with color** — quieting a control's fill because it feels
   loud, when what is loud is the room it takes.
-- **A chip in the wrong band.** Position is the only thing separating system context from a
-  custom label, so a priority above the title or a label below it destroys both readings.
+- **A meta in the wrong band.** Position is the only thing separating system context from a
+  custom label, so a priority in the footer or a label above the title destroys both readings.
 - **A desktop-only tooltip.** If it is worth saying on hover it is worth reaching by tap.
 
 ## Decisions
@@ -357,3 +393,15 @@ identity palette. That palette is now specified above, and the burden was moved 
 than onto the FAB: no label hue may exceed `primaryContainer` in saturation. This gets
 re-measured the first time real colored labels are on a real board, and if the FAB has stopped
 reading as the way forward, it is this entry that gets rewritten.
+
+**Re-measured 2026-09-06 — real coloured labels are on a real board (#100).** Measured from
+the tokens, not the eye. The FAB's fill is 1.31:1 against the light page (2.18:1 in dark) and
+its label 11.05:1 (5.85:1) against that fill; a card title is 16.92:1 (10.59:1) against its
+card. A drawn label dot clears exactly `fillFloor` — 3:1 against `boardCard`, the smallest
+step the clamp allows — and lives in a 20px dot inside a 36px gutter, capped at six per card.
+The saturation phrasing above turned out to be the wrong ruler for it: a Tailwind-200 pastel
+reads 100% HSL and is still quiet, so the guard that actually holds the line is the clamp in
+`models/label-color.ts`, and the label rule above now says so. On the axis this entry was
+argued on — what the eye reads as the way forward — the FAB keeps the only large saturated
+block and the loudest label on the screen; the dots are marks at the floor, not blocks.
+**The decision stands.**
