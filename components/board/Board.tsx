@@ -509,7 +509,11 @@ export function Board({
 					    `Surface` with an elevation tint, and it is the corners of the
 					    card that would show it — a lifted card must not be a different
 					    shade from the gap it left. `wide` matches the row underneath,
-					    or the title would resize as the card leaves the board. */}
+					    or the title would resize as the card leaves the board. The
+					    menu rides along for the same reason: its rail is `touchTarget`
+					    wide, and without it the title re-wraps and the card lands a
+					    different height (#135). The overlay is `pointerEvents: "none"`,
+					    so the rail's button is as inert as the rest of the picture. */}
 					<Surface
 						elevation={elevation.high}
 						style={{
@@ -520,6 +524,7 @@ export function Board({
 						<BoardCard
 							node={drag.node}
 							onOpen={noop}
+							menu={menu(drag.node)}
 							wide={!compact}
 							blockers={blockers}
 						/>
