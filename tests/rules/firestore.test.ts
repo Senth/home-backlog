@@ -4,6 +4,8 @@ import {
 	type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
 import {
+	arrayRemove,
+	arrayUnion,
 	collection,
 	collectionGroup,
 	deleteDoc,
@@ -1193,6 +1195,52 @@ describe("homes/{homeId}/nodes", () => {
 				await assertSucceeds(
 					updateDoc(doc(db, nodesPath, "stale"), {
 						labelIds: ["ghost", "bolt"],
+					}),
+				);
+			});
+
+			/**
+			 * The picker writes with `arrayUnion` / `arrayRemove`, whose results
+			 * commute — two people picking at once cannot drop a label. The rules
+			 * engine evaluates the transform's *result*, so the cap still reads
+			 * the list the write would leave behind.
+			 */
+			it("accepts an arrayUnion the cap survives, and refuses one that breaks it", async () => {
+				await seed(env, async (db) => {
+					await setDoc(
+						doc(db, nodesPath, "full-ish"),
+						nodeDoc({ labelIds: ["a", "b", "c", "d", "e"] }),
+					);
+					await setDoc(
+						doc(db, nodesPath, "full"),
+						nodeDoc({ labelIds: ["a", "b", "c", "d", "e", "f"] }),
+					);
+				});
+
+				const db = dbAs(env, MEMBER);
+				await assertSucceeds(
+					updateDoc(doc(db, nodesPath, "full-ish"), {
+						labelIds: arrayUnion("g"),
+					}),
+				);
+				await assertFails(
+					updateDoc(doc(db, nodesPath, "full"), {
+						labelIds: arrayUnion("g"),
+					}),
+				);
+			});
+
+			it("accepts an arrayRemove", async () => {
+				await seed(env, async (db) => {
+					await setDoc(
+						doc(db, nodesPath, "labelled"),
+						nodeDoc({ labelIds: ["a", "b"] }),
+					);
+				});
+
+				await assertSucceeds(
+					updateDoc(doc(dbAs(env, MEMBER), nodesPath, "labelled"), {
+						labelIds: arrayRemove("a"),
 					}),
 				);
 			});

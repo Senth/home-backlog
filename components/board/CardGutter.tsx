@@ -58,6 +58,10 @@ export function CardGutter({ node, labels, narrow = false }: CardGutterProps) {
 				borderColor: theme.colors.outlineVariant,
 				alignItems: "center",
 				paddingTop: space.sm,
+				// Mirrors the top padding, so the last mark clears the card's
+				// rounded bottom edge and its outline — a full gutter must not
+				// read as a dot sliding off the card.
+				paddingBottom: space.sm,
 				gap: space.xs,
 			}}
 		>

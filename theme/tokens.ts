@@ -106,9 +106,16 @@ export const size = {
 	 * The card's right gutter (#100): the menu at the top, the assignees and the
 	 * step count anchored to the foot. It disappears below
 	 * `cardGutterBreakpoint`, where the menu floats in the card's corner
-	 * instead and the people and the count join the content as a trailing line.
+	 * instead and the people and the count join the content as a trailing
+	 * line.
+	 *
+	 * 44 rather than the 40 the settled card face was first written with: the
+	 * step count's glyph and its `2/5` measure almost exactly 40, and a mark
+	 * that wide in a rail that wide lands flush against the card's rounded
+	 * edge — the review that settled the face reproduced it. Four more give
+	 * the foot room to sit inside the card.
 	 */
-	cardRail: 40,
+	cardRail: 44,
 } as const;
 
 /**

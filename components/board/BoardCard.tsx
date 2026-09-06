@@ -369,8 +369,16 @@ export function BoardCard({
 						}}
 					>
 						{menu}
+						{/* The foot is inset from the card's edge: the count is as wide
+						    as the rail was, and flush content lands under the outline's
+						    rounded corner. */}
 						<View
-							style={{ marginTop: "auto", alignItems: "center", gap: space.xs }}
+							style={{
+								marginTop: "auto",
+								alignItems: "center",
+								gap: space.xs,
+								paddingRight: space.xs,
+							}}
 						>
 							{people}
 							{stepMark}

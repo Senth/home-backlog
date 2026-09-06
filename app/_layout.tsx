@@ -36,13 +36,18 @@ function AuthGate() {
 	// rejection nobody catches — one slow font fetch becomes an uncaught
 	// error on every screen that renders a glyph. Gating the router on the
 	// font keeps every mounted icon on expo-font's already-loaded fast path,
-	// and the retry is what turns the 12s rejection into patience: the
+	// and the early retries turn the 12s rejection into patience: the
 	// failed promise is deleted from expo-font's cache, so the next attempt
 	// starts fresh and the only awaiter that sees a rejection is this one.
+	//
+	// The retries are capped at three. A font that never arrives — a blocked
+	// CDN, a stale service worker — must not hold the splash forever: icons
+	// are cosmetic, and an app that opens with broken glyphs beats one that
+	// never opens.
 	useEffect(() => {
 		let cancelled = false;
 		void (async () => {
-			while (!cancelled) {
+			for (let attempt = 0; attempt < 3; attempt++) {
 				if (isFontLoaded(MaterialCommunityIcons.getFontFamily())) break;
 				try {
 					await loadFontAsync(MaterialCommunityIcons.font);

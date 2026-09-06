@@ -26,10 +26,11 @@ interface LabelPickerProps {
  * card menu and the details screen.
  *
  * The rows are the home's definitions, which ride the homes listener for
- * free. A tap writes through `applyLabel` / `removeLabel`, ordinary field
- * writes that queue offline like every other edit, and the row's mark follows
- * the card's listener rather than local state — two people picking at once
- * cannot disagree about what is on the card.
+ * free. A tap writes through `applyLabel` / `removeLabel`, whose
+ * `arrayUnion` / `arrayRemove` transforms are server-side and commute — so
+ * the row's mark follows the card's listener rather than local state, and two
+ * people picking at once cannot disagree about what is on the card: neither
+ * write carries a snapshot the other could clobber.
  *
  * The cap is the gutter's (#100): at six, the rows still offered are disabled
  * and the sentence under the list says why. Removing is always possible — a
@@ -52,8 +53,8 @@ export function LabelPicker({
 
 	const toggle = (label: LabelWithId, applied: boolean) => {
 		const write = applied
-			? removeLabel(homeId, node.id, node.labelIds, label.id)
-			: applyLabel(homeId, node.id, node.labelIds, label.id);
+			? removeLabel(homeId, node.id, label.id)
+			: applyLabel(homeId, node.id, label.id);
 		write.catch((reason) => {
 			console.error("Could not change the card's labels:", reason);
 			setFailed(true);
@@ -97,12 +98,25 @@ export function LabelPicker({
 					);
 				})}
 
-				{/* Reserved slot — the sentence appears the moment the sixth lands,
-				    and the layout does not move when it does. */}
-				<HelperText type="info" visible={atCap} testID="label-picker-cap">
+				{/* Reserved slots — each sentence appears in a space the layout has
+			    already paid for. Paper hides a hidden helper at opacity 0 but
+			    leaves it in the accessibility tree, so while a slot holds nothing
+			    it is hidden from assistive tech too. */}
+				<HelperText
+					type="info"
+					visible={atCap}
+					testID="label-picker-cap"
+					accessibilityElementsHidden={!atCap}
+					importantForAccessibility={atCap ? "auto" : "no-hide-descendants"}
+				>
 					{t("labels.capReached", { count: maxLabelsPerNode })}
 				</HelperText>
-				<HelperText type="error" visible={failed}>
+				<HelperText
+					type="error"
+					visible={failed}
+					accessibilityElementsHidden={!failed}
+					importantForAccessibility={failed ? "auto" : "no-hide-descendants"}
+				>
 					{t("error.saveFailed")}
 				</HelperText>
 			</View>

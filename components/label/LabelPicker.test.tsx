@@ -129,7 +129,9 @@ describe("LabelPicker", () => {
 
 		fireEvent.press(screen.getByLabelText("Label l2"));
 
-		expect(applyLabel).toHaveBeenCalledWith("home-1", "node-1", ["l1"], "l2");
+		// The write is the transform, not a whole array from this snapshot —
+		// two pickers at once cannot drop each other's label.
+		expect(applyLabel).toHaveBeenCalledWith("home-1", "node-1", "l2");
 	});
 
 	it("removes a label that is", () => {
@@ -138,12 +140,7 @@ describe("LabelPicker", () => {
 
 		fireEvent.press(screen.getByLabelText("Label l1"));
 
-		expect(removeLabel).toHaveBeenCalledWith(
-			"home-1",
-			"node-1",
-			["l1", "l2"],
-			"l1",
-		);
+		expect(removeLabel).toHaveBeenCalledWith("home-1", "node-1", "l1");
 	});
 
 	it("says the home has no labels yet rather than an empty dialog", () => {
@@ -188,5 +185,35 @@ describe("LabelPicker", () => {
 				.accessibilityState,
 		).toMatchObject({ checked: false });
 		expect(capSentence().props.visible).toBe(false);
+	});
+
+	it("keeps the reserved cap slot out of the accessibility tree", () => {
+		// Paper hides a hidden helper at opacity 0 but leaves it announced;
+		// while the slot holds nothing it is hidden from assistive tech too.
+		mockHome = { labels: [label("l1")] };
+		renderPicker(node(["l1"]));
+
+		const helper = capSentence();
+		expect(helper.props.accessibilityElementsHidden).toBe(true);
+		expect(helper.props.importantForAccessibility).toBe("no-hide-descendants");
+	});
+
+	it("hands the cap sentence back to the accessibility tree at the cap", () => {
+		mockHome = {
+			labels: [
+				label("l1"),
+				label("l2"),
+				label("l3"),
+				label("l4"),
+				label("l5"),
+				label("l6"),
+			],
+		};
+		renderPicker(node(["l1", "l2", "l3", "l4", "l5", "l6"]));
+
+		const helper = capSentence();
+		expect(helper.props.visible).toBe(true);
+		expect(helper.props.accessibilityElementsHidden).toBe(false);
+		expect(helper.props.importantForAccessibility).toBe("auto");
 	});
 });

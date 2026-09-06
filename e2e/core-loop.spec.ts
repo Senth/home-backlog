@@ -7,6 +7,8 @@ import {
 	ROUTES,
 } from "@/e2e/support/app";
 import {
+	createFixtureLabels,
+	createFixtureNode,
 	deleteLabelsByTitlePrefix,
 	deleteNodesByTitlePrefix,
 	nodeFields,
@@ -186,4 +188,88 @@ test("4: a home grows two labels, and a card carries one", async ({ page }) => {
 	await expect
 		.poll(async () => (await nodeFields(id)).labelIds, { timeout: 30_000 })
 		.toContain(preset.id);
+});
+
+/**
+ * The gutter's own acceptance, measured (#100): a card with a priority and six
+ * labels carries **seven marks** plus the hairline in a 36px column, and every
+ * one of them must sit inside the card's rounded edge — with the step count, at
+ * the right gutter's foot, clear of it too. The review that settled this face
+ * reproduced both clips in the browser; this is that check made exact.
+ */
+test("5: a priority, six labels and a step count all sit inside the card", async ({
+	page,
+}) => {
+	const labels = await createFixtureLabels(PREFIX, 6);
+	const title = `${PREFIX}full-gutter card`;
+	await createFixtureNode({
+		title,
+		status: "backlog",
+		rank: "z0",
+		parentId: null,
+		ancestorIds: [],
+		visibility: "shared",
+		completedAt: null,
+		priority: "urgent",
+		labelIds: labels.map((label) => label.id),
+		childCount: 1,
+		doneCount: 0,
+	});
+
+	await gotoAndSettle(page, BOARD);
+	const card = page.locator(CARD, { hasText: title });
+	await card.waitFor();
+
+	const offenders = await page.evaluate(
+		({ title }) => {
+			const card = Array.from(
+				document.querySelectorAll('[data-testid="card-container"]'),
+			).find((node) => node.textContent?.includes(title));
+			if (card === undefined) return ["fixture card not rendered"];
+
+			const box = card.getBoundingClientRect();
+			const outside = (name: string, rect: DOMRect): string | null => {
+				if (
+					rect.width > 0 &&
+					rect.height > 0 &&
+					rect.left >= box.left + 1 &&
+					rect.right <= box.right - 1 &&
+					rect.top >= box.top + 1 &&
+					rect.bottom <= box.bottom - 1
+				) {
+					return null;
+				}
+				return `${name} at ${Math.round(rect.left)},${Math.round(rect.top)}–${Math.round(rect.right)},${Math.round(rect.bottom)} in card ${Math.round(box.left)},${Math.round(box.top)}–${Math.round(box.right)},${Math.round(box.bottom)}`;
+			};
+
+			const bad: string[] = [];
+			const gutter = card.querySelector('[data-testid="card-gutter"]');
+			if (gutter === null) {
+				bad.push("no gutter on the fixture card");
+			} else {
+				const marks = Array.from(gutter.children);
+				if (marks.length !== 8) {
+					bad.push(
+						`gutter holds ${marks.length} marks, expected a priority dot, a hairline and six labels`,
+					);
+				}
+				for (const mark of marks) {
+					const finding = outside("gutter mark", mark.getBoundingClientRect());
+					if (finding !== null) bad.push(finding);
+				}
+			}
+
+			const steps = card.querySelector('[data-testid="card-steps"]');
+			if (steps === null) {
+				bad.push("no step count on the fixture card");
+			} else {
+				const finding = outside("step count", steps.getBoundingClientRect());
+				if (finding !== null) bad.push(finding);
+			}
+			return bad;
+		},
+		{ title },
+	);
+
+	expect(offenders, "marks outside the card's own box").toEqual([]);
 });

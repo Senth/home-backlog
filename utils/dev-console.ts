@@ -10,7 +10,14 @@
  * three, so there is no bump that clears them and no change here that avoids
  * them short of not using Paper.
  *
- * Two of the three are `react-native-web` deprecations and are filtered
+ * A fourth rides along on one screen's path, not every load: opening
+ * "Add a date" on a node's details renders `react-native-paper-dates`'s
+ * `DatePickerModal`, which mounts `react-native-web`'s deprecated
+ * `TouchableWithoutFeedback`. Same shape as the other three — a dependency we
+ * do not control handing the web an old prop — so it takes an entry of its own
+ * rather than a wider filter.
+ *
+ * Three of the four are `react-native-web` deprecations and are filtered
  * everywhere; the `useNativeDriver` one is filtered on the web only, because off
  * the web those same words report a genuinely missing native module. See
  * `webOnly` below.
@@ -81,6 +88,11 @@ export const KNOWN_FRAMEWORK_WARNINGS: readonly KnownWarning[] = [
 		// a blind spot in the one line that explains a broken autolink, on the
 		// native builds this project has not done yet.
 		webOnly: true,
+	},
+	{
+		id: "touchableWithoutFeedback",
+		prefix: "TouchableWithoutFeedback is deprecated",
+		why: "react-native-paper-dates' DatePickerModal renders it; every current release still does.",
 	},
 ];
 
