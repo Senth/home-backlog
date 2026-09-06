@@ -183,6 +183,12 @@ export const labelHues = {
 
 export type LabelHueName = keyof typeof labelHues;
 
+/**
+ * The hue a new label starts on (#100). A default from the middle of the set
+ * reads as a choice; the first swatch would read as a bug nobody fixed.
+ */
+export const defaultLabelHue: LabelHueName = "blue";
+
 const lightColors = {
 	...MD3LightTheme.colors,
 	primary: "#2E7D32",

@@ -7,6 +7,8 @@ import {
 	Button,
 	Divider,
 	HelperText,
+	Icon,
+	List,
 	Snackbar,
 	Text,
 	TextInput,
@@ -16,6 +18,7 @@ import { DangerZone } from "@/components/homes/DangerZone";
 import { InviteForm } from "@/components/homes/InviteForm";
 import { MembersList } from "@/components/homes/MembersList";
 import { PendingInvites } from "@/components/homes/PendingInvites";
+import { LabelGlyph } from "@/components/label/LabelGlyph";
 import { BackAction } from "@/components/ui/BackAction";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
@@ -23,7 +26,7 @@ import { renameHome } from "@/data/homes";
 import { useHomeInvites } from "@/hooks/use-home-invites";
 import { type HomeNameError, homeNameError } from "@/models/home";
 import { useAppTheme } from "@/theme";
-import { contentWidth, space, touchTarget } from "@/theme/tokens";
+import { contentWidth, icon, space, touchTarget } from "@/theme/tokens";
 
 /**
  * Managing one home: its name, its people, and the two ways out of it.
@@ -149,6 +152,52 @@ export default function ManageHome() {
 								onError={() => setNotice("error.saveFailed")}
 							/>
 						) : null}
+
+						{/* The way in to the label set (#100). The glyphs *are* the
+						    description — the set is read before the row is, and the
+						    count names what a tap opens. Every member curates, so it
+						    sits with the sections rather than behind the owner's. */}
+						<Divider />
+						<List.Item
+							title={t("labels.title")}
+							description={
+								<View style={{ gap: space.xs }}>
+									{home.labels.length > 0 ? (
+										<View
+											style={{
+												flexDirection: "row",
+												flexWrap: "wrap",
+												gap: space.xs,
+											}}
+										>
+											{home.labels.map((label) => (
+												<LabelGlyph
+													key={label.id}
+													color={label.color}
+													icon={label.icon}
+												/>
+											))}
+										</View>
+									) : null}
+									<Text
+										variant="bodyMedium"
+										style={{ color: theme.colors.onSurfaceVariant }}
+									>
+										{home.labels.length > 0
+											? t("labels.count", { count: home.labels.length })
+											: t("labels.empty")}
+									</Text>
+								</View>
+							}
+							right={() => (
+								<Icon
+									source="chevron-right"
+									size={icon.md}
+									color={theme.colors.onSurfaceVariant}
+								/>
+							)}
+							onPress={() => router.push(`/homes/${home.id}/labels`)}
+						/>
 
 						{isOwner && user ? (
 							<>

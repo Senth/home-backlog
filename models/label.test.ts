@@ -3,19 +3,21 @@ import {
 	type LabelWithId,
 	labelError,
 	maxLabelsPerNode,
+	movedRank,
 	newLabel,
 	toLabels,
 } from "@/models/label";
 import { toHex } from "@/models/label-color";
+import { rankBetween } from "@/models/node";
 
 const amber = toHex([0xfd, 0xe6, 0x8a]);
 const teal = toHex([0x99, 0xf6, 0xe4]);
 
-/** A home's set in its own order, ids a, b, c. */
+/** A home's set in its own order, ids a, b, c — ranks real order keys. */
 const homeLabels: LabelWithId[] = [
-	{ id: "a", title: "Garden", icon: "sprout", color: teal, rank: "a0" },
-	{ id: "b", title: "Electrical", icon: "bolt", color: amber, rank: "a1" },
-	{ id: "c", title: "Water", icon: "water", color: teal, rank: "a2" },
+	{ id: "a", title: "Garden", icon: "sprout", color: teal, rank: "V0" },
+	{ id: "b", title: "Electrical", icon: "bolt", color: amber, rank: "V1" },
+	{ id: "c", title: "Water", icon: "water", color: teal, rank: "V2" },
 ];
 
 describe("labelError", () => {
@@ -100,6 +102,29 @@ describe("effectiveLabels", () => {
 			"e",
 			"f",
 		]);
+	});
+});
+
+describe("movedRank", () => {
+	it("lands a moved label between the pair that surrounds it after the move", () => {
+		// Swapping b up: it lands between a's old neighbours — nothing before a,
+		// and a itself.
+		expect(movedRank(homeLabels, 1, -1)).toBe(rankBetween(null, "V0"));
+		// Swapping b down: between c and whatever follows c, which is nothing.
+		expect(movedRank(homeLabels, 1, 1)).toBe(rankBetween("V2", null));
+	});
+
+	it("moves the first label down and the last one up", () => {
+		expect(movedRank(homeLabels, 0, -1)).toBeNull();
+		expect(movedRank(homeLabels, 0, 1)).toBe(rankBetween("V1", "V2"));
+		expect(movedRank(homeLabels, 2, 1)).toBeNull();
+		expect(movedRank(homeLabels, 2, -1)).toBe(rankBetween("V0", "V1"));
+	});
+
+	it("writes nothing for a move that leaves the list unchanged in shape", () => {
+		// One label cannot move anywhere: both directions are edges.
+		expect(movedRank([homeLabels[0]], 0, -1)).toBeNull();
+		expect(movedRank([homeLabels[0]], 0, 1)).toBeNull();
 	});
 });
 

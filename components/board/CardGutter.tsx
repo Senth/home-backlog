@@ -15,7 +15,11 @@ import {
 } from "@/theme/tokens";
 
 interface CardGutterProps {
-	node: Node;
+	/**
+	 * Only the priority is read here, and `LabelDialog`'s live preview passes
+	 * exactly that — a sample card that is a priority and nothing else.
+	 */
+	node: Pick<Node, "priority">;
 	/** The card's own and inherited labels, in the home's order, already capped. */
 	labels: readonly LabelWithId[];
 	/** Below `cardGutterBreakpoint` the gutter gives back the room it does not have. */
