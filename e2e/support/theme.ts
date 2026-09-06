@@ -94,6 +94,10 @@ function loadThemeSource(): {
 	lightTheme: { colors: ThemeColors };
 	darkTheme: { colors: ThemeColors };
 	priorityRamp: readonly string[];
+	labelHues: Record<
+		string,
+		Record<"light" | "dark", { fill: string; on: string }>
+	>;
 } {
 	const ts = NODE_REQUIRE("typescript") as typeof import("typescript");
 	const paperThemes = loadPaperThemes();
@@ -127,6 +131,10 @@ function loadThemeSource(): {
 	const themes = load(path.join("theme", "index.ts")) as {
 		lightTheme: { colors: ThemeColors };
 		darkTheme: { colors: ThemeColors };
+		labelHues: Record<
+			string,
+			Record<"light" | "dark", { fill: string; on: string }>
+		>;
 	};
 	// `tokens.ts` imports nothing, so the paper-only `require` never fires for
 	// it; its ramp colors are painted by the card face and belong on the
@@ -151,18 +159,31 @@ function paletteOf(source: unknown): string[] {
 }
 
 /**
+ * The label hues of one scheme — the fills and on-colors a preset-hued label
+ * dot paints. Custom colors are user data: `models/label-color.ts` derives
+ * their rendered fill at draw time from any hex, so they cannot be enumerated
+ * here, and the seed carries only preset hues. The clamp that keeps a custom
+ * fill legible is unit-tested rather than swept.
+ */
+function labelColors(scheme: Scheme): string[] {
+	return paletteOf(Object.values(themes.labelHues).map((hue) => hue[scheme]));
+}
+
+/**
  * Every color the two schemes can paint — the MD3 defaults `theme/index.ts`
- * spreads in, its own overrides, the board colors, the elevation ramp, and
- * the priority ramp the card gutter paints — canonicalised for comparison
- * against computed styles.
+ * spreads in, its own overrides, the board colors, the elevation ramp, the
+ * priority ramp the card gutter paints, and the label hues a labelled card
+ * paints — canonicalised for comparison against computed styles.
  */
 export const PALETTE: Record<Scheme, string[]> = {
 	light: [
 		...paletteOf(themes.lightTheme.colors),
 		...paletteOf(themes.priorityRamp),
+		...labelColors("light"),
 	],
 	dark: [
 		...paletteOf(themes.darkTheme.colors),
 		...paletteOf(themes.priorityRamp),
+		...labelColors("dark"),
 	],
 };

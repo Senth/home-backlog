@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
+import { gutterMinHeight } from "@/components/board/gutter-height";
 import { LabelDot } from "@/components/board/LabelDot";
 import { PaperIcon } from "@/components/ui/PaperIcon";
 import type { LabelWithId } from "@/models/label";
@@ -53,6 +54,10 @@ export function CardGutter({ node, labels, narrow = false }: CardGutterProps) {
 			testID="card-gutter"
 			style={{
 				width: narrow ? size.cardGutterNarrow : size.cardGutter,
+				// The full mark stack is guaranteed room by construction: the card
+				// is at least as tall as the gutter's own arithmetic asks, so the
+				// bottom padding always clears the card's rounded edge.
+				minHeight: gutterMinHeight((step === null ? 0 : 1) + labels.length),
 				backgroundColor: theme.colors.boardColumn,
 				borderRightWidth: border.hairline,
 				borderColor: theme.colors.outlineVariant,
@@ -89,7 +94,9 @@ export function CardGutter({ node, labels, narrow = false }: CardGutterProps) {
 			{step === null || labels.length === 0 ? null : (
 				<View
 					style={{
-						width: icon.sm,
+						// As wide as the marks: the hairline reads as one of the column
+						// of marks, and its edges line up with the dots beside it.
+						width: size.labelDot,
 						height: border.hairline,
 						backgroundColor: theme.colors.outlineVariant,
 					}}

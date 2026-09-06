@@ -218,6 +218,18 @@ export const touchTargetStyle = {
 export const outlinedTouchTarget = touchTarget + border.hairline * 2;
 
 /**
+ * The slop a mark smaller than `touchTarget` needs around itself — half the
+ * difference, so a `size.labelDot`-sized mark reaches the floor in every
+ * direction without moving or growing.
+ *
+ * React Native Web's `Pressable` drops `hitSlop`, so the slop rides in the
+ * pressable's own box — `touchTarget` square around the centered mark — and
+ * negative margins hand the room back to the flow. Same geometry hitSlop
+ * would give, and a real box the craft sweep can measure.
+ */
+export const touchSlop = (touchTarget - size.labelDot) / 2;
+
+/**
  * Line height for a `SegmentedButtons` label, and the only way to make that
  * control meet `touchTarget`.
  *

@@ -436,69 +436,6 @@ export async function waitForLabelByTitle(
 }
 
 /**
- * `count` label definitions on the home, found or created, for the claims that
- * need a full gutter (#100). Written straight past the UI — the dialog flow is
- * test 4's claim — and merged into the existing map rather than replacing it,
- * the same way `deleteLabelsByTitlePrefix` removes from it, so a definition
- * another spec created is never clobbered.
- */
-export async function createFixtureLabels(
-	prefix: string,
-	count: number,
-): Promise<{ id: string; title: string }[]> {
-	const labels = await homeLabels();
-	const wanted = Array.from(
-		{ length: count },
-		(_, index) => `${prefix}label ${index + 1}`,
-	);
-	const known = new Set(
-		Object.values(labels)
-			.map((label) => (typeof label.title === "string" ? label.title : ""))
-			.filter(Boolean),
-	);
-	const created = Object.fromEntries(
-		wanted
-			.filter((title) => !known.has(title))
-			.map((title, index) => [
-				`fixture-gutter-${index}`,
-				{ title, icon: "tag", color: "red", rank: `fixture-${index}` },
-			]),
-	);
-	if (Object.keys(created).length > 0) {
-		const home = await homeId();
-		const response = await fetch(`${BASE}/homes/${home}?updateMask=labels`, {
-			method: "PATCH",
-			headers: { ...HEADERS, "Content-Type": "application/json" },
-			body: JSON.stringify({
-				fields: {
-					labels: encodeValue({
-						...labels,
-						...created,
-					} as Record<string, Json>),
-				},
-			}),
-		});
-		if (!response.ok) {
-			const body = await response.text().catch(() => "");
-			throw new Error(
-				`emulator REST could not write fixture labels: ${response.status} ${response.statusText}${body ? ` — ${body}` : ""}`,
-			);
-		}
-	}
-
-	const written = await homeLabels();
-	return wanted.map((title) => {
-		const match = Object.entries(written).find(
-			([, label]) => label.title === title,
-		);
-		if (match === undefined) {
-			throw new Error(`fixture label "${title}" did not survive its write`);
-		}
-		return { id: match[0], title };
-	});
-}
-
-/**
  * Deletes every label definition whose title begins with this prefix, by
  * rewriting the home's `labels` map without them.
  *

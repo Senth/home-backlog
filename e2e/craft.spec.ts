@@ -27,6 +27,7 @@ import {
 	segmentedLabelLineHeight,
 	size,
 	space,
+	touchSlop,
 	touchTarget,
 	touchTargetStyle,
 } from "@/theme/tokens";
@@ -149,6 +150,9 @@ const TOKEN_NUMBERS: number[] = [
 		touchTarget,
 		outlinedTouchTarget,
 		segmentedLabelLineHeight,
+		// The slop a 20px label dot carries as a negative margin to reach the
+		// touch floor without growing the mark — see `theme/tokens.ts`.
+		touchSlop,
 		compactBreakpoint,
 		appBarStackBreakpoint,
 		denseBreakpoint,

@@ -133,7 +133,9 @@ reads as one unit with what it names.
 - **Left gutter — 36px, filled, hairline right border, always drawn**, even on a card with
   neither a priority nor a label. It carries the priority glyph in a 20px dot, a hairline,
   then up to six label dots, each 20px in its hue.
-- **Right gutter — 40px, no fill.** The menu at the top; assignee avatars and the step count
+- **Right gutter — 44px, no fill** (`size.cardRail`, widened from the 40 the
+  settled face was first written with so the step count clears the rounded
+  edge). The menu at the top; assignee avatars and the step count
   (`format-list-checks`, *2/5*) anchored to the foot.
 - **Below `cardGutterBreakpoint`** (a 250px card): the left gutter narrows to 28px, the
   right gutter disappears, the menu floats in the card's top-right corner, and people plus

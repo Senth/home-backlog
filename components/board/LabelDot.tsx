@@ -4,7 +4,15 @@ import { Text } from "react-native-paper";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
 import type { LabelWithId } from "@/models/label";
 import { useAppTheme } from "@/theme";
-import { contentWidth, elevation, radius, size, space } from "@/theme/tokens";
+import {
+	contentWidth,
+	elevation,
+	radius,
+	size,
+	space,
+	touchSlop,
+	touchTarget,
+} from "@/theme/tokens";
 
 /**
  * One label dot in the card's left gutter (#100) — the dot itself is
@@ -20,6 +28,11 @@ import { contentWidth, elevation, radius, size, space } from "@/theme/tokens";
  * where hover exists, and a tap opens the same answer where it does not.
  * Mobile has no hover, so a hover-only affordance would leave half the
  * household with dots they cannot interrogate. Tapping again closes it.
+ *
+ * **The tappable box is `touchTarget`, not the mark.** A 48px box does not fit
+ * the gutter, and react-native-web's `Pressable` drops `hitSlop` — so the box
+ * carries the slop and negative margins (`touchSlop`) hand the room back to
+ * the flow. The 20px mark stays exactly where it was.
  */
 export function LabelDot({ label }: { label: LabelWithId }) {
 	const theme = useAppTheme();
@@ -34,15 +47,23 @@ export function LabelDot({ label }: { label: LabelWithId }) {
 			onPress={() => setOpen((wasOpen) => !wasOpen)}
 			onHoverIn={() => setOpen(true)}
 			onHoverOut={() => setOpen(false)}
-			hitSlop={space.xs}
+			style={{
+				width: touchTarget,
+				height: touchTarget,
+				margin: -touchSlop,
+				alignItems: "center",
+				justifyContent: "center",
+			}}
 		>
 			<LabelGlyph color={label.color} icon={label.icon} />
 			{open ? (
 				<View
 					style={{
 						position: "absolute",
-						left: size.labelDot,
-						top: space.none,
+						// The dot's own top-right corner: the box is one `touchSlop`
+						// larger than the mark on every side.
+						left: (touchTarget + size.labelDot) / 2,
+						top: touchSlop,
 						zIndex: elevation.high,
 						maxWidth: contentWidth.form,
 						borderRadius: radius.sm,
