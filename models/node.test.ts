@@ -19,7 +19,9 @@ import {
 	movedAncestorIds,
 	type Node,
 	newNodeData,
+	nextStatus,
 	pickerCandidates,
+	previousStatus,
 	rankAtEnd,
 	rankBetween,
 	rankSequence,
@@ -778,6 +780,55 @@ describe("crossBoardBlockerIds", () => {
 
 	it("is empty when nothing waits on anything", () => {
 		expect(crossBoardBlockerIds([node()])).toEqual([]);
+	});
+});
+
+describe("nextStatus", () => {
+	it("steps through the set in enum order", () => {
+		expect(nextStatus([...defaultColumns], "backlog")).toBe("next_up");
+		expect(nextStatus([...defaultColumns], "next_up")).toBe("execution");
+	});
+
+	/**
+	 * `done` is the end of the ramp, not a step on it — the bar's own *Done*
+	 * makes that move, so the forward arrow disables instead of duplicating it.
+	 */
+	it("has no next from the last working column", () => {
+		expect(nextStatus([...defaultColumns], "execution")).toBeNull();
+		expect(nextStatus([...defaultColumns], "done")).toBeNull();
+	});
+
+	it("steps through a narrow set, whatever the default is", () => {
+		const narrow: readonly Status[] = ["backlog", "execution", "done"];
+
+		expect(nextStatus(narrow, "backlog")).toBe("execution");
+		expect(nextStatus(narrow, "execution")).toBeNull();
+	});
+
+	it("moves a card sitting in a column the set does not name to one it does", () => {
+		// The extra `visibleColumns()` case: the card exists, so forward gives
+		// it a real column rather than a dead arrow.
+		expect(nextStatus(["backlog", "execution"], "next_up")).toBe("execution");
+	});
+});
+
+describe("previousStatus", () => {
+	it("steps back through the set", () => {
+		expect(previousStatus([...defaultColumns], "execution")).toBe("next_up");
+		expect(previousStatus([...defaultColumns], "next_up")).toBe("backlog");
+	});
+
+	it("is null on the first column", () => {
+		expect(previousStatus([...defaultColumns], "backlog")).toBeNull();
+	});
+
+	/**
+	 * `done` reads as one past the last working column, so backing out of Done
+	 * lands the card where the work was happening.
+	 */
+	it("reads done as one past the last working column", () => {
+		expect(previousStatus([...defaultColumns], "done")).toBe("execution");
+		expect(previousStatus(["backlog", "execution"], "done")).toBe("execution");
 	});
 });
 

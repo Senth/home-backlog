@@ -227,6 +227,53 @@ export function hasDetails(node: Node): boolean {
  * card keeps its list as inert history.
  */
 
+/*
+ * ---------------------------------------------------------------------------
+ * Stepping through the columns (#237)
+ * ---------------------------------------------------------------------------
+ */
+
+/**
+ * The column the details screen's forward arrow moves to, or `null` when there
+ * is no next.
+ *
+ * `columns` is the **parent's** column set — `columns` on a node is the set
+ * its *children* form, so the board a card sits on is the set its parent
+ * carries. The caller falls back to `defaultColumns` for a root.
+ *
+ * `done` is the end of the ramp, not a step on it: the last working column has
+ * no next, because the bar's own *Done* is what moves to `done` — an arrow
+ * that reached the same place would offer two ways and disable neither. A
+ * status the set does not name (a card sitting in an extra `visibleColumns()`
+ * column) steps to the next column the set does have.
+ */
+export function nextStatus(
+	columns: readonly Status[],
+	status: Status,
+): Status | null {
+	if (status === "done") return null;
+	const later = statuses
+		.slice(statuses.indexOf(status) + 1)
+		.find((candidate) => candidate !== "done" && columns.includes(candidate));
+	return later ?? null;
+}
+
+/**
+ * The column the details screen's back arrow moves to, or `null` on the first.
+ *
+ * `done` reads as one past the last working column, so backing out of Done
+ * lands the card where work was happening, whatever the set's shape.
+ */
+export function previousStatus(
+	columns: readonly Status[],
+	status: Status,
+): Status | null {
+	const earlier = statuses
+		.slice(0, statuses.indexOf(status))
+		.filter((candidate) => candidate !== "done" && columns.includes(candidate));
+	return earlier.pop() ?? null;
+}
+
 /**
  * How deep the picker's home-wide search reaches (Q-S1/Q-S2 in
  * `data/nodes.ts`). The cap is what bounds the search, and the one thing the
