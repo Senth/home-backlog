@@ -109,12 +109,15 @@ declare -a RESULTS
 
 # `-H` because a batch of exactly one file makes grep drop the path prefix, and
 # every consumer below parses `path:line:text`. `-r` because an empty list must
-# not leave grep reading stdin.
+# not leave grep reading stdin. An optional single grep flag may precede the
+# file list; only `-i` (check 2's named colors) uses it.
 scan() {
+	local -a opts=()
+	[[ "${1:-}" == -* ]] && opts=("$1") && shift
 	# No files is a pass, and it must not reach xargs: `printf '%s\\0'` with no
 	# arguments emits one NUL, which `xargs -0` reads as one empty filename.
 	[[ $# -gt 0 ]] || return 0
-	printf '%s\0' "$@" | xargs -0 -r grep -HnE "$PATTERN"
+	printf '%s\0' "$@" | xargs -0 -r grep -HnE "${opts[@]}" "$PATTERN"
 }
 
 # Drop lines that are wholly a comment: an issue reference like `#101` and a
@@ -169,9 +172,24 @@ fi
 # colors are matched too — `"white"` is as much a literal as `"#FFFFFF"`, and
 # it is the spelling a reflex reaches for first. `transparent` is not on the
 # list: it names an absence, and no palette entry could replace it.
+#
+# The named arm runs case-insensitively — React Native parses color names that
+# way, so `"White"` is the same literal — and only behind a `color` prop or
+# key, and never in a test file. That shape is the exemption story: a quoted
+# color word is also what a Firestore field value looks like — `tag: "blue"`,
+# or a label mock's `color: "teal"` — and a type union (`type Tag = "red" |
+# "green"`) and a test assertion (`toBe("blue")`) read the same. None of those
+# is a style. A literal the shape misses is caught by the reviewer, not lost.
 # ---------------------------------------------------------------------------
-PATTERN="([\"'\`])#[0-9a-fA-F]{3,8}\\1|\\b(rgba?|hsla?)\\(|([\"'\`])(white|black|red|green|blue|grey|gray|silver|yellow|orange|purple|pink|brown|cyan|magenta)\\3"
-hits=$(scan "${SRC[@]}" | strip_comments)
+PATTERN="([\"'\`])#[0-9a-fA-F]{3,8}\\1|\\b(rgba?|hsla?)\\("
+NAMED="color[a-z]*[[:space:]]*[:=][[:space:]]*[{]?[[:space:]]*([\"'\`])(white|black|red|green|blue|grey|gray|silver|yellow|orange|purple|pink|brown|cyan|magenta|navy|teal|lime|aqua|fuchsia|maroon|olive|violet|gold|coral|crimson|indigo|salmon|lightgray|darkgray)\\1"
+hits=$(
+	{
+		scan "${SRC[@]}"
+		PATTERN=$NAMED
+		scan -i "${SRC[@]}" | grep -vE '\.test\.tsx?:[0-9]+:' || true
+	} | strip_comments
+)
 if [[ -n "$hits" ]]; then
 	report 2 "color literals" FAIL "$hits" \
 		"Read colors from useAppTheme() in @/theme; add the color to theme/index.ts if it does not exist yet."
