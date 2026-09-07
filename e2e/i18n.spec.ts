@@ -83,7 +83,7 @@ const STRIP = [
 	{ status: "done", count: 1 },
 ] as const;
 
-test("9: every column chip is composed from board.columnChip, and spoken from board.columnChipA11y", async ({
+test("9: every column chip is composed from board.columnChip, spoken from board.columnChipA11y, and the current one from board.columnChipCurrentA11y", async ({
 	page,
 }, testInfo) => {
 	test.skip(
@@ -108,16 +108,30 @@ test("9: every column chip is composed from board.columnChip, and spoken from bo
 			fill(strings.board.columnChip, column, count),
 		);
 		// And what a screen reader hears instead, because a middle dot is read
-		// aloud as "middle dot" or as nothing at all.
+		// aloud as "middle dot" or as nothing at all. The chip for the column on
+		// screen says that it is the current one in its own name: Paper's `Chip`
+		// never lets an `aria-*` prop reach the `<button>` a person taps, so the
+		// label is the only state a screen reader can hear. The board opens on
+		// the first column.
+		const a11yKey =
+			index === 0
+				? count === 1
+					? strings.board.columnChipCurrentA11y_one
+					: strings.board.columnChipCurrentA11y_other
+				: count === 1
+					? strings.board.columnChipA11y_one
+					: strings.board.columnChipA11y_other;
 		await expect(chip).toHaveAttribute(
 			"aria-label",
-			fill(
-				count === 1
-					? strings.board.columnChipA11y_one
-					: strings.board.columnChipA11y_other,
-				column,
-				count,
-			),
+			fill(a11yKey, column, count),
 		);
+		// And `aria-current` beside it — the DOM's "you are here". It lands on
+		// Paper's outer surface rather than the button, so it is asserted there.
+		const container = page.getByTestId("chip-container").nth(index);
+		if (index === 0) {
+			await expect(container).toHaveAttribute("aria-current", "true");
+		} else {
+			await expect(container).not.toHaveAttribute("aria-current");
+		}
 	}
 });

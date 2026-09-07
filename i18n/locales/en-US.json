@@ -177,6 +177,8 @@
 		"columnChip": "{{column}} · {{count}}",
 		"columnChipA11y_one": "{{column}}, {{count}} card",
 		"columnChipA11y_other": "{{column}}, {{count}} cards",
+		"columnChipCurrentA11y_one": "{{column}}, {{count}} card, current",
+		"columnChipCurrentA11y_other": "{{column}}, {{count}} cards, current",
 		"addTo": "Add to {{column}}",
 		"newCard": "New card",
 		"titleLabel": "Title",
