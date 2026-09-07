@@ -69,8 +69,18 @@ export function ColumnStrip({
 				const label = t("board.columnChip", { column, count });
 				// A middle dot is read aloud as "middle dot", or as nothing at all,
 				// depending on the screen reader — so the spoken chip says what it
-				// means: "To do, 3 cards".
-				const spoken = t("board.columnChipA11y", { column, count });
+				// means: "To do, 3 cards". The current column says so in its own
+				// name, not only in a state: `accessibilityState` reaches the DOM
+				// as nothing on react-native-web 0.21, and every `aria-*` prop
+				// Paper's `Chip` takes lands on its outer surface — never on the
+				// `<button>` a person taps. The label is the one channel that
+				// reaches it.
+				const spoken = t(
+					index === current
+						? "board.columnChipCurrentA11y"
+						: "board.columnChipA11y",
+					{ column, count },
+				);
 
 				return (
 					// The frame a chip drop is measured against. A chip is the primary
@@ -120,6 +130,10 @@ export function ColumnStrip({
 							onPress={() => onSelect(index)}
 							accessibilityLabel={spoken}
 							accessibilityState={{ selected: index === current }}
+							// The web DOM's own "you are here", beside the native state.
+							// It lands on Paper's outer surface rather than the button,
+							// so the label above is what a reader actually hears.
+							{...(index === current ? { "aria-current": "true" } : {})}
 						>
 							{label}
 						</Chip>

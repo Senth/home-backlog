@@ -177,6 +177,8 @@
 		"columnChip": "{{column}} · {{count}}",
 		"columnChipA11y_one": "{{column}}, {{count}} kort",
 		"columnChipA11y_other": "{{column}}, {{count}} kort",
+		"columnChipCurrentA11y_one": "{{column}}, {{count}} kort, aktuell",
+		"columnChipCurrentA11y_other": "{{column}}, {{count}} kort, aktuell",
 		"addTo": "Lägg till i {{column}}",
 		"newCard": "Nytt kort",
 		"titleLabel": "Titel",
