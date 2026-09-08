@@ -401,7 +401,10 @@ export default function NodeDetails() {
 							: router.dismissTo(boardHref(node?.parentId ?? null))
 					}
 				/>
-				<Appbar.Content title={node?.title ?? ""} />
+				{/* The bar names the screen, not the card — the card face below is
+			    where the card says its own name, and repeating it here left a
+			    long title with nowhere to go (#237, the settled mock). */}
+				<Appbar.Content title={t("detail.title")} />
 				{node === null ? null : (
 					<Menu
 						visible={menuOpen}

@@ -42,7 +42,19 @@ export function Row({ title, description, left, right }: RowProps) {
 			}}
 		>
 			{left}
-			<View style={{ flex: 1 }}>
+			{/* flexGrow with an auto basis, not `flex: 1`: a zero basis is weight
+			    zero in the shrink phase, so at 200 % text the title yielded the
+			    whole row to the value and collapsed to nothing (#237). `touchTarget`
+			    keeps a floor under the shortest names, which shrink by size and so
+			    lose the most. */}
+			<View
+				style={{
+					flexGrow: 1,
+					flexShrink: 1,
+					flexBasis: "auto",
+					minWidth: touchTarget,
+				}}
+			>
 				<Text variant="bodyLarge">{title}</Text>
 				{description ? (
 					<Text

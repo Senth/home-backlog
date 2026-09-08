@@ -1,6 +1,11 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { clickMenuItem, gotoAndSettle, ROUTES } from "@/e2e/support/app";
+import {
+	clickMenuItem,
+	gotoAndSettle,
+	ROUTES,
+	VIEWPORTS,
+} from "@/e2e/support/app";
 import {
 	createFixtureNode,
 	deleteNodesByTitlePrefix,
@@ -9,7 +14,9 @@ import {
 	waitForNodeIdByTitle,
 } from "@/e2e/support/firestore";
 import enUS from "@/i18n/locales/en-US.json";
+import svSE from "@/i18n/locales/sv-SE.json";
 import { toCalendarDay } from "@/models/due-date";
+import { touchTarget } from "@/theme/tokens";
 
 /**
  * One walk over the details screen — every control on it, writing on the
@@ -487,4 +494,78 @@ test("4: a card whose board has a non-default column set steps through that set"
 	).toBeVisible();
 	// `execution` is the last working column of *this* set, so forward is off.
 	await expect(forwardTo(enUS.status.execution)).toBeDisabled();
+});
+
+/**
+ * The 200% claim (#237 phase 3 and 4), at the size that broke it: a 195x422
+ * window in Swedish. The name column of every row once collapsed to zero —
+ * `flex: 1` gives a column zero basis, so in the shrink phase it yielded
+ * everything and the names spelled one character per line — and the bar's
+ * column name collapsed the same way while *Done* clipped off the screen.
+ */
+test.describe("at 200% text in sv-SE (#237)", () => {
+	test.use({ locale: "sv-SE", viewport: VIEWPORTS.phoneZoomed });
+	test("5: every row keeps a name column and the bar's name reads before it clips", async ({
+		page,
+	}) => {
+		// A root card with both members on it, so all nine rows render.
+		const marcus = await memberUid("Marcus");
+		const nodeId = await createFixtureNode({
+			title: `${PREFIX}zoomed`,
+			parentId: null,
+			ancestorIds: [],
+			visibility: "shared",
+			participantIds: [marcus, await memberUid("Anna Maria Berg")],
+			assigneeIds: [marcus],
+			status: "backlog",
+		});
+		await page.goto(`/projects/${nodeId}/details`);
+		await page.waitForLoadState("networkidle");
+		await expect(page.getByText(`${PREFIX}zoomed`).first()).toBeVisible({
+			timeout: 30_000,
+		});
+
+		// The card is a seeded root and Huset has two members, so all nine rows
+		// render — every one of them gets a name column at least a touch target
+		// wide, which a one-character-per-line collapse cannot fake.
+		const names = [
+			svSE.detail.steps,
+			svSE.detail.priority,
+			svSE.detail.effort,
+			svSE.detail.labels,
+			svSE.detail.waitingOn,
+			svSE.detail.dueDate,
+			svSE.detail.whoCanSee,
+			svSE.detail.whoIsIn,
+			svSE.detail.whoIsDoing,
+		];
+		for (const name of names) {
+			const row = page.getByRole("button", { name });
+			await expect(row).toBeVisible();
+			const box = await row.getByText(name, { exact: true }).boundingBox();
+			expect(
+				box?.width ?? 0,
+				`the name column of "${name}" at 195px`,
+			).toBeGreaterThanOrEqual(touchTarget);
+		}
+
+		// The bar: the column name keeps room to read as words, and *Done* ends
+		// inside the viewport instead of wrapping past its right edge.
+		const bar = page.getByTestId(`column-bar-${nodeId}`);
+		const nameBox = await page
+			.getByTestId(`column-name-${nodeId}`)
+			.getByText(svSE.status.backlog)
+			.boundingBox();
+		expect(
+			nameBox?.width ?? 0,
+			"the bar's column name at 195px",
+		).toBeGreaterThanOrEqual(touchTarget);
+		const done = await bar
+			.getByRole("button", { name: svSE.common.done, exact: true })
+			.boundingBox();
+		expect(
+			(done?.x ?? 0) + (done?.width ?? 0),
+			"*Done* stays inside a 195px viewport",
+		).toBeLessThanOrEqual(VIEWPORTS.phoneZoomed.width);
+	});
 });

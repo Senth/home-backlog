@@ -6,6 +6,7 @@ import type { Node, Status } from "@/models/node";
 import { nextStatus, previousStatus, rankAtEnd } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import {
+	contentWidth,
 	elevation,
 	icon,
 	space,
@@ -68,11 +69,21 @@ export function ColumnBar({
 			elevation={elevation.low}
 			mode="flat"
 			testID={`column-bar-${node.id}`}
+			// It rides the card's form width, the way the content above it
+			// clamps (#237) — full-bleed beside a clamped column read as two
+			// different screens. The wrap is the 200 % escape the contract
+			// names for rows of controls: when the row cannot hold the name,
+			// the name takes a line of its own rather than shrinking to a
+			// character per line.
 			style={{
 				flexDirection: "row",
+				flexWrap: "wrap",
 				alignItems: "center",
+				alignSelf: "center",
+				width: "100%",
+				maxWidth: contentWidth.form,
 				gap: space.sm,
-				paddingHorizontal: space.md,
+				paddingHorizontal: space.sm,
 				paddingVertical: space.sm,
 			}}
 		>
@@ -85,11 +96,27 @@ export function ColumnBar({
 					column: t(`status.${previous ?? node.status}`),
 				})}
 				onPress={() => previous !== null && moveTo(previous)}
-				style={[touchTargetStyle, { margin: space.none }]}
+				// Paper greys the border of a disabled outlined button to
+				// `surfaceDisabled`, which drops the circle the mock keeps on
+				// both arrows — the outline is the affordance that says these
+				// two are a pair, enabled or not.
+				style={[
+					touchTargetStyle,
+					{ margin: space.none, borderColor: theme.colors.outline },
+				]}
 			/>
+			{/* An auto basis, not `flex: 1`: with a zero basis the name was
+			    weight zero in the shrink phase and collapsed to a character per
+			    line at 200 % text, the same bug `Row` fixes for the rows. */}
 			<View
 				testID={`column-name-${node.id}`}
-				style={{ flex: 1, height: touchTarget, justifyContent: "center" }}
+				style={{
+					flexGrow: 1,
+					flexShrink: 1,
+					flexBasis: "auto",
+					minHeight: touchTarget,
+					justifyContent: "center",
+				}}
 			>
 				<Text
 					variant="labelMedium"
@@ -110,7 +137,10 @@ export function ColumnBar({
 					column: t(`status.${next ?? node.status}`),
 				})}
 				onPress={() => next !== null && moveTo(next)}
-				style={[touchTargetStyle, { margin: space.none }]}
+				style={[
+					touchTargetStyle,
+					{ margin: space.none, borderColor: theme.colors.outline },
+				]}
 			/>
 			<Button
 				mode="contained-tonal"
