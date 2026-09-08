@@ -1,8 +1,10 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Redirect, Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { useWindowDimensions } from "react-native";
 import { useHome } from "@/contexts/HomeContext";
 import { useAppTheme } from "@/theme";
+import { denseBreakpoint } from "@/theme/tokens";
 
 /**
  * The boards, and the gate that keeps them scoped to a home.
@@ -16,6 +18,7 @@ export default function TabsLayout() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const { activeHome } = useHome();
+	const { width } = useWindowDimensions();
 
 	if (!activeHome) return <Redirect href="/homes" />;
 
@@ -72,7 +75,14 @@ export default function TabsLayout() {
 			<Tabs.Screen
 				name="maintenance"
 				options={{
-					title: t("tab.maintenance"),
+					// "Maintenance" is the one tab label longer than its Swedish
+					// counterpart, and a single word cannot wrap — at a 195 px viewport
+					// (a 390 px phone at 200 % zoom) it truncates to "Mainten…". One
+					// word carries the tab down there.
+					title:
+						width < denseBreakpoint
+							? t("tab.maintenanceNarrow")
+							: t("tab.maintenance"),
 					tabBarIcon: ({ color, size }) => (
 						<MaterialCommunityIcons
 							name="calendar-refresh-outline"

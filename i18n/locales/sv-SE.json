@@ -15,7 +15,7 @@
 		"done": "Klar"
 	},
 	"account": {
-		"label": "Konto",
+		"labelFor": "Konto: {{name}}",
 		"signedInAs": "Inloggad som {{email}}",
 		"signOut": {
 			"title": "Logga ut?",
@@ -53,7 +53,8 @@
 		"overview": "Översikt",
 		"projects": "Projekt",
 		"locations": "Platser",
-		"maintenance": "Underhåll"
+		"maintenance": "Underhåll",
+		"maintenanceNarrow": "Underhåll"
 	},
 	"screen": {
 		"login": {

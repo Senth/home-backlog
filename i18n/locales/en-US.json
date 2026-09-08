@@ -15,7 +15,7 @@
 		"done": "Done"
 	},
 	"account": {
-		"label": "Account",
+		"labelFor": "Account: {{name}}",
 		"signedInAs": "Signed in as {{email}}",
 		"signOut": {
 			"title": "Sign out?",
@@ -53,7 +53,8 @@
 		"overview": "Overview",
 		"projects": "Projects",
 		"locations": "Locations",
-		"maintenance": "Maintenance"
+		"maintenance": "Maintenance",
+		"maintenanceNarrow": "Upkeep"
 	},
 	"screen": {
 		"login": {
