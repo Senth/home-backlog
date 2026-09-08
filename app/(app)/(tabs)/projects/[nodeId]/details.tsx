@@ -23,6 +23,7 @@ import { TitleDialog } from "@/components/board/TitleDialog";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
 import { LabelPicker } from "@/components/label/LabelPicker";
 import { ChoiceField } from "@/components/node/ChoiceField";
+import { ColumnBar } from "@/components/node/ColumnBar";
 import { DetailCard } from "@/components/node/DetailCard";
 import { DetailRow } from "@/components/node/DetailRow";
 import { DueDateField } from "@/components/node/DueDateField";
@@ -39,6 +40,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { type NodeChanges, updateNode } from "@/data/nodes";
 import { useNode } from "@/hooks/use-node";
+import { useNodes } from "@/hooks/use-nodes";
 import { formatList } from "@/i18n/format-list";
 import { formatCalendarDay } from "@/models/due-date";
 import { membersOf } from "@/models/home";
@@ -46,6 +48,7 @@ import { maxLabelsPerNode } from "@/models/label";
 import type { Node } from "@/models/node";
 import {
 	assignableMembers,
+	defaultColumns,
 	efforts,
 	priorities,
 	rootIdOf,
@@ -116,6 +119,17 @@ export default function NodeDetails() {
 		node === null || node.parentId === null ? null : rootIdOf(node);
 	const { node: ancestorRoot } = useNode(homeId, rootId);
 	const root = node === null ? null : rootId === null ? node : ancestorRoot;
+
+	/**
+	 * The board the card sits on: the parent's frozen column set for the bar's
+	 * ramp, and the siblings a destination rank is computed against (#237).
+	 * `useNodes` is the same listener the phase 5 picker wants, so it is held
+	 * once here and passed down. A root has no parent document, and takes
+	 * `defaultColumns` — the set every board it could sit on reads.
+	 */
+	const { node: parent } = useNode(homeId, node?.parentId ?? null);
+	const board = useNodes(homeId, node?.parentId ?? null);
+	const columns = parent?.columns ?? defaultColumns;
 
 	const members = activeHome === null ? [] : membersOf(activeHome);
 	const assignable = assignableMembers(root, members);
@@ -436,6 +450,7 @@ export default function NodeDetails() {
 				/>
 			) : (
 				<ScrollView
+					style={{ flex: 1 }}
 					contentContainerStyle={{
 						padding: space.md,
 						// The bar has given up its own band, so the card sits one
@@ -514,6 +529,19 @@ export default function NodeDetails() {
 					)}
 				</ScrollView>
 			)}
+
+			{/* The bar at the foot (#237): a card moved without going back to
+			    the board. It rides the card's own listener — the name here is
+			    the name the card's status carries, never local state. */}
+			{node !== null && homeId !== null ? (
+				<ColumnBar
+					homeId={homeId}
+					node={node}
+					columns={columns}
+					nodes={board.nodes}
+					onFailed={() => setFailed(true)}
+				/>
+			) : null}
 
 			{/* The field editors, mounted only while open — the way `CardMenu`'s
 			    dialogs are. Each holds today's control unchanged; the sheet is the

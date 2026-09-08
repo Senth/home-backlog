@@ -411,7 +411,9 @@
 		"whoCanSee": "Vem kan se det",
 		"whoIsIn": "Vem är med",
 		"whoIsDoing": "Vem gör det",
-		"createdViaApi": "Tillagd av en automation"
+		"createdViaApi": "Tillagd av en automation",
+		"column": "Kolumn",
+		"moveToColumn": "Flytta till {{column}}"
 	},
 	"labels": {
 		"pickerTitle": "Etiketter på det här kortet",

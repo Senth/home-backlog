@@ -411,7 +411,9 @@
 		"whoCanSee": "Who can see it",
 		"whoIsIn": "Who's in it",
 		"whoIsDoing": "Who's doing it",
-		"createdViaApi": "Added by an automation"
+		"createdViaApi": "Added by an automation",
+		"column": "Column",
+		"moveToColumn": "Move to {{column}}"
 	},
 	"labels": {
 		"pickerTitle": "Labels on this card",

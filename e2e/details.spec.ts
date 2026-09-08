@@ -336,3 +336,145 @@ test("2: marking a card waiting lists the blocker on the details screen, complet
 		})
 		.toEqual([]);
 });
+
+/**
+ * The bar's own walk (#237 phase 4). The columns are the default set, so the
+ * forward arrow has somewhere to go until the last working one, and *Done* is
+ * reachable from everywhere.
+ */
+test("3: the bar at the foot moves the card forward, back and to Done, disables the arrows at the ends, and never covers the last row", async ({
+	page,
+}) => {
+	const title = `${PREFIX}bar walk`;
+	const nodeId = await newRootCard(title);
+
+	await page.goto(`/projects/${nodeId}/details`);
+	await page.waitForLoadState("networkidle");
+	await expect(page.getByText(title).first()).toBeVisible({
+		timeout: 30_000,
+	});
+
+	const bar = page.getByTestId(`column-bar-${nodeId}`);
+	const forwardTo = (column: string) =>
+		bar.getByRole("button", {
+			name: enUS.detail.moveToColumn.replace("{{column}}", column),
+		});
+
+	// First column: the back arrow has nowhere to go, and the name reads the
+	// card's own status.
+	await expect(
+		page.getByTestId(`column-name-${nodeId}`).getByText(enUS.status.backlog),
+	).toBeVisible();
+	await expect(forwardTo(enUS.status.next_up)).toBeEnabled();
+	await expect(forwardTo(enUS.status.backlog)).toBeDisabled();
+
+	// Forward writes, and the name follows the card's listener — the write is
+	// settled when the backend says so, not when the optimistic copy moves.
+	await forwardTo(enUS.status.next_up).click();
+	await expect
+		.poll(async () => (await nodeFields(nodeId)).status, { timeout: 30_000 })
+		.toBe("next_up");
+	await expect(
+		page.getByTestId(`column-name-${nodeId}`).getByText(enUS.status.next_up),
+	).toBeVisible();
+
+	await forwardTo(enUS.status.execution).click();
+	await expect
+		.poll(async () => (await nodeFields(nodeId)).status, { timeout: 30_000 })
+		.toBe("execution");
+	// The last working column: forward is off, *Done* is the way on.
+	await expect(forwardTo(enUS.status.execution)).toBeDisabled();
+
+	// Back writes too, from the column it landed in.
+	await forwardTo(enUS.status.next_up).click();
+	await expect
+		.poll(async () => (await nodeFields(nodeId)).status, { timeout: 30_000 })
+		.toBe("next_up");
+	await expect(
+		page.getByTestId(`column-name-${nodeId}`).getByText(enUS.status.next_up),
+	).toBeVisible();
+
+	// *Done* is always available and moves to done.
+	await bar.getByRole("button", { name: enUS.common.done }).click();
+	await expect
+		.poll(async () => (await nodeFields(nodeId)).status, { timeout: 30_000 })
+		.toBe("done");
+	// Scoped to the name: the button beside it says Done too.
+	await expect(
+		page.getByTestId(`column-name-${nodeId}`).getByText(enUS.status.done),
+	).toBeVisible();
+	await expect(forwardTo(enUS.status.done)).toBeDisabled();
+
+	// The bar owns no band of the list: scrolled to its end, the last row and
+	// the bar are both on screen.
+	await page.getByRole("button", { name: enUS.detail.whoIsIn }).click();
+	await page.keyboard.press("Escape");
+	await expect(
+		page.getByRole("button", { name: enUS.detail.whoIsIn }),
+	).toBeVisible();
+	await expect(
+		bar.getByRole("button", { name: enUS.common.done, exact: true }),
+	).toBeVisible();
+});
+
+/** A board frozen to a non-default column set, and one card on it. */
+async function narrowBoardCard(): Promise<{
+	projectId: string;
+	cardId: string;
+}> {
+	const marcus = await memberUid("Marcus");
+	const projectId = await createFixtureNode({
+		title: `${PREFIX}narrow board`,
+		parentId: null,
+		ancestorIds: [],
+		visibility: "shared",
+		participantIds: [marcus],
+		status: "backlog",
+		columns: ["backlog", "execution"],
+	});
+	const cardId = await createFixtureNode({
+		title: `${PREFIX}narrow card`,
+		parentId: projectId,
+		ancestorIds: [projectId],
+		visibility: "shared",
+		participantIds: [],
+		status: "backlog",
+	});
+	return { projectId, cardId };
+}
+
+test("4: a card whose board has a non-default column set steps through that set", async ({
+	page,
+}) => {
+	const { cardId } = await narrowBoardCard();
+
+	await page.goto(`/projects/${cardId}/details`);
+	await page.waitForLoadState("networkidle");
+	await expect(page.getByText(`${PREFIX}narrow card`).first()).toBeVisible({
+		timeout: 30_000,
+	});
+
+	const bar = page.getByTestId(`column-bar-${cardId}`);
+	const forwardTo = (column: string) =>
+		bar.getByRole("button", {
+			name: enUS.detail.moveToColumn.replace("{{column}}", column),
+		});
+
+	// The set is backlog → execution: the first step out of To do is In
+	// progress, and there is no Next up on this board to step through.
+	await expect(
+		page.getByTestId(`column-name-${cardId}`).getByText(enUS.status.backlog),
+	).toBeVisible();
+	await expect(forwardTo(enUS.status.execution)).toBeEnabled();
+	await expect(forwardTo(enUS.status.backlog)).toBeDisabled();
+
+	await forwardTo(enUS.status.execution).click();
+	await expect
+		.poll(async () => (await nodeFields(cardId)).status, { timeout: 30_000 })
+		.toBe("execution");
+	await expect(
+		page.getByTestId(`column-name-${cardId}`).getByText(enUS.status.execution),
+	).toBeVisible();
+	// `execution` is the last working column of *this* set, so forward is off.
+	await expect(forwardTo(enUS.status.execution)).toBeDisabled();
+});
