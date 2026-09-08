@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { ActivityIndicator } from "react-native-paper";
+import { ActivityIndicator, Text } from "react-native-paper";
 import { BrandMark } from "@/components/ui/BrandMark";
 import { useAppTheme } from "@/theme";
 import { space } from "@/theme/tokens";
@@ -35,6 +35,9 @@ export function SplashScreen() {
 			}}
 		>
 			<BrandMark />
+			{/* The brand tile can take a moment to decode on a slow phone; the
+			    wordmark is what names the app while it has not. */}
+			<Text variant="titleLarge">{t("app.name")}</Text>
 			<ActivityIndicator accessibilityLabel={t("common.loading")} />
 		</View>
 	);

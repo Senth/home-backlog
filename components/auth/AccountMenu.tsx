@@ -117,7 +117,7 @@ export function AccountMenu() {
 					<TouchableRipple
 						ref={triggerRef}
 						accessibilityRole="button"
-						accessibilityLabel={t("account.label")}
+						accessibilityLabel={t("account.labelFor", { name })}
 						testID={triggerTestID}
 						onPress={() => setMenuOpen(true)}
 						borderless
@@ -172,6 +172,9 @@ export function AccountMenu() {
 							<Text variant="titleMedium">{name}</Text>
 							<Text
 								variant="bodySmall"
+								// The email is the one string whose job is to be recognised
+								// at a glance: at 195 px it otherwise wraps inside itself.
+								numberOfLines={1}
 								style={{ color: theme.colors.onSurfaceVariant }}
 							>
 								{user.email}
