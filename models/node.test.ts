@@ -21,13 +21,13 @@ import {
 	newNodeData,
 	nextStatus,
 	pickerCandidates,
-	siblingCandidates,
 	previousStatus,
 	rankAtEnd,
 	rankBetween,
 	rankSequence,
 	rootIdOf,
 	type Status,
+	siblingCandidates,
 	staleAssignees,
 	titleError,
 	toNode,
@@ -345,16 +345,16 @@ describe("counter changes", () => {
 	 * A reparent is a leave and an arrive, so the two must cancel exactly — a
 	 * card moved to another board and back leaves both counters where they were.
 	 */
-	it.each(["backlog", "done"] as const)(
-		"cancels itself over a %s card's round trip",
-		(status) => {
-			const there = childArrives(status);
-			const back = childLeaves(status);
+	it.each([
+		"backlog",
+		"done",
+	] as const)("cancels itself over a %s card's round trip", (status) => {
+		const there = childArrives(status);
+		const back = childLeaves(status);
 
-			expect(there.childCount + back.childCount).toBe(0);
-			expect(there.doneCount + back.doneCount).toBe(0);
-		},
-	);
+		expect(there.childCount + back.childCount).toBe(0);
+		expect(there.doneCount + back.doneCount).toBe(0);
+	});
 });
 
 describe("titleError", () => {
@@ -1282,12 +1282,14 @@ describe("toNode", () => {
 	 * prototype and hand the board `Object.prototype.toString` — a *function* —
 	 * where a status belongs.
 	 */
-	it.each(["constructor", "toString", "valueOf", "hasOwnProperty"])(
-		"reads the inherited property %s as backlog, not as a function",
-		(status) => {
-			expect(toNode(snapshot("node-9", { status })).status).toBe("backlog");
-		},
-	);
+	it.each([
+		"constructor",
+		"toString",
+		"valueOf",
+		"hasOwnProperty",
+	])("reads the inherited property %s as backlog, not as a function", (status) => {
+		expect(toNode(snapshot("node-9", { status })).status).toBe("backlog");
+	});
 
 	/**
 	 * `columns` arrived after the document did, so every node written by #74 is
