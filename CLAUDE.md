@@ -27,7 +27,9 @@ Home Backlog: an Expo / React Native web-first PWA on Firebase.
 - After implementing: `yarn lint --write`, `yarn invariants`, `yarn typecheck`,
   `yarn test` — fix everything they report, including pre-existing failures. e2e is the
   expensive one and runs whole: `scripts/dev-stack.sh up && yarn e2e`, once at the end of
-  implement and once more after review, before ship; CI runs it on the PR. The ordered
+  implement and once more after review, before ship; CI runs it on the PR. Twenty minutes
+  a run, so while fixing a failure re-run only what failed — `yarn e2e --last-failed`, or
+  a spec path — and keep the whole-suite runs to those two. The ordered
   list is `[gates]` in [`.ai/config.toml`](.ai/config.toml), and that list is what a green
   report is measured against.
 - Testing policy is [`docs/TESTS.md`](docs/TESTS.md): unit tests by default, **ten e2e
