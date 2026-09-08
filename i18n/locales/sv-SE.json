@@ -402,6 +402,15 @@
 		"blockerGone": "Det kortet är borta.",
 		"stopWaitingOn": "Sluta vänta på {{title}}",
 		"stopWaitingOnGone": "Sluta vänta på det",
+		"waitingNone": "Inget",
+		"waitingLead": "{{title}} +{{more}}",
+		"waitingAllDone": "Alla {{count}} klara",
+		"notSet": "Inte satt",
+		"labelsNone": "Inga än",
+		"assigneesNone": "Ingen än",
+		"whoCanSee": "Vem kan se det",
+		"whoIsIn": "Vem är med",
+		"whoIsDoing": "Vem gör det",
 		"createdViaApi": "Tillagd av en automation"
 	},
 	"labels": {

@@ -402,6 +402,15 @@
 		"blockerGone": "That card is gone.",
 		"stopWaitingOn": "Stop waiting on {{title}}",
 		"stopWaitingOnGone": "Stop waiting on it",
+		"waitingNone": "Nothing",
+		"waitingLead": "{{title}} +{{more}}",
+		"waitingAllDone": "All {{count}} done",
+		"notSet": "Not set",
+		"labelsNone": "None yet",
+		"assigneesNone": "Nobody yet",
+		"whoCanSee": "Who can see it",
+		"whoIsIn": "Who's in it",
+		"whoIsDoing": "Who's doing it",
 		"createdViaApi": "Added by an automation"
 	},
 	"labels": {

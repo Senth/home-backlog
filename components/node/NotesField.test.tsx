@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { ThemeProvider } from "react-native-paper";
+import { Provider } from "react-native-paper";
 import { NotesField } from "@/components/node/NotesField";
 import enUS from "@/i18n/locales/en-US.json";
 import svSE from "@/i18n/locales/sv-SE.json";
@@ -32,11 +32,14 @@ jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
 	};
 });
 
+// `Provider`, not `ThemeProvider`: the editor is a sheet (#237), and the
+// portal it renders into needs the host `Provider` sets up — the same
+// renderer `LabelDialog.test.tsx` uses for its dialog.
 function renderNotes(stored: string, onSave: (notes: string) => void) {
 	return render(
-		<ThemeProvider theme={lightTheme}>
+		<Provider theme={lightTheme}>
 			<NotesField label="Notes" stored={stored} onSave={onSave} />
-		</ThemeProvider>,
+		</Provider>,
 	);
 }
 
@@ -67,7 +70,7 @@ describe("NotesField", () => {
 		).toBeOnTheScreen();
 	});
 
-	it("blur writes and closes: the editor goes away again", () => {
+	it("the dismissal writes and closes: the editor goes away again", () => {
 		const onSave = jest.fn();
 		renderNotes("", onSave);
 
@@ -76,7 +79,7 @@ describe("NotesField", () => {
 			screen.getByPlaceholderText("detail.notesPlaceholder"),
 			"Acetyl fog, do not sand",
 		);
-		fireEvent(screen.getByPlaceholderText("detail.notesPlaceholder"), "blur");
+		fireEvent.press(screen.getByTestId("notes-editor-backdrop"));
 
 		expect(onSave).toHaveBeenCalledWith("Acetyl fog, do not sand");
 		expect(screen.queryByPlaceholderText("detail.notesPlaceholder")).toBeNull();
@@ -85,9 +88,9 @@ describe("NotesField", () => {
 	it("does not carry an unsaved draft across to the next card", () => {
 		const onSave = jest.fn();
 		const view = render(
-			<ThemeProvider theme={lightTheme}>
+			<Provider theme={lightTheme}>
 				<NotesField key="a" label="Notes" stored="First card" onSave={onSave} />
-			</ThemeProvider>,
+			</Provider>,
 		);
 
 		fireEvent.press(screen.getByLabelText("detail.notesEdit"));
@@ -99,14 +102,14 @@ describe("NotesField", () => {
 		// Re-pointed at another card: the draft flushes to the card it was
 		// typed on, and the new card opens on its own note, in read mode.
 		view.rerender(
-			<ThemeProvider theme={lightTheme}>
+			<Provider theme={lightTheme}>
 				<NotesField
 					key="b"
 					label="Notes"
 					stored="Second card"
 					onSave={onSave}
 				/>
-			</ThemeProvider>,
+			</Provider>,
 		);
 
 		expect(onSave).toHaveBeenCalledWith("A draft");

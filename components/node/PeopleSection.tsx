@@ -12,7 +12,6 @@ import {
 import { detailsHref } from "@/components/board/board-href";
 import type { FlipState } from "@/components/node/FlipDialog";
 import { PeopleField } from "@/components/node/PeopleField";
-import { useAuth } from "@/contexts/AuthContext";
 import type { NodeChanges } from "@/data/nodes";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import type { Member } from "@/models/home";
@@ -36,6 +35,19 @@ interface PeopleSectionProps {
 	onSave: (changes: NodeChanges) => void;
 	/** Shared with the visibility control: one subtree write runs at a time. */
 	flip: FlipState;
+	/**
+	 * The actor's uid, handed in rather than read off `useAuth`: the section
+	 * mounts inside a sheet's portal (#237), above which the auth context does
+	 * not reach. The private-participants write needs the actor — the rules
+	 * refuse a private document its author could not read back.
+	 */
+	uid: string | null;
+	/**
+	 * Renders one of the two fields instead of both (#237): the details screen's
+	 * rows name them separately, so *Who's in it* opens the participants field
+	 * and *Who's doing it* the assignees. Absent renders both, as always.
+	 */
+	only?: "participants" | "assignees";
 }
 
 /**
@@ -68,12 +80,12 @@ export function PeopleSection({
 	members,
 	onSave,
 	flip,
+	only,
+	uid,
 }: PeopleSectionProps) {
 	const { t } = useTranslation();
-	const { user } = useAuth();
 	const online = useOnlineStatus();
 
-	const uid = user?.uid ?? null;
 	const isRoot = node.parentId === null;
 	const isPrivate = node.visibility === "private";
 	const rootTitle = root?.title ?? "";
@@ -155,7 +167,7 @@ export function PeopleSection({
 
 	return (
 		<>
-			{isRoot ? (
+			{isRoot && only !== "assignees" ? (
 				<PeopleField
 					label={t(
 						isPrivate ? "detail.participantsPrivate" : "detail.participants",
@@ -177,7 +189,7 @@ export function PeopleSection({
 				/>
 			) : null}
 
-			{showAssignees ? (
+			{only !== "participants" && showAssignees ? (
 				<View style={{ gap: space.sm }}>
 					<PeopleField
 						label={t("detail.assignees")}

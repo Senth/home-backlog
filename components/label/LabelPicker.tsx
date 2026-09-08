@@ -5,7 +5,6 @@ import { Button, HelperText, Text } from "react-native-paper";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
 import { AppDialog } from "@/components/ui/AppDialog";
 import { CheckRow } from "@/components/ui/CheckRow";
-import { useHome } from "@/contexts/HomeContext";
 import { applyLabel, removeLabel } from "@/data/nodes";
 import { type LabelWithId, maxLabelsPerNode } from "@/models/label";
 import type { Node } from "@/models/node";
@@ -14,6 +13,8 @@ import { space, touchTarget } from "@/theme/tokens";
 
 interface LabelPickerProps {
 	homeId: string;
+	/** The home's label definitions, read off the screen's own `activeHome`. */
+	labels: readonly LabelWithId[];
 	/** The card whose own labels are edited — inherited ones are not in here. */
 	node: Node;
 	onDismiss: () => void;
@@ -25,8 +26,9 @@ interface LabelPickerProps {
  * Putting labels on a card, and taking them off — the same picker from the
  * card menu and the details screen.
  *
- * The rows are the home's definitions, which ride the homes listener for
- * free. A tap writes through `applyLabel` / `removeLabel`, whose
+ * The rows are the home's definitions, handed in by the screen: the picker
+ * renders inside a portal (#237's sheets, and `AppDialog` before it), above
+ * which the home context does not reach. A tap writes through `applyLabel` / `removeLabel`, whose
  * `arrayUnion` / `arrayRemove` transforms are server-side and commute — so
  * the row's mark follows the card's listener rather than local state, and two
  * people picking at once cannot disagree about what is on the card: neither
@@ -38,6 +40,7 @@ interface LabelPickerProps {
  */
 export function LabelPicker({
 	homeId,
+	labels,
 	node,
 	onDismiss,
 	testID,
@@ -45,10 +48,8 @@ export function LabelPicker({
 }: LabelPickerProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
-	const { activeHome } = useHome();
 	const [failed, setFailed] = useState(false);
 
-	const labels = activeHome?.labels ?? [];
 	const atCap = node.labelIds.length >= maxLabelsPerNode;
 
 	const toggle = (label: LabelWithId, applied: boolean) => {

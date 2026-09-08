@@ -2,18 +2,11 @@ import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { gutterMinHeight } from "@/components/board/gutter-height";
 import { LabelDot } from "@/components/board/LabelDot";
-import { PaperIcon } from "@/components/ui/PaperIcon";
+import { PriorityDot } from "@/components/board/PriorityDot";
 import type { LabelWithId } from "@/models/label";
 import { type Node, priorityOrder } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import {
-	border,
-	icon,
-	priorityRamp,
-	radius,
-	size,
-	space,
-} from "@/theme/tokens";
+import { border, priorityRamp, size, space } from "@/theme/tokens";
 
 interface CardGutterProps {
 	/**
@@ -70,26 +63,11 @@ export function CardGutter({ node, labels, narrow = false }: CardGutterProps) {
 				gap: space.xs,
 			}}
 		>
-			{step === null ? null : (
-				<View
-					accessible
-					// A mark that means "Urgent", not a region: a plain div cannot
-					// carry a name (axe's `aria-prohibited-attr`), so the dot reads
-					// as an image whose name is the priority.
-					accessibilityRole="image"
-					accessibilityLabel={t(`priority.${node.priority}`)}
-					style={{
-						width: size.labelDot,
-						height: size.labelDot,
-						borderRadius: radius.full,
-						backgroundColor: step.color,
-						alignItems: "center",
-						justifyContent: "center",
-					}}
-				>
-					{/* The glyph is knocked out of the dot in the ramp's own on-color. */}
-					<PaperIcon name={step.glyph} size={icon.sm} color={step.on} />
-				</View>
+			{node.priority === null ? null : (
+				<PriorityDot
+					priority={node.priority}
+					label={t(`priority.${node.priority}`)}
+				/>
 			)}
 			{step === null || labels.length === 0 ? null : (
 				<View
