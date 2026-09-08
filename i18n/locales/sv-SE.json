@@ -382,6 +382,7 @@
 		"priority": "Prioritet",
 		"effort": "Tidsåtgång",
 		"notes": "Anteckningar",
+		"notesEdit": "Redigera anteckningen",
 		"saved": "Sparat {{time}}",
 		"notesPlaceholder": "Något värt att minnas",
 		"steps": "Steg",

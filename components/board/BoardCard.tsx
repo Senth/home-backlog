@@ -2,11 +2,13 @@ import { Fragment, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Card, Icon, Text } from "react-native-paper";
+import { CardTrail } from "@/components/board/Breadcrumbs";
 import { CardFooter } from "@/components/board/CardFooter";
 import { CardGutter } from "@/components/board/CardGutter";
 import { useWaitingMark } from "@/components/board/waiting-mark";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useHome } from "@/contexts/HomeContext";
+import type { Crumb } from "@/hooks/use-ancestors";
 import { formatList } from "@/i18n/format-list";
 import { effectiveLabels } from "@/models/label";
 import { hasSteps, type Node } from "@/models/node";
@@ -17,9 +19,11 @@ interface BoardCardProps {
 	node: Node;
 	/**
 	 * A tap. On a card with steps that is its board; on one without, its details
-	 * — a card is a board only once it has a step in it.
+	 * — a card is a board only once it has a step in it. Absent renders the face
+	 * without a press of its own: the details screen (#237) shows the card the
+	 * route already names, so the face is not itself a control there.
 	 */
-	onOpen: () => void;
+	onOpen?: () => void;
 	/** The overflow menu. Everything that is not "open" lives in there. */
 	menu?: ReactNode;
 	/**
@@ -54,6 +58,16 @@ interface BoardCardProps {
 	 * it. Overview passes it; the board never does.
 	 */
 	path?: readonly (string | null)[];
+	/**
+	 * The trail as **links that wrap**, used only by the details screen's card
+	 * (#237) — see `CardTrail`. Everywhere else the trail is `path`'s single
+	 * elided line. The crumbs are `useAncestors`' output, root first, so the
+	 * first is the project, never the home.
+	 */
+	linkedTrail?: {
+		crumbs: readonly Crumb[];
+		onOpenCrumb: (nodeId: string) => void;
+	};
 	/**
 	 * The label ids the card's trail passes down (#100) — on a board, the
 	 * board's own chain, which every card on it shares; on Overview, the card's
@@ -111,6 +125,7 @@ export function BoardCard({
 	narrow = false,
 	blockers = noBlockers,
 	path,
+	linkedTrail,
 	ancestorLabelIds = noAncestorLabelIds,
 	locations,
 }: BoardCardProps) {
@@ -234,7 +249,14 @@ export function BoardCard({
 		<Card
 			mode="outlined"
 			onPress={onOpen}
-			accessibilityHint={steps ? t("board.open") : t("board.openDetails")}
+			accessibilityHint={
+				// A face without a press has nothing to hint about.
+				onOpen === undefined
+					? undefined
+					: steps
+						? t("board.open")
+						: t("board.openDetails")
+			}
 			// Raised out of its column: the fill is a board color rather than
 			// `surface`, which in dark was the same color as the page. Paper draws
 			// the outlined card's hairline itself, in whatever `borderColor` this
@@ -260,12 +282,23 @@ export function BoardCard({
 						paddingHorizontal: narrow ? space.xs : space.sm,
 					}}
 				>
+					{/* The linked trail is the details card's alone: links that
+					    wrap. Everywhere else the trail is one elided line you
+					    consult. */}
+					{linkedTrail === undefined ? null : (
+						<CardTrail
+							crumbs={linkedTrail.crumbs}
+							onOpenCrumb={linkedTrail.onOpenCrumb}
+							narrow={narrow}
+						/>
+					)}
+
 					{/* Context you consult rather than scan: quiet metadata the title
 					    still owns. One `Text` so the trail end-elides as a whole — the
 					    Swedish 195px case — and one label so a screen reader hears the
 					    crumbs as words rather than chevrons. Narrow, it keeps clear of
 					    the menu floating over its own corner. */}
-					{crumbs === undefined ? null : (
+					{linkedTrail !== undefined || crumbs === undefined ? null : (
 						<Text
 							variant="labelMedium"
 							numberOfLines={1}
@@ -308,7 +341,10 @@ export function BoardCard({
 							flexDirection: "row",
 							alignItems: "center",
 							gap: space.xs,
-							marginTop: crumbs === undefined ? space.none : space.xs,
+							marginTop:
+								crumbs === undefined && linkedTrail === undefined
+									? space.none
+									: space.xs,
 						}}
 					>
 						{isDone ? (

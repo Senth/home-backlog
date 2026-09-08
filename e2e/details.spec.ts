@@ -105,7 +105,9 @@ test("1: every control on the details screen writes on the spot, and a reload pu
 		.toBe("evening");
 
 	// Notes save themselves after a pause in typing; the Saved line is the
-	// field's own acknowledgement that a write happened.
+	// field's own acknowledgement that a write happened. The note reads as
+	// text on arrival (#237), so the pencil opens the editor first.
+	await page.getByRole("button", { name: enUS.detail.notesEdit }).click();
 	await page.getByPlaceholder(enUS.detail.notesPlaceholder).fill(notesText);
 	await expect(page.getByText(/^Saved /)).toBeVisible({ timeout: 30_000 });
 	await expect
@@ -143,15 +145,19 @@ test("1: every control on the details screen writes on the spot, and a reload pu
 		})
 		.toBe("private");
 
-	// Rename from the app bar menu. `.last()`: the details screen behind the
-	// dialog has a textbox of its own — the notes field.
+	// Rename from the app bar menu. The notes field reads as text now, so the
+	// dialog's textbox is the only one on the screen — `.last()` still lands
+	// on it.
 	await clickMenuItem(
 		page,
 		page.getByRole("button", { name: enUS.board.actions }),
 		enUS.board.rename,
 	);
 	await page.getByRole("textbox").last().fill(renamed);
+	// Scoped to the dialog: the card's pencil on the face names itself Rename
+	// too (#237), so an unscoped match would find two buttons.
 	await page
+		.getByTestId(`rename-details-${nodeId}-surface`)
 		.getByRole("button", { name: enUS.board.rename, exact: true })
 		.click();
 	await expect(page.getByText(renamed).first()).toBeVisible();
@@ -177,6 +183,7 @@ test("1: every control on the details screen writes on the spot, and a reload pu
 	await expect
 		.poll(async () => (await nodeFields(nodeId)).effort, { timeout: 30_000 })
 		.toBeNull();
+	await page.getByRole("button", { name: enUS.detail.notesEdit }).click();
 	await expect(page.getByPlaceholder(enUS.detail.notesPlaceholder)).toHaveValue(
 		notesText,
 	);

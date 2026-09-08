@@ -382,6 +382,7 @@
 		"priority": "Priority",
 		"effort": "Time needed",
 		"notes": "Notes",
+		"notesEdit": "Edit the note",
 		"saved": "Saved {{time}}",
 		"notesPlaceholder": "Anything worth remembering",
 		"steps": "Steps",

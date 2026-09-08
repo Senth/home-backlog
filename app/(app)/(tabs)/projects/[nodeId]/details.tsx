@@ -11,12 +11,12 @@ import {
 	Snackbar,
 	Text,
 } from "react-native-paper";
-import { AccountMenu } from "@/components/auth/AccountMenu";
 import { boardHref, goneHref } from "@/components/board/board-href";
 import { TitleDialog } from "@/components/board/TitleDialog";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
 import { LabelPicker } from "@/components/label/LabelPicker";
 import { ChoiceField } from "@/components/node/ChoiceField";
+import { DetailCard } from "@/components/node/DetailCard";
 import { DueDateField } from "@/components/node/DueDateField";
 import { FlipDialog, useFlip } from "@/components/node/FlipDialog";
 import { NotesField } from "@/components/node/NotesField";
@@ -134,6 +134,11 @@ export default function NodeDetails() {
 				// Three 48dp targets and the bar's padding leave a narrow screen no
 				// room for a title — see `appBarStackBreakpoint`.
 				mode={width < appBarStackBreakpoint ? "medium" : "small"}
+				// The card is the screen's subject, and the face at the top of the
+				// scroll is where it says so (#237): the bar merges into the page
+				// instead of drawing a band of its own above it. `transparent`
+				// names an absence, and no palette entry could replace it.
+				style={{ backgroundColor: "transparent" }}
 			>
 				{/* Wherever you came from, and never a dead arrow.
 				    `router.back()` alone is the trap the board hit: on a screen
@@ -180,7 +185,6 @@ export default function NodeDetails() {
 						/>
 					</Menu>
 				)}
-				<AccountMenu />
 			</Appbar.Header>
 
 			{/* Mounted only while open — see `CardMenu`'s identical dialog. */}
@@ -206,12 +210,38 @@ export default function NodeDetails() {
 				<ScrollView
 					contentContainerStyle={{
 						padding: space.md,
+						// The bar has given up its own band, so the card sits one
+						// `space.sm` under it (#237) — closer than the sections
+						// below, because it is the thing this screen opened for.
+						paddingTop: space.sm,
 						gap: space.lg,
 						alignSelf: "center",
 						width: "100%",
 						maxWidth: contentWidth.form,
 					}}
 				>
+					{/* The card the screen is about, then the only free text
+					    anyone wrote on it. Both sit above the fields: the face is
+					    what was tapped, the note is what someone said. */}
+					{homeId === null ? null : (
+						<DetailCard
+							homeId={homeId}
+							node={node}
+							onRename={() => setRenaming(true)}
+							onOpenCrumb={(crumbId) => router.dismissTo(boardHref(crumbId))}
+						/>
+					)}
+
+					{/* Keyed on the node, so the same screen re-pointed at another card
+					    starts with that card's notes rather than carrying an unsaved
+					    draft across — the autosave state is per card, not per screen. */}
+					<NotesField
+						key={node.id}
+						label={t("detail.notes")}
+						stored={node.notes}
+						onSave={(notes) => save({ notes })}
+					/>
+
 					{/* One plain line, and only for a card an agent wrote.
 					    Marcus curates everything and needs to know which of forty
 					    cards a machine wrote; Ingrid needs to understand eleven cabin
@@ -310,21 +340,8 @@ export default function NodeDetails() {
 						onChange={(effort) => save({ effort })}
 					/>
 
-					{/* Keyed on the node, so the same screen re-pointed at another card
-					    starts with that card's notes rather than carrying an unsaved
-					    draft across — the autosave state is per card, not per screen. */}
-					<NotesField
-						key={node.id}
-						label={t("detail.notes")}
-						stored={node.notes}
-						onSave={(notes) => save({ notes })}
-					/>
-
-					{/* What this card waits on — below the notes, so the note that
-					    keeps its place stays there, and rendered always: an add
-					    affordance nobody can find is a feature nobody has. The people
-					    controls keep their order above the new section's neighbours
-					    untouched. */}
+					{/* What this card waits on — rendered always: an add
+					    affordance nobody can find is a feature nobody has. */}
 					{homeId === null ? null : (
 						<WaitingOnSection homeId={homeId} node={node} onSave={save} />
 					)}
