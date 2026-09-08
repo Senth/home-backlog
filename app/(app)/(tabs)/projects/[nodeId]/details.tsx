@@ -1,48 +1,78 @@
 import { useIsFocused } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	type ReactElement,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, useWindowDimensions, View } from "react-native";
 import {
 	ActivityIndicator,
 	Appbar,
-	Button,
+	Divider,
 	Menu,
 	Snackbar,
 	Text,
 } from "react-native-paper";
-import { AccountMenu } from "@/components/auth/AccountMenu";
 import { boardHref, goneHref } from "@/components/board/board-href";
+import { PriorityDot } from "@/components/board/PriorityDot";
 import { TitleDialog } from "@/components/board/TitleDialog";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
 import { LabelPicker } from "@/components/label/LabelPicker";
 import { ChoiceField } from "@/components/node/ChoiceField";
+import { ColumnBar } from "@/components/node/ColumnBar";
+import { DetailCard } from "@/components/node/DetailCard";
+import { DetailRow } from "@/components/node/DetailRow";
 import { DueDateField } from "@/components/node/DueDateField";
 import { FlipDialog, useFlip } from "@/components/node/FlipDialog";
 import { NotesField } from "@/components/node/NotesField";
-import { PeopleSection, WhoSeesWhat } from "@/components/node/PeopleSection";
+import { PeopleSection } from "@/components/node/PeopleSection";
 import { StepsSection } from "@/components/node/StepsSection";
 import { VisibilityField } from "@/components/node/VisibilityField";
 import { WaitingOnSection } from "@/components/node/WaitingOnSection";
+import { AppSheet } from "@/components/ui/AppSheet";
 import { BackAction } from "@/components/ui/BackAction";
+import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { type NodeChanges, updateNode } from "@/data/nodes";
 import { useNode } from "@/hooks/use-node";
+import { useNodes } from "@/hooks/use-nodes";
+import { formatList } from "@/i18n/format-list";
+import { formatCalendarDay } from "@/models/due-date";
 import { membersOf } from "@/models/home";
-import { efforts, priorities, rootIdOf } from "@/models/node";
+import { maxLabelsPerNode } from "@/models/label";
+import type { Node } from "@/models/node";
+import {
+	assignableMembers,
+	defaultColumns,
+	efforts,
+	priorities,
+	rootIdOf,
+} from "@/models/node";
 import { useAppTheme } from "@/theme";
 import {
 	appBarStackBreakpoint,
 	contentWidth,
+	size,
 	space,
-	touchTarget,
 	touchTargetStyle,
 } from "@/theme/tokens";
 
+/** The field editor a row has open. Its sheet mounts only while open. */
+type Editor =
+	| "priority"
+	| "effort"
+	| "due"
+	| "participants"
+	| "assignees"
+	| "visibility";
+
 /**
- * Everything about one card that is not its title: its due date, priority,
- * effort and notes — and, below them, its steps.
+ * One row a field (#237).
  *
  * A real route beside the board rather than a sheet over it, so reload, the PWA
  * back gesture and a shared link all land here. It is the same screen at every
@@ -55,7 +85,7 @@ import {
  * the control showing the new value *is* the acknowledgement.
  */
 export default function NodeDetails() {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
 	const { width } = useWindowDimensions();
 	const { nodeId } = useLocalSearchParams<{ nodeId: string }>();
@@ -90,17 +120,31 @@ export default function NodeDetails() {
 	const { node: ancestorRoot } = useNode(homeId, rootId);
 	const root = node === null ? null : rootId === null ? node : ancestorRoot;
 
+	/**
+	 * The board the card sits on: the parent's frozen column set for the bar's
+	 * ramp, and the siblings a destination rank is computed against (#237).
+	 * `useNodes` is the same listener the phase 5 picker wants, so it is held
+	 * once here and passed down. A root has no parent document, and takes
+	 * `defaultColumns` — the set every board it could sit on reads.
+	 */
+	const { node: parent } = useNode(homeId, node?.parentId ?? null);
+	const board = useNodes(homeId, node?.parentId ?? null);
+	const columns = parent?.columns ?? defaultColumns;
+
 	const members = activeHome === null ? [] : membersOf(activeHome);
+	const assignable = assignableMembers(root, members);
 	const flip = useFlip(homeId ?? "");
 
 	const [failed, setFailed] = useState(false);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [renaming, setRenaming] = useState(false);
 	const [labelling, setLabelling] = useState(false);
+	const [editor, setEditor] = useState<Editor | null>(null);
 	const menuAnchor = useRef<View | null>(null);
 
 	// Stable so Paper keeps its Escape handler — see `components/board/CardMenu.tsx`.
 	const closeMenu = useCallback(() => setMenuOpen(false), []);
+	const closeEditor = useCallback(() => setEditor(null), []);
 
 	// Where "up" is once the card has stopped existing, remembered while it still
 	// does: a deleted card cannot say who its parent was.
@@ -126,6 +170,205 @@ export default function NodeDetails() {
 		});
 	};
 
+	const nameOfUid = (uid: string) =>
+		activeHome?.memberProfiles?.[uid]?.displayName || t("members.unknown");
+
+	/** The people value on a row: initials, named once for the whole group. */
+	const avatarsOf = (uids: readonly string[]) => (
+		<View
+			accessible
+			accessibilityLabel={formatList(uids.map(nameOfUid), i18n.language)}
+			style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}
+		>
+			{uids.map((uid) => (
+				<PersonAvatar
+					key={uid}
+					name={nameOfUid(uid)}
+					photoURL={activeHome?.memberProfiles?.[uid]?.photoURL ?? null}
+					px={size.avatarXs}
+				/>
+			))}
+		</View>
+	);
+
+	/**
+	 * The nine rows in the settled order (#237): Steps · Priority · Time needed ·
+	 * Labels · Waiting on · Due by · Who can see it · Who's in it · Who's doing
+	 * it. The people rows keep today's visibility rules — hidden in a one-member
+	 * home, except a node already private.
+	 */
+	const rowsOf = (current: Node) => {
+		const ownLabels = (activeHome?.labels ?? [])
+			.filter((label) => current.labelIds.includes(label.id))
+			.slice(0, maxLabelsPerNode);
+
+		return [
+			homeId === null ? null : (
+				<StepsSection
+					key="steps"
+					homeId={homeId}
+					node={current}
+					onOpenBoard={() => router.push(boardHref(current.id))}
+				/>
+			),
+			<DetailRow
+				key="priority"
+				glyph="thermometer"
+				name={t("detail.priority")}
+				testID={`field-priority-${current.id}`}
+				onPress={() => setEditor("priority")}
+				value={
+					current.priority === null ? (
+						<Text variant="bodyMedium">{t("detail.notSet")}</Text>
+					) : (
+						<View
+							style={{
+								flexDirection: "row",
+								alignItems: "center",
+								gap: space.xs,
+							}}
+						>
+							{/* The ramp dot beside its word: the one value the brief
+							    sharpens, the same mark the card's gutter draws. */}
+							<PriorityDot priority={current.priority} />
+							<Text variant="bodyMedium">
+								{t(`priority.${current.priority}`)}
+							</Text>
+						</View>
+					)
+				}
+			/>,
+			<DetailRow
+				key="effort"
+				glyph="clock-outline"
+				name={t("detail.effort")}
+				testID={`field-effort-${current.id}`}
+				onPress={() => setEditor("effort")}
+				value={
+					<Text variant="bodyMedium">
+						{current.effort === null
+							? t("detail.notSet")
+							: t(`effort.${current.effort}`)}
+					</Text>
+				}
+			/>,
+			homeId === null ? null : (
+				<DetailRow
+					key="labels"
+					glyph="tag-outline"
+					name={t("detail.labels")}
+					testID={`field-labels-${current.id}`}
+					onPress={() => setLabelling(true)}
+					value={
+						ownLabels.length === 0 ? (
+							<Text variant="bodyMedium">{t("detail.labelsNone")}</Text>
+						) : (
+							// The card's own labels only, as today: what the trail
+							// passes down is true of the card but not of this control.
+							<View
+								style={{
+									flexDirection: "row",
+									flexWrap: "wrap",
+									justifyContent: "flex-end",
+									gap: space.xs,
+								}}
+							>
+								{ownLabels.map((label) => (
+									<LabelGlyph
+										key={label.id}
+										color={label.color}
+										icon={label.icon}
+									/>
+								))}
+							</View>
+						)
+					}
+				/>
+			),
+			homeId === null ? null : (
+				<WaitingOnSection
+					key="waiting"
+					homeId={homeId}
+					node={current}
+					siblings={board.nodes}
+					onSave={save}
+				/>
+			),
+			<DetailRow
+				key="due"
+				glyph="calendar"
+				name={t("detail.dueDate")}
+				testID={`field-due-${current.id}`}
+				onPress={() => setEditor("due")}
+				value={
+					<Text
+						variant="bodyMedium"
+						style={
+							current.dueDate === null
+								? undefined
+								: { color: theme.colors.warning }
+						}
+					>
+						{current.dueDate === null
+							? t("detail.addDate")
+							: formatCalendarDay(current.dueDate, i18n.language)}
+					</Text>
+				}
+			/>,
+			current.parentId === null &&
+			(members.length > 1 || current.visibility === "private") ? (
+				<DetailRow
+					key="visibility"
+					glyph="eye-outline"
+					name={t("detail.whoCanSee")}
+					testID={`field-visibility-${current.id}`}
+					onPress={() => setEditor("visibility")}
+					value={
+						<Text variant="bodyMedium">
+							{t(
+								current.visibility === "private"
+									? "detail.visibilityPrivate"
+									: "detail.visibilityShared",
+							)}
+						</Text>
+					}
+				/>
+			) : null,
+			current.parentId === null && members.length > 1 ? (
+				<DetailRow
+					key="participants"
+					glyph="account-multiple-outline"
+					name={t("detail.whoIsIn")}
+					testID={`field-participants-${current.id}`}
+					onPress={() => setEditor("participants")}
+					value={
+						current.participantIds.length === 0
+							? null
+							: avatarsOf(current.participantIds)
+					}
+				/>
+			) : null,
+			members.length > 1 &&
+			root !== null &&
+			(assignable.length > 1 || current.assigneeIds.length > 0) ? (
+				<DetailRow
+					key="assignees"
+					glyph="account-outline"
+					name={t("detail.whoIsDoing")}
+					testID={`field-assignees-${current.id}`}
+					onPress={() => setEditor("assignees")}
+					value={
+						current.assigneeIds.length === 0 ? (
+							<Text variant="bodyMedium">{t("detail.assigneesNone")}</Text>
+						) : (
+							avatarsOf(current.assigneeIds)
+						)
+					}
+				/>
+			) : null,
+		].filter((row): row is ReactElement => row !== null);
+	};
+
 	if (id === null) return null;
 
 	return (
@@ -134,6 +377,11 @@ export default function NodeDetails() {
 				// Three 48dp targets and the bar's padding leave a narrow screen no
 				// room for a title — see `appBarStackBreakpoint`.
 				mode={width < appBarStackBreakpoint ? "medium" : "small"}
+				// The card is the screen's subject, and the face at the top of the
+				// scroll is where it says so (#237): the bar merges into the page
+				// instead of drawing a band of its own above it. `transparent`
+				// names an absence, and no palette entry could replace it.
+				style={{ backgroundColor: "transparent" }}
 			>
 				{/* Wherever you came from, and never a dead arrow.
 				    `router.back()` alone is the trap the board hit: on a screen
@@ -153,7 +401,10 @@ export default function NodeDetails() {
 							: router.dismissTo(boardHref(node?.parentId ?? null))
 					}
 				/>
-				<Appbar.Content title={node?.title ?? ""} />
+				{/* The bar names the screen, not the card — the card face below is
+			    where the card says its own name, and repeating it here left a
+			    long title with nowhere to go (#237, the settled mock). */}
+				<Appbar.Content title={t("detail.title")} />
 				{node === null ? null : (
 					<Menu
 						visible={menuOpen}
@@ -180,7 +431,6 @@ export default function NodeDetails() {
 						/>
 					</Menu>
 				)}
-				<AccountMenu />
 			</Appbar.Header>
 
 			{/* Mounted only while open — see `CardMenu`'s identical dialog. */}
@@ -204,14 +454,41 @@ export default function NodeDetails() {
 				/>
 			) : (
 				<ScrollView
+					style={{ flex: 1 }}
 					contentContainerStyle={{
 						padding: space.md,
+						// The bar has given up its own band, so the card sits one
+						// `space.sm` under it (#237) — closer than the sections
+						// below, because it is the thing this screen opened for.
+						paddingTop: space.sm,
 						gap: space.lg,
 						alignSelf: "center",
 						width: "100%",
 						maxWidth: contentWidth.form,
 					}}
 				>
+					{/* The card the screen is about, then the only free text
+					    anyone wrote on it. Both sit above the fields: the face is
+					    what was tapped, the note is what someone said. */}
+					{homeId === null ? null : (
+						<DetailCard
+							homeId={homeId}
+							node={node}
+							onRename={() => setRenaming(true)}
+							onOpenCrumb={(crumbId) => router.dismissTo(boardHref(crumbId))}
+						/>
+					)}
+
+					{/* Keyed on the node, so the same screen re-pointed at another card
+					    starts with that card's notes rather than carrying an unsaved
+					    draft across — the autosave state is per card, not per screen. */}
+					<NotesField
+						key={node.id}
+						label={t("detail.notes")}
+						stored={node.notes}
+						onSave={(notes) => save({ notes })}
+					/>
+
 					{/* One plain line, and only for a card an agent wrote.
 					    Marcus curates everything and needs to know which of forty
 					    cards a machine wrote; Ingrid needs to understand eleven cabin
@@ -228,65 +505,48 @@ export default function NodeDetails() {
 						</Text>
 					) : null}
 
-					<DueDateField
-						label={t("detail.dueDate")}
-						value={node.dueDate}
-						onChange={(dueDate) => save({ dueDate })}
-					/>
+					{/* One row a field, hairline between: the value is why the row
+					    exists, the chevron says the whole row opens. Every editor
+					    mounts only while open, in an `AppSheet` below. */}
+					<View>
+						{rowsOf(node).flatMap((row, index) => [
+							<Divider key={`before-${row.key ?? index}`} />,
+							row,
+						])}
+						<Divider />
+					</View>
 
-					{/* Which group this work belongs to — the card's own labels, the
-					    ones this screen can put on and take off. Labels the trail
-					    passes down are not offered here: they are true of the card but
-					    not *of this control*, and un-picking one here would be a lie
-					    about the project above. */}
-					{homeId === null ? null : (
-						<View style={{ gap: space.sm }}>
-							<Text
-								variant="labelLarge"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								{t("detail.labels")}
-							</Text>
-							<View
-								style={{
-									flexDirection: "row",
-									alignItems: "center",
-									flexWrap: "wrap",
-									gap: space.sm,
-								}}
-							>
-								{(activeHome?.labels ?? [])
-									.filter((label) => node.labelIds.includes(label.id))
-									.map((label) => (
-										<LabelGlyph
-											key={label.id}
-											color={label.color}
-											icon={label.icon}
-										/>
-									))}
-								<Button
-									mode="outlined"
-									onPress={() => setLabelling(true)}
-									contentStyle={{ minHeight: touchTarget }}
-								>
-									{node.labelIds.length === 0
-										? t("detail.labelsAdd")
-										: t("detail.labelsChange")}
-								</Button>
-							</View>
+					{/* One dialog for both controls: a private project's
+					    participants are the same top-down subtree write the flip
+					    is, and only one of them can be running. The who-sees-what
+					    explanation rode along here until phase 5 moved it inside
+					    the editors it explains (#237). */}
+					{user === null ? null : <FlipDialog state={flip} uid={user.uid} />}
+				</ScrollView>
+			)}
 
-							{/* Mounted only while open — see `CardMenu`'s dialogs. */}
-							{labelling ? (
-								<LabelPicker
-									homeId={homeId}
-									node={node}
-									onDismiss={() => setLabelling(false)}
-									testID={`label-picker-${node.id}`}
-								/>
-							) : null}
-						</View>
-					)}
+			{/* The bar at the foot (#237): a card moved without going back to
+			    the board. It rides the card's own listener — the name here is
+			    the name the card's status carries, never local state. */}
+			{node !== null && homeId !== null ? (
+				<ColumnBar
+					homeId={homeId}
+					node={node}
+					columns={columns}
+					nodes={board.nodes}
+					onFailed={() => setFailed(true)}
+				/>
+			) : null}
 
+			{/* The field editors, mounted only while open — the way `CardMenu`'s
+			    dialogs are. Each holds today's control unchanged; the sheet is the
+			    container the plan's decision chose over a centered dialog. */}
+			{editor === "priority" && node !== null ? (
+				<AppSheet
+					visible
+					onDismiss={closeEditor}
+					testID={`editor-priority-${node.id}`}
+				>
 					<ChoiceField
 						label={t("detail.priority")}
 						value={node.priority}
@@ -294,14 +554,19 @@ export default function NodeDetails() {
 						labelFor={(value) => t(`priority.${value}`)}
 						onChange={(priority) => save({ priority })}
 					/>
+				</AppSheet>
+			) : null}
 
-					{/* Kept at every child count, though `PROJECT.md` says effort is for
-					    tasks rather than projects. "Tasks only" is enforced where effort
-					    is *used* — quick wins and the split nudge (#56) both take
-					    `childCount === 0` — rather than by a control that vanishes: the
-					    nudge fires on *effort ≥ a weekend and no children*, so accepting
-					    it and adding a first step would delete the field that fired it
-					    from view. */}
+			{editor === "effort" && node !== null ? (
+				<AppSheet
+					visible
+					onDismiss={closeEditor}
+					testID={`editor-effort-${node.id}`}
+				>
+					{/* Kept at every child count, though `PROJECT.md` says effort is
+					    for tasks rather than projects. "Tasks only" is enforced where
+					    effort is *used* — the quick-wins and split nudge — rather than
+					    by a control that vanishes. */}
 					<ChoiceField
 						label={t("detail.effort")}
 						value={node.effort}
@@ -309,82 +574,84 @@ export default function NodeDetails() {
 						labelFor={(value) => t(`effort.${value}`)}
 						onChange={(effort) => save({ effort })}
 					/>
+				</AppSheet>
+			) : null}
 
-					{/* Keyed on the node, so the same screen re-pointed at another card
-					    starts with that card's notes rather than carrying an unsaved
-					    draft across — the autosave state is per card, not per screen. */}
-					<NotesField
-						key={node.id}
-						label={t("detail.notes")}
-						stored={node.notes}
-						onSave={(notes) => save({ notes })}
+			{editor === "due" && node !== null ? (
+				<AppSheet
+					visible
+					onDismiss={closeEditor}
+					testID={`editor-due-${node.id}`}
+				>
+					<DueDateField
+						label={t("detail.dueDate")}
+						value={node.dueDate}
+						onChange={(dueDate) => save({ dueDate })}
 					/>
+				</AppSheet>
+			) : null}
 
-					{/* What this card waits on — below the notes, so the note that
-					    keeps its place stays there, and rendered always: an add
-					    affordance nobody can find is a feature nobody has. The people
-					    controls keep their order above the new section's neighbours
-					    untouched. */}
-					{homeId === null ? null : (
-						<WaitingOnSection homeId={homeId} node={node} onSave={save} />
-					)}
+			{editor === "visibility" && node !== null && user !== null ? (
+				<AppSheet
+					visible
+					onDismiss={closeEditor}
+					testID={`editor-visibility-${node.id}`}
+				>
+					<VisibilityField
+						node={node}
+						members={members}
+						uid={user.uid}
+						flip={flip}
+					/>
+				</AppSheet>
+			) : null}
 
-					{/* Whose project this is, who is doing this card, and whether it is
-					    anybody else's business. All three are hidden while the home has
-					    one member — in a house she lives in alone, participants (nobody
-					    to involve), assignees (only her) and privacy (nothing to hide
-					    from) are pure clutter on the screen Ingrid uses to write down
-					    what the chimney sweep said, at 200 % text.
+			{editor === "participants" && node !== null && user !== null ? (
+				<AppSheet
+					visible
+					onDismiss={closeEditor}
+					testID={`editor-participants-${node.id}`}
+				>
+					<PeopleSection
+						node={node}
+						root={root}
+						members={members}
+						onSave={save}
+						flip={flip}
+						only="participants"
+						uid={user.uid}
+					/>
+				</AppSheet>
+			) : null}
 
-					    The one exception: a node that is *already* private always shows
-					    the visibility control, so a home that drops back to one member
-					    can undo it rather than being stuck with a setting it cannot
-					    reach. */}
-					{homeId === null || user === null ? null : (
-						<>
-							<PeopleSection
-								node={node}
-								root={root}
-								members={members}
-								onSave={save}
-								flip={flip}
-							/>
+			{editor === "assignees" && node !== null && user !== null ? (
+				<AppSheet
+					visible
+					onDismiss={closeEditor}
+					testID={`editor-assignees-${node.id}`}
+				>
+					<PeopleSection
+						node={node}
+						root={root}
+						members={members}
+						onSave={save}
+						flip={flip}
+						only="assignees"
+						uid={user.uid}
+					/>
+				</AppSheet>
+			) : null}
 
-							{node.parentId === null &&
-							(members.length > 1 || node.visibility === "private") ? (
-								<VisibilityField
-									node={node}
-									members={members}
-									uid={user.uid}
-									flip={flip}
-								/>
-							) : null}
-
-							{/* The two rules about people, once, folded away — rather
-							    than a grey sentence under every control on a screen
-							    somebody opened to write down a date. It sits below all
-							    three controls because it explains all three, and only
-							    where they render at all. */}
-							{members.length > 1 && root !== null ? (
-								<WhoSeesWhat node={node} project={root.title} />
-							) : null}
-
-							{/* One dialog for both controls: a private project's
-							    participants are the same top-down subtree write the flip
-							    is, and only one of them can be running. */}
-							<FlipDialog state={flip} uid={user.uid} />
-						</>
-					)}
-
-					{homeId === null ? null : (
-						<StepsSection
-							homeId={homeId}
-							node={node}
-							onOpenBoard={() => router.push(boardHref(node.id))}
-						/>
-					)}
-				</ScrollView>
-			)}
+			{/* Mounted only while open — see `CardMenu`'s dialogs. */}
+			{labelling && homeId !== null && node !== null ? (
+				<LabelPicker
+					homeId={homeId}
+					labels={activeHome?.labels ?? []}
+					node={node}
+					onDismiss={() => setLabelling(false)}
+					testID={`label-picker-${node.id}`}
+				/>
+			) : null}
 
 			<Snackbar visible={failed} onDismiss={() => setFailed(false)}>
 				{t("error.saveFailed")}

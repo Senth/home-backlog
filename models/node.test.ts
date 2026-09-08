@@ -19,12 +19,15 @@ import {
 	movedAncestorIds,
 	type Node,
 	newNodeData,
+	nextStatus,
 	pickerCandidates,
+	previousStatus,
 	rankAtEnd,
 	rankBetween,
 	rankSequence,
 	rootIdOf,
 	type Status,
+	siblingCandidates,
 	staleAssignees,
 	titleError,
 	toNode,
@@ -781,6 +784,55 @@ describe("crossBoardBlockerIds", () => {
 	});
 });
 
+describe("nextStatus", () => {
+	it("steps through the set in enum order", () => {
+		expect(nextStatus([...defaultColumns], "backlog")).toBe("next_up");
+		expect(nextStatus([...defaultColumns], "next_up")).toBe("execution");
+	});
+
+	/**
+	 * `done` is the end of the ramp, not a step on it — the bar's own *Done*
+	 * makes that move, so the forward arrow disables instead of duplicating it.
+	 */
+	it("has no next from the last working column", () => {
+		expect(nextStatus([...defaultColumns], "execution")).toBeNull();
+		expect(nextStatus([...defaultColumns], "done")).toBeNull();
+	});
+
+	it("steps through a narrow set, whatever the default is", () => {
+		const narrow: readonly Status[] = ["backlog", "execution", "done"];
+
+		expect(nextStatus(narrow, "backlog")).toBe("execution");
+		expect(nextStatus(narrow, "execution")).toBeNull();
+	});
+
+	it("moves a card sitting in a column the set does not name to one it does", () => {
+		// The extra `visibleColumns()` case: the card exists, so forward gives
+		// it a real column rather than a dead arrow.
+		expect(nextStatus(["backlog", "execution"], "next_up")).toBe("execution");
+	});
+});
+
+describe("previousStatus", () => {
+	it("steps back through the set", () => {
+		expect(previousStatus([...defaultColumns], "execution")).toBe("next_up");
+		expect(previousStatus([...defaultColumns], "next_up")).toBe("backlog");
+	});
+
+	it("is null on the first column", () => {
+		expect(previousStatus([...defaultColumns], "backlog")).toBeNull();
+	});
+
+	/**
+	 * `done` reads as one past the last working column, so backing out of Done
+	 * lands the card where the work was happening.
+	 */
+	it("reads done as one past the last working column", () => {
+		expect(previousStatus([...defaultColumns], "done")).toBe("execution");
+		expect(previousStatus(["backlog", "execution"], "done")).toBe("execution");
+	});
+});
+
 describe("pickerCandidates", () => {
 	const self = node({ id: "lay-tiles" });
 	const shared = [
@@ -846,6 +898,40 @@ describe("pickerCandidates", () => {
 		expect(
 			pickerCandidates("tiles", self, [], many.slice(0, 49), []).capped,
 		).toBe(false);
+	});
+});
+
+describe("siblingCandidates", () => {
+	const self = node({ id: "lay-tiles" });
+	const siblings = [
+		node({ id: "lay-tiles", title: "Lay tiles" }),
+		node({ id: "order-tiles", title: "Order tiles" }),
+		node({ id: "sweep", title: "Book the chimney sweep" }),
+		node({ id: "old-roof", title: "Order roof tiles", status: "done" }),
+	];
+
+	it("never offers the card as its own blocker", () => {
+		expect(
+			siblingCandidates("", self, [], siblings).some(
+				(candidate) => candidate.id === "lay-tiles",
+			),
+		).toBe(false);
+	});
+
+	it("keeps the board's stored order and filters on the title", () => {
+		expect(
+			siblingCandidates("TILES", self, [], siblings).map(
+				(candidate) => candidate.id,
+			),
+		).toEqual(["order-tiles"]);
+	});
+
+	it("drops done cards and ones already picked", () => {
+		expect(
+			siblingCandidates("", self, ["order-tiles"], siblings).map(
+				(candidate) => candidate.id,
+			),
+		).toEqual(["sweep"]);
 	});
 });
 

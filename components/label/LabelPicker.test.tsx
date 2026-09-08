@@ -17,13 +17,9 @@ jest.mock("react-i18next", () => ({
 	}),
 }));
 
-// `LabelPicker` reads the home's label definitions off `activeHome`. Tests
-// that need labels install them here.
+// `LabelPicker` takes the home's label definitions as a prop (#237): it
+// renders inside a portal, above which the home context does not reach.
 let mockHome: { labels: LabelWithId[] } | null = null;
-jest.mock("@/contexts/HomeContext", () => ({
-	useHome: () => ({ activeHome: mockHome }),
-}));
-
 jest.mock("@/data/nodes", () => ({
 	applyLabel: jest.fn(() => Promise.resolve()),
 	removeLabel: jest.fn(() => Promise.resolve()),
@@ -88,6 +84,7 @@ function renderPicker(card: Node) {
 		<Provider theme={lightTheme}>
 			<LabelPicker
 				homeId="home-1"
+				labels={mockHome?.labels ?? []}
 				node={card}
 				onDismiss={() => {}}
 				testID="label-picker"
@@ -104,7 +101,6 @@ function capSentence() {
 }
 
 afterEach(() => {
-	mockHome = null;
 	jest.clearAllMocks();
 });
 
@@ -148,6 +144,23 @@ describe("LabelPicker", () => {
 		renderPicker(node([]));
 
 		expect(screen.getByText("labels.empty")).toBeOnTheScreen();
+	});
+
+	it("finds Trädgård from trad, folding diacritics as well as case", () => {
+		mockHome = {
+			labels: [
+				label("l1", { title: "Trädgård" }),
+				label("l2", { title: "Garden" }),
+			],
+		};
+		renderPicker(node([]));
+
+		fireEvent.changeText(screen.getByTestId("label-picker-search"), "trad");
+
+		expect(
+			screen.getByRole("checkbox", { name: "Trädgård" }),
+		).toBeOnTheScreen();
+		expect(screen.queryByRole("checkbox", { name: "Garden" })).toBeNull();
 	});
 
 	it("refuses a seventh label and says so", () => {

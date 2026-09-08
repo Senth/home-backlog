@@ -1,18 +1,10 @@
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import {
-	Button,
-	Divider,
-	Icon,
-	Text,
-	TouchableRipple,
-} from "react-native-paper";
+import { Button, Text } from "react-native-paper";
 import { detailsHref } from "@/components/board/board-href";
 import type { FlipState } from "@/components/node/FlipDialog";
 import { PeopleField } from "@/components/node/PeopleField";
-import { useAuth } from "@/contexts/AuthContext";
 import type { NodeChanges } from "@/data/nodes";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import type { Member } from "@/models/home";
@@ -23,7 +15,7 @@ import {
 	staleAssignees,
 } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { icon as iconSize, radius, space, touchTarget } from "@/theme/tokens";
+import { space, touchTarget } from "@/theme/tokens";
 
 interface PeopleSectionProps {
 	node: Node;
@@ -36,6 +28,19 @@ interface PeopleSectionProps {
 	onSave: (changes: NodeChanges) => void;
 	/** Shared with the visibility control: one subtree write runs at a time. */
 	flip: FlipState;
+	/**
+	 * The actor's uid, handed in rather than read off `useAuth`: the section
+	 * mounts inside a sheet's portal (#237), above which the auth context does
+	 * not reach. The private-participants write needs the actor — the rules
+	 * refuse a private document its author could not read back.
+	 */
+	uid: string | null;
+	/**
+	 * Renders one of the two fields instead of both (#237): the details screen's
+	 * rows name them separately, so *Who's in it* opens the participants field
+	 * and *Who's doing it* the assignees. Absent renders both, as always.
+	 */
+	only?: "participants" | "assignees";
 }
 
 /**
@@ -59,8 +64,7 @@ interface PeopleSectionProps {
  * about a *project* rather than about a step inside one, so a household that
  * learns the rule once has learned it for both — and neither ever needs a
  * greyed-out inherited row on a descendant. What a descendant needs explaining
- * is explained once, in the disclosure below, rather than in a grey sentence per
- * control on a screen somebody opened to write down a date.
+ * is explained in the editors, not on the screen (#237).
  */
 export function PeopleSection({
 	node,
@@ -68,12 +72,12 @@ export function PeopleSection({
 	members,
 	onSave,
 	flip,
+	only,
+	uid,
 }: PeopleSectionProps) {
 	const { t } = useTranslation();
-	const { user } = useAuth();
 	const online = useOnlineStatus();
 
-	const uid = user?.uid ?? null;
 	const isRoot = node.parentId === null;
 	const isPrivate = node.visibility === "private";
 	const rootTitle = root?.title ?? "";
@@ -155,29 +159,32 @@ export function PeopleSection({
 
 	return (
 		<>
-			{isRoot ? (
-				<PeopleField
-					label={t(
-						isPrivate ? "detail.participantsPrivate" : "detail.participants",
-					)}
-					members={members}
-					value={node.participantIds}
-					onChange={saveParticipants}
-					unknownLabel={t("members.unknown")}
-					lockedUid={lockedUid}
-					lockedHint={t(
-						isPrivate
-							? "detail.participantsYouStay"
-							: "detail.participantsLast",
-					)}
-					// Only the private path needs a connection — it is n
-					// server-checked writes. The shared one queues like any edit.
-					disabled={isPrivate && !online}
-					disabledHint={t("board.offlineHint")}
-				/>
+			{isRoot && only !== "assignees" ? (
+				<View style={{ gap: space.sm }}>
+					<PeopleField
+						label={t(
+							isPrivate ? "detail.participantsPrivate" : "detail.participants",
+						)}
+						members={members}
+						value={node.participantIds}
+						onChange={saveParticipants}
+						unknownLabel={t("members.unknown")}
+						lockedUid={lockedUid}
+						lockedHint={t(
+							isPrivate
+								? "detail.participantsYouStay"
+								: "detail.participantsLast",
+						)}
+						// Only the private path needs a connection — it is n
+						// server-checked writes. The shared one queues like any edit.
+						disabled={isPrivate && !online}
+						disabledHint={t("board.offlineHint")}
+					/>
+					<WhoSeesProjectNote />
+				</View>
 			) : null}
 
-			{showAssignees ? (
+			{only !== "participants" && showAssignees ? (
 				<View style={{ gap: space.sm }}>
 					<PeopleField
 						label={t("detail.assignees")}
@@ -214,6 +221,15 @@ export function PeopleSection({
 							</Action>
 						</View>
 					))}
+
+					{/* A step's assignee list is bounded by the project's
+					    participants — the rule that used to sit on the screen now
+					    lives in the editor it explains. On the project itself the
+					    action would push to the screen you are standing on, so it is
+					    the step's editor that carries it. */}
+					{rootIdOf(node) === node.id ? null : (
+						<WhoSeesStepNote project={rootTitle} rootId={rootIdOf(node)} />
+					)}
 				</View>
 			) : null}
 		</>
@@ -221,120 +237,55 @@ export function PeopleSection({
 }
 
 /**
- * The two rules about people, folded away until somebody wants them.
+ * The two rules about people, inside the editors they explain (#237).
  *
  * The screen used to explain itself in grey sentences under the controls, on
- * every card at every depth, whether or not anything was confusing. They are
- * one disclosure instead, titled with the question the confused person is
- * actually asking — *Who can see what?* rather than "Looking for something
- * else?", which in Swedish reads as a shop's search box and gives nobody a
- * reason to open it.
+ * every card at every depth, whether or not anything was confusing; then, for
+ * one phase, in a folded disclosure below the rows. Both are gone: each rule
+ * renders in the sheet it answers, and the screen carries none of it.
  *
- * It carries the *Change who's in on…* action that used to sit permanently under
- * the assignee list: on a step, that is the way to the project's own screen, and
- * inside the section that just explained why you would want to go there.
+ * Both render through the sheet's portal, above which the navigation context
+ * does not reach either — the step note's way to the project's own screen is
+ * the imperative `router`, the same singleton `details.tsx` pushes with.
  */
-export function WhoSeesWhat({
-	node,
-	project,
-}: {
-	node: Node;
-	/** The root's title — what the action names. */
-	project: string;
-}) {
+
+/** The participants rule, inside the participants and visibility editors. */
+export function WhoSeesProjectNote() {
 	const { t } = useTranslation();
-	const router = useRouter();
-	const theme = useAppTheme();
-	const [expanded, setExpanded] = useState(false);
 
 	return (
-		// One tinted panel, header and body together. Opened, the body used to sit
-		// full-bleed on the page under a hairline — the same weight and the same
-		// rule as the `Steps` section right below it — so the explainer read as the
-		// top of `Steps` rather than as something that had just opened.
-		<View
-			style={{
-				backgroundColor: theme.colors.surfaceVariant,
-				borderRadius: radius.sm,
-				overflow: "hidden",
-			}}
-		>
-			{/* Not `List.Accordion`, for the third time in this codebase after
-			    `Checkbox.Item` and `MetaChip`: it hard-codes
-			    `accessibilityState={{ expanded }}` on its own row and forwards no
-			    override, and React Native Web 0.21 dropped the object form of that
-			    prop — so the header announces as a plain button that never says
-			    whether it is open. Verified in the browser: `aria-expanded` was
-			    absent both collapsed and expanded. The row carries the semantics
-			    here, the way `CheckRow` does. */}
-			<TouchableRipple
-				onPress={() => setExpanded(!expanded)}
-				accessibilityRole="button"
-				aria-expanded={expanded}
-				accessibilityLabel={t("detail.whoSeesWhat")}
-				style={{
-					minHeight: touchTarget,
-					justifyContent: "center",
-					paddingHorizontal: space.md,
-				}}
+		<View style={{ gap: space.xs }}>
+			<Header>{t("detail.whoSeesProject")}</Header>
+			<Hint>{t("detail.whoSeesProjectBody")}</Hint>
+		</View>
+	);
+}
+
+/**
+ * The assignees rule, inside the assignees editor of a step — with the way to
+ * the project's own screen, from the editor that just explained why you would
+ * want it.
+ */
+export function WhoSeesStepNote({
+	project,
+	rootId,
+}: {
+	project: string;
+	/** The project this step belongs to — where the action goes. */
+	rootId: string;
+}) {
+	const { t } = useTranslation();
+
+	return (
+		<View style={{ gap: space.xs }}>
+			<Header>{t("detail.whoSeesStep")}</Header>
+			<Hint>{t("detail.whoSeesStepBody")}</Hint>
+			<Action
+				icon="account-multiple-outline"
+				onPress={() => router.push(detailsHref(rootId))}
 			>
-				<View
-					style={{
-						flexDirection: "row",
-						alignItems: "center",
-						gap: space.md,
-						paddingVertical: space.sm,
-					}}
-				>
-					<Text
-						variant="bodyLarge"
-						style={{ flex: 1, color: theme.colors.onSurfaceVariant }}
-					>
-						{t("detail.whoSeesWhat")}
-					</Text>
-					<Icon
-						source={expanded ? "chevron-up" : "chevron-down"}
-						size={iconSize.md}
-						color={theme.colors.onSurfaceVariant}
-					/>
-				</View>
-			</TouchableRipple>
-
-			{expanded ? (
-				<View
-					style={{
-						gap: space.md,
-						paddingHorizontal: space.md,
-						paddingBottom: space.md,
-					}}
-				>
-					<View style={{ gap: space.xs }}>
-						<Header>{t("detail.whoSeesProject")}</Header>
-						<Hint>{t("detail.whoSeesProjectBody")}</Hint>
-					</View>
-
-					<Divider />
-
-					<View style={{ gap: space.xs }}>
-						<Header>{t("detail.whoSeesStep")}</Header>
-						<Hint>{t("detail.whoSeesStepBody")}</Hint>
-					</View>
-
-					{/* The way to the project's own screen, from the section that just
-				    explained why you would want it. Not on the project itself: that
-				    is a push to the screen you are standing on, which stacks a second
-				    identical details screen behind the back arrow — and the control
-				    it would take you to is one scroll up. */}
-					{rootIdOf(node) === node.id ? null : (
-						<Action
-							icon="account-multiple-outline"
-							onPress={() => router.push(detailsHref(rootIdOf(node)))}
-						>
-							{t("detail.assigneesChange", { project })}
-						</Action>
-					)}
-				</View>
-			) : null}
+				{t("detail.assigneesChange", { project })}
+			</Action>
 		</View>
 	);
 }

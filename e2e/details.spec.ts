@@ -1,6 +1,11 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { clickMenuItem, gotoAndSettle, ROUTES } from "@/e2e/support/app";
+import {
+	clickMenuItem,
+	gotoAndSettle,
+	ROUTES,
+	VIEWPORTS,
+} from "@/e2e/support/app";
 import {
 	createFixtureNode,
 	deleteNodesByTitlePrefix,
@@ -9,12 +14,18 @@ import {
 	waitForNodeIdByTitle,
 } from "@/e2e/support/firestore";
 import enUS from "@/i18n/locales/en-US.json";
+import svSE from "@/i18n/locales/sv-SE.json";
 import { toCalendarDay } from "@/models/due-date";
+import { touchTarget } from "@/theme/tokens";
 
 /**
  * One walk over the details screen — every control on it, writing on the
- * spot and surviving a reload — and the waiting-on section, folded in from
+ * spot and surviving a reload — and the waiting-on row, folded in from
  * the old `blocked-by.spec.ts` as one claim.
+ *
+ * Every field is a row that opens today's editor in a bottom sheet (#237),
+ * so the walk opens sheets as it goes and scopes each assertion to that
+ * sheet's surface: the screen behind an open sheet stays in the DOM.
  *
  * What is deliberately *not* here: the people bookkeeping (inheritance,
  * promotion permutations, the stale-assignee sentence) — `data/nodes.test.ts`
@@ -33,7 +44,7 @@ test.afterEach(async () => {
 	await deleteNodesByTitlePrefix(PREFIX);
 });
 
-/** Adds a card to the first column of the root board. */
+/** Adds a card to the first column of the board on screen. */
 async function addCard(page: Page, title: string): Promise<void> {
 	await page
 		.getByRole("button", { name: `Add to ${enUS.status.backlog}` })
@@ -75,10 +86,15 @@ test("1: every control on the details screen writes on the spot, and a reload pu
 	await page.waitForURL(/\/projects\/[^/]+\/details$/);
 	const nodeId = new URL(page.url()).pathname.split("/")[2] as string;
 
-	// Due date: the picker mounts only while open, and its days carry the
-	// library's own test ids — the month in the id is `getMonth()`, 0-based.
+	// Due date: the row opens the sheet, the picker mounts only while open,
+	// and its days carry the library's own test ids — the month in the id is
+	// `getMonth()`, 0-based.
 	const picked = new Date();
-	await page.getByRole("button", { name: enUS.detail.addDate }).click();
+	await page.getByRole("button", { name: enUS.detail.dueDate }).click();
+	await page
+		.getByTestId(`editor-due-${nodeId}-surface`)
+		.getByRole("button", { name: enUS.detail.addDate })
+		.click();
 	await page
 		.getByTestId(
 			`react-native-paper-dates-day-${picked.getFullYear()}-${picked.getMonth()}-15`,
@@ -93,45 +109,71 @@ test("1: every control on the details screen writes on the spot, and a reload pu
 			{ timeout: 30_000 },
 		)
 		.toBe(true);
+	await page.keyboard.press("Escape");
 
-	// Priority and effort: tapping the chip is the whole acknowledgement.
-	await page.getByRole("button", { name: enUS.priority.high }).click();
+	// Priority and effort: the row opens its sheet, tapping the chip is the
+	// whole acknowledgement. The chip taps are scoped to the sheet — the row
+	// behind it carries the same words.
+	await page.getByRole("button", { name: enUS.detail.priority }).click();
+	await page
+		.getByTestId(`editor-priority-${nodeId}-surface`)
+		.getByRole("button", { name: enUS.priority.high })
+		.click();
 	await expect
 		.poll(async () => (await nodeFields(nodeId)).priority, { timeout: 30_000 })
 		.toBe("high");
-	await page.getByRole("button", { name: enUS.effort.evening }).click();
+	await page.keyboard.press("Escape");
+
+	await page.getByRole("button", { name: enUS.detail.effort }).click();
+	await page
+		.getByTestId(`editor-effort-${nodeId}-surface`)
+		.getByRole("button", { name: enUS.effort.evening })
+		.click();
 	await expect
 		.poll(async () => (await nodeFields(nodeId)).effort, { timeout: 30_000 })
 		.toBe("evening");
+	await page.keyboard.press("Escape");
 
 	// Notes save themselves after a pause in typing; the Saved line is the
-	// field's own acknowledgement that a write happened.
+	// field's own acknowledgement that a write happened. The note reads as
+	// text on arrival (#237), so the pencil opens the editor's sheet first.
+	await page.getByRole("button", { name: enUS.detail.notesEdit }).click();
 	await page.getByPlaceholder(enUS.detail.notesPlaceholder).fill(notesText);
 	await expect(page.getByText(/^Saved /)).toBeVisible({ timeout: 30_000 });
 	await expect
 		.poll(async () => (await nodeFields(nodeId)).notes, { timeout: 30_000 })
 		.toBe(notesText);
+	await page.keyboard.press("Escape");
 
-	// A step, added from the screen it belongs to.
-	await page.getByRole("button", { name: enUS.detail.addStep }).click();
-	await page.getByRole("textbox").last().fill(stepTitle);
-	await page.getByRole("button", { name: enUS.board.add, exact: true }).click();
-	await expect(page.getByText(stepTitle)).toBeVisible();
+	// A step, made where steps are made: the *Steps* row navigates to the
+	// card's board, and nothing on the details screen creates one.
+	await page.getByRole("button", { name: enUS.detail.steps }).click();
+	await page.waitForURL(new RegExp(`/projects/${nodeId}$`));
+	await addCard(page, stepTitle);
 	await waitForNodeIdByTitle(stepTitle);
+	// Back to the details. Tapping the card here would open its own board —
+	// the screen we are standing on — so the stack's back is the way out.
+	await page.goBack();
 
 	// Participants are the whole household on a fresh project; taking one off
-	// is the write. The participants row renders before the assignees row, so
-	// `.first()` is the participants checkbox.
-	await page.getByRole("checkbox", { name: "Anna Maria Berg" }).first().click();
+	// is the write.
+	await page.getByRole("button", { name: enUS.detail.whoIsIn }).click();
+	await page
+		.getByTestId(`editor-participants-${nodeId}-surface`)
+		.getByRole("checkbox", { name: "Anna Maria Berg" })
+		.click();
 	await expect
 		.poll(async () => (await nodeFields(nodeId)).participantIds, {
 			timeout: 30_000,
 		})
 		.toEqual([await memberUid("Marcus")]);
+	await page.keyboard.press("Escape");
 
 	// Visibility asks before it changes: the flip rewrites the whole subtree,
 	// server-checked, which is why the write takes a moment to land.
+	await page.getByRole("button", { name: enUS.detail.whoCanSee }).click();
 	await page
+		.getByTestId(`editor-visibility-${nodeId}-surface`)
 		.getByRole("button", { name: enUS.detail.visibilityPrivate })
 		.click();
 	await page
@@ -142,16 +184,28 @@ test("1: every control on the details screen writes on the spot, and a reload pu
 			timeout: 30_000,
 		})
 		.toBe("private");
+	// The root is written first, so the poll above can pass while the progress
+	// dialog is still out — and the dialog holds the screen on purpose until
+	// the whole subtree is written. The Escape below is the sheet's to answer,
+	// which it only is once the dialog is gone.
+	await expect(
+		page.getByTestId("visibility-progress-dialog-surface"),
+	).toBeHidden({ timeout: 30_000 });
+	await page.keyboard.press("Escape");
 
-	// Rename from the app bar menu. `.last()`: the details screen behind the
-	// dialog has a textbox of its own — the notes field.
+	// Rename from the app bar menu. The notes field reads as text now, so the
+	// dialog's textbox is the only one on the screen — `.last()` still lands
+	// on it.
 	await clickMenuItem(
 		page,
 		page.getByRole("button", { name: enUS.board.actions }),
 		enUS.board.rename,
 	);
 	await page.getByRole("textbox").last().fill(renamed);
+	// Scoped to the dialog: the card's pencil on the face names itself Rename
+	// too (#237), so an unscoped match would find two buttons.
 	await page
+		.getByTestId(`rename-details-${nodeId}-surface`)
 		.getByRole("button", { name: enUS.board.rename, exact: true })
 		.click();
 	await expect(page.getByText(renamed).first()).toBeVisible();
@@ -162,36 +216,72 @@ test("1: every control on the details screen writes on the spot, and a reload pu
 	await expect(page.getByText(renamed).first()).toBeVisible({
 		timeout: 30_000,
 	});
+
+	// The date kept: the sheet's Clear button proves the value came back.
+	await page.getByRole("button", { name: enUS.detail.dueDate }).click();
 	await expect(
-		page.getByRole("button", { name: enUS.detail.clear }),
+		page
+			.getByTestId(`editor-due-${nodeId}-surface`)
+			.getByRole("button", { name: enUS.detail.clear }),
 	).toBeVisible();
+	await page.keyboard.press("Escape");
+
 	// A selected chip says so in style, not in the DOM — `aria-pressed` lands
 	// on Paper's outer surface and never reaches the button a person taps. Its
 	// own tap semantics are the proof instead: tapping the selected value
 	// clears it, so the toggle is what tells the reload kept the value.
-	await page.getByRole("button", { name: enUS.priority.high }).click();
+	await page.getByRole("button", { name: enUS.detail.priority }).click();
+	await page
+		.getByTestId(`editor-priority-${nodeId}-surface`)
+		.getByRole("button", { name: enUS.priority.high })
+		.click();
 	await expect
 		.poll(async () => (await nodeFields(nodeId)).priority, { timeout: 30_000 })
 		.toBeNull();
-	await page.getByRole("button", { name: enUS.effort.evening }).click();
+	await page.keyboard.press("Escape");
+
+	await page.getByRole("button", { name: enUS.detail.effort }).click();
+	await page
+		.getByTestId(`editor-effort-${nodeId}-surface`)
+		.getByRole("button", { name: enUS.effort.evening })
+		.click();
 	await expect
 		.poll(async () => (await nodeFields(nodeId)).effort, { timeout: 30_000 })
 		.toBeNull();
-	await expect(page.getByPlaceholder(enUS.detail.notesPlaceholder)).toHaveValue(
-		notesText,
-	);
-	await expect(page.getByText(stepTitle)).toBeVisible();
+	await page.keyboard.press("Escape");
+
+	await page.getByRole("button", { name: enUS.detail.notesEdit }).click();
 	await expect(
-		page.getByRole("checkbox", { name: "Anna Maria Berg" }).first(),
+		page
+			.getByTestId("notes-editor-surface")
+			.getByPlaceholder(enUS.detail.notesPlaceholder),
+	).toHaveValue(notesText);
+	await page.keyboard.press("Escape");
+
+	// The Steps row's value is the count the real board query reports.
+	await expect(
+		page.getByText(
+			enUS.detail.stepsDone.replace("{{done}}", "0").replace("{{total}}", "1"),
+		),
+	).toBeVisible();
+
+	await page.getByRole("button", { name: enUS.detail.whoIsIn }).click();
+	const participants = page.getByTestId(
+		`editor-participants-${nodeId}-surface`,
+	);
+	await expect(
+		participants.getByRole("checkbox", { name: "Anna Maria Berg" }),
 	).toHaveAttribute("aria-checked", "false");
 	// A private root says so in the participants label, and locks its own row.
-	await expect(page.getByText(enUS.detail.participantsPrivate)).toBeVisible();
 	await expect(
-		page.getByRole("checkbox", { name: "Marcus" }).first(),
+		participants.getByText(enUS.detail.participantsPrivate),
+	).toBeVisible();
+	await expect(
+		participants.getByRole("checkbox", { name: "Marcus" }).first(),
 	).toHaveAttribute("aria-disabled", "true");
 });
 
-test("2: marking a card waiting lists the blocker on the details screen, completing the blocker clears the mark live, and Stop waiting on removes the row", async ({
+test("2: marking a card waiting lists the blocker on the details screen, completing the blocker clears the mark live, and tapping the ticked row in the picker takes the wait off", async ({
 	page,
 }) => {
 	const waiterTitle = `${PREFIX}paint the wall`;
@@ -215,10 +305,15 @@ test("2: marking a card waiting lists the blocker on the details screen, complet
 	await page.keyboard.press("Escape");
 	await expect(page.getByRole("menuitem", { name: blockerTitle })).toBeHidden();
 
-	// The details screen lists the blocker by title.
+	// The details row names the blocker it waits on.
 	await waiter.getByText(waiterTitle).click();
 	await page.waitForURL(/\/projects\/[^/]+\/details$/);
-	await expect(page.getByText(blockerTitle, { exact: true })).toBeVisible();
+	// The row's value arrives with the blocker's one-shot read, which can
+	// outrun this line's patience by a webchannel reconnect after the long
+	// walk that precedes it.
+	await expect(page.getByText(blockerTitle, { exact: true })).toBeVisible({
+		timeout: 30_000,
+	});
 
 	// Completing the blocker from the board — no reload anywhere — clears the
 	// mark, because the mark derives from the blocker's own status.
@@ -239,17 +334,296 @@ test("2: marking a card waiting lists the blocker on the details screen, complet
 	await waiter.getByText(waiterTitle).click();
 	await page.waitForURL(/\/projects\/[^/]+\/details$/);
 	await expect(
-		page.getByText(enUS.detail.blockerDone, { exact: true }),
-	).toBeVisible();
-	await page
-		.getByRole("button", {
-			name: enUS.detail.stopWaitingOn.replace("{{title}}", blockerTitle),
-		})
-		.click();
-	await expect(page.getByText(blockerTitle, { exact: true })).toHaveCount(0);
+		page.getByText(enUS.detail.waitingAllDone.replace("{{count}}", "1")),
+	).toBeVisible({ timeout: 30_000 });
+	await page.getByRole("button", { name: enUS.detail.waitingOn }).click();
+	const picker = page.getByTestId(`waiting-${waiterId}-surface`);
+	// The picked blocker is offered ticked even though it is done now — the
+	// tap on it is what takes the wait off (#237: the picker, not a dialog).
+	await picker.getByRole("checkbox", { name: blockerTitle }).click();
 	await expect
 		.poll(async () => (await nodeFields(waiterId)).blockedBy, {
 			timeout: 30_000,
 		})
 		.toEqual([]);
+	// The card itself is never offered as its own blocker.
+	await expect(picker.getByRole("checkbox", { name: waiterTitle })).toHaveCount(
+		0,
+	);
+	await page.keyboard.press("Escape");
+	await expect(page.getByText(enUS.detail.waitingNone)).toBeVisible();
+});
+
+/**
+ * The bar's own walk (#237 phase 4). The columns are the default set, so the
+ * forward arrow has somewhere to go until the last working one, and *Done* is
+ * reachable from everywhere.
+ */
+test("3: the bar at the foot moves the card forward, back and to Done, disables the arrows at the ends, and never covers the last row", async ({
+	page,
+}) => {
+	const title = `${PREFIX}bar walk`;
+	const nodeId = await newRootCard(title);
+
+	await page.goto(`/projects/${nodeId}/details`);
+	await page.waitForLoadState("networkidle");
+	await expect(page.getByText(title).first()).toBeVisible({
+		timeout: 30_000,
+	});
+
+	const bar = page.getByTestId(`column-bar-${nodeId}`);
+	const forwardTo = (column: string) =>
+		bar.getByRole("button", {
+			name: enUS.detail.moveToColumn.replace("{{column}}", column),
+		});
+
+	// First column: the back arrow has nowhere to go, and the name reads the
+	// card's own status.
+	await expect(
+		page.getByTestId(`column-name-${nodeId}`).getByText(enUS.status.backlog),
+	).toBeVisible();
+	await expect(forwardTo(enUS.status.next_up)).toBeEnabled();
+	await expect(forwardTo(enUS.status.backlog)).toBeDisabled();
+
+	// Forward writes, and the name follows the card's listener — the write is
+	// settled when the backend says so, not when the optimistic copy moves.
+	await forwardTo(enUS.status.next_up).click();
+	await expect
+		.poll(async () => (await nodeFields(nodeId)).status, { timeout: 30_000 })
+		.toBe("next_up");
+	await expect(
+		page.getByTestId(`column-name-${nodeId}`).getByText(enUS.status.next_up),
+	).toBeVisible();
+
+	await forwardTo(enUS.status.execution).click();
+	await expect
+		.poll(async () => (await nodeFields(nodeId)).status, { timeout: 30_000 })
+		.toBe("execution");
+	// The last working column: forward is off, *Done* is the way on.
+	await expect(forwardTo(enUS.status.execution)).toBeDisabled();
+
+	// Back writes too, from the column it landed in.
+	await forwardTo(enUS.status.next_up).click();
+	await expect
+		.poll(async () => (await nodeFields(nodeId)).status, { timeout: 30_000 })
+		.toBe("next_up");
+	await expect(
+		page.getByTestId(`column-name-${nodeId}`).getByText(enUS.status.next_up),
+	).toBeVisible();
+
+	// *Done* is always available and moves to done.
+	await bar.getByRole("button", { name: enUS.common.done }).click();
+	await expect
+		.poll(async () => (await nodeFields(nodeId)).status, { timeout: 30_000 })
+		.toBe("done");
+	// Scoped to the name: the button beside it says Done too.
+	await expect(
+		page.getByTestId(`column-name-${nodeId}`).getByText(enUS.status.done),
+	).toBeVisible();
+	await expect(forwardTo(enUS.status.done)).toBeDisabled();
+
+	// The bar owns no band of the list: scrolled to its end, the last row and
+	// the bar are both on screen.
+	await page.getByRole("button", { name: enUS.detail.whoIsIn }).click();
+	await page.keyboard.press("Escape");
+	await expect(
+		page.getByRole("button", { name: enUS.detail.whoIsIn }),
+	).toBeVisible();
+	await expect(
+		bar.getByRole("button", { name: enUS.common.done, exact: true }),
+	).toBeVisible();
+});
+
+/** A board frozen to a non-default column set, and one card on it. */
+async function narrowBoardCard(): Promise<{
+	projectId: string;
+	cardId: string;
+}> {
+	const marcus = await memberUid("Marcus");
+	const projectId = await createFixtureNode({
+		title: `${PREFIX}narrow board`,
+		parentId: null,
+		ancestorIds: [],
+		visibility: "shared",
+		participantIds: [marcus],
+		status: "backlog",
+		columns: ["backlog", "execution"],
+	});
+	const cardId = await createFixtureNode({
+		title: `${PREFIX}narrow card`,
+		parentId: projectId,
+		ancestorIds: [projectId],
+		visibility: "shared",
+		participantIds: [],
+		status: "backlog",
+	});
+	return { projectId, cardId };
+}
+
+test("4: a card whose board has a non-default column set steps through that set", async ({
+	page,
+}) => {
+	const { cardId } = await narrowBoardCard();
+
+	await page.goto(`/projects/${cardId}/details`);
+	await page.waitForLoadState("networkidle");
+	await expect(page.getByText(`${PREFIX}narrow card`).first()).toBeVisible({
+		timeout: 30_000,
+	});
+
+	const bar = page.getByTestId(`column-bar-${cardId}`);
+	const forwardTo = (column: string) =>
+		bar.getByRole("button", {
+			name: enUS.detail.moveToColumn.replace("{{column}}", column),
+		});
+
+	// The set is backlog → execution: the first step out of To do is In
+	// progress, and there is no Next up on this board to step through.
+	await expect(
+		page.getByTestId(`column-name-${cardId}`).getByText(enUS.status.backlog),
+	).toBeVisible();
+	await expect(forwardTo(enUS.status.execution)).toBeEnabled();
+	await expect(forwardTo(enUS.status.backlog)).toBeDisabled();
+
+	await forwardTo(enUS.status.execution).click();
+	await expect
+		.poll(async () => (await nodeFields(cardId)).status, { timeout: 30_000 })
+		.toBe("execution");
+	await expect(
+		page.getByTestId(`column-name-${cardId}`).getByText(enUS.status.execution),
+	).toBeVisible();
+	// `execution` is the last working column of *this* set, so forward is off.
+	await expect(forwardTo(enUS.status.execution)).toBeDisabled();
+});
+
+/**
+ * The 200% claim (#237 phase 3 and 4), at the size that broke it: a 195x422
+ * window in Swedish. The name column of every row once collapsed to zero —
+ * `flex: 1` gives a column zero basis, so in the shrink phase it yielded
+ * everything and the names spelled one character per line — and the bar's
+ * column name collapsed the same way while *Done* clipped off the screen.
+ */
+test.describe("at 200% text in sv-SE (#237)", () => {
+	test.use({ locale: "sv-SE", viewport: VIEWPORTS.phoneZoomed });
+	test("5: every row keeps a name column and a value that reads, and the bar's name reads before it clips", async ({
+		page,
+	}) => {
+		// A root card with both members on it, so all nine rows render. No
+		// assignee, so *Who's doing it* carries the "nobody yet" text value.
+		const marcus = await memberUid("Marcus");
+		const nodeId = await createFixtureNode({
+			title: `${PREFIX}zoomed`,
+			parentId: null,
+			ancestorIds: [],
+			visibility: "shared",
+			participantIds: [marcus, await memberUid("Anna Maria Berg")],
+			assigneeIds: [],
+			status: "backlog",
+		});
+		await page.goto(`/projects/${nodeId}/details`);
+		await page.waitForLoadState("networkidle");
+		await expect(page.getByText(`${PREFIX}zoomed`).first()).toBeVisible({
+			timeout: 30_000,
+		});
+
+		/**
+		 * Both halves of every row: the name and the value the card holds. The
+		 * value strings are what this fixture renders in sv-SE; *Who's in it*
+		 * has no text value — its avatars carry initials, and Marcus's is "M".
+		 */
+		const rows = [
+			{ field: "steps", name: svSE.detail.steps, value: svSE.detail.stepsNone },
+			{
+				field: "priority",
+				name: svSE.detail.priority,
+				value: svSE.detail.notSet,
+			},
+			{
+				field: "effort",
+				name: svSE.detail.effort,
+				value: svSE.detail.notSet,
+			},
+			{
+				field: "labels",
+				name: svSE.detail.labels,
+				value: svSE.detail.labelsNone,
+			},
+			{
+				field: "waiting",
+				name: svSE.detail.waitingOn,
+				value: svSE.detail.waitingNone,
+			},
+			{ field: "due", name: svSE.detail.dueDate, value: svSE.detail.addDate },
+			{
+				field: "visibility",
+				name: svSE.detail.whoCanSee,
+				value: svSE.detail.visibilityShared,
+			},
+			{ field: "participants", name: svSE.detail.whoIsIn, value: "M" },
+			{
+				field: "assignees",
+				name: svSE.detail.whoIsDoing,
+				value: svSE.detail.assigneesNone,
+			},
+		];
+
+		/** True when two boxes share any area — how an overlap reads. */
+		const overlaps = (
+			a: NonNullable<Awaited<ReturnType<Locator["boundingBox"]>>>,
+			b: NonNullable<Awaited<ReturnType<Locator["boundingBox"]>>>,
+		): boolean =>
+			a.x < b.x + b.width &&
+			b.x < a.x + a.width &&
+			a.y < b.y + b.height &&
+			b.y < a.y + a.height;
+
+		// The card is a seeded root and Huset has two members, so all nine rows
+		// render. Each name keeps a column at least a touch target wide, which a
+		// one-character-per-line collapse cannot fake — and each value keeps a
+		// real width clear of its chevron, which is the same failure on the
+		// other half of the row: a value with no floor collapsed to a w=0 slot
+		// here while the names passed (#237).
+		for (const { field, name, value } of rows) {
+			const row = page.getByRole("button", { name });
+			await expect(row).toBeVisible();
+			const nameBox = await row.getByText(name, { exact: true }).boundingBox();
+			expect(
+				nameBox?.width ?? 0,
+				`the name column of "${name}" at 195px`,
+			).toBeGreaterThanOrEqual(touchTarget);
+			const valueBox = await row
+				.getByText(value, { exact: true })
+				.boundingBox();
+			expect(
+				valueBox?.width ?? 0,
+				`the value of "${name}" at 195px`,
+			).toBeGreaterThan(0);
+			const chevron = await row
+				.getByTestId(`field-${field}-${nodeId}-chevron`)
+				.boundingBox();
+			expect(
+				valueBox !== null && chevron !== null && overlaps(valueBox, chevron),
+				`the value of "${name}" overlaps its chevron at 195px`,
+			).toBe(false);
+		}
+
+		// The bar: the column name keeps room to read as words, and *Done* ends
+		// inside the viewport instead of wrapping past its right edge.
+		const bar = page.getByTestId(`column-bar-${nodeId}`);
+		const nameBox = await page
+			.getByTestId(`column-name-${nodeId}`)
+			.getByText(svSE.status.backlog)
+			.boundingBox();
+		expect(
+			nameBox?.width ?? 0,
+			"the bar's column name at 195px",
+		).toBeGreaterThanOrEqual(touchTarget);
+		const done = await bar
+			.getByRole("button", { name: svSE.common.done, exact: true })
+			.boundingBox();
+		expect(
+			(done?.x ?? 0) + (done?.width ?? 0),
+			"*Done* stays inside a 195px viewport",
+		).toBeLessThanOrEqual(VIEWPORTS.phoneZoomed.width);
+	});
 });

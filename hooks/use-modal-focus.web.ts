@@ -158,8 +158,19 @@ export function useTabTrap(active: boolean, testID: string): void {
  * before losing access, that is the dialog not doing its job.
  *
  * The modal itself is found by `testID`, which React Native Web renders as
- * `data-testid`, and which is unique because only one dialog is ever mounted.
+ * `data-testid`, and which every container names uniquely — `${testID}-surface`.
  */
+/**
+ * The modals `useModalFocus` is currently managing, in mount order.
+ *
+ * Every open modal binds its own document-level Escape listener, so a dialog
+ * mounted inside a sheet — `VisibilityField`'s `ConfirmDialog` under the
+ * visibility sheet — would otherwise answer the same key as the sheet:
+ * dismissing both layers and running both focus-returns. Only the stack's
+ * topmost modal answers Escape; the one below waits its turn.
+ */
+const modalStack: symbol[] = [];
+
 export function useModalFocus(
 	visible: boolean,
 	testID: string,
@@ -185,6 +196,9 @@ export function useModalFocus(
 	useEffect(() => {
 		if (!visible || typeof document === "undefined") return;
 
+		const modal = Symbol();
+		modalStack.push(modal);
+
 		const opener = document.activeElement as HTMLElement | null;
 		let frame = 0;
 		let frames = 0;
@@ -206,6 +220,9 @@ export function useModalFocus(
 
 		const onKeyDown = (event: KeyboardEvent) => {
 			if (event.key !== "Escape") return;
+			// A modal opened from inside another modal is on top of it: one key
+			// dismisses the top only, and the one below answers the next.
+			if (modalStack[modalStack.length - 1] !== modal) return;
 			event.preventDefault();
 			dismiss.current();
 		};
@@ -213,6 +230,7 @@ export function useModalFocus(
 		document.addEventListener("keydown", onKeyDown, true);
 
 		return () => {
+			modalStack.splice(modalStack.indexOf(modal), 1);
 			cancelAnimationFrame(frame);
 			document.removeEventListener("keydown", onKeyDown, true);
 			// Back to whatever opened the dialog, so a keyboard user is not

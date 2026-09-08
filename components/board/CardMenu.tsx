@@ -7,6 +7,7 @@ import { LabelPicker } from "@/components/label/LabelPicker";
 import { BlockerSearchDialog } from "@/components/node/BlockerSearchDialog";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHome } from "@/contexts/HomeContext";
 import {
 	boardOnce,
 	deleteNode,
@@ -88,6 +89,7 @@ export function CardMenu({
 	const { user } = useAuth();
 	const online = useOnlineStatus();
 
+	const { activeHome } = useHome();
 	const [open, setOpen] = useState(false);
 	const [page, setPage] = useState<Page>("root");
 	const [renaming, setRenaming] = useState(false);
@@ -555,6 +557,10 @@ export function CardMenu({
 					homeId={homeId}
 					uid={user?.uid ?? null}
 					node={node}
+					// This board's own cards are the on-board group; the board's
+					// watcher is what the picked rows read their titles from.
+					siblings={nodes}
+					blockers={blockers}
 					onDismiss={() => setSearching(false)}
 					onPick={(id) => toggleBlocker(id, true)}
 					onUnpick={(id) => toggleBlocker(id, false)}
@@ -566,6 +572,7 @@ export function CardMenu({
 			{labelling ? (
 				<LabelPicker
 					homeId={homeId}
+					labels={activeHome?.labels ?? []}
 					node={node}
 					onDismiss={() => setLabelling(false)}
 					testID={`label-picker-${node.id}`}

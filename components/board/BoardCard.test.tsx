@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import type { ReactElement } from "react";
 import { ThemeProvider } from "react-native-paper";
 import { BoardCard } from "@/components/board/BoardCard";
@@ -272,5 +272,44 @@ describe("BoardCard", () => {
 	it("carries the path label in both locales", () => {
 		expect(enUS.board.pathA11y.length).toBeGreaterThan(0);
 		expect(svSE.board.pathA11y.length).toBeGreaterThan(0);
+	});
+
+	it("renders no pressable at all without onOpen and a menu", () => {
+		renderCard(<BoardCard node={node()} />);
+
+		expect(
+			screen.UNSAFE_queryAllByProps({ onPress: expect.any(Function) }),
+		).toHaveLength(0);
+	});
+
+	it("renders the linked trail as links that wrap, and the tap names the crumb's own node", () => {
+		const onOpenCrumb = jest.fn();
+		renderCard(
+			<BoardCard
+				node={node()}
+				linkedTrail={{
+					crumbs: [
+						{ id: "p1", node: node({ id: "p1", title: "House" }) },
+						{ id: "gone", node: null },
+						{ id: "p2", node: node({ id: "p2", title: "Bathroom" }) },
+					],
+					onOpenCrumb,
+				}}
+			/>,
+		);
+
+		// The linked trail replaces the elided line — one trail, not both.
+		expect(screen.queryByLabelText(/board\.pathA11y/)).toBeNull();
+		expect(screen.getByRole("link", { name: "House" })).toBeOnTheScreen();
+		expect(screen.getByRole("link", { name: "Bathroom" })).toBeOnTheScreen();
+
+		// A crumb the map cannot answer stays the neutral crumb, not a link.
+		expect(screen.getByText("board.crumbHidden")).toBeOnTheScreen();
+		expect(
+			screen.queryByRole("link", { name: "board.crumbHidden" }),
+		).toBeNull();
+
+		fireEvent.press(screen.getByRole("link", { name: "Bathroom" }));
+		expect(onOpenCrumb).toHaveBeenCalledWith("p2");
 	});
 });
