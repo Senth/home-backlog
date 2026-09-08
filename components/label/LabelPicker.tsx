@@ -121,6 +121,10 @@ export function LabelPicker({
 						<Text variant="bodyMedium">{t("labels.empty")}</Text>
 					) : null}
 
+					{visible.length === 0 && labels.length > 0 ? (
+						<Text variant="bodyMedium">{t("labels.searchEmpty")}</Text>
+					) : null}
+
 					{visible.map((label) => {
 						const applied = node.labelIds.includes(label.id);
 						return (

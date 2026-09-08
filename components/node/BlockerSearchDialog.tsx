@@ -281,9 +281,16 @@ export function BlockerSearchDialog({
 					</View>
 				) : null}
 
-				{settled && onBoard.length === 0 && elsewhereCount === 0 ? (
-					// Offline nothing was asked, so "no cards match" would be a lie
-					// dressed as an answer.
+				{/* An answer only when one was asked: not while the search is in
+			    flight, and not below `minQueryLength`, where the home-wide
+			    search would answer everything and nothing. Offline nothing was
+			    asked either, so "no cards match" would be a lie dressed as an
+			    answer. */}
+				{!searching &&
+				settled &&
+				text.trim().length >= minQueryLength &&
+				onBoard.length === 0 &&
+				elsewhereCount === 0 ? (
 					<Text
 						variant="bodyMedium"
 						style={{ color: theme.colors.onSurfaceVariant }}

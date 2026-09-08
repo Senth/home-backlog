@@ -177,6 +177,13 @@ test("1: every control on the details screen writes on the spot, and a reload pu
 			timeout: 30_000,
 		})
 		.toBe("private");
+	// The root is written first, so the poll above can pass while the progress
+	// dialog is still out — and the dialog holds the screen on purpose until
+	// the whole subtree is written. The Escape below is the sheet's to answer,
+	// which it only is once the dialog is gone.
+	await expect(
+		page.getByTestId("visibility-progress-dialog-surface"),
+	).toBeHidden({ timeout: 30_000 });
 	await page.keyboard.press("Escape");
 
 	// Rename from the app bar menu. The notes field reads as text now, so the
@@ -267,7 +274,7 @@ test("1: every control on the details screen writes on the spot, and a reload pu
 	).toHaveAttribute("aria-disabled", "true");
 });
 
-test("2: marking a card waiting lists the blocker on the details screen, completing the blocker clears the mark live, and Stop waiting on removes the row", async ({
+test("2: marking a card waiting lists the blocker on the details screen, completing the blocker clears the mark live, and tapping the ticked row in the picker takes the wait off", async ({
 	page,
 }) => {
 	const waiterTitle = `${PREFIX}paint the wall`;

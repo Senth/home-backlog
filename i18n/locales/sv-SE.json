@@ -417,6 +417,7 @@
 		"empty": "Hemmet har inga etiketter än.",
 		"title": "Etiketter",
 		"searchPlaceholder": "Sök etiketter",
+		"searchEmpty": "Inga etiketter matchar",
 		"count_one": "1 etikett",
 		"count_other": "{{count}} etiketter",
 		"emptyTitle": "Inga etiketter än",

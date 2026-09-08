@@ -603,7 +603,7 @@ export default function NodeDetails() {
 				</AppSheet>
 			) : null}
 
-			{editor === "participants" && node !== null ? (
+			{editor === "participants" && node !== null && user !== null ? (
 				<AppSheet
 					visible
 					onDismiss={closeEditor}
@@ -616,12 +616,12 @@ export default function NodeDetails() {
 						onSave={save}
 						flip={flip}
 						only="participants"
-						uid={user?.uid ?? null}
+						uid={user.uid}
 					/>
 				</AppSheet>
 			) : null}
 
-			{editor === "assignees" && node !== null ? (
+			{editor === "assignees" && node !== null && user !== null ? (
 				<AppSheet
 					visible
 					onDismiss={closeEditor}
@@ -634,7 +634,7 @@ export default function NodeDetails() {
 						onSave={save}
 						flip={flip}
 						only="assignees"
-						uid={user?.uid ?? null}
+						uid={user.uid}
 					/>
 				</AppSheet>
 			) : null}

@@ -417,6 +417,7 @@
 		"empty": "The home has no labels yet.",
 		"title": "Labels",
 		"searchPlaceholder": "Search labels",
+		"searchEmpty": "No labels match",
 		"count_one": "1 label",
 		"count_other": "{{count}} labels",
 		"emptyTitle": "No labels yet",
