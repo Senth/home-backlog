@@ -29,9 +29,10 @@ interface DetailRowProps {
  * `aria-disabled` — wrapped around `Row`, which owns the layout: the same
  * paddings, the same `touchTarget` floor, one row implementation in the app.
  *
- * The value slot shrinks, so at 200 % text a long value wraps instead of
- * overlapping its name; the chevron is the last thing to give way, not the
- * first.
+ * At 200 % text the row has more content than one line holds, so `Row` wraps
+ * and the value takes the line under the name at full width — a floor on the
+ * value instead would only move the collapse into the chevron, the way the
+ * name floor once moved it into the value (#237).
  */
 export function DetailRow({
 	glyph,
@@ -66,6 +67,10 @@ export function DetailRow({
 							justifyContent: "flex-end",
 							gap: space.sm,
 							flexShrink: 1,
+							// When `Row` wraps the value onto a line of its own, the
+							// auto margin keeps it right-aligned against the chevron
+							// — the value stays where the eye lands in both layouts.
+							marginLeft: "auto",
 						}}
 					>
 						{value === undefined ? null : (
@@ -75,6 +80,7 @@ export function DetailRow({
 							name="chevron-right"
 							size={icon.md}
 							color={theme.colors.onSurfaceVariant}
+							testID={testID === undefined ? undefined : `${testID}-chevron`}
 						/>
 					</View>
 				}

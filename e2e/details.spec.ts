@@ -505,10 +505,11 @@ test("4: a card whose board has a non-default column set steps through that set"
  */
 test.describe("at 200% text in sv-SE (#237)", () => {
 	test.use({ locale: "sv-SE", viewport: VIEWPORTS.phoneZoomed });
-	test("5: every row keeps a name column and the bar's name reads before it clips", async ({
+	test("5: every row keeps a name column and a value that reads, and the bar's name reads before it clips", async ({
 		page,
 	}) => {
-		// A root card with both members on it, so all nine rows render.
+		// A root card with both members on it, so all nine rows render. No
+		// assignee, so *Who's doing it* carries the "nobody yet" text value.
 		const marcus = await memberUid("Marcus");
 		const nodeId = await createFixtureNode({
 			title: `${PREFIX}zoomed`,
@@ -516,7 +517,7 @@ test.describe("at 200% text in sv-SE (#237)", () => {
 			ancestorIds: [],
 			visibility: "shared",
 			participantIds: [marcus, await memberUid("Anna Maria Berg")],
-			assigneeIds: [marcus],
+			assigneeIds: [],
 			status: "backlog",
 		});
 		await page.goto(`/projects/${nodeId}/details`);
@@ -525,28 +526,85 @@ test.describe("at 200% text in sv-SE (#237)", () => {
 			timeout: 30_000,
 		});
 
-		// The card is a seeded root and Huset has two members, so all nine rows
-		// render — every one of them gets a name column at least a touch target
-		// wide, which a one-character-per-line collapse cannot fake.
-		const names = [
-			svSE.detail.steps,
-			svSE.detail.priority,
-			svSE.detail.effort,
-			svSE.detail.labels,
-			svSE.detail.waitingOn,
-			svSE.detail.dueDate,
-			svSE.detail.whoCanSee,
-			svSE.detail.whoIsIn,
-			svSE.detail.whoIsDoing,
+		/**
+		 * Both halves of every row: the name and the value the card holds. The
+		 * value strings are what this fixture renders in sv-SE; *Who's in it*
+		 * has no text value — its avatars carry initials, and Marcus's is "M".
+		 */
+		const rows = [
+			{ field: "steps", name: svSE.detail.steps, value: svSE.detail.stepsNone },
+			{
+				field: "priority",
+				name: svSE.detail.priority,
+				value: svSE.detail.notSet,
+			},
+			{
+				field: "effort",
+				name: svSE.detail.effort,
+				value: svSE.detail.notSet,
+			},
+			{
+				field: "labels",
+				name: svSE.detail.labels,
+				value: svSE.detail.labelsNone,
+			},
+			{
+				field: "waiting",
+				name: svSE.detail.waitingOn,
+				value: svSE.detail.waitingNone,
+			},
+			{ field: "due", name: svSE.detail.dueDate, value: svSE.detail.addDate },
+			{
+				field: "visibility",
+				name: svSE.detail.whoCanSee,
+				value: svSE.detail.visibilityShared,
+			},
+			{ field: "participants", name: svSE.detail.whoIsIn, value: "M" },
+			{
+				field: "assignees",
+				name: svSE.detail.whoIsDoing,
+				value: svSE.detail.assigneesNone,
+			},
 		];
-		for (const name of names) {
+
+		/** True when two boxes share any area — how an overlap reads. */
+		const overlaps = (
+			a: NonNullable<Awaited<ReturnType<Locator["boundingBox"]>>>,
+			b: NonNullable<Awaited<ReturnType<Locator["boundingBox"]>>>,
+		): boolean =>
+			a.x < b.x + b.width &&
+			b.x < a.x + a.width &&
+			a.y < b.y + b.height &&
+			b.y < a.y + a.height;
+
+		// The card is a seeded root and Huset has two members, so all nine rows
+		// render. Each name keeps a column at least a touch target wide, which a
+		// one-character-per-line collapse cannot fake — and each value keeps a
+		// real width clear of its chevron, which is the same failure on the
+		// other half of the row: a value with no floor collapsed to a w=0 slot
+		// here while the names passed (#237).
+		for (const { field, name, value } of rows) {
 			const row = page.getByRole("button", { name });
 			await expect(row).toBeVisible();
-			const box = await row.getByText(name, { exact: true }).boundingBox();
+			const nameBox = await row.getByText(name, { exact: true }).boundingBox();
 			expect(
-				box?.width ?? 0,
+				nameBox?.width ?? 0,
 				`the name column of "${name}" at 195px`,
 			).toBeGreaterThanOrEqual(touchTarget);
+			const valueBox = await row
+				.getByText(value, { exact: true })
+				.boundingBox();
+			expect(
+				valueBox?.width ?? 0,
+				`the value of "${name}" at 195px`,
+			).toBeGreaterThan(0);
+			const chevron = await row
+				.getByTestId(`field-${field}-${nodeId}-chevron`)
+				.boundingBox();
+			expect(
+				valueBox !== null && chevron !== null && overlaps(valueBox, chevron),
+				`the value of "${name}" overlaps its chevron at 195px`,
+			).toBe(false);
 		}
 
 		// The bar: the column name keeps room to read as words, and *Done* ends
