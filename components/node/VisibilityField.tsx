@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Chip, Text } from "react-native-paper";
 import type { FlipState } from "@/components/node/FlipDialog";
+import { WhoSeesProjectNote } from "@/components/node/PeopleSection";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { formatList } from "@/i18n/format-list";
@@ -175,6 +176,10 @@ export function VisibilityField({
 					{t("board.offlineHint")}
 				</Text>
 			)}
+
+			{/* What the participants list is *for* — the rule that used to sit on
+			    the screen under these controls, now in the editor it explains. */}
+			<WhoSeesProjectNote />
 
 			{confirming === null ? null : (
 				<ConfirmDialog

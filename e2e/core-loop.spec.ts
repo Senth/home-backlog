@@ -180,7 +180,9 @@ test("4: a home grows two labels, and a card carries one", async ({ page }) => {
 		.getByRole("button", { name: enUS.board.actions });
 	await clickMenuItem(page, anchor, enUS.board.labels);
 	await page.getByRole("checkbox", { name: presetTitle }).click();
-	await page.getByRole("button", { name: enUS.common.dismiss }).click();
+	// The picker is a bottom sheet now (#237): the scrim and Escape are the
+	// dismissal, and the sheet carries no dismiss button of its own.
+	await page.keyboard.press("Escape");
 
 	const id = await waitForNodeIdByTitle(title);
 	await expect

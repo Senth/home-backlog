@@ -14,6 +14,8 @@ interface CheckRowProps {
 	 * picker's rows. Absent for a plain tickable row.
 	 */
 	left?: ReactNode;
+	/** State behind the label — the *Done* chip on a picked blocker's row. */
+	right?: ReactNode;
 }
 
 /**
@@ -35,6 +37,7 @@ export function CheckRow({
 	onPress,
 	disabled,
 	left,
+	right,
 }: CheckRowProps) {
 	const theme = useAppTheme();
 
@@ -78,6 +81,7 @@ export function CheckRow({
 				>
 					{label}
 				</Text>
+				{right}
 			</View>
 		</TouchableRipple>
 	);

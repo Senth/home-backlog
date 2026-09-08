@@ -374,6 +374,32 @@ export function pickerCandidates(
 }
 
 /**
+ * The waiting-on picker's *On this board* candidates — what the board may
+ * still offer, from the board's own listener: free, live, and working
+ * offline, where the home-wide search cannot. The rows already picked are
+ * not candidates; the picker always shows those separately, ticked, so a
+ * wait can be taken back off without clearing the search first.
+ *
+ * A done card blocks nothing, so it is never offered, and the card itself is
+ * never its own candidate.
+ */
+export function siblingCandidates(
+	query: string,
+	self: Node,
+	blockedBy: readonly string[],
+	siblings: readonly Node[],
+): Node[] {
+	const needle = query.toLowerCase();
+	return siblings.filter(
+		(candidate) =>
+			candidate.id !== self.id &&
+			!blockedBy.includes(candidate.id) &&
+			candidate.status !== "done" &&
+			candidate.title.toLowerCase().includes(needle),
+	);
+}
+
+/**
  * How a *parent's* two counters move. Zero means the field is not written at
  * all, so a write that changes nothing costs nothing.
  */

@@ -29,7 +29,7 @@ import { DetailRow } from "@/components/node/DetailRow";
 import { DueDateField } from "@/components/node/DueDateField";
 import { FlipDialog, useFlip } from "@/components/node/FlipDialog";
 import { NotesField } from "@/components/node/NotesField";
-import { PeopleSection, WhoSeesWhat } from "@/components/node/PeopleSection";
+import { PeopleSection } from "@/components/node/PeopleSection";
 import { StepsSection } from "@/components/node/StepsSection";
 import { VisibilityField } from "@/components/node/VisibilityField";
 import { WaitingOnSection } from "@/components/node/WaitingOnSection";
@@ -290,6 +290,7 @@ export default function NodeDetails() {
 					key="waiting"
 					homeId={homeId}
 					node={current}
+					siblings={board.nodes}
 					onSave={save}
 				/>
 			),
@@ -512,21 +513,12 @@ export default function NodeDetails() {
 						<Divider />
 					</View>
 
-					{/* The two rules about people, once, folded away — phase 5 moves
-					    them inside the dialogs they explain. It sits below the rows
-					    because it explains all three of them. */}
-					{homeId === null || user === null ? null : (
-						<>
-							{members.length > 1 && root !== null ? (
-								<WhoSeesWhat node={node} project={root.title} />
-							) : null}
-
-							{/* One dialog for both controls: a private project's
-							    participants are the same top-down subtree write the flip
-							    is, and only one of them can be running. */}
-							<FlipDialog state={flip} uid={user.uid} />
-						</>
-					)}
+					{/* One dialog for both controls: a private project's
+					    participants are the same top-down subtree write the flip
+					    is, and only one of them can be running. The who-sees-what
+					    explanation rode along here until phase 5 moved it inside
+					    the editors it explains (#237). */}
+					{user === null ? null : <FlipDialog state={flip} uid={user.uid} />}
 				</ScrollView>
 			)}
 

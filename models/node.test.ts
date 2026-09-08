@@ -21,6 +21,7 @@ import {
 	newNodeData,
 	nextStatus,
 	pickerCandidates,
+	siblingCandidates,
 	previousStatus,
 	rankAtEnd,
 	rankBetween,
@@ -344,16 +345,16 @@ describe("counter changes", () => {
 	 * A reparent is a leave and an arrive, so the two must cancel exactly — a
 	 * card moved to another board and back leaves both counters where they were.
 	 */
-	it.each([
-		"backlog",
-		"done",
-	] as const)("cancels itself over a %s card's round trip", (status) => {
-		const there = childArrives(status);
-		const back = childLeaves(status);
+	it.each(["backlog", "done"] as const)(
+		"cancels itself over a %s card's round trip",
+		(status) => {
+			const there = childArrives(status);
+			const back = childLeaves(status);
 
-		expect(there.childCount + back.childCount).toBe(0);
-		expect(there.doneCount + back.doneCount).toBe(0);
-	});
+			expect(there.childCount + back.childCount).toBe(0);
+			expect(there.doneCount + back.doneCount).toBe(0);
+		},
+	);
 });
 
 describe("titleError", () => {
@@ -900,6 +901,40 @@ describe("pickerCandidates", () => {
 	});
 });
 
+describe("siblingCandidates", () => {
+	const self = node({ id: "lay-tiles" });
+	const siblings = [
+		node({ id: "lay-tiles", title: "Lay tiles" }),
+		node({ id: "order-tiles", title: "Order tiles" }),
+		node({ id: "sweep", title: "Book the chimney sweep" }),
+		node({ id: "old-roof", title: "Order roof tiles", status: "done" }),
+	];
+
+	it("never offers the card as its own blocker", () => {
+		expect(
+			siblingCandidates("", self, [], siblings).some(
+				(candidate) => candidate.id === "lay-tiles",
+			),
+		).toBe(false);
+	});
+
+	it("keeps the board's stored order and filters on the title", () => {
+		expect(
+			siblingCandidates("TILES", self, [], siblings).map(
+				(candidate) => candidate.id,
+			),
+		).toEqual(["order-tiles"]);
+	});
+
+	it("drops done cards and ones already picked", () => {
+		expect(
+			siblingCandidates("", self, ["order-tiles"], siblings).map(
+				(candidate) => candidate.id,
+			),
+		).toEqual(["sweep"]);
+	});
+});
+
 describe("flipPlan", () => {
 	const root = node({ id: "garage", ancestorIds: [] });
 	const task = node({
@@ -1247,14 +1282,12 @@ describe("toNode", () => {
 	 * prototype and hand the board `Object.prototype.toString` — a *function* —
 	 * where a status belongs.
 	 */
-	it.each([
-		"constructor",
-		"toString",
-		"valueOf",
-		"hasOwnProperty",
-	])("reads the inherited property %s as backlog, not as a function", (status) => {
-		expect(toNode(snapshot("node-9", { status })).status).toBe("backlog");
-	});
+	it.each(["constructor", "toString", "valueOf", "hasOwnProperty"])(
+		"reads the inherited property %s as backlog, not as a function",
+		(status) => {
+			expect(toNode(snapshot("node-9", { status })).status).toBe("backlog");
+		},
+	);
 
 	/**
 	 * `columns` arrived after the document did, so every node written by #74 is

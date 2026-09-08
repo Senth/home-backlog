@@ -1,14 +1,14 @@
+import { router } from "expo-router";
 import { type RefObject, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { Button, HelperText, Text } from "react-native-paper";
+import { Button, HelperText, Text, TextInput } from "react-native-paper";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
-import { AppDialog } from "@/components/ui/AppDialog";
+import { AppSheet } from "@/components/ui/AppSheet";
 import { CheckRow } from "@/components/ui/CheckRow";
 import { applyLabel, removeLabel } from "@/data/nodes";
 import { type LabelWithId, maxLabelsPerNode } from "@/models/label";
 import type { Node } from "@/models/node";
-import { useAppTheme } from "@/theme";
 import { space, touchTarget } from "@/theme/tokens";
 
 interface LabelPickerProps {
@@ -23,13 +23,25 @@ interface LabelPickerProps {
 }
 
 /**
+ * The title case-folds away diacritics as well as case, so `Trädgård` is
+ * found from `trad` — the picker is searched by thumbs that do not compose
+ * å on an English keyboard.
+ */
+function foldTitle(title: string): string {
+	return title
+		.toLowerCase()
+		.normalize("NFD")
+		.replace(/\p{Diacritic}/gu, "");
+}
+
+/**
  * Putting labels on a card, and taking them off — the same picker from the
- * card menu and the details screen.
+ * card menu and the details screen, in the sheet the plan's decision chose.
  *
  * The rows are the home's definitions, handed in by the screen: the picker
  * renders inside a portal (#237's sheets, and `AppDialog` before it), above
- * which the home context does not reach. A tap writes through `applyLabel` / `removeLabel`, whose
- * `arrayUnion` / `arrayRemove` transforms are server-side and commute — so
+ * which the home context does not reach. A tap writes through `applyLabel` /
+ * `removeLabel`, whose `arrayUnion` / `arrayRemove` transforms are server-side and commute — so
  * the row's mark follows the card's listener rather than local state, and two
  * people picking at once cannot disagree about what is on the card: neither
  * write carries a snapshot the other could clobber.
@@ -47,10 +59,14 @@ export function LabelPicker({
 	returnFocusTo,
 }: LabelPickerProps) {
 	const { t } = useTranslation();
-	const theme = useAppTheme();
 	const [failed, setFailed] = useState(false);
+	const [text, setText] = useState("");
 
 	const atCap = node.labelIds.length >= maxLabelsPerNode;
+	const needle = foldTitle(text.trim());
+	const visible = labels.filter((label) =>
+		foldTitle(label.title).includes(needle),
+	);
 
 	const toggle = (label: LabelWithId, applied: boolean) => {
 		const write = applied
@@ -63,41 +79,62 @@ export function LabelPicker({
 	};
 
 	return (
-		<AppDialog
+		<AppSheet
 			visible
 			onDismiss={onDismiss}
-			title={t("labels.pickerTitle")}
 			testID={testID}
 			returnFocusTo={returnFocusTo}
-			actions={[
-				<Button
-					key="dismiss"
-					onPress={onDismiss}
-					textColor={theme.colors.onSurfaceVariant}
-					contentStyle={{ minHeight: touchTarget }}
-				>
-					{t("common.dismiss")}
-				</Button>,
-			]}
 		>
-			<View style={{ gap: space.xs }}>
-				{labels.length === 0 ? (
-					<Text variant="bodyMedium">{t("labels.empty")}</Text>
-				) : null}
+			<View style={{ gap: space.md }}>
+				<View style={{ flexDirection: "row", alignItems: "center" }}>
+					<Text variant="titleMedium" style={{ flex: 1 }}>
+						{t("labels.title")}
+					</Text>
+					{/* The labels screen is where the set is curated; the picker is
+					    where it is spent. Navigation is dismissal's work, so the sheet
+					    goes with the tap. */}
+					<Button
+						mode="text"
+						icon="plus"
+						onPress={() => {
+							onDismiss();
+							router.push(`/homes/${homeId}/labels`);
+						}}
+						contentStyle={{ minHeight: touchTarget }}
+					>
+						{t("labels.newLabel")}
+					</Button>
+				</View>
 
-				{labels.map((label) => {
-					const applied = node.labelIds.includes(label.id);
-					return (
-						<CheckRow
-							key={label.id}
-							left={<LabelGlyph color={label.color} icon={label.icon} />}
-							label={label.title}
-							checked={applied}
-							disabled={!applied && atCap}
-							onPress={() => toggle(label, applied)}
-						/>
-					);
-				})}
+				<TextInput
+					mode="flat"
+					label={t("labels.searchPlaceholder")}
+					value={text}
+					onChangeText={setText}
+					left={<TextInput.Icon icon="magnify" />}
+					testID={`${testID}-search`}
+					autoFocus
+				/>
+
+				<View style={{ gap: space.xs }}>
+					{labels.length === 0 ? (
+						<Text variant="bodyMedium">{t("labels.empty")}</Text>
+					) : null}
+
+					{visible.map((label) => {
+						const applied = node.labelIds.includes(label.id);
+						return (
+							<CheckRow
+								key={label.id}
+								left={<LabelGlyph color={label.color} icon={label.icon} />}
+								label={label.title}
+								checked={applied}
+								disabled={!applied && atCap}
+								onPress={() => toggle(label, applied)}
+							/>
+						);
+					})}
+				</View>
 
 				{/* Reserved slots — each sentence appears in a space the layout has
 			    already paid for. Paper hides a hidden helper at opacity 0 but
@@ -121,6 +158,6 @@ export function LabelPicker({
 					{t("error.saveFailed")}
 				</HelperText>
 			</View>
-		</AppDialog>
+		</AppSheet>
 	);
 }

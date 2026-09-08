@@ -557,6 +557,10 @@ export function CardMenu({
 					homeId={homeId}
 					uid={user?.uid ?? null}
 					node={node}
+					// This board's own cards are the on-board group; the board's
+					// watcher is what the picked rows read their titles from.
+					siblings={nodes}
+					blockers={blockers}
 					onDismiss={() => setSearching(false)}
 					onPick={(id) => toggleBlocker(id, true)}
 					onUnpick={(id) => toggleBlocker(id, false)}

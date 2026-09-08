@@ -146,6 +146,23 @@ describe("LabelPicker", () => {
 		expect(screen.getByText("labels.empty")).toBeOnTheScreen();
 	});
 
+	it("finds Trädgård from trad, folding diacritics as well as case", () => {
+		mockHome = {
+			labels: [
+				label("l1", { title: "Trädgård" }),
+				label("l2", { title: "Garden" }),
+			],
+		};
+		renderPicker(node([]));
+
+		fireEvent.changeText(screen.getByTestId("label-picker-search"), "trad");
+
+		expect(
+			screen.getByRole("checkbox", { name: "Trädgård" }),
+		).toBeOnTheScreen();
+		expect(screen.queryByRole("checkbox", { name: "Garden" })).toBeNull();
+	});
+
 	it("refuses a seventh label and says so", () => {
 		mockHome = {
 			labels: [

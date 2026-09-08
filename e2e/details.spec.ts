@@ -323,18 +323,21 @@ test("2: marking a card waiting lists the blocker on the details screen, complet
 		page.getByText(enUS.detail.waitingAllDone.replace("{{count}}", "1")),
 	).toBeVisible({ timeout: 30_000 });
 	await page.getByRole("button", { name: enUS.detail.waitingOn }).click();
-	await page
-		.getByTestId(`waiting-${waiterId}-surface`)
-		.getByRole("button", {
-			name: enUS.detail.stopWaitingOn.replace("{{title}}", blockerTitle),
-		})
-		.click();
-	await expect(page.getByText(blockerTitle, { exact: true })).toHaveCount(0);
+	const picker = page.getByTestId(`waiting-${waiterId}-surface`);
+	// The picked blocker is offered ticked even though it is done now — the
+	// tap on it is what takes the wait off (#237: the picker, not a dialog).
+	await picker.getByRole("checkbox", { name: blockerTitle }).click();
 	await expect
 		.poll(async () => (await nodeFields(waiterId)).blockedBy, {
 			timeout: 30_000,
 		})
 		.toEqual([]);
+	// The card itself is never offered as its own blocker.
+	await expect(picker.getByRole("checkbox", { name: waiterTitle })).toHaveCount(
+		0,
+	);
+	await page.keyboard.press("Escape");
+	await expect(page.getByText(enUS.detail.waitingNone)).toBeVisible();
 });
 
 /**
