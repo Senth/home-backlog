@@ -24,6 +24,15 @@ export function PersonAvatar({
 	const theme = useAppTheme();
 	const [photoLoaded, setPhotoLoaded] = useState(false);
 	const [photoFailed, setPhotoFailed] = useState(false);
+	// Reset in render, not in an effect: swapping photoURL (an account switch)
+	// must put the initials back on the very next paint, before the new photo
+	// answers, and must clear a failure pinned to the old URL.
+	const [prevURL, setPrevURL] = useState(photoURL);
+	if (prevURL !== photoURL) {
+		setPrevURL(photoURL);
+		setPhotoLoaded(false);
+		setPhotoFailed(false);
+	}
 
 	return (
 		<View style={{ width: px, height: px }}>

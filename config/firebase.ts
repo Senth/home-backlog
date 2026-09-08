@@ -37,7 +37,9 @@ import { Platform } from "react-native";
  */
 function defaultAuthDomain(): string {
 	if (Platform.OS === "web" && typeof window !== "undefined") {
-		return window.location.hostname;
+		// `host`, not `hostname`: a production build served locally keeps its
+		// port, without it the handler URL dead-ends the sign-in.
+		return window.location.host;
 	}
 	return "home-backlog.firebaseapp.com";
 }
@@ -99,10 +101,15 @@ function createAuth() {
 				browserSessionPersistence,
 			],
 		});
-	} catch {
+	} catch (error) {
 		// Fast Refresh can re-run this module while the Auth instance from the
 		// previous evaluation is still registered, which `initializeAuth` treats
 		// as an error. The existing instance already has the settings above.
+		// Anything else is a real failure: rethrow rather than fall back to
+		// `getAuth`, whose defaults silently drop the persistence chain.
+		if ((error as { code?: string }).code !== "auth/already-initialized") {
+			throw error;
+		}
 		return getAuth(app);
 	}
 }
