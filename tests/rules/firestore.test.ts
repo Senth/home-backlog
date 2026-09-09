@@ -2033,6 +2033,63 @@ describe("homes/{homeId}/nodes", () => {
 			expect(result.docs.map((snapshot) => snapshot.id)).toEqual(["surprise"]);
 		});
 	});
+
+	/**
+	 * The one query invite acceptance makes for `addToSharedRoots`: every
+	 * shared root, archived ones included — the same choice the #102 migration
+	 * makes, which #144 brought the client in line with. As for the board
+	 * queries above, the emulator is the only place its safety is decided.
+	 */
+	describe("the new member's shared-roots query", () => {
+		beforeEach(async () => {
+			await seedHome();
+			await seed(env, async (db) => {
+				await setDoc(doc(db, nodesPath, "open"), nodeDoc());
+				await setDoc(
+					doc(db, nodesPath, "archived"),
+					nodeDoc({ archived: true }),
+				);
+				await setDoc(
+					doc(db, nodesPath, "private"),
+					nodeDoc({
+						visibility: "private",
+						participantIds: [OWNER.uid],
+					}),
+				);
+			});
+		});
+
+		const nodes = (db: ReturnType<typeof dbAs>) => collection(db, nodesPath);
+
+		it("lists every shared root, archived ones included", async () => {
+			// Provably safe by the read rule's first disjunct: `visibility ==
+			// 'shared'`, not `archived`, is what grants the read. No `orderBy`
+			// either, so the assertion sorts the ids rather than the query.
+			const result = await assertSucceeds(
+				getDocs(
+					query(
+						nodes(dbAs(env, MEMBER)),
+						where("parentId", "==", null),
+						where("visibility", "==", "shared"),
+					),
+				),
+			);
+
+			expect(result.docs.map((snapshot) => snapshot.id).sort()).toEqual([
+				"archived",
+				"open",
+			]);
+		});
+
+		it("refuses the same listing without the visibility clause", async () => {
+			// What keeps it safe rather than merely rule-safe: drop the
+			// `visibility` disjunct and the private root enters the query, and
+			// Firestore rejects the whole query rather than filtering it.
+			await assertFails(
+				getDocs(query(nodes(dbAs(env, MEMBER)), where("parentId", "==", null))),
+			);
+		});
+	});
 	/**
 	 * Overview's two query pairs. Nothing else in the repo makes the claim
 	 * that they are *permitted* — the app-side tests are pure functions over
