@@ -182,6 +182,9 @@ describe("addToSharedRoots", () => {
 
 		expect(where).toHaveBeenCalledWith("parentId", "==", null);
 		expect(where).toHaveBeenCalledWith("visibility", "==", "shared");
+		// Archived roots stay in: an archived root a new member is missing is
+		// one nothing could ever add them to later (#144, as the #102 migration).
+		expect(where).not.toHaveBeenCalledWith("archived", "==", false);
 		expect(updateDoc).not.toHaveBeenCalled();
 	});
 

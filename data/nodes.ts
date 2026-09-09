@@ -388,6 +388,26 @@ export function privateSubtreeQuery(
 	);
 }
 
+/**
+ * Every shared root of the home, archived ones included — what invite
+ * acceptance reads for `addToSharedRoots`.
+ *
+ * No `archived` filter, on purpose, for the reason the #102 migration states:
+ * an archived root a member is missing is a root nothing can ever add them to,
+ * because the only flow that would looks at unarchived ones. Un-archiving it
+ * later would leave them off a board everyone else sees. Order is irrelevant —
+ * the result feeds a write loop, not a board — so unlike the board queries
+ * there is no `orderBy`. Safe by the same first disjunct: `visibility ==
+ * 'shared'`, not `archived`, is what the read rule grants on.
+ */
+export function sharedRootsQuery(homeId: string): Query<DocumentData> {
+	return query(
+		nodesRef(homeId),
+		where("parentId", "==", null),
+		where("visibility", "==", "shared"),
+	);
+}
+
 /*
  * ---------------------------------------------------------------------------
  * Writes
@@ -586,7 +606,8 @@ export function removeLabel(
  * Provably safe: the query returns only `visibility == 'shared'` documents,
  * which is the read rule's first disjunct, so it cannot match a document the
  * caller could be denied. Private roots are outside it deliberately — joining a
- * household is not joining its private work.
+ * household is not joining its private work. Archived roots are inside it
+ * deliberately, matching the #102 migration: see `sharedRootsQuery`.
  *
  * Best-effort and re-runnable. Each root is its own write, a root that refuses
  * is reported rather than failing the join, and a rerun writes only the roots
@@ -603,12 +624,10 @@ export async function addToSharedRoots(
 	homeId: string,
 	uid: string,
 ): Promise<void> {
-	const roots = await getDocs(sharedBoardQuery(homeId, null)).catch(
-		(reason) => {
-			console.error("Could not list a new member's shared projects:", reason);
-			return null;
-		},
-	);
+	const roots = await getDocs(sharedRootsQuery(homeId)).catch((reason) => {
+		console.error("Could not list a new member's shared projects:", reason);
+		return null;
+	});
 	if (roots === null) return;
 
 	const results = await Promise.allSettled(
