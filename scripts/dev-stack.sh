@@ -325,9 +325,21 @@ cmd_export() {
 		echo "dev-stack: no running stack here — run 'scripts/dev-stack.sh up' first" >&2
 		exit 1
 	fi
-	# The old `yarn emulators:export`, pointed at this stack's hub through the
-	# generated config, so the fixture lands in .emulator-seed exactly as before.
-	firebase emulators:export .emulator-seed --project home-backlog --config "$GENERATED_CONFIG" --force
+	# Export goes to this stack's own hub port from stack.json — no project-id
+	# discovery, which is how an export once attached to a foreign stack on the
+	# same project. The hub resolves the path against its own cwd, so it is sent
+	# absolute. `curl -f` catches a 5xx (the hub answers 500 with a JSON message
+	# on failure), and the body check rejects a 200 body that is not the hub's
+	# `{message: "OK"}` — some CLI versions answer 200 on failure.
+	local hub seed
+	hub=$(jq -r '.ports.hub' "$STATE/stack.json")
+	seed="$PWD/.emulator-seed"
+	if ! curl -fsS -X POST "localhost:$hub/_admin/export" \
+		-H "Content-Type: application/json" \
+		-d "{\"path\": \"$seed\"}" | jq -e '.message == "OK"' >/dev/null; then
+		echo "dev-stack: export to $seed failed — hub on :$hub did not export (see error above)" >&2
+		exit 1
+	fi
 	echo "dev-stack: exported .emulator-seed"
 }
 
