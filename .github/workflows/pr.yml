@@ -12,25 +12,25 @@ jobs:
       # Full history: `yarn invariants` diffs against the PR's base branch to
       # check that a rules change brought its rules tests with it, and a
       # shallow single-branch checkout has no base commit to diff against.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.x
 
       # The Firestore and Storage emulators are Java processes, and
       # firebase-tools 15 refuses to launch them on anything below JDK 21.
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: 21
 
       - name: Cache node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('yarn.lock') }}
@@ -40,18 +40,18 @@ jobs:
       # The emulator jars are downloaded on first use and never change per
       # firebase-tools version, so caching them saves ~30s a run.
       - name: Cache Firebase emulators
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/firebase/emulators
           key: ${{ runner.os }}-firebase-emulators
 
       - name: Yarn install
-        uses: borales/actions-yarn@v5
+        uses: borales/actions-yarn@3766bb1335b98fb13c60eaf358fe20811b730a88 # v5
         with:
           cmd: install
 
       - name: Lint
-        uses: borales/actions-yarn@v5
+        uses: borales/actions-yarn@3766bb1335b98fb13c60eaf358fe20811b730a88 # v5
         with:
           cmd: lint
 
@@ -62,12 +62,12 @@ jobs:
         run: yarn invariants --base origin/${{ github.base_ref || github.event.repository.default_branch }}
 
       - name: Typecheck
-        uses: borales/actions-yarn@v5
+        uses: borales/actions-yarn@3766bb1335b98fb13c60eaf358fe20811b730a88 # v5
         with:
           cmd: typecheck
 
       - name: Test
-        uses: borales/actions-yarn@v5
+        uses: borales/actions-yarn@3766bb1335b98fb13c60eaf358fe20811b730a88 # v5
         with:
           cmd: test --watchAll=false
 
@@ -77,7 +77,7 @@ jobs:
       # firestore.rules and storage.rules are the only thing standing between a
       # household's private nodes and everyone else. They get their own suite.
       - name: Test security rules
-        uses: borales/actions-yarn@v5
+        uses: borales/actions-yarn@3766bb1335b98fb13c60eaf358fe20811b730a88 # v5
         with:
           cmd: test:rules
 
@@ -90,7 +90,7 @@ jobs:
       # untranslated strings in sv-SE. `browser-review` keeps only what a machine
       # cannot decide. Chromium is cached because the download is ~115 MB.
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('yarn.lock') }}
@@ -104,19 +104,19 @@ jobs:
       # `scripts/dev-stack.sh`, then runs the suite against it. The emulator jars
       # are already cached by the step above this job's rules tests.
       - name: End-to-end tests
-        uses: borales/actions-yarn@v5
+        uses: borales/actions-yarn@3766bb1335b98fb13c60eaf358fe20811b730a88 # v5
         with:
           cmd: e2e
 
       - name: Upload e2e report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: e2e-report
           path: .tmp/e2e/report
           retention-days: 7
 
       - name: Build web
-        uses: borales/actions-yarn@v5
+        uses: borales/actions-yarn@3766bb1335b98fb13c60eaf358fe20811b730a88 # v5
         with:
           cmd: build:web
