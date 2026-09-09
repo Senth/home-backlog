@@ -56,6 +56,9 @@ firebase.rules-tests.json
 .firebase/
 firebase-debug.log
 firebase_app_id_file.json
+# A failed export leaves this behind in the repo root (hubExport.js mkdtempSync
+# in the hub's cwd; only the success path cleans it).
+firebase-export-*/
 GoogleService-Info.plist
 google-services.json
 emulator-data

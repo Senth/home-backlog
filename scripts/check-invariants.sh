@@ -12,11 +12,11 @@
 # Usage:   yarn invariants [--base <ref>]
 # Exit:    0 = all pass, 1 = an invariant failed, 2 = the script could not run
 #
-# Checks 1-6 and 8 read the whole working tree — tracked files *and* untracked
-# ones that git would add, because the moment you most want this run is right
-# after writing a new file, and a new file has not been staged yet. A violation
-# is a violation whoever wrote it, and the tree being clean today is what makes
-# whole-tree scanning affordable.
+# Checks 1-6, 8 and 14 read the whole working tree — tracked files *and*
+# untracked ones that git would add, because the moment you most want this run
+# is right after writing a new file, and a new file has not been staged yet. A
+# violation is a violation whoever wrote it, and the tree being clean today is
+# what makes whole-tree scanning affordable.
 #
 # Check 7 is diff-shaped by nature and needs a base ref. Auto-detected, it
 # reports `skip` when there is nothing to diff against; named explicitly with
@@ -458,6 +458,39 @@ if [[ "$count" -gt 10 ]]; then
 		"A new spec displaces a named one or it does not get written — see \"Adding one\" in docs/TESTS.md."
 else
 	report 13 "e2e spec budget" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 14. `firebase emulators:start` / `firebase emulators:exec` run only through
+#     the two files that own them
+#
+# A second place that boots emulators is a second port book and a second hub
+# locator. scripts/dev-stack.sh is the one owner of boot and teardown, and
+# scripts/test-rules.mjs deliberately runs its own project id on its own
+# allocated ports. Anything else that names these commands — a package.json
+# script, a workflow, a doc's copy-pasteable command, a new helper — is a
+# bypass of that owner.
+#
+# The exclusions are by file, and they are the whole story: the two homes
+# above plus this script, whose pattern string spells the commands out. Prose
+# mentions elsewhere are already dropped by strip_comments, so no extra
+# carve-out is needed for them.
+# ---------------------------------------------------------------------------
+mapfile -t -d '' ALL_FILES < <(
+	git ls-files -z --cached --others --exclude-standard
+)
+EMULATOR_FILES=()
+for f in "${ALL_FILES[@]}"; do
+	[[ "$f" == scripts/dev-stack.sh || "$f" == scripts/test-rules.mjs || "$f" == scripts/check-invariants.sh ]] && continue
+	EMULATOR_FILES+=("$f")
+done
+PATTERN='firebase[[:space:]]+emulators:(start|exec)'
+hits=$(scan -I "${EMULATOR_FILES[@]}" | strip_comments)
+if [[ -n "$hits" ]]; then
+	report 14 "emulators via dev-stack" FAIL "$hits" \
+		"Emulators boot only through scripts/dev-stack.sh; the rules suite keeps its own run in scripts/test-rules.mjs."
+else
+	report 14 "emulators via dev-stack" ok
 fi
 
 # ---------------------------------------------------------------------------
