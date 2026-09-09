@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { type StyleProp, View, type ViewStyle } from "react-native";
 import { Icon, Text } from "react-native-paper";
 import { DueChip } from "@/components/board/DueChip";
-import { dueState } from "@/models/due-date";
+import { showsDue } from "@/models/due-date";
 import type { Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { border, icon, space } from "@/theme/tokens";
@@ -97,8 +97,7 @@ export function CardFooter({
 
 	// Only to decide whether the second pair exists — the chip itself, and the
 	// warning color on it, are `DueChip`'s.
-	const due = dueState(node.dueDate, new Date());
-	const showDue = node.dueDate !== null && (due === "late" || due === "soon");
+	const showDue = showsDue(node, new Date());
 
 	const locationTitle =
 		node.locationId === null ? undefined : locations?.get(node.locationId);
