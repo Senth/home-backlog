@@ -761,6 +761,21 @@ const LOGIN_ROUTE = {
 /** A card the fixture always has, whose title names the screen you open it as. */
 const SEEDED_PROJECT = "Renovera badrummet";
 
+/**
+ * The committed fixture's per-column counts, the same table `i18n.spec.ts`
+ * reads for the strip: the desktop heading carries its count now (#141), so
+ * the string it asserts has to be filled the same way the component fills it.
+ */
+const COLUMN_COUNTS = {
+	backlog: 1,
+	next_up: 2,
+	execution: 2,
+	done: 1,
+} as const;
+
+const fill = (template: string, column: string, count: number) =>
+	template.replace("{{column}}", column).replace("{{count}}", String(count));
+
 test("14: the desktop column header, card title and add button are unclipped", async ({
 	page,
 }, testInfo) => {
@@ -825,7 +840,11 @@ test("14: the desktop column header, card title and add button are unclipped", a
 			columns: (["backlog", "next_up", "execution", "done"] as const).map(
 				(status) => ({
 					selector: columnSelector(status),
-					heading: strings.status[status],
+					heading: fill(
+						strings.board.columnChip,
+						strings.status[status],
+						COLUMN_COUNTS[status],
+					),
 					addTo: strings.board.addTo.replace(
 						"{{column}}",
 						strings.status[status],

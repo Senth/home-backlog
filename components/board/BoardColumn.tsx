@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode, useState } from "react";
+import { Fragment, type ReactNode, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, View } from "react-native";
 import { Button, Text } from "react-native-paper";
@@ -122,6 +122,35 @@ export function BoardColumn({
 	const [contentHeight, setContentHeight] = useState<number>(space.none);
 	const pinned = wide && contentHeight > frameHeight;
 
+	/**
+	 * The bottom inset holds at its raised value until the pane scrolls away
+	 * from its own bottom (#141).
+	 *
+	 * Growing the padding is free: `scrollTop` is untouched and the scroll range
+	 * simply extends below the fold. Shrinking it is not — a pane parked at its
+	 * bottom clamps, and the content slides by up to `space.xxl + space.lg -
+	 * space.md` under the reader's eyes the moment a snackbar dismisses. While
+	 * the un-scrolled tail is shorter than the pending shrink, the last raised
+	 * inset is kept, and the scroll event releases it exactly when the resting
+	 * content has come back within reach — from there the shrink happens below
+	 * the fold, where nothing visible moves.
+	 */
+	const [heldInset, setHeldInset] = useState<number>(space.none);
+	const scrollTop = useRef<number>(space.none);
+	const [prevInset, setPrevInset] = useState(bottomInset);
+	if (prevInset !== bottomInset) {
+		setPrevInset(bottomInset);
+		const tail = contentHeight - frameHeight - scrollTop.current;
+		if (
+			frameHeight > 0 &&
+			bottomInset < prevInset &&
+			tail < prevInset - bottomInset
+		) {
+			setHeldInset(prevInset);
+		}
+	}
+	const inset = Math.max(bottomInset, heldInset);
+
 	// The card in flight is drawn at board level, following the finger — but its
 	// own row **stays mounted**, flattened to nothing. The gesture belongs to that
 	// row, and a row unmounted mid-drag takes the pointer capture with it: the
@@ -226,26 +255,20 @@ export function BoardColumn({
 			{wide ? (
 				<View
 					style={{
-						flexDirection: "row",
-						alignItems: "center",
-						justifyContent: "space-between",
-						gap: space.sm,
 						// The same gutter the cards below it keep, so the heading sits
 						// over their left edge rather than beside it.
 						paddingHorizontal: space.md,
 						paddingBottom: space.md,
 					}}
 				>
-					{/* A heading, and read as one: `titleSmall` at regular weight was
-					    the same size as a card title and lost the column it named. */}
+					{/* A heading, and read as one: `titleMedium` at regular weight was
+					    the same size as a card title and lost the column it named. The
+					    count rides in the heading as one string — the pairing the phone
+					    strip's `board.columnChip` makes — because a number pinned to the
+					    column's far edge stops reading as the count of what is below it
+					    once the flexed width lets the two drift 300px apart. */}
 					<Text variant="titleMedium" style={headingWeight}>
-						{label}
-					</Text>
-					<Text
-						variant="labelLarge"
-						style={{ color: theme.colors.onSurfaceVariant }}
-					>
-						{nodes.length}
+						{t("board.columnChip", { column: label, count: nodes.length })}
 					</Text>
 				</View>
 			) : null}
@@ -264,6 +287,22 @@ export function BoardColumn({
 					style={{ flex: 1 }}
 					onLayout={(event) => setFrameHeight(event.nativeEvent.layout.height)}
 					onContentSizeChange={(_, height) => setContentHeight(height)}
+					onScroll={(event) => {
+						const { contentOffset, contentSize, layoutMeasurement } =
+							event.nativeEvent;
+						scrollTop.current = contentOffset.y;
+						// The release is the exact point where the scroll position
+						// survives the shrink: the tail measured against the held
+						// content reaches the shrink's size, so the padding drops
+						// below the fold and nothing moves.
+						if (
+							heldInset > bottomInset &&
+							contentSize.height - layoutMeasurement.height - contentOffset.y >=
+								heldInset - bottomInset
+						) {
+							setHeldInset(space.none);
+						}
+					}}
 					contentContainerStyle={{
 						gap: space.sm,
 						// One gutter in both layouts: a pane spans the screen and needs
@@ -274,7 +313,7 @@ export function BoardColumn({
 						// a pane. Above the breakpoint there is no FAB and the default
 						// stands: room under the add row rather than a card hard
 						// against the column's bottom edge.
-						paddingBottom: wide ? space.xxl : bottomInset,
+						paddingBottom: wide ? space.xxl : inset,
 					}}
 				>
 					{slot === 0 && lifted === null ? (
