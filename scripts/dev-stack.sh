@@ -205,11 +205,19 @@ cmd_up() {
 			target="emulators:seed"
 		fi
 		echo "dev-stack: starting emulators ($target on :$firestore_port)"
+		# The CLI writes its hub locator to $TMPDIR/hub-<projectId>.json, so the
+		# shared /tmp makes the last booted worktree's stack the one every bare
+		# `firebase` command resolves to. A per-worktree TMPDIR gives this stack
+		# a locator of its own — same trick as scripts/test-rules.mjs — and the
+		# CLI does not create the directory itself.
+		mkdir -p "$STATE/tmp"
 		local start_cmd="yarn --cwd functions build && firebase emulators:start --project home-backlog --config '$GENERATED_CONFIG'"
 		if [ "$import" = 1 ]; then
 			start_cmd+=" --import .emulator-seed"
 		fi
-		start_bg emulators bash -c "$start_cmd"
+		start_bg emulators env \
+			TMPDIR="$PWD/$STATE/tmp" TMP="$PWD/$STATE/tmp" TEMP="$PWD/$STATE/tmp" \
+			bash -c "$start_cmd"
 		wait_for_port "$firestore_port" emulators
 
 		local emu_pid
@@ -329,14 +337,15 @@ cmd_export() {
 	# discovery, which is how an export once attached to a foreign stack on the
 	# same project. The hub resolves the path against its own cwd, so it is sent
 	# absolute. `curl -f` catches a 5xx (the hub answers 500 with a JSON message
-	# on failure), and the body check rejects a 200 body that is not the hub's
-	# `{message: "OK"}` — some CLI versions answer 200 on failure.
+	# on failure), and the body check rejects any 200 that is not the hub's
+	# `{message: "OK"}`.
 	local hub seed
 	hub=$(jq -r '.ports.hub' "$STATE/stack.json")
 	seed="$PWD/.emulator-seed"
-	if ! curl -fsS -X POST "localhost:$hub/_admin/export" \
-		-H "Content-Type: application/json" \
-		-d "{\"path\": \"$seed\"}" | jq -e '.message == "OK"' >/dev/null; then
+	if ! jq -n --arg p "$seed" '{path: $p}' |
+		curl -fsS -X POST "localhost:$hub/_admin/export" \
+			-H "Content-Type: application/json" \
+			-d @- | jq -e '.message == "OK"' >/dev/null; then
 		echo "dev-stack: export to $seed failed — hub on :$hub did not export (see error above)" >&2
 		exit 1
 	fi
