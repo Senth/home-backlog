@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Icon, Text } from "react-native-paper";
-import { dueState, formatDueElapsed } from "@/models/due-date";
+import { dueState, formatDueElapsed, showsDue } from "@/models/due-date";
 import type { Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { icon, space } from "@/theme/tokens";
@@ -27,10 +27,10 @@ export function DueChip({ node }: { node: Node }) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
 
-	const state = dueState(node.dueDate, new Date());
-	const late = state === "late";
+	const now = new Date();
+	const late = dueState(node.dueDate, now) === "late";
 
-	if (node.dueDate === null || !(late || state === "soon")) return null;
+	if (!showsDue(node, now)) return null;
 
 	return (
 		<View
@@ -43,7 +43,7 @@ export function DueChip({ node }: { node: Node }) {
 			<Icon source="calendar" size={icon.sm} color={theme.colors.warning} />
 			<Text variant="labelMedium" style={{ color: theme.colors.warning }}>
 				{t(late ? "board.dueLate" : "board.dueSoon", {
-					elapsed: formatDueElapsed(node.dueDate, new Date(), i18n.language),
+					elapsed: formatDueElapsed(node.dueDate, now, i18n.language),
 				})}
 			</Text>
 		</View>

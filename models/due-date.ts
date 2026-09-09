@@ -11,6 +11,8 @@
  * the part that is wrong at exactly one boundary — is testable without a locale.
  */
 
+import type { Node } from "@/models/node";
+
 const dayInMs = 24 * 60 * 60 * 1000;
 
 /** The same shape `firestore.rules` matches, so neither side is stricter. */
@@ -108,6 +110,23 @@ export function dueState(dueDate: string | null, now: Date): DueState | null {
 	if (days < 0) return "late";
 
 	return days <= soonInDays ? "soon" : "later";
+}
+
+/**
+ * Whether a node's due date is worth a chip at all — the one question the
+ * card face and every wrapper that gates a row on it have to agree on.
+ *
+ * `dueState` is the arithmetic; this is the display rule on top of it: only
+ * `'late'` and `'soon'` render, a date that is merely `'later'` or unreadable
+ * says nothing. One copy, because the spec calls this rule load-bearing and
+ * the card face and the Overview must never disagree about it.
+ */
+export function showsDue(
+	node: Pick<Node, "dueDate">,
+	now: Date,
+): node is Node & { dueDate: string } {
+	const state = dueState(node.dueDate, now);
+	return state === "late" || state === "soon";
 }
 
 /**
