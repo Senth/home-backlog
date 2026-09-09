@@ -9,6 +9,7 @@ import {
 import {
 	deleteLabelsByTitlePrefix,
 	deleteNodesByTitlePrefix,
+	fillColumn,
 	nodeFields,
 	waitForLabelByTitle,
 	waitForNodeIdByTitle,
@@ -45,6 +46,44 @@ async function addCardFromFab(page: Page, title: string): Promise<void> {
 		.click();
 	await page.getByRole("textbox").first().fill(title);
 	await page.getByRole("button", { name: enUS.board.add, exact: true }).click();
+}
+
+/**
+ * The scrollable box inside a column pane — the `ScrollView` `BoardColumn`
+ * renders — read the way the browser sees it. Found by shape rather than a
+ * testID: it is the one descendant whose content overflows it, which is also
+ * what makes a `null` answer here a failure worth naming.
+ */
+async function paneScroll(
+	page: Page,
+	status: string,
+): Promise<{ scrollTop: number; atEnd: boolean } | null> {
+	return page.evaluate((selector) => {
+		const column = document.querySelector(selector);
+		if (column === null) return null;
+		const scroller = Array.from(column.querySelectorAll<HTMLElement>("*")).find(
+			(el) => el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 1,
+		);
+		if (scroller === undefined) return null;
+		return {
+			scrollTop: scroller.scrollTop,
+			atEnd:
+				scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2,
+		};
+	}, columnSelector(status));
+}
+
+/** Scrolls the pane to its last pixel, the way a reader parked there has. */
+async function parkPaneAtEnd(page: Page, status: string): Promise<void> {
+	await page.evaluate((selector) => {
+		const column = document.querySelector(selector);
+		const scroller = Array.from(
+			column?.querySelectorAll<HTMLElement>("*") ?? [],
+		).find(
+			(el) => el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 1,
+		);
+		if (scroller) scroller.scrollTop = scroller.scrollHeight;
+	}, columnSelector(status));
 }
 
 /**
@@ -188,4 +227,84 @@ test("4: a home grows two labels, and a card carries one", async ({ page }) => {
 	await expect
 		.poll(async () => (await nodeFields(id)).labelIds, { timeout: 30_000 })
 		.toContain(preset.id);
+});
+
+/**
+ * #141: the pane's bottom padding follows the FAB, which rises while a
+ * snackbar is up. Growing the padding is free; shrinking it back on dismiss
+ * clamps a pane parked at its bottom, and the content slides. The raised
+ * inset holds until the pane scrolls away from its end, so the dismissal
+ * moves nothing.
+ *
+ * Lives in the `writes` project, not `craft` (#141's DoD names it): the claim
+ * needs a column full enough to scroll, which only `fillColumn` can build,
+ * and the read-only projects must not see a foreign card.
+ */
+test("5: dismissing the move snackbar does not move a column parked at its bottom", async ({
+	page,
+}) => {
+	// The scroll room is bulk: `fillColumn` copies a stored node, and the copy
+	// is refused by the rules the moment the app tries to move it — discovered
+	// here as a PERMISSION_DENIED that rolled the move back. So the card that
+	// moves is created the way a person creates one, through the FAB, which
+	// sorts after the bulk and is the card a parked reader is looking at.
+	await fillColumn("backlog", 10, `${PREFIX}card`);
+	const title = `${PREFIX}fab card`;
+	const movedTo = enUS.board.moved.replace("{{column}}", enUS.status.next_up);
+	await gotoAndSettle(page, BOARD);
+	await addCardFromFab(page, title);
+	await expect(
+		page.locator(columnSelector("backlog"), { hasText: title }),
+	).toBeVisible();
+
+	// A reader who has scrolled to the end of the column and stayed there.
+	await parkPaneAtEnd(page, "backlog");
+	await expect
+		.poll(() => paneScroll(page, "backlog"))
+		.toMatchObject({ atEnd: true });
+
+	// Moving the last card puts a snackbar on screen: the FAB and the pane's
+	// padding rise with it, and the card leaving the column clamps the parked
+	// scroll onto the new bottom. From here until the dismissal the content
+	// is still, which is what makes the two readings below comparable.
+	const anchor = page
+		.locator(CARD, { hasText: title })
+		.getByRole("button", { name: enUS.board.actions });
+	await clickMenuItem(page, anchor, enUS.board.moveTo);
+	await page
+		.getByRole("menuitem", { name: enUS.status.next_up, exact: true })
+		.click();
+	await expect(
+		page.locator(columnSelector("backlog"), { hasText: title }),
+	).toHaveCount(0);
+	// The write stuck, not merely the leaving: a move the rules refuse rolls
+	// back into the source column, and the hidden destination pane renders
+	// `noCards` by design, so the backend is the only witness both ways.
+	const id = await waitForNodeIdByTitle(title);
+	await expect
+		.poll(async () => (await nodeFields(id)).status, { timeout: 30_000 })
+		.toBe("next_up");
+	await expect
+		.poll(() => paneScroll(page, "backlog"))
+		.toMatchObject({ atEnd: true });
+	await page.waitForTimeout(500);
+	// Still up: if Paper's four seconds ran out while the reads above ran,
+	// the pane below was read after the dismissal and the claim proves
+	// nothing.
+	await expect(page.getByText(movedTo)).toBeVisible();
+	const raised = await paneScroll(page, "backlog");
+	expect(
+		raised,
+		"the pane does not scroll — its column is too short",
+	).not.toBeNull();
+
+	// The dismissal the claim is about is the snackbar's own — pressing Undo
+	// would return the card and grow the column back, which cannot slide.
+	await expect(page.getByText(movedTo)).toBeHidden({ timeout: 10_000 });
+	const dismissed = await paneScroll(page, "backlog");
+
+	expect(
+		Math.abs((dismissed?.scrollTop ?? NaN) - (raised?.scrollTop ?? NaN)),
+		`the pane moved on dismiss: ${raised?.scrollTop} → ${dismissed?.scrollTop}`,
+	).toBeLessThanOrEqual(1);
 });
