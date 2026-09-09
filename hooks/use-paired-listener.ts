@@ -40,19 +40,22 @@ export type QueryPair = {
  * three callers today.
  *
  * The merge itself lives in `models/node.ts`, where it can be tested without
- * Firestore, and the retry in `data/live-query.ts`. Nothing left here is worth
- * a test; everything left here is subscription lifecycle.
+ * Firestore, and the retry in `data/live-query.ts`; the state machine around
+ * them is pinned in `hooks/use-paired-listener.test.ts`.
  *
- * Both listeners are torn down whenever `build` changes, which is what stops
- * drilling down a tree from accumulating one pair per level visited. Listener
- * breadth, not data volume, is the cost risk in this app.
+ * Both listeners are torn down whenever `build` or `key` changes, which is
+ * what stops drilling down a tree from accumulating one pair per level
+ * visited. Listener breadth, not data volume, is the cost risk in this app.
  *
  * @param key What this pair is *of* — every input the answer depends on. State
  *   is cleared during render when it changes, not in an effect: an effect runs
  *   after the commit, so the first render of a new board would otherwise paint
  *   the previous board's cards with `loading` already false, and nothing on
  *   screen would even admit they are the wrong ones. Drilling into a task is
- *   exactly that transition.
+ *   exactly that transition. It is also in the effect's dependencies, so a
+ *   `key` change reopens the listeners even when `build` is unchanged — the
+ *   pairing of a `key` change with a `build` change is structural, not
+ *   something every caller has to remember.
  * @param build The two queries, called at subscribe time — so a query built
  *   from `new Date()` is built from the instant it is opened. `null` when there
  *   is no home or no user, which is an *answer*, not a wait: `/homes` is where
@@ -93,6 +96,7 @@ export function usePairedListener(
 		setAttempt(0);
 	}
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `key` never enters the effect body — it is what re-opens the listeners on a new question, so a `key` change may not ride on a `build` change happening first.
 	useEffect(() => {
 		const pair = build();
 		if (pair === null) {
@@ -169,7 +173,7 @@ export function usePairedListener(
 			unsubscribeShared();
 			unsubscribeParticipating();
 		};
-	}, [build, attempt, labels.shared, labels.participating]);
+	}, [build, attempt, key, labels.shared, labels.participating]);
 
 	const nodes = useMemo(
 		() => mergeNodeResults(shared, participating),
