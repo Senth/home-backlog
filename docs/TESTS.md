@@ -62,6 +62,10 @@ genuinely earns e2e coverage takes one without evicting anything.
 Setup projects (`auth.setup.ts`, `fixture.setup.ts`) and `support/` are not specs and do
 not count.
 
+Reading a run: the `writes` project depends on all four read-only ones, and Playwright
+skips a project whose dependency failed. One red reader means the writers never ran at
+all, so a green `writes` count is not evidence of anything until the readers pass.
+
 ## Adding one
 
 A new spec first takes one of the three free slots; once those are gone, it has to
