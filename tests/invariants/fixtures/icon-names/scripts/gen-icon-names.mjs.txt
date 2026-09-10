@@ -1,0 +1,2 @@
+console.error("functions/src/icon-names.ts is stale");
+process.exit(1);

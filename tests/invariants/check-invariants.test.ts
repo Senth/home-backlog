@@ -37,6 +37,7 @@ const CHECKS = [
 	"no Appbar.BackAction",
 	"e2e spec budget",
 	"emulators via dev-stack",
+	"icon names generated",
 ];
 
 type Case = {
@@ -86,6 +87,7 @@ const CASES: Case[] = [
 			await fs.promises.writeFile(rogue, `#!/bin/sh\n${command}\n`);
 		},
 	},
+	{ name: "icon-names", check: "icon names generated" },
 ];
 
 type Run = { code: number; stdout: string; stderr: string };
