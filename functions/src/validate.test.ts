@@ -1,11 +1,13 @@
 import type { ApiError } from "./errors.js";
 import {
 	isMember,
+	type Label,
 	type LocationContext,
 	type NodeContext,
 	type ParentFacts,
 	refuseEmptyRootParticipants,
 	refuseUnusableParticipants,
+	validateLabel,
 	validateLocation,
 	validateNode,
 } from "./validate.js";
@@ -732,5 +734,115 @@ describe("a location, mirrored from validLocation()", () => {
 				underLoc1,
 			),
 		).toContain("invalid_parent");
+	});
+});
+
+/**
+ * The one value check a label entry answers (#256). The cap and the duplicate
+ * title are deliberately absent: they are state conflicts read against the home
+ * document at write time, and the route answers them with 409 inside the
+ * transaction — not a 400 here.
+ */
+
+function labelDoc(
+	overrides: Partial<Record<keyof Label, unknown>> = {},
+): Record<string, unknown> {
+	return {
+		title: "Plumbing",
+		icon: "wrench",
+		color: "teal",
+		rank: "a0",
+		...overrides,
+	};
+}
+
+describe("a label, mirrored from the app's label rules", () => {
+	it("accepts an entry with every field written", () => {
+		expect(validateLabel(labelDoc())).toEqual([]);
+	});
+
+	it("refuses an empty title", () => {
+		expect(validateLabel(labelDoc({ title: "" })).map((i) => i.code)).toContain(
+			"title_required",
+		);
+	});
+
+	it("refuses a missing title", () => {
+		expect(
+			validateLabel({ icon: "wrench", color: "teal", rank: "a0" }),
+		).toEqual([
+			{
+				field: "title",
+				code: "title_required",
+				message: "A label needs a title.",
+			},
+		]);
+	});
+
+	it("refuses an over-long title", () => {
+		expect(
+			validateLabel(labelDoc({ title: "x".repeat(61) })).map((i) => i.code),
+		).toContain("title_too_long");
+	});
+
+	it("refuses a glyph name the picker does not offer", () => {
+		expect(
+			validateLabel(labelDoc({ icon: "wrench-tool" })).map((i) => i.code),
+		).toContain("unknown_icon");
+	});
+
+	it("accepts wrench", () => {
+		expect(validateLabel(labelDoc({ icon: "wrench" }))).toEqual([]);
+	});
+
+	it.each([7, null])("refuses an icon that is not a string (%p)", (icon) => {
+		expect(validateLabel(labelDoc({ icon })).map((i) => i.code)).toContain(
+			"unknown_icon",
+		);
+	});
+
+	it("refuses a color that is neither a hue name nor a hex", () => {
+		expect(
+			validateLabel(labelDoc({ color: "reddish" })).map((i) => i.code),
+		).toContain("invalid_color");
+	});
+
+	it("accepts a hue name and a #rgb and a #rrggbb hex", () => {
+		expect(validateLabel(labelDoc({ color: "red" }))).toEqual([]);
+		expect(validateLabel(labelDoc({ color: "#A32" }))).toEqual([]);
+		expect(validateLabel(labelDoc({ color: "#A32E28" }))).toEqual([]);
+	});
+
+	it("refuses a hue name or a hex with surrounding whitespace", () => {
+		expect(
+			validateLabel(labelDoc({ color: " red" })).map((i) => i.code),
+		).toContain("invalid_color");
+		expect(
+			validateLabel(labelDoc({ color: " #A32E28" })).map((i) => i.code),
+		).toContain("invalid_color");
+	});
+
+	it("refuses a color that is not a string", () => {
+		expect(validateLabel(labelDoc({ color: 5 })).map((i) => i.code)).toContain(
+			"invalid_color",
+		);
+	});
+
+	it("refuses a rank that is not a non-empty string", () => {
+		expect(validateLabel(labelDoc({ rank: "" })).map((i) => i.code)).toContain(
+			"invalid_rank",
+		);
+		expect(
+			validateLabel(labelDoc({ rank: null })).map((i) => i.code),
+		).toContain("invalid_rank");
+	});
+
+	it("reports every problem at once", () => {
+		expect(validateLabel({}).map((i) => i.code)).toEqual([
+			"title_required",
+			"unknown_icon",
+			"invalid_color",
+			"invalid_rank",
+		]);
 	});
 });

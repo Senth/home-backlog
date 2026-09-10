@@ -1,7 +1,7 @@
 ---
 name: home-backlog-api
 description: Read and write a Home Backlog board over REST — nested kanban nodes where a project, a task and a subtask are the same thing at different depths. Use when asked to research, break down, file or re-prioritise home-improvement work for a household, or when a prompt mentions Home Backlog, hb.senth.org, or an API key beginning hb_. Covers bearer auth, the node verbs, and the atomic bulk create that writes a whole subtree in one undoable call.
-api-version: 1.1.0
+api-version: 1.2.0
 ---
 
 # Home Backlog API
@@ -71,7 +71,7 @@ payload. Messages are not translated, because the app never shows them.
 | --- | --- |
 | `400` | The request is wrong. Fix it and resend; it will not become right. |
 | `401` | The key is missing, malformed or revoked. |
-| `404` | No such home, node or location — or a node you are not allowed to see. Deliberately the same answer. |
+| `404` | No such home, node, location or label — or a node you are not allowed to see. Deliberately the same answer. |
 | `409` | You asked for something that needs confirming (`has_children`) or does not fit (`subtree_too_large`). |
 | `412` | `If-Match` did not agree. Read the node or place again. |
 | `413` | The body is over 1 MB. |
@@ -234,6 +234,53 @@ A place with children answers `409 has_children` and tells you how many. Repeat 
 `?cascade=true` to delete the subtree. Work anchored to a deleted place is unfiled — its
 `locationId` becomes `null` — the same state work you create today is in.
 
+### `GET /v1/homes/{homeId}/labels`
+
+Every label definition the home has, in board order — `rank`, then id — each row carrying
+its `etag`. A label definition is a `title`, a `color`, an `icon` and a `rank`; cards carry
+label **ids** from this list, never the definitions themselves.
+
+### `GET /v1/homes/{homeId}/labels/{labelId}`
+
+One label. The response carries an `ETag` header, and the row carries the same value as its
+`etag` field. An id no definition answers to is `404 label_not_found`.
+
+### `POST /v1/homes/{homeId}/labels`
+
+One definition. `title`, `icon` and `color` are required — a vocabulary of unnamed or
+uncolored entries is not a vocabulary — and `rank` is optional, defaulting to the end of the
+set. Omitting a required field is a `400` naming it: `title_required`, `unknown_icon` or
+`invalid_color`.
+
+```json
+{ "title": "Water damage", "icon": "water", "color": "blue" }
+```
+
+Returns `201` and the created label, with its `ETag` in the response headers.
+
+`color` is one of `red`, `orange`, `amber`, `lime`, `green`, `teal`, `cyan`, `blue`,
+`indigo`, `purple`, `pink`, `stone`, or a `#rgb` / `#rrggbb` hex — anything else is
+`400 invalid_color`. `icon` must be a MaterialCommunityIcons glyph name the app's own picker
+offers, such as `wrench`; a hallucinated one is `400 unknown_icon`.
+
+A home holds at most **300** label definitions, and a create past that is
+`409 label_limit_reached`. A title another definition already carries — compared trimmed and
+case-insensitively, so " Kitchen " is "kitchen" — is `409 duplicate_label`.
+
+### `PATCH /v1/homes/{homeId}/labels/{labelId}`
+
+Send `title`, `icon` and/or `color`; only the fields you send change, each as its own
+update. `rank` is not a field here — reordering stays a person's drag handle in the app, and
+sending it is `400 unknown_field`. `If-Match` guards the write exactly as it does for nodes
+and places, and a rename onto a taken title is `409 duplicate_label` — a rename never
+collides with itself.
+
+### `DELETE /v1/homes/{homeId}/labels/{labelId}`
+
+Deletes the definition only. Cards keep the id: they render the label as nothing and stay
+fully updatable, and that is a designed-for state, not a broken reference. `If-Match` guards
+the write as everywhere else.
+
 ## Fields
 
 Fields you may send are marked ✅. The API computes the rest, and sending one is a
@@ -252,7 +299,7 @@ filed work you did not file.
 | `parentId` | ✅ | Structure. On `POST` it places the node; on `PATCH` it moves the subtree. |
 | `visibility` | ✅ on create, at the top level only | Shown in the app. `shared` or `private`. |
 | `blockedBy` | ✅ | Rendered in the app as *Waiting*: the app derives the state from the blockers' statuses, and nothing auto-clears it — a done blocker stops holding cards, and reopening one re-blocks them. Writing a private node's id into a shared card's list leaves the other members a row they cannot read and can remove. |
-| `labelIds` | ✅ | The card's labels, as ids of the home's label definitions — at most **6**. Rendered as colored dots beside the card. The definitions themselves (icon, color, name) are **not writable here**: the household curates that set in the app, and there is no verb that lists them, so take the ids from a node you have read. A card naming a gone id renders as nothing and stays updatable. |
+| `labelIds` | ✅ | The card's labels, as ids of the home's label definitions — at most **6**. Rendered as colored dots beside the card. The definitions behind the ids are the **Labels** verbs above: list them there, and create one before you write its id onto a card. A card naming a gone id renders as nothing and stays updatable. |
 | `checklist` | ✅ | **Stored, no screen yet.** Up to 200 items. Nothing renders it today. |
 | `participantIds` | ❌ | Shown in the app. Whose project this is. Set by a person. |
 | `archived` | ❌ | Hides a card from every board. Nothing in the app can bring one back yet, so nothing here may hide one. |
@@ -272,7 +319,6 @@ it helps you, but do not expect a person to see it.
   create is unfiled. Nothing can check a location id you name, and an invented one would
   make "everything in the bathroom" return the wrong set.
 - **Recurring maintenance.** No verbs yet.
-- **Label definitions.** A card carries `labelIds`, but the label set itself — the names, icons and colors behind those ids — belongs to the household: there is no verb that reads or writes it, and there never will be a write one.
 - **Changing `visibility` or `participantIds`** on anything that exists. A person does that.
 - **Creating a home, inviting, accepting an invitation.** Human-only.
 - **Custom statuses.** The four are the vocabulary.

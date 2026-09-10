@@ -23,7 +23,7 @@
 # `--base` and unresolvable, it is a hard error — a CI expression that evaluates
 # to an empty string must never read as a pass.
 #
-# Requires: git, grep, jq, and bash 4.4+ for `mapfile -d`.
+# Requires: git, grep, jq, node, and bash 4.4+ for `mapfile -d`.
 set -uo pipefail
 
 # `sort` orders by codepoint and `comm` compares by LC_COLLATE. Under a UTF-8
@@ -536,6 +536,22 @@ if [[ -n "$missing" ]]; then
 		"Every literal t(\"…\") key must exist in i18n/locales/en-US.json (a plural stem counts when a _one/_other leaf exists); keys built at runtime are the e2e/i18n.spec.ts check."
 else
 	report 15 "t() keys exist" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 16. functions/src/icon-names.ts matches the installed glyph map
+#
+# The label verbs validate `icon` against a set generated from the installed
+# @expo/vector-icons (#256). A Renovate bump that adds glyphs must not leave
+# the API rejecting an icon the picker offers — the generator regenerates in
+# memory and compares, so a stale committed file fails here.
+# ---------------------------------------------------------------------------
+icon_check=$(node scripts/gen-icon-names.mjs --check 2>&1)
+if [[ $? -ne 0 ]]; then
+	report 16 "icon names generated" FAIL "$icon_check" \
+		"Run yarn icon-names and commit the regenerated functions/src/icon-names.ts."
+else
+	report 16 "icon names generated" ok
 fi
 
 # ---------------------------------------------------------------------------
