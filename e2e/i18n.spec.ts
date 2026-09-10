@@ -11,12 +11,11 @@ import svSE from "@/i18n/locales/sv-SE.json";
 /**
  * Nothing on screen may be a translation key, in either locale.
  *
- * A raw key on screen means one of two failures: a `t()` call whose key does not
- * exist, or a string that was added to `en-US.json` and forgotten in
- * `sv-SE.json`. `scripts/check-invariants.sh` already catches key *parity*
- * between the two files — the same set of keys in both. It cannot catch a key
- * that is missing from both, or a `t("bord.title")` typo, because from the
- * outside those look like a key nobody has added yet.
+ * The static half now lives in `scripts/check-invariants.sh` (check 15): a
+ * `t("bord.title")` typo, or a key missing from both files, fails there at
+ * gate speed. What this pass is left holding is the half grep cannot see —
+ * keys built at runtime (`t(prefix + x)`, `t(map[key])`) — and the only proof
+ * that nothing raw reaches the screen in either locale.
  *
  * The check is made against the real key list rather than a shape like
  * `/\w+(\.\w+)+/`, which is the difference between a check that runs forever and

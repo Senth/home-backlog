@@ -12,7 +12,7 @@
 # Usage:   yarn invariants [--base <ref>]
 # Exit:    0 = all pass, 1 = an invariant failed, 2 = the script could not run
 #
-# Checks 1-6, 8 and 14 read the whole working tree — tracked files *and*
+# Checks 1-6, 8, 14 and 15 read the whole working tree — tracked files *and*
 # untracked ones that git would add, because the moment you most want this run
 # is right after writing a new file, and a new file has not been staged yet. A
 # violation is a violation whoever wrote it, and the tree being clean today is
@@ -491,6 +491,51 @@ if [[ -n "$hits" ]]; then
 		"Emulators boot only through scripts/dev-stack.sh; the rules suite keeps its own run in scripts/test-rules.mjs."
 else
 	report 14 "emulators via dev-stack" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 15. Every literal t("…") key exists in en-US.json
+#
+# The failure e2e/i18n.spec.ts used to be the only catcher of — a
+# `t("bord.title")` typo, a key added to no file at all — is greppable, so it
+# belongs here at gate speed beside check 6's parity. What stays browser-only
+# is the half grep cannot see: keys built at runtime (`t(prefix + x)`,
+# `t(map[key])`), and the proof that nothing raw reaches the screen.
+#
+# A plural key is called by its stem — t("board.assignedTo", { count }) —
+# while the files hold the _one/_other leaves, so a stem backed by any i18next
+# plural suffix counts as present.
+#
+# Test files are out: they assert against key strings, and none of them is a
+# user-facing surface.
+# ---------------------------------------------------------------------------
+PATTERN='\bt\(["'\''][^"'\''`]+["'\'']'
+T_FILES=()
+for f in "${SRC[@]}"; do
+	[[ "$f" =~ \.test\.tsx?$ ]] && continue
+	T_FILES+=("$f")
+done
+used=$(
+	printf '%s\0' "${T_FILES[@]}" |
+		xargs -0 -r grep -HnoE "$PATTERN" |
+		sed -E "s/:[[:space:]]*t\\([\"']/:/; s/[\"']\$//"
+)
+EN_KEYS=$(keypaths "$EN")
+missing=""
+while IFS= read -r entry; do
+	[[ -z "$entry" ]] && continue
+	key="${entry##*:}"
+	grep -qxF "$key" <<<"$EN_KEYS" && continue
+	for suffix in zero one two few many other; do
+		grep -qxF "${key}_${suffix}" <<<"$EN_KEYS" && break 2
+	done
+	missing+="$entry"$'\n'
+done < <(printf '%s\n' "$used" | sort -u)
+if [[ -n "$missing" ]]; then
+	report 15 "t() keys exist" FAIL "${missing%$'\n'}" \
+		"Every literal t(\"…\") key must exist in i18n/locales/en-US.json (a plural stem counts when a _one/_other leaf exists); keys built at runtime are the e2e/i18n.spec.ts check."
+else
+	report 15 "t() keys exist" ok
 fi
 
 # ---------------------------------------------------------------------------
