@@ -1,0 +1,2 @@
+export const badge = { color: "teal" };
+export const accent = "#FF0000";

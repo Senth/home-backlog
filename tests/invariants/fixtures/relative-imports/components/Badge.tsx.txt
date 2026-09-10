@@ -1,0 +1,3 @@
+import { CardLabel } from "../components/CardLabel";
+
+export const uses = CardLabel;
