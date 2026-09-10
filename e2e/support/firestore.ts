@@ -133,8 +133,9 @@ export async function deleteNodesByTitlePrefix(prefix: string): Promise<void> {
  * titles in the order they will appear.
  *
  * A claim about *a column full enough to scroll* cannot be made against the
- * fixture: the seeded home is a real household's board, six root cards across
- * four columns, and none of its columns overflows a phone. Padding the fixture
+ * fixture: the seeded home is a real household's board, four root cards
+ * across three columns — Next Up is empty by construction (#142) — and none
+ * of its columns overflows a phone. Padding the fixture
  * itself would push that noise into every other spec's screenshots and into
  * `browser-review`, so the cards are made for the one test that needs them and
  * deleted after it.
