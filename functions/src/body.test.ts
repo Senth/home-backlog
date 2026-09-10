@@ -1,4 +1,4 @@
-import { parseLocationBody, parseNodeBody } from "./body.js";
+import { parseLabelBody, parseLocationBody, parseNodeBody } from "./body.js";
 import type { ApiError } from "./errors.js";
 
 function refusal(body: unknown, mode: "create" | "update"): ApiError {
@@ -315,5 +315,74 @@ describe("a location body", () => {
 
 	it("refuses a body that is not an object", () => {
 		expect(locationRefusal([], "create").code).toBe("invalid_body");
+	});
+});
+
+/**
+ * A label body, shaped like a location's: name it, dress it, and — on a create
+ * only — place it. `title`, `icon` and `color` are required on a create (#256);
+ * that requirement is the route's, and here only the allow-list and the types
+ * are the test.
+ */
+function labelRefusal(body: unknown, mode: "create" | "update"): ApiError {
+	try {
+		parseLabelBody(body, mode);
+	} catch (error) {
+		return error as ApiError;
+	}
+	throw new Error("Expected the body to be refused.");
+}
+
+describe("a label body", () => {
+	it("takes every field a create writes", () => {
+		expect(
+			parseLabelBody(
+				{ title: "Plumbing", icon: "wrench", color: "teal", rank: "a0" },
+				"create",
+			),
+		).toEqual({ title: "Plumbing", icon: "wrench", color: "teal", rank: "a0" });
+	});
+
+	it("takes rank on a create, where it places a new label", () => {
+		expect(parseLabelBody({ rank: "a0" }, "create")).toEqual({ rank: "a0" });
+	});
+
+	it("refuses rank on an update — reorder is a person's drag handle", () => {
+		const error = labelRefusal({ rank: "a0" }, "update");
+
+		expect(error.code).toBe("unknown_field");
+		expect(error.message).toContain("title");
+	});
+
+	it.each([
+		"ancestorIds",
+		"createdAt",
+		"createdBy",
+		"updatedAt",
+		"id",
+		"labels",
+	])("refuses %s on a create and an update", (field) => {
+		expect(labelRefusal({ [field]: "anything" }, "create").code).toBe(
+			"unknown_field",
+		);
+		expect(labelRefusal({ [field]: "anything" }, "update").code).toBe(
+			"unknown_field",
+		);
+	});
+
+	it("refuses a title that is not a string", () => {
+		expect(labelRefusal({ title: 42 }, "create").code).toBe("invalid_type");
+	});
+
+	it("refuses an icon that is not a string", () => {
+		expect(labelRefusal({ icon: 7 }, "create").code).toBe("invalid_type");
+	});
+
+	it("refuses a color that is not a string", () => {
+		expect(labelRefusal({ color: null }, "create").code).toBe("invalid_type");
+	});
+
+	it("refuses a body that is not an object", () => {
+		expect(labelRefusal([], "create").code).toBe("invalid_body");
 	});
 });

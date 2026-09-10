@@ -159,28 +159,32 @@ export function refuseOversizedSubtree(count: number, operation: string): void {
 }
 
 /**
- * `If-Match`, checked against the document's `updatedAt`.
+ * `If-Match`, checked against the ETag a read handed back.
  *
  * Optional, and the only concurrency control the API has: an agent that read a
  * card, thought about it, and comes back to write can find out that somebody
- * edited it in between rather than silently overwriting them. Every node and
- * location response carries the same value as its `ETag`.
+ * edited it in between rather than silently overwriting them. Nodes and
+ * locations hash their `updatedAt`; labels hash their entry, which has no
+ * timestamp — the label verbs call this with the entry's own hash.
  */
-export function checkPrecondition(
-	request: Request,
-	snapshot: DocumentSnapshot<DocumentData>,
-): void {
+export function checkEtag(request: Request, currentEtag: string): void {
 	const expected = request.get("if-match");
 	if (!expected) return;
 
-	const current = etagOf(snapshot);
-	if (expected.replace(/"/g, "") !== current.replace(/"/g, "")) {
+	if (expected.replace(/"/g, "") !== currentEtag.replace(/"/g, "")) {
 		throw new ApiError(
 			412,
 			"version_mismatch",
 			`This document has changed since ${expected}. Read it again before writing.`,
 		);
 	}
+}
+
+export function checkPrecondition(
+	request: Request,
+	snapshot: DocumentSnapshot<DocumentData>,
+): void {
+	checkEtag(request, etagOf(snapshot));
 }
 
 function etagOf(snapshot: DocumentSnapshot<DocumentData>): string {

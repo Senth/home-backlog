@@ -1,4 +1,11 @@
-import { apiHome, apiLocation, apiNode, visibleTo } from "./api-nodes.js";
+import {
+	apiHome,
+	apiLabel,
+	apiLocation,
+	apiNode,
+	etagForLabel,
+	visibleTo,
+} from "./api-nodes.js";
 
 const me = "uid-member";
 const someoneElse = "uid-owner";
@@ -190,6 +197,55 @@ describe("a location on the wire", () => {
 		expect(location.ancestorIds).toEqual([]);
 		expect(location.rank).toBe("");
 		expect(location.createdAt).toBeNull();
+	});
+});
+
+describe("a label on the wire", () => {
+	const stored = {
+		title: "Plumbing",
+		icon: "wrench",
+		color: "teal",
+		rank: "a0",
+	};
+
+	it("carries the id and every field, with its etag", () => {
+		expect(apiLabel("label-1", stored)).toEqual({
+			id: "label-1",
+			...stored,
+			etag: etagForLabel(stored),
+		});
+	});
+
+	// A malformed entry is dropped by `readLabels` before it can get here, but
+	// the serializer still refuses to throw on one it is handed.
+	it("survives a document with nothing in it", () => {
+		const label = apiLabel("empty", {});
+
+		expect(label.title).toBe("");
+		expect(label.icon).toBe("");
+		expect(label.color).toBe("");
+		expect(label.rank).toBe("");
+		expect(label.etag).toMatch(/^"[0-9a-f]{40}"$/);
+	});
+
+	it("hashes to a quoted sha-1", () => {
+		expect(etagForLabel(stored)).toMatch(/^"[0-9a-f]{40}"$/);
+	});
+
+	it("is stable for an unchanged entry", () => {
+		expect(etagForLabel(stored)).toBe(etagForLabel({ ...stored }));
+	});
+
+	// One value serves both the row's `etag` field and the `ETag` header, so any
+	// field change must move it — the whole property `If-Match` rests on.
+	it.each([
+		"title",
+		"icon",
+		"color",
+		"rank",
+	] as const)("changes when %s changes", (field) => {
+		const changed = { ...stored, [field]: `other-${field}` };
+		expect(etagForLabel(changed)).not.toBe(etagForLabel(stored));
 	});
 });
 

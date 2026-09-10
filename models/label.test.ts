@@ -22,19 +22,31 @@ const homeLabels: LabelWithId[] = [
 
 describe("labelError", () => {
 	it("refuses a title that is empty or only spaces", () => {
-		expect(labelError("")).toBe("labels.titleRequired");
-		expect(labelError("   ")).toBe("labels.titleRequired");
+		expect(labelError("", homeLabels)).toBe("labels.titleRequired");
+		expect(labelError("   ", homeLabels)).toBe("labels.titleRequired");
 	});
 
 	it("refuses one past the cap", () => {
-		expect(labelError("x".repeat(61))).toBe("labels.titleTooLong");
+		expect(labelError("x".repeat(61), homeLabels)).toBe("labels.titleTooLong");
 	});
 
 	it("measures the trimmed title, which is what gets written", () => {
-		expect(labelError("  Electrical  ")).toBeNull();
+		expect(labelError("  Electrical  ", [])).toBeNull();
 		// Padding does not push a title over the cap — only its trimmed length does.
-		expect(labelError(`  ${"x".repeat(58)}  `)).toBeNull();
-		expect(labelError("x".repeat(61))).toBe("labels.titleTooLong");
+		expect(labelError(`  ${"x".repeat(58)}  `, [])).toBeNull();
+		expect(labelError("x".repeat(61), [])).toBe("labels.titleTooLong");
+	});
+
+	it("refuses a title another definition already has", () => {
+		expect(labelError("Garden", homeLabels)).toBe("labels.titleTaken");
+	});
+
+	it("refuses a duplicate differing in case and surrounding space", () => {
+		expect(labelError("  garden  ", homeLabels)).toBe("labels.titleTaken");
+	});
+
+	it("allows a rename that keeps its own title", () => {
+		expect(labelError("Garden", homeLabels, "a")).toBeNull();
 	});
 });
 

@@ -31,10 +31,10 @@ export interface Label {
 export const maxLabelsPerNode = 6;
 
 /**
- * How many labels a home may define, matched by `validLabels()` in
- * `firestore.rules`.
+ * How many labels a home may define. The 300 lives in three places that must
+ * agree: here, `validLabels()` in `firestore.rules`, and the functions mirror.
  */
-export const maxLabelsPerHome = 50;
+export const maxLabelsPerHome = 300;
 
 /**
  * Longest title a label may have. The rules cannot iterate the map's values to
@@ -44,17 +44,30 @@ export const maxLabelsPerHome = 50;
 export const maxLabelTitleLength = 60;
 
 /** Why a typed label title cannot be saved, as the key that says so. */
-export type LabelTitleError = "labels.titleRequired" | "labels.titleTooLong";
+export type LabelTitleError =
+	| "labels.titleRequired"
+	| "labels.titleTaken"
+	| "labels.titleTooLong";
 
 /**
  * The one validation a label title has, checked here rather than in the dialog
- * so the rules are not the first thing that says no.
+ * so the rules are not the first thing that says no. Two definitions cannot
+ * share a name: `existing` is the home's current set and `selfId` the label
+ * being renamed, so a rename never collides with itself.
  */
-export function labelError(title: string): LabelTitleError | null {
+export function labelError(
+	title: string,
+	existing: readonly LabelWithId[],
+	selfId?: string | null,
+): LabelTitleError | null {
 	const trimmed = title.trim();
 	if (trimmed.length === 0) return "labels.titleRequired";
 	if (trimmed.length > maxLabelTitleLength) return "labels.titleTooLong";
-	return null;
+	const name = trimmed.toLowerCase();
+	const taken = existing.some(
+		(label) => label.id !== selfId && label.title.trim().toLowerCase() === name,
+	);
+	return taken ? "labels.titleTaken" : null;
 }
 
 export interface NewLabelInput {

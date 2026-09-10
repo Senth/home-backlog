@@ -130,6 +130,30 @@ describe("LabelDialog", () => {
 		expect(screen.getByText("labels.titleRequired")).toBeOnTheScreen();
 	});
 
+	it("refuses a name another label already carries and writes nothing", () => {
+		mockHomes = [
+			{ id: "home-1", labels: [label("taken", { title: "Winter" })] },
+		];
+		renderDialog();
+
+		fireEvent.changeText(nameField(), "winter");
+		fireEvent.press(screen.getByText("labels.add"));
+
+		expect(createLabel).not.toHaveBeenCalled();
+		expect(titleHelper()?.props.visible).toBe(true);
+		expect(screen.getByText("labels.titleTaken")).toBeOnTheScreen();
+	});
+
+	it("saves a rename to the label's own title in another case", () => {
+		mockHomes = [{ id: "home-1", labels: [label("l1", { title: "Winter" })] }];
+		renderDialog({ label: label("l1", { title: "Winter" }) });
+
+		fireEvent.changeText(nameField(), "winter");
+		fireEvent.press(screen.getByText("labels.save"));
+
+		expect(renameLabel).toHaveBeenCalledWith("home-1", "l1", "winter");
+	});
+
 	it("edits only what changed", () => {
 		mockHomes = [{ id: "home-1", labels: [] }];
 		renderDialog({ label: label("l1") });

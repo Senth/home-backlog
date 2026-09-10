@@ -67,8 +67,8 @@ export interface NodeBody {
 	participantIds?: string[];
 	/**
 	 * The ids of the home's label definitions the card carries. The
-	 * definitions themselves are curated in the app — there is no field a
-	 * caller could send that writes one, and no verb that lists them.
+	 * definitions behind those ids are the label verbs' (`labels.ts`); a
+	 * node body carries ids only, and a gone id renders as nothing.
 	 */
 	labelIds?: string[];
 }
@@ -319,6 +319,60 @@ export function parseLocationBody(
 	if ("parentId" in raw) {
 		parsed.parentId = asStringOrNull(raw.parentId, "parentId");
 	}
+	if ("rank" in raw) parsed.rank = asString(raw.rank, "rank");
+
+	return parsed;
+}
+
+export interface LabelBody {
+	title?: string;
+	icon?: string;
+	color?: string;
+	/**
+	 * Honoured on a create, where it places a new label directly; on an update
+	 * it is an unknown field, because reorder stays a person's drag handle.
+	 */
+	rank?: string;
+}
+
+/** Fields a caller may send when creating a label. */
+const labelCreateFields = ["title", "icon", "color", "rank"] as const;
+
+/** Fields a caller may send when changing one. Reorder is the app's. */
+const labelUpdateFields = ["title", "icon", "color"] as const;
+
+/**
+ * Read a label body against the allow-list for this verb — the same shape
+ * `parseLocationBody` has.
+ *
+ * The stored id and the definition's identity fields the server owns are
+ * refused by name of the allow-list: a body that could write `id` would plant
+ * a definition under a key no card names. `title`, `icon` and `color` are
+ * required on a create — six agent-made blue stars defeat what labels are for
+ * — and that requirement is the route's, which answers 400 before anything is
+ * written.
+ */
+export function parseLabelBody(
+	body: unknown,
+	mode: "create" | "update",
+): LabelBody {
+	const raw = asObject(body);
+	const allowed: readonly string[] =
+		mode === "create" ? labelCreateFields : labelUpdateFields;
+
+	for (const field of Object.keys(raw)) {
+		if (allowed.includes(field)) continue;
+		refuse(
+			"unknown_field",
+			`${field} is not a field this endpoint writes. Allowed: ${allowed.join(", ")}.`,
+			field,
+		);
+	}
+
+	const parsed: LabelBody = {};
+	if ("title" in raw) parsed.title = asString(raw.title, "title");
+	if ("icon" in raw) parsed.icon = asString(raw.icon, "icon");
+	if ("color" in raw) parsed.color = asString(raw.color, "color");
 	if ("rank" in raw) parsed.rank = asString(raw.rank, "rank");
 
 	return parsed;
