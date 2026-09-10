@@ -1,0 +1,8 @@
+import { Text } from "react-native-paper";
+
+// padding: 16 in a comment is prose, not a style object.
+// Referencing issue #101 in a comment is not a color literal.
+/*
+ * Worked example: 9 + 30 + 9 = 48 points of gutter on the card face.
+ */
+export const CardLabel = () => <Text>card</Text>;
