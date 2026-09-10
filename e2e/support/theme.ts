@@ -39,7 +39,7 @@ const REACT_NATIVE_STUB = {
  * `rgb()` from the theme files, and `rgba()` from `getComputedStyle`, all
  * arrive here before anything is compared.
  */
-function canonicalColor(value: string): string {
+export function canonicalColor(value: string): string {
 	if (value === "transparent") return "rgba(0, 0, 0, 0)";
 	if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
 		const n = Number.parseInt(value.slice(1), 16);
@@ -151,6 +151,21 @@ function loadThemeSource(): {
 }
 
 const themes = loadThemeSource();
+
+/**
+ * One named color of a scheme's theme, canonicalised the way the palette is —
+ * for assertions that pin a *pairing* of two theme colors (a text and the
+ * surface it sits on) rather than mere palette membership.
+ */
+export function themeColor(scheme: Scheme, name: string): string {
+	const colors = (scheme === "light" ? themes.lightTheme : themes.darkTheme)
+		.colors;
+	const value = colors[name];
+	if (typeof value !== "string") {
+		throw new Error(`no theme color "${name}" in the ${scheme} theme`);
+	}
+	return canonicalColor(value);
+}
 
 function paletteOf(source: unknown): string[] {
 	const colors_ = new Set<string>();
