@@ -164,6 +164,7 @@
 		"moveOwnSubtree": "That card cannot be moved under itself or one of its own cards.",
 		"moveVisibility": "A private card cannot live inside a shared project, or the other way around.",
 		"offline": "You are offline. Signing in needs a connection.",
+		"subtreeTooLarge": "That location has too much under it to change in one go. Move or delete it in smaller pieces.",
 		"saveFailed": "Could not save that. Please try again."
 	},
 	"board": {

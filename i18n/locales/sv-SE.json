@@ -164,6 +164,7 @@
 		"moveOwnSubtree": "Det kortet kan inte flyttas under sig självt eller ett av sina egna kort.",
 		"moveVisibility": "Ett privat kort kan inte ligga i ett delat projekt, eller tvärtom.",
 		"offline": "Du är offline. Du måste vara uppkopplad för att logga in.",
+		"subtreeTooLarge": "Den platsen har för mycket under sig för att ändras på en gång. Flytta eller ta bort den i mindre delar.",
 		"saveFailed": "Det gick inte att spara. Försök igen."
 	},
 	"board": {
