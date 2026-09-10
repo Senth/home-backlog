@@ -13,6 +13,8 @@
 // silent adoption of someone else's stack.
 //
 // Usage: node scripts/alloc-ports.mjs alloc <service>...
+//        node scripts/alloc-ports.mjs registry — prints the registry path,
+//        for consumers (dev-stack.sh, test-rules.mjs) that must not re-derive it.
 //
 // Prints one JSON object mapping each service name to its port, and nothing
 // else, on stdout. The pid a fresh claim carries is the *caller's*
@@ -97,8 +99,14 @@ async function claimPort(port, registry) {
 }
 
 const [cmd, ...services] = process.argv.slice(2);
+if (cmd === "registry") {
+	console.log(registryDir());
+	process.exit(0);
+}
 if (cmd !== "alloc" || services.length === 0) {
-	console.error("usage: node scripts/alloc-ports.mjs alloc <service>...");
+	console.error(
+		"usage: node scripts/alloc-ports.mjs alloc <service>... | registry",
+	);
 	process.exit(2);
 }
 if (new Set(services).size !== services.length) {

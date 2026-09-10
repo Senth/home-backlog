@@ -64,9 +64,10 @@ command -v jq >/dev/null 2>&1 || {
 
 STATE=".tmp/dev-stack"
 # The registry lives next to the main worktree's .git, so every worktree of
-# this repository shares one book of port claims (see scripts/alloc-ports.mjs).
-# DEV_STACK_REGISTRY moves it — tests and sandboxed smoke runs only.
-REG="${DEV_STACK_REGISTRY:-$(cd "$(git rev-parse --git-common-dir)/.." && pwd)/.tmp/dev-stack/registry}"
+# this repository shares one book of port claims. The path is derived once, in
+# scripts/alloc-ports.mjs, and read through its `registry` subcommand — which
+# also honours DEV_STACK_REGISTRY (tests and sandboxed smoke runs only).
+REG="$(node scripts/alloc-ports.mjs registry)"
 # The generated emulator config must be at the worktree root — see the header.
 GENERATED_CONFIG="firebase.dev-stack.json"
 mkdir -p "$STATE"
