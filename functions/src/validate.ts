@@ -1,4 +1,6 @@
 import { ApiError } from "./errors.js";
+import { iconNames } from "./icon-names.js";
+import { isLabelColor, type Label, maxLabelTitleLength } from "./label.js";
 import {
 	defaultColumns,
 	dueDatePattern,
@@ -641,6 +643,61 @@ export function validateLocation(
 				"parentId does not match the parent that was resolved.",
 			);
 		}
+	}
+
+	return issues;
+}
+
+/**
+ * Every value check one label entry answers, against the stored entry as it
+ * will be written — the same full-document shape `validateNode` costs.
+ *
+ * Two conflicts are deliberately **not** here: a home at 300 labels and a
+ * title another definition already carries are state conflicts, read against
+ * the home document at write time, and the route answers them with 409 inside
+ * the transaction that writes — a 400 would call a refusal a typo when what it
+ * names is a race.
+ */
+export function validateLabel(
+	data: Partial<Record<keyof Label, unknown>>,
+): ValidationIssue[] {
+	const issues: ValidationIssue[] = [];
+	const add = (field: string, code: string, message: string) =>
+		issues.push({ field, code, message });
+
+	if (!isString(data.title) || data.title.length < 1) {
+		add("title", "title_required", "A label needs a title.");
+	} else if (data.title.length > maxLabelTitleLength) {
+		add(
+			"title",
+			"title_too_long",
+			`A title is at most ${maxLabelTitleLength} characters.`,
+		);
+	}
+
+	// The caller is an LLM; a hallucinated glyph is a label with no identity, so
+	// the name is checked against the generated set the picker draws from.
+	if (
+		!isString(data.icon) ||
+		!(iconNames as ReadonlySet<string>).has(data.icon)
+	) {
+		add(
+			"icon",
+			"unknown_icon",
+			"icon must be a MaterialCommunityIcons glyph name, such as wrench.",
+		);
+	}
+
+	if (!isLabelColor(data.color)) {
+		add(
+			"color",
+			"invalid_color",
+			"color must be one of red, orange, amber, lime, green, teal, cyan, blue, indigo, purple, pink, stone, or a #rgb / #rrggbb hex.",
+		);
+	}
+
+	if (!isString(data.rank) || data.rank.length === 0) {
+		add("rank", "invalid_rank", "rank must be a non-empty string.");
 	}
 
 	return issues;

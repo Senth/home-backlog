@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
 	type CreatedVia,
 	type Effort,
@@ -215,6 +216,54 @@ export function apiLocation(
 		createdBy: stringOr(data.createdBy, ""),
 		updatedAt: isoTime(data.updatedAt),
 	};
+}
+
+export interface ApiLabel {
+	id: string;
+	title: string;
+	icon: string;
+	color: string;
+	rank: string;
+	/**
+	 * A quoted sha-1 over the entry's four fields — the same value the write
+	 * verbs check against `If-Match`, so one read tells a caller what to send.
+	 */
+	etag: string;
+}
+
+/**
+ * A stored label entry as JSON, read defensively — the same argument
+ * `apiLocation` makes.
+ *
+ * There is no `updatedAt` to build an ETag from: the map lives on the home
+ * document and every write is a field-path update, so the hash below is over
+ * the entry's own fields instead. It changes the moment any one of them does,
+ * which is the property `If-Match` needs.
+ */
+export function etagForLabel(label: {
+	title: unknown;
+	icon: unknown;
+	color: unknown;
+	rank: unknown;
+}): string {
+	// NUL cannot appear in a glyph name, a hue name, a hex or a rank, so the
+	// four values cannot collide across a field boundary.
+	const hash = createHash("sha1")
+		.update(
+			`${String(label.title)}\u0000${String(label.icon)}\u0000${String(label.color)}\u0000${String(label.rank)}`,
+		)
+		.digest("hex");
+	return `"${hash}"`;
+}
+
+export function apiLabel(id: string, data: Record<string, unknown>): ApiLabel {
+	const entry = {
+		title: stringOr(data.title, ""),
+		icon: stringOr(data.icon, ""),
+		color: stringOr(data.color, ""),
+		rank: stringOr(data.rank, ""),
+	};
+	return { id, ...entry, etag: etagForLabel(entry) };
 }
 
 export interface ApiHomeMember {

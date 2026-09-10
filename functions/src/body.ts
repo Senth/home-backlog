@@ -323,3 +323,57 @@ export function parseLocationBody(
 
 	return parsed;
 }
+
+export interface LabelBody {
+	title?: string;
+	icon?: string;
+	color?: string;
+	/**
+	 * Honoured on a create, where it places a new label directly; on an update
+	 * it is an unknown field, because reorder stays a person's drag handle.
+	 */
+	rank?: string;
+}
+
+/** Fields a caller may send when creating a label. */
+const labelCreateFields = ["title", "icon", "color", "rank"] as const;
+
+/** Fields a caller may send when changing one. Reorder is the app's. */
+const labelUpdateFields = ["title", "icon", "color"] as const;
+
+/**
+ * Read a label body against the allow-list for this verb — the same shape
+ * `parseLocationBody` has.
+ *
+ * The stored id and the definition's identity fields the server owns are
+ * refused by name of the allow-list: a body that could write `id` would plant
+ * a definition under a key no card names. `title`, `icon` and `color` are
+ * required on a create — six agent-made blue stars defeat what labels are for
+ * — and that requirement is the route's, which answers 400 before anything is
+ * written.
+ */
+export function parseLabelBody(
+	body: unknown,
+	mode: "create" | "update",
+): LabelBody {
+	const raw = asObject(body);
+	const allowed: readonly string[] =
+		mode === "create" ? labelCreateFields : labelUpdateFields;
+
+	for (const field of Object.keys(raw)) {
+		if (allowed.includes(field)) continue;
+		refuse(
+			"unknown_field",
+			`${field} is not a field this endpoint writes. Allowed: ${allowed.join(", ")}.`,
+			field,
+		);
+	}
+
+	const parsed: LabelBody = {};
+	if ("title" in raw) parsed.title = asString(raw.title, "title");
+	if ("icon" in raw) parsed.icon = asString(raw.icon, "icon");
+	if ("color" in raw) parsed.color = asString(raw.color, "color");
+	if ("rank" in raw) parsed.rank = asString(raw.rank, "rank");
+
+	return parsed;
+}
