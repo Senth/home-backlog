@@ -25,6 +25,7 @@ import { usePendingInvites } from "@/hooks/use-pending-invites";
 import { type HomeNameError, homeNameError } from "@/models/home";
 import { useAppTheme } from "@/theme";
 import { contentWidth, space, touchTarget } from "@/theme/tokens";
+import { buildId } from "@/utils/build-info";
 
 const createDialogTestID = "create-home-dialog";
 
@@ -272,6 +273,33 @@ export default function Homes() {
 						)}
 					</>
 				)}
+
+				{/* The build stamp (#264): a caption, not a control. Ignorable by
+				    design — it is only ever read when someone asks which build
+				    this phone is running — so it follows the content at the foot
+				    and carries no affordance of its own. */}
+				<View style={{ gap: space.xs, alignItems: "center" }}>
+					<Text
+						variant="bodySmall"
+						style={{
+							color: theme.colors.onSurfaceVariant,
+							fontWeight: "500",
+							textAlign: "center",
+						}}
+					>
+						{t("app.name")}
+					</Text>
+					<Text
+						variant="bodySmall"
+						style={{
+							color: theme.colors.onSurfaceVariant,
+							opacity: 0.75,
+							textAlign: "center",
+						}}
+					>
+						{buildId}
+					</Text>
+				</View>
 			</ScrollView>
 
 			<AppDialog
