@@ -51,6 +51,14 @@ function alloc(services: string[]): Record<string, number> {
 	return JSON.parse(out) as Record<string, number>;
 }
 
+function registryPath(): string {
+	return execFileSync(process.execPath, [SCRIPT, "registry"], {
+		cwd: root,
+		encoding: "utf8",
+		env: { ...process.env, DEV_STACK_REGISTRY: registry },
+	}).trim();
+}
+
 // Plant a claim the way a live allocator leaves one behind.
 function plantClaim(port: number, pid: number): void {
 	const dir = path.join(registry, String(port));
@@ -68,6 +76,12 @@ test("two allocations against one fresh registry return disjoint port sets", () 
 	expect(new Set([...first, ...second]).size).toBe(
 		first.length + second.length,
 	);
+});
+
+// The consumers of the registry path — dev-stack.sh and test-rules.mjs — read
+// it through the `registry` subcommand, so the path is derived in one place.
+test("the registry subcommand prints the path the allocator claims in", () => {
+	expect(registryPath()).toBe(registry);
 });
 
 test("a dead pid's claim is reclaimed by the next allocation; a live pid's is skipped", async () => {
