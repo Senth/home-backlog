@@ -57,9 +57,14 @@ ready = "Huset"
 # What `.emulator-seed` holds, so an empty screen is judged and not reported:
 # eighteen nodes across Backlog / Next Up / Execution / Done — sixteen under
 # Huset and two under Stugan, those two without a due date, a priority or
-# notes. Fifteen of the eighteen have no due date and no priority, and
-# fifteen have no notes, so anything surfacing "overdue" or "due soon" is
-# legitimately empty. Huset holds **six
+# notes. Sixteen of the eighteen have no due date and fifteen have no
+# priority, and none carries a note, so anything surfacing "overdue" or "due
+# soon" is legitimately empty. Huset's root cards sit 3 / 0 / 2 / 1 across
+# Backlog / Next Up / Execution / Done: Next Up is empty by construction
+# (#142), so the board's empty-column state — the `board.columnEmpty` line on
+# the recessed fill — is on screen every run. Done keeps its one completed
+# card on purpose: `Rensa hängrännorna` is the only one that proves a
+# completed card renders. Huset holds **six
 # label definitions, all preset hues** (#100), and two of its cards carry
 # labels: "Renovera badrummet" has a priority and **all six** — the
 # full-gutter shape the card face is built around — and "Beställ en tystare

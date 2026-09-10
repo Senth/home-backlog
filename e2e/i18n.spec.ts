@@ -76,8 +76,8 @@ for (const route of ROUTES) {
  * be a check that cannot fail.
  */
 const STRIP = [
-	{ status: "backlog", count: 1 },
-	{ status: "next_up", count: 2 },
+	{ status: "backlog", count: 3 },
+	{ status: "next_up", count: 0 },
 	{ status: "execution", count: 2 },
 	{ status: "done", count: 1 },
 ] as const;

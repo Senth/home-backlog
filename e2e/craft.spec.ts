@@ -8,7 +8,12 @@ import {
 	stripDevToast,
 	VIEWPORTS,
 } from "@/e2e/support/app";
-import { PALETTE, type Scheme } from "@/e2e/support/theme";
+import {
+	canonicalColor,
+	PALETTE,
+	type Scheme,
+	themeColor,
+} from "@/e2e/support/theme";
 import enUS from "@/i18n/locales/en-US.json";
 import svSE from "@/i18n/locales/sv-SE.json";
 import {
@@ -534,6 +539,41 @@ for (const scheme of ["light", "dark"] as const) {
 			});
 		}
 
+		test("the empty column's text is onSurfaceVariant on the boardColumn fill", async ({
+			page,
+		}, testInfo) => {
+			test.skip(
+				page.viewportSize()?.width !== VIEWPORTS.desktop.width,
+				"the column fill only exists above compactBreakpoint",
+			);
+
+			// #104 recessed the column onto its own fill, and the re-check this
+			// claim names — the `board.columnEmpty` line against the much darker
+			// fill — could never run, because every seeded column held a card
+			// (#142). Next Up is empty by construction now, so the pairing is on
+			// screen every run and pinned to the two tokens the component reads,
+			// in both schemes.
+			const strings = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
+			await gotoAndSettle(page, BOARD);
+
+			const column = page.locator(columnSelector("next_up"));
+			const emptyText = column.getByText(strings.board.columnEmpty, {
+				exact: true,
+			});
+			await expect(emptyText).toBeVisible();
+
+			const columnFill = canonicalColor(
+				await column.evaluate(
+					(node) => window.getComputedStyle(node).backgroundColor,
+				),
+			);
+			const textColor = canonicalColor(
+				await emptyText.evaluate((node) => window.getComputedStyle(node).color),
+			);
+			expect(columnFill).toBe(themeColor(scheme, "boardColumn"));
+			expect(textColor).toBe(themeColor(scheme, "onSurfaceVariant"));
+		});
+
 		test("29: a node's /details is on-scale, on-palette and free of near-miss edges", async ({
 			page,
 		}) => {
@@ -765,10 +805,13 @@ const SEEDED_PROJECT = "Renovera badrummet";
  * The committed fixture's per-column counts, the same table `i18n.spec.ts`
  * reads for the strip: the desktop heading carries its count now (#141), so
  * the string it asserts has to be filled the same way the component fills it.
+ *
+ * Next Up is empty by construction (#142), so the empty-column state — the
+ * `board.columnEmpty` line on the recessed fill — is on screen every run.
  */
 const COLUMN_COUNTS = {
-	backlog: 1,
-	next_up: 2,
+	backlog: 3,
+	next_up: 0,
 	execution: 2,
 	done: 1,
 } as const;
