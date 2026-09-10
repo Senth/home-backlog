@@ -6,6 +6,15 @@
 			"fields": [
 				{ "fieldPath": "archived", "order": "ASCENDING" },
 				{ "fieldPath": "parentId", "order": "ASCENDING" },
+				{ "fieldPath": "rank", "order": "ASCENDING" }
+			]
+		},
+		{
+			"collectionGroup": "nodes",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{ "fieldPath": "archived", "order": "ASCENDING" },
+				{ "fieldPath": "parentId", "order": "ASCENDING" },
 				{ "fieldPath": "visibility", "order": "ASCENDING" },
 				{ "fieldPath": "rank", "order": "ASCENDING" }
 			]
