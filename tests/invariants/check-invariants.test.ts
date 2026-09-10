@@ -33,6 +33,7 @@ const CHECKS = [
 	"domain modules tested",
 	"one console filter",
 	"skill.md version",
+	"t() keys exist",
 	"no Appbar.BackAction",
 	"e2e spec budget",
 	"emulators via dev-stack",
