@@ -308,11 +308,22 @@ describe("homes/{homeId}", () => {
 
 		it("refuses a map past the cap", async () => {
 			const labels: Record<string, unknown> = {};
-			for (let index = 0; index < 51; index += 1) {
+			for (let index = 0; index < 301; index += 1) {
 				labels[`label-${index}`] = labelEntry();
 			}
 
 			await assertFails(
+				updateDoc(doc(dbAs(env, MEMBER), homePath), { labels }),
+			);
+		});
+
+		it("accepts a map at the cap", async () => {
+			const labels: Record<string, unknown> = {};
+			for (let index = 0; index < 300; index += 1) {
+				labels[`label-${index}`] = labelEntry();
+			}
+
+			await assertSucceeds(
 				updateDoc(doc(dbAs(env, MEMBER), homePath), { labels }),
 			);
 		});

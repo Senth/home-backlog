@@ -113,7 +113,7 @@ export function LabelDialog({
 	};
 
 	const save = () => {
-		const problem = labelError(title);
+		const problem = labelError(title, labels, label?.id ?? null);
 		if (problem !== null) {
 			setTitleProblem(problem);
 			return;

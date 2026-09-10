@@ -48,7 +48,8 @@ service cloud.firestore {
     // The household's label definitions (#100), keyed by id. The rules language
     // cannot iterate a map's values, so the shape of each entry is held by
     // `toLabels()`'s defensive read in models/label.ts and by the client that
-    // writes the map; what is enforced here is the container itself.
+    // writes the map; what is enforced here is the container itself — at most
+    // 300 entries, the same `maxLabelsPerHome` models/label.ts states.
     //
     // Present-only, for the same reason as a node's labelIds: every home written
     // before #100 lacks the key, and request.resource.data is the full
@@ -56,7 +57,7 @@ service cloud.firestore {
     // them, and there is no admin tooling in this repo to unstick that.
     function validLabels(labels) {
       return labels is map
-        && labels.size() <= 50;
+        && labels.size() <= 300;
     }
 
     function validHome(data) {
