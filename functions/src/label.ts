@@ -38,13 +38,14 @@ const HEX_PATTERN = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 /**
  * A label color: one of the twelve hue names, or `#rgb` / `#rrggbb` — the same
- * grammar `models/label-color.ts`'s `isHexColor` accepts.
+ * grammar `models/label-color.ts`'s `isHexColor` accepts. Matched exactly, so
+ * `" red"` and `" #A32E28"` are refused and nothing padded is ever stored.
  */
 export function isLabelColor(color: unknown): color is string {
 	if (typeof color !== "string") return false;
 	return (
 		(labelHueNames as readonly string[]).includes(color) ||
-		HEX_PATTERN.test(color.trim())
+		HEX_PATTERN.test(color)
 	);
 }
 

@@ -813,6 +813,15 @@ describe("a label, mirrored from the app's label rules", () => {
 		expect(validateLabel(labelDoc({ color: "#A32E28" }))).toEqual([]);
 	});
 
+	it("refuses a hue name or a hex with surrounding whitespace", () => {
+		expect(
+			validateLabel(labelDoc({ color: " red" })).map((i) => i.code),
+		).toContain("invalid_color");
+		expect(
+			validateLabel(labelDoc({ color: " #A32E28" })).map((i) => i.code),
+		).toContain("invalid_color");
+	});
+
 	it("refuses a color that is not a string", () => {
 		expect(validateLabel(labelDoc({ color: 5 })).map((i) => i.code)).toContain(
 			"invalid_color",
