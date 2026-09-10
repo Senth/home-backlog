@@ -21,9 +21,10 @@
 
 importScripts("./sw-routing.js");
 
-// v3 drops any older cache, which may hold a shell naming bundles that no
-// longer exist on the origin — see the header above.
-const VERSION = "v3";
+// v4 drops any older cache: v3 could store a shell copy under a build-check
+// query key on every freshness check, and may hold a shell naming bundles
+// that no longer exist on the origin — see the header above.
+const VERSION = "v4";
 const CACHE = `home-backlog-${VERSION}`;
 /** Enough to boot the SPA offline; every route renders from this shell. */
 const SHELL_URL = "/";
@@ -70,6 +71,7 @@ self.addEventListener("fetch", (event) => {
 		mode: request.mode,
 		sameOrigin: url.origin === self.location.origin,
 		pathname: url.pathname,
+		search: url.search,
 	});
 
 	switch (strategy) {

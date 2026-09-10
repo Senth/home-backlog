@@ -66,7 +66,12 @@ export function useServiceWorker(): ServiceWorkerState {
 
 		const checkShell = async () => {
 			try {
-				const response = await fetch("/", { cache: "no-store" });
+				// The marker query makes the worker pass the request through
+				// (sw-routing.js), so the check reads the wire and not the cached
+				// shell it is judging.
+				const response = await fetch(`/?build-check=${Date.now()}`, {
+					cache: "no-store",
+				});
 				const fetched = buildFromHtml(await response.text());
 				if (!isStale(fetched, buildId)) return;
 				act(decide());
