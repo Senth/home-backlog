@@ -1,0 +1,1 @@
+export const grip = (n: number) => n * 2;
