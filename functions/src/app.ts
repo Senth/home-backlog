@@ -7,6 +7,7 @@ import express, {
 import { requireKey } from "./auth.js";
 import { registerBulkRoute } from "./bulk-route.js";
 import { ApiError, sendError } from "./errors.js";
+import { registerLabelRoutes } from "./labels.js";
 import { registerLocationRoutes } from "./locations.js";
 import { registerRoutes } from "./routes.js";
 import { registerSkillRoute } from "./skill.js";
@@ -53,6 +54,7 @@ v1.use(requireKey);
 registerRoutes(v1);
 registerWriteRoutes(v1);
 registerLocationRoutes(v1);
+registerLabelRoutes(v1);
 registerBulkRoute(v1);
 
 export const app = express();

@@ -67,8 +67,8 @@ export interface NodeBody {
 	participantIds?: string[];
 	/**
 	 * The ids of the home's label definitions the card carries. The
-	 * definitions themselves are curated in the app — there is no field a
-	 * caller could send that writes one, and no verb that lists them.
+	 * definitions behind those ids are the label verbs' (`labels.ts`); a
+	 * node body carries ids only, and a gone id renders as nothing.
 	 */
 	labelIds?: string[];
 }
