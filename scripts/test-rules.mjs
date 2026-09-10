@@ -25,24 +25,9 @@ import path from "node:path";
 
 const CONFIG_PATH = "firebase.rules-tests.json";
 
-// The registry root, derived exactly as scripts/alloc-ports.mjs derives it.
-// ponytail: duplicated because alloc-ports.mjs is a CLI that exports nothing;
-// export registryDir() from it if a third consumer ever appears.
-function registryDir() {
-	if (process.env.DEV_STACK_REGISTRY) {
-		return path.resolve(process.env.DEV_STACK_REGISTRY);
-	}
-	const common = execFileSync("git", ["rev-parse", "--git-common-dir"], {
-		cwd: process.cwd(),
-		encoding: "utf8",
-	}).trim();
-	return path.join(
-		path.resolve(process.cwd(), common, ".."),
-		".tmp",
-		"dev-stack",
-		"registry",
-	);
-}
+const registry = execFileSync("node", ["scripts/alloc-ports.mjs", "registry"], {
+	encoding: "utf8",
+}).trim();
 
 const ports = JSON.parse(
 	execFileSync(
@@ -111,7 +96,7 @@ try {
 	// A killed run leaves its claims behind; the allocator's dead-pid reclaim
 	// picks those up. This only makes the ports usable again immediately.
 	for (const port of Object.values(ports)) {
-		fs.rmSync(path.join(registryDir(), String(port)), {
+		fs.rmSync(path.join(registry, String(port)), {
 			recursive: true,
 			force: true,
 		});
