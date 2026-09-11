@@ -142,6 +142,10 @@ export function useDashboardCards(homeId: string | null): {
 					// cache at once, and this listener fires again holding the seeds.
 					seedGlobalCards(uid).catch((reason: unknown) => {
 						console.error("Could not seed the cards:", reason);
+						// The null read already marked global loaded, so without this
+						// the screen would sit on zero cards, silently. The same
+						// failed flag a spent listener reports drives the same retry.
+						setFailed((state) => ({ ...state, global: true }));
 					});
 					return;
 				}
