@@ -1,21 +1,40 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { buildId } from "@/utils/build-info";
+import {
+	buildFromHtml,
+	isStale,
+	type ReloadDecision,
+	reloadDecision,
+} from "@/utils/shell-freshness";
+
+/** Auto-reload is safe only while nothing can be lost: the swap lands while
+ *  the splash is still the whole screen. Past it, the update banner asks. */
+const BOOT_WINDOW_MS = 10_000;
+/** Set before reloading, read by `reloadDecision`: a flapping connection must
+ *  not reload in a loop. */
+const RELOADED_KEY = "shell-reloaded";
 
 interface ServiceWorkerState {
-	/** A new build is installed and waiting to take over. */
+	/** The shell on the wire is a different build than the running one. */
 	updateReady: boolean;
-	/** Tells the waiting worker to activate, then reloads. */
+	/** Reloads onto the deployed build. */
 	applyUpdate: () => void;
 }
 
 /**
- * Registers `/sw.js` and reports when a newer build is waiting.
+ * Registers `/sw.js` and compares the shell on the wire against the running
+ * build, once at boot, again whenever the network returns, and when a new
+ * worker claims the page. A stale shell is acted on through
+ * `reloadDecision`: reload itself inside the boot window, offer `UpdateBanner`
+ * after it.
  *
- * The update is never applied silently: swapping the shell under a user who is
- * mid-edit loses their typing. `UpdateBanner` surfaces it and they choose.
+ * The check runs whatever made the shell stale — the worker is only one of
+ * the things that can, so nothing here talks to it. A failed check is
+ * silence: launching with no network is the normal case this hook exists for,
+ * and the `online` event below is its way back.
  */
 export function useServiceWorker(): ServiceWorkerState {
 	const [updateReady, setUpdateReady] = useState(false);
-	const waiting = useRef<ServiceWorker | null>(null);
 
 	useEffect(() => {
 		if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
@@ -23,52 +42,68 @@ export function useServiceWorker(): ServiceWorkerState {
 		}
 
 		let cancelled = false;
+		const bootedAt = Date.now();
 
-		const track = (registration: ServiceWorkerRegistration) => {
-			if (registration.waiting) {
-				waiting.current = registration.waiting;
-				if (!cancelled) setUpdateReady(true);
-			}
+		navigator.serviceWorker.register("/sw.js").catch((error) => {
+			console.warn("Service worker registration failed:", error);
+		});
 
-			registration.addEventListener("updatefound", () => {
-				const installing = registration.installing;
-				if (!installing) return;
-
-				installing.addEventListener("statechange", () => {
-					// `controller` is null on the very first install — that is a
-					// fresh visit, not an update, and must not raise the banner.
-					if (
-						installing.state === "installed" &&
-						navigator.serviceWorker.controller
-					) {
-						waiting.current = installing;
-						if (!cancelled) setUpdateReady(true);
-					}
-				});
+		const decide = (): ReloadDecision =>
+			reloadDecision({
+				msSinceBoot: Date.now() - bootedAt,
+				bootWindowMs: BOOT_WINDOW_MS,
+				alreadyReloaded: sessionStorage.getItem(RELOADED_KEY) !== null,
 			});
+
+		const act = (decision: ReloadDecision) => {
+			if (decision === "reload") {
+				sessionStorage.setItem(RELOADED_KEY, "1");
+				window.location.reload();
+				return;
+			}
+			if (decision === "prompt" && !cancelled) setUpdateReady(true);
 		};
 
-		navigator.serviceWorker
-			.register("/sw.js")
-			.then(track)
-			.catch((error) => {
-				console.warn("Service worker registration failed:", error);
-			});
+		const checkShell = async () => {
+			try {
+				// The marker query makes the worker pass the request through
+				// (sw-routing.js), so the check reads the wire and not the cached
+				// shell it is judging.
+				const response = await fetch(`/?build-check=${Date.now()}`, {
+					cache: "no-store",
+				});
+				const fetched = buildFromHtml(await response.text());
+				if (!isStale(fetched, buildId)) return;
+				act(decide());
+			} catch {
+				// No network at boot is the expected case; nothing to do until
+				// the `online` event fires.
+			}
+		};
+
+		void checkShell();
+		window.addEventListener("online", checkShell);
+
+		// A new worker claiming the page is the same signal by other means:
+		// what it will serve on the next boot may be newer than this shell.
+		const onControllerChange = () => void checkShell();
+		navigator.serviceWorker.addEventListener(
+			"controllerchange",
+			onControllerChange,
+		);
 
 		return () => {
 			cancelled = true;
+			window.removeEventListener("online", checkShell);
+			navigator.serviceWorker.removeEventListener(
+				"controllerchange",
+				onControllerChange,
+			);
 		};
 	}, []);
 
 	const applyUpdate = useCallback(() => {
-		waiting.current?.postMessage({ type: "SKIP_WAITING" });
-		// `controllerchange` fires once the new worker takes over; reloading
-		// before that would just re-serve the old shell.
-		navigator.serviceWorker.addEventListener(
-			"controllerchange",
-			() => window.location.reload(),
-			{ once: true },
-		);
+		window.location.reload();
 	}, []);
 
 	return { updateReady, applyUpdate };

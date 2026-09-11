@@ -26,10 +26,10 @@ const RESERVED_PREFIX = "/__/";
 /**
  * @typedef {"passthrough" | "navigate" | "cache-first" | "stale-while-revalidate"} Strategy
  *
- * @param {{ method: string, mode: string, sameOrigin: boolean, pathname: string }} request
+ * @param {{ method: string, mode: string, sameOrigin: boolean, pathname: string, search: string }} request
  * @returns {Strategy}
  */
-function chooseStrategy({ method, mode, sameOrigin, pathname }) {
+function chooseStrategy({ method, mode, sameOrigin, pathname, search }) {
 	// Writes must never be served or replayed from a cache.
 	if (method !== "GET") return "passthrough";
 	// Firestore, Google auth and fonts run their own offline handling — the
@@ -37,6 +37,10 @@ function chooseStrategy({ method, mode, sameOrigin, pathname }) {
 	if (!sameOrigin) return "passthrough";
 	// Same-origin now includes Firebase's own auth pages — see above.
 	if (pathname.startsWith(RESERVED_PREFIX)) return "passthrough";
+	// The freshness check in `use-service-worker.web.ts` compares the deployed
+	// shell against the running one; an answer from this cache would be the
+	// very shell under judgment, so its marker request goes straight to the wire.
+	if (search.includes("build-check")) return "passthrough";
 	// The app shell has to come from the network when there is one, so a new
 	// deploy lands on the next reload instead of on the next service worker.
 	if (mode === "navigate") return "navigate";

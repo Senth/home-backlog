@@ -6,6 +6,7 @@ const { chooseStrategy } = require("@/public/sw-routing.js") as {
 		mode: string;
 		sameOrigin: boolean;
 		pathname: string;
+		search: string;
 	}) => string;
 };
 
@@ -14,6 +15,7 @@ const GET = {
 	mode: "cors",
 	sameOrigin: true,
 	pathname: "/whatever",
+	search: "",
 };
 
 describe("chooseStrategy", () => {
@@ -70,5 +72,18 @@ describe("chooseStrategy", () => {
 		expect(chooseStrategy({ ...GET, pathname: "/icons/icon-192.png" })).toBe(
 			"stale-while-revalidate",
 		);
+	});
+
+	it("passes the shell freshness check through to the wire", () => {
+		// The marker query in use-service-worker.web.ts must never be answered
+		// from cache: the check compares the deployed shell against the cached
+		// one, so an answer from this worker always reads as fresh.
+		expect(
+			chooseStrategy({
+				...GET,
+				pathname: "/",
+				search: "?build-check=1789074600000",
+			}),
+		).toBe("passthrough");
 	});
 });

@@ -2,6 +2,7 @@ import { ScrollViewStyleReset } from "expo-router/html";
 import type { PropsWithChildren } from "react";
 import { themeColor } from "@/theme";
 import { focusVisibleCss } from "@/theme/focus-visible";
+import { buildId } from "@/utils/build-info";
 
 /**
  * The static HTML shell every exported web page is rendered into. Runs in Node
@@ -26,6 +27,9 @@ export default function Root({ children }: PropsWithChildren) {
 				/>
 
 				<link rel="manifest" href="/manifest.webmanifest" />
+				{/* The build identity, baked in at export. The page reads it off
+				    the wire to notice a stale shell — see utils/shell-freshness.ts. */}
+				<meta name="build" content={buildId} />
 				{/* Sourced from theme/index.ts so these cannot drift from `primary`. */}
 				<meta
 					name="theme-color"
