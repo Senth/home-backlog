@@ -1,5 +1,5 @@
 import type { Request, Response, Router } from "express";
-import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { FieldValue } from "firebase-admin/firestore";
 import { visibleTo } from "./api-nodes.js";
 import { type ApiCaller, caller, homeAccess, recordWrite } from "./auth.js";
 import { type BulkPlan, parseBulkBody, planBulk } from "./bulk.js";
@@ -11,6 +11,12 @@ import {
 	runsCollection,
 } from "./firestore.js";
 import { handle } from "./handler.js";
+import {
+	idempotencyKeyOf,
+	recordRun,
+	replayOf,
+	replayResponse,
+} from "./idempotency.js";
 import { rankAfter, type Status } from "./node.js";
 import type { ParentFacts } from "./validate.js";
 
@@ -20,36 +26,6 @@ import type { ParentFacts } from "./validate.js";
  * The plan is built and validated whole by `bulk.ts` with no I/O at all; this
  * file is the four reads it needs, the batch, and the replay record.
  */
-
-/**
- * How long a run is remembered.
- *
- * Long enough for a retry loop, a rerun after a crash, or a person noticing in
- * the morning; short enough that the collection does not grow forever. A
- * Firestore TTL policy on `expiresAt` does the deleting, and it is configured
- * per collection group rather than by `firebase deploy`.
- */
-const runTtlHours = 24;
-
-/**
- * An `Idempotency-Key` has to be a legal Firestore document id, because that is
- * what it becomes. Refusing an unusable one is better than hashing it into
- * something the caller cannot recognize in a later error.
- */
-const idempotencyKeyPattern = /^[A-Za-z0-9_.:-]{1,200}$/;
-
-function idempotencyKeyOf(request: Request): string | null {
-	const key = request.get("idempotency-key");
-	if (!key) return null;
-	if (!idempotencyKeyPattern.test(key) || key === "." || key === "..") {
-		throw new ApiError(
-			400,
-			"invalid_idempotency_key",
-			"An Idempotency-Key is 1–200 characters of letters, digits, `-`, `_`, `.` or `:`.",
-		);
-	}
-	return key;
-}
 
 async function bulkCreate(request: Request, response: Response): Promise<void> {
 	const me: ApiCaller = caller(response);
@@ -70,18 +46,11 @@ async function bulkCreate(request: Request, response: Response): Promise<void> {
 			? null
 			: me.keyRef.collection(runsCollection).doc(idempotencyKey);
 
-	// The replay, checked before any work. A run is recorded under the key that
-	// made it, so revoking a key takes its history with it — and so the node
-	// document keeps the shape every screen and every rule already carries, with
-	// no API concern written into it.
+	// The replay, checked before any work.
 	if (runRef !== null) {
-		const previous = await runRef.get();
-		if (previous.exists) {
-			response.setHeader("Idempotency-Replayed", "true");
-			response.json({
-				rootId: previous.get("rootId"),
-				ids: previous.get("ids"),
-			});
+		const previous = await replayOf(runRef);
+		if (previous !== null) {
+			replayResponse(response, previous);
 			return;
 		}
 	}
@@ -153,17 +122,8 @@ async function bulkCreate(request: Request, response: Response): Promise<void> {
 	}
 
 	if (runRef !== null) {
-		// In the same batch as the tree, deliberately. A replay record written
-		// separately could fail on its own, and an agent that retried would then
-		// write the whole subtree a second time.
-		batch.set(runRef, {
-			ids: plan.ids,
-			rootId: plan.rootId,
-			createdAt: FieldValue.serverTimestamp(),
-			expiresAt: Timestamp.fromMillis(
-				Date.now() + runTtlHours * 60 * 60 * 1000,
-			),
-		});
+		// In the same batch as the tree, deliberately — `recordRun` says why.
+		recordRun(batch, runRef, plan);
 	}
 
 	await batch.commit();

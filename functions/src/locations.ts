@@ -9,14 +9,27 @@ import { apiLocation, etagFor } from "./api-nodes.js";
 import { type ApiCaller, caller, homeAccess, recordWrite } from "./auth.js";
 import { parseLocationBody } from "./body.js";
 import { ApiError } from "./errors.js";
-import { db, homesCollection, locationsCollection } from "./firestore.js";
+import {
+	db,
+	homesCollection,
+	locationsCollection,
+	runsCollection,
+} from "./firestore.js";
 import { handle, param } from "./handler.js";
+import {
+	idempotencyKeyOf,
+	recordRun,
+	replayOf,
+	replayResponse,
+} from "./idempotency.js";
+import { parseBulkLocationsBody, planBulkLocations } from "./locations-bulk.js";
 import { childAncestorIds, movedAncestorIds, rankAfter } from "./node.js";
 import { type LocationContext, validateLocation } from "./validate.js";
 import { checkPrecondition, refuseOversizedSubtree } from "./writes.js";
 
 /**
- * The location verbs (#50): list, create, rename-and-move, delete a place.
+ * The location verbs (#50): list, create, rename-and-move, delete a place, and
+ * write a whole place tree at once.
  *
  * The node verbs, mirrored one endpoint set over, with two things absent on
  * purpose. No visibility split — a location is household furniture,
@@ -296,9 +309,87 @@ async function deleteLocation(
 	response.json({ id: locationId, deleted: descendants.length + 1 });
 }
 
+/**
+ * `POST /v1/homes/{homeId}/locations:bulk` — one run, one new place tree, one
+ * commit. The node bulk create's shape (`bulk-route.ts`), carried over: the
+ * payload is planned whole by `locations-bulk.ts` with no I/O; this handler is
+ * the three reads it needs, the batch, and the replay record.
+ */
+async function bulkCreateLocations(
+	request: Request,
+	response: Response,
+): Promise<void> {
+	const me: ApiCaller = caller(response);
+	const homeId = param(request, "homeId");
+	const home = await homeAccess(me, homeId);
+
+	const idempotencyKey = idempotencyKeyOf(request);
+	const runRef =
+		idempotencyKey === null
+			? null
+			: me.keyRef.collection(runsCollection).doc(idempotencyKey);
+
+	// The replay, checked before any work — a repeated key answers with the
+	// first run's ids even when this payload would not parse.
+	if (runRef !== null) {
+		const previous = await replayOf(runRef);
+		if (previous !== null) {
+			replayResponse(response, previous);
+			return;
+		}
+	}
+
+	const payload = parseBulkLocationsBody(request.body);
+	const parent =
+		payload.parentId === null
+			? null
+			: factsOf(await readLocation(homeId, payload.parentId));
+
+	// The root's rank, read whole and filtered in code — the same query
+	// `rankAtEndOfSiblings` makes, made once for the whole payload rather than
+	// once per place. Every place below the root lands under a place this
+	// payload is creating, so its siblings need no read at all.
+	const existing = await homeLocations(homeId).orderBy("rank").get();
+	const rootRank = rankAfter(
+		existing.docs
+			.filter((doc) => (doc.get("parentId") ?? null) === payload.parentId)
+			.map((doc) => String(doc.get("rank") ?? "")),
+	);
+
+	const plan = planBulkLocations({
+		payload,
+		idFor: Object.fromEntries(
+			payload.locations.map((location) => [
+				location.ref,
+				homeLocations(homeId).doc().id,
+			]),
+		),
+		parent,
+		rootRank,
+		createdBy: me.uid,
+		now: FieldValue.serverTimestamp(),
+	});
+
+	const batch = db.batch();
+	for (const item of plan.items) {
+		batch.set(homeLocations(homeId).doc(item.id), item.data);
+	}
+	if (runRef !== null) {
+		// In the same batch as the tree, deliberately — `recordRun` says why.
+		recordRun(batch, runRef, plan);
+	}
+
+	await batch.commit();
+	await recordWrite(me, home);
+
+	response.status(201).json({ rootId: plan.rootId, ids: plan.ids });
+}
+
 export function registerLocationRoutes(v1: Router): void {
 	v1.get("/homes/:homeId/locations", handle(listLocations));
 	v1.post("/homes/:homeId/locations", handle(createLocation));
+	// `:bulk` rather than `/bulk`, so the path can never collide with a location id.
+	v1.post("/homes/:homeId/locations\\:bulk", handle(bulkCreateLocations));
 	v1.patch("/homes/:homeId/locations/:locationId", handle(patchLocation));
 	v1.delete("/homes/:homeId/locations/:locationId", handle(deleteLocation));
 }

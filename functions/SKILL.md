@@ -1,7 +1,7 @@
 ---
 name: home-backlog-api
 description: Read and write a Home Backlog board over REST — nested kanban nodes where a project, a task and a subtask are the same thing at different depths. Use when asked to research, break down, file or re-prioritise home-improvement work for a household, or when a prompt mentions Home Backlog, hb.senth.org, or an API key beginning hb_. Covers bearer auth, the node verbs, and the atomic bulk create that writes a whole subtree in one undoable call.
-api-version: 1.2.0
+api-version: 1.3.0
 ---
 
 # Home Backlog API
@@ -220,7 +220,8 @@ among its siblings (omit both for a top-level place at the end).
 
 Returns `201` and the created location, with its `ETag` in the response headers — there is
 no single-place read verb, so that is where you first get one. Its path is derived from
-`parentId` — send `ancestorIds` and it is refused, like every computed field.
+`parentId` — send `ancestorIds` and it is refused, like every computed field. A whole tree
+of places in one call is `POST /v1/homes/{homeId}/locations:bulk` below.
 
 ### `PATCH /v1/homes/{homeId}/locations/{locationId}`
 
@@ -233,6 +234,50 @@ carries an `ETag`, and `If-Match` guards the write exactly as it does for nodes.
 A place with children answers `409 has_children` and tells you how many. Repeat with
 `?cascade=true` to delete the subtree. Work anchored to a deleted place is unfiled — its
 `locationId` becomes `null` — the same state work you create today is in.
+
+### `POST /v1/homes/{homeId}/locations:bulk`
+
+One run, one new place tree, one atomic commit — the node bulk create above, mirrored for
+places. This is the endpoint for writing a thirty-node location tree as one call rather
+than thirty.
+
+Entries reference each other by a `ref` you choose, valid only inside the request. Exactly
+one entry has no `parentRef`, and that one is the new root. The optional top-level
+`parentId` attaches that root under a place that already exists. There is no `rank` inside
+a payload: siblings land in the order you list them, and the root lands at the end of its
+existing siblings.
+
+```json
+{
+  "locations": [
+    { "ref": "garden", "title": "Garden" },
+    { "ref": "shed",   "parentRef": "garden", "title": "The shed" },
+    { "ref": "bench",  "parentRef": "shed", "title": "The workbench" }
+  ]
+}
+```
+
+```json
+{
+  "rootId": "twQ7kQTHVfBinUgwXHfs",
+  "ids": {
+    "garden": "twQ7kQTHVfBinUgwXHfs",
+    "shed":   "wJg9A41tevu4ydzlnZvz",
+    "bench":  "yWZwxblsNX8GiZZzOtA6"
+  }
+}
+```
+
+At most 499 places per call, because it commits as one batch. Send the rest as a second
+run under the same root. One call is one new root, so one delete of the place you named
+takes everything the run wrote back with it.
+
+**Retrying safely.** Send an `Idempotency-Key` header, exactly as for nodes: a repeat of
+the same key returns the same `ids` with `Idempotency-Replayed: true` and writes nothing,
+and runs are remembered for 24 hours.
+
+**Errors are per index.** The whole payload is validated before anything is written, and
+you get every failure at once in the same envelope the node bulk create returns.
 
 ### `GET /v1/homes/{homeId}/labels`
 
