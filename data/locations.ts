@@ -6,7 +6,6 @@ import {
 	getDocsFromServer,
 	type Query,
 	type QueryDocumentSnapshot,
-	query,
 	serverTimestamp,
 	setDoc,
 	updateDoc,
@@ -60,7 +59,7 @@ function locationsRef(homeId: string) {
  * by the collection itself, and no composite index is needed.
  */
 export function locationsQuery(homeId: string): Query<DocumentData> {
-	return query(locationsRef(homeId));
+	return locationsRef(homeId);
 }
 
 /**
