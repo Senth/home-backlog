@@ -421,7 +421,11 @@ export default function OverviewEditor() {
 
 			{/* The card itself, off the list and under the hand — the board's own
 			    overlay, over the same frozen list and gap. */}
-			{drag.draggedId !== null && drag.overlay !== null ? (
+			{drag.draggedId !== null &&
+			drag.overlay !== null &&
+			// The dragged card can vanish mid-drag (offline reconciliation,
+			// another device, a restore); the overlay has nothing to render.
+			byId.has(drag.draggedId) ? (
 				<Animated.View
 					style={{
 						position: "absolute",
