@@ -75,6 +75,8 @@
 		"addUnder": "Add under…",
 		"moveUnder": "Move under…",
 		"moveUnderTop": "Top level",
+		"moveUp": "Move up",
+		"moveDown": "Move down",
 		"rename": "Rename",
 		"renameTitle": "Rename location",
 		"nameLabel": "Name",

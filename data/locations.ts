@@ -147,6 +147,31 @@ export function renameLocation(
 }
 
 /**
+ * One step up or down among siblings, queued optimistically like a rename.
+ *
+ * Only the moved document is written — `movedRank` lands it between the pair
+ * that surrounds it afterwards, so there is no subtree to read from the server
+ * first and no reason to go dark offline: every sibling rank the derivation
+ * needs is already in the listener.
+ */
+export function reorderLocation(
+	homeId: string,
+	locationId: string,
+	rank: string,
+): Promise<void> {
+	const written = updateDoc(locationRef(homeId, locationId), {
+		rank,
+		updatedAt: serverTimestamp(),
+	});
+
+	written.catch((reason) => {
+		console.error("Could not reorder the location:", reason);
+	});
+
+	return written;
+}
+
+/**
  * Every location under `locationId`, read from the server.
  *
  * One `getDocsFromServer` over the tree's own whole-collection query, filtered

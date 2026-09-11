@@ -1,5 +1,5 @@
 import type { DocumentData } from "firebase/firestore";
-import { rankBetween } from "@/models/node";
+import { movedRank } from "@/models/node";
 
 /**
  * A household's label definitions (#100) — the set a project passes down to
@@ -87,6 +87,8 @@ export function newLabel(input: NewLabelInput): Label {
 	};
 }
 
+export { movedRank };
+
 /** One row of the labels map — the definition joined back with its key. */
 export interface LabelWithId extends Label {
 	/** The key the definition sits under in the home's `labels` map. */
@@ -114,31 +116,6 @@ export function effectiveLabels(
 	return labels
 		.filter((label) => applied.has(label.id))
 		.slice(0, maxLabelsPerNode);
-}
-
-/**
- * The rank a label lands on when it moves one step up or down the home's list
- * (#100). Only the moved label is written: its swap partner keeps its rank,
- * and the mover lands between the pair that surrounds it afterwards — the
- * label two places away on the side it came from, and the one it passed.
- * The edges answer `null`, and the caller leaves the handle alone there.
- */
-export function movedRank(
-	labels: readonly LabelWithId[],
-	index: number,
-	delta: -1 | 1,
-): string | null {
-	const target = index + delta;
-	if (target < 0 || target >= labels.length) return null;
-	return delta === -1
-		? rankBetween(
-				labels[index - 2]?.rank ?? null,
-				labels[index - 1]?.rank ?? null,
-			)
-		: rankBetween(
-				labels[index + 1]?.rank ?? null,
-				labels[index + 2]?.rank ?? null,
-			);
 }
 
 /**
