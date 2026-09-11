@@ -94,6 +94,45 @@ async function homeId(): Promise<string> {
 }
 
 /**
+ * Deletes one document, retrying a 409 a bounded number of times.
+ *
+ * A 409 here is the emulator refusing a delete that raced a write the
+ * still-open page's SDK was applying to the same document (#194) — seconds
+ * earlier it flushed an offline-queued create, and a late flush or retry can
+ * still be in flight when the sweep fires. `ABORTED` is retryable by
+ * definition, so wait a little and try again; before each retry re-GET the
+ * document, because a 409 does not promise the delete did not land, and if it
+ * is already gone the sweep is done. Anything else, or retries exhausted:
+ * throw with the body — the status line alone says nothing about why.
+ */
+async function deleteDocumentByName(
+	name: string,
+	title: string,
+): Promise<void> {
+	for (let attempt = 1; ; attempt++) {
+		const response = await fetch(
+			`http://localhost:${EMULATOR_PORT}/v1/${name}`,
+			{
+				method: "DELETE",
+				headers: HEADERS,
+			},
+		);
+		if (response.ok) return;
+		const body = await response.text().catch(() => "");
+		if (response.status !== 409 || attempt >= 3) {
+			throw new Error(
+				`emulator REST could not delete "${title}": ${response.status} ${response.statusText}${body ? ` — ${body}` : ""}`,
+			);
+		}
+		const check = await fetch(`http://localhost:${EMULATOR_PORT}/v1/${name}`, {
+			headers: HEADERS,
+		});
+		if (check.status === 404) return;
+		await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
+	}
+}
+
+/**
  * Deletes every node whose title begins with this prefix. Best-effort in that
  * finding nothing is a normal outcome — a spec that failed before it created
  * anything still calls this — but a delete that is refused is not.
@@ -106,25 +145,7 @@ export async function deleteNodesByTitlePrefix(prefix: string): Promise<void> {
 	for (const document of documents) {
 		const title = document.fields?.title?.stringValue;
 		if (title === undefined || !title.startsWith(prefix)) continue;
-		const response = await fetch(
-			`http://localhost:${EMULATOR_PORT}/v1/${document.name}`,
-			{
-				method: "DELETE",
-				headers: HEADERS,
-			},
-		);
-		// A delete that quietly fails is the worst outcome available here: the
-		// card stays on the board and the run that pays for it is a later spec in
-		// a different project, failing on a card count with nothing in its output
-		// to say where the extra card came from. Fail where the leak is instead,
-		// with the body — the emulator's status line alone (a bare 409) says
-		// nothing about why it refused.
-		if (!response.ok) {
-			const body = await response.text().catch(() => "");
-			throw new Error(
-				`emulator REST could not delete "${title}": ${response.status} ${response.statusText}${body ? ` — ${body}` : ""}`,
-			);
-		}
+		await deleteDocumentByName(document.name, title);
 	}
 }
 
