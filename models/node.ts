@@ -642,6 +642,33 @@ export function rankAtEnd(last: string | null): string {
 }
 
 /**
+ * The rank an item lands on when it moves one step up or down its list —
+ * the manual reorder the labels' set (#100) and the location tree's
+ * siblings (#182) both use. Only the moved item is written: its swap partner
+ * keeps its rank, and the mover lands between the pair that surrounds it
+ * afterwards — the item two places away on the side it came from, and the one
+ * it passed. The edges answer `null`, and the caller leaves the handle alone
+ * there.
+ */
+export function movedRank(
+	items: readonly { rank: string }[],
+	index: number,
+	delta: -1 | 1,
+): string | null {
+	const target = index + delta;
+	if (target < 0 || target >= items.length) return null;
+	return delta === -1
+		? rankBetween(
+				items[index - 2]?.rank ?? null,
+				items[index - 1]?.rank ?? null,
+			)
+		: rankBetween(
+				items[index + 1]?.rank ?? null,
+				items[index + 2]?.rank ?? null,
+			);
+}
+
+/**
  * `count` ranks in order between two neighbours, for a bulk subtree create over
  * the REST API (#7). One call rather than a fold, because generating them
  * pairwise produces keys that grow a character per item.

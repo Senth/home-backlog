@@ -3,12 +3,11 @@ import {
 	type LabelWithId,
 	labelError,
 	maxLabelsPerNode,
-	movedRank,
 	newLabel,
 	toLabels,
 } from "@/models/label";
 import { toHex } from "@/models/label-color";
-import { rankBetween } from "@/models/node";
+import { movedRank, rankBetween } from "@/models/node";
 
 const amber = toHex([0xfd, 0xe6, 0x8a]);
 const teal = toHex([0x99, 0xf6, 0xe4]);

@@ -10,6 +10,7 @@ import {
 	deleteLocation,
 	moveLocation,
 	renameLocation,
+	reorderLocation,
 } from "@/data/locations";
 import type { Location } from "@/models/locations";
 
@@ -180,6 +181,29 @@ describe("renameLocation", () => {
 		const consoleError = jest.spyOn(console, "error").mockImplementation();
 
 		await expect(renameLocation("home-1", "garden", "Garden")).rejects.toBe(
+			reason,
+		);
+		expect(consoleError).toHaveBeenCalled();
+		consoleError.mockRestore();
+	});
+});
+
+describe("reorderLocation", () => {
+	it("writes the new rank", async () => {
+		await reorderLocation("home-1", "garden", "a5");
+
+		expect(mockUpdateDoc).toHaveBeenCalledWith(
+			{ id: "garden" },
+			{ rank: "a5", updatedAt: "server-timestamp" },
+		);
+	});
+
+	it("logs a failure instead of leaving an unhandled rejection", async () => {
+		const reason = new Error("offline");
+		mockUpdateDoc.mockReturnValueOnce(Promise.reject(reason));
+		const consoleError = jest.spyOn(console, "error").mockImplementation();
+
+		await expect(reorderLocation("home-1", "garden", "a5")).rejects.toBe(
 			reason,
 		);
 		expect(consoleError).toHaveBeenCalled();

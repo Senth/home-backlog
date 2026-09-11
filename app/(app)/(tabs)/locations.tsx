@@ -25,11 +25,12 @@ import {
 	deleteLocation,
 	moveLocation,
 	renameLocation,
+	reorderLocation,
 } from "@/data/locations";
 import { useLocations } from "@/hooks/use-locations";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { inSubtree, type Location } from "@/models/locations";
-import { rankAtEnd } from "@/models/node";
+import { movedRank, rankAtEnd } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import {
 	contentWidth,
@@ -51,10 +52,10 @@ type AddTarget = { parent: Location | null } | null;
  *
  * One row per location, indented by depth, one listener for the whole
  * collection behind it. The FAB creates a root place; a row's overflow menu
- * nests, renames, moves and deletes. Create and rename queue offline; move
- * and delete read the subtree from the server first, so they are disabled
- * offline with the hint the card menu shows, rather than failing after the
- * tap.
+ * reorders, nests, renames, moves and deletes. Create and rename queue
+ * offline; move and delete read the subtree from the server first, so they
+ * are disabled offline with the hint the card menu shows, rather than failing
+ * after the tap.
  *
  * The app bar names the *home*, not the screen — the tab bar already names
  * the screen, and which home you are in has to be visible without a tap.
@@ -359,6 +360,17 @@ function LocationRow({
 		});
 	};
 
+	const siblings = childrenOf(locations, location.parentId);
+	const siblingIndex = siblings.findIndex((each) => each.id === location.id);
+
+	/** One step up or down among siblings, queued optimistically like a rename. */
+	const reorder = (delta: -1 | 1) => {
+		close();
+		const rank = movedRank(siblings, siblingIndex, delta);
+		if (rank === null) return;
+		reorderLocation(homeId, location.id, rank);
+	};
+
 	const remove = async () => {
 		setDeleting(false);
 		try {
@@ -433,6 +445,18 @@ function LocationRow({
 								close();
 								onAddUnder(location);
 							}}
+						/>
+						<Menu.Item
+							leadingIcon="arrow-up"
+							title={t("locations.moveUp")}
+							disabled={siblingIndex === 0}
+							onPress={() => reorder(-1)}
+						/>
+						<Menu.Item
+							leadingIcon="arrow-down"
+							title={t("locations.moveDown")}
+							disabled={siblingIndex === siblings.length - 1}
+							onPress={() => reorder(1)}
 						/>
 						<Menu.Item
 							leadingIcon="file-tree-outline"

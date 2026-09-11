@@ -75,6 +75,8 @@
 		"addUnder": "Lägg till under…",
 		"moveUnder": "Flytta under…",
 		"moveUnderTop": "Högsta nivå",
+		"moveUp": "Flytta upp",
+		"moveDown": "Flytta ner",
 		"rename": "Byt namn",
 		"renameTitle": "Byt namn på plats",
 		"nameLabel": "Namn",
