@@ -42,6 +42,9 @@ import { childAncestorIds, movedAncestorIds } from "@/models/node";
 const homesCollection = "homes";
 const locationsCollection = "locations";
 
+/** Firestore commits at most 500 writes in one batch. */
+const maxBatchWrites = 500;
+
 export function locationRef(
 	homeId: string,
 	locationId: string,
@@ -166,6 +169,37 @@ async function subtreeOf(
 }
 
 /**
+ * The oversized-subtree refusal the REST writes make in `refuseOversizedSubtree`:
+ * a move or a delete is one batch or nothing — a half-rewritten tree is
+ * unreachable from the screens that show it. Locations carry no counters, so the
+ * moved or deleted document itself and its descendants are the whole batch:
+ * `count + 1` writes against the `maxBatchWrites` one holds.
+ *
+ * The refusal carries a `code`, the way a Firestore error does, so the screen can
+ * map it to its own words instead of a bare save failure.
+ */
+function refuseOversizedSubtree(count: number, operation: string): void {
+	if (count + 1 <= maxBatchWrites) return;
+	const error = new Error(
+		`${operation} would touch ${count + 1} documents, and one atomic batch holds ${maxBatchWrites}. Do it in smaller pieces.`,
+	);
+	(error as { code?: string }).code = "subtree-too-large";
+	throw error;
+}
+
+/**
+ * The i18n key for a refused move or delete; anything else is a plain save
+ * failure — the same mapping `moveErrorKey` makes for nodes.
+ */
+export type LocationErrorKey = "error.subtreeTooLarge" | "error.saveFailed";
+
+export function locationErrorKey(reason: unknown): LocationErrorKey {
+	const code = (reason as { code?: string } | null)?.code;
+	if (code === "subtree-too-large") return "error.subtreeTooLarge";
+	return "error.saveFailed";
+}
+
+/**
  * Moving a location somewhere else in the tree, with everything under it.
  *
  * One batch, so the tree is never half-rewritten: the moved document's
@@ -176,7 +210,9 @@ async function subtreeOf(
  *
  * Moving a location inside its own subtree throws before any read or write,
  * the same refusal `reparentNode` makes, through the same predicate the
- * destination picker greys rows out with.
+ * destination picker greys rows out with. A subtree that no longer fits one
+ * batch is refused before anything is written, the same guard the REST
+ * move makes.
  */
 export async function moveLocation(
 	homeId: string,
@@ -190,6 +226,7 @@ export async function moveLocation(
 
 	const ancestorIds = childAncestorIds(parent);
 	const descendants = await subtreeOf(homeId, location.id);
+	refuseOversizedSubtree(descendants.length, "This move");
 
 	const batch = writeBatch(db);
 	batch.update(locationRef(homeId, location.id), {
@@ -218,13 +255,15 @@ export async function moveLocation(
  * Descendants have to go, and they have to go atomically: a location whose
  * parent is gone is unreachable from the tree. There are no counters to
  * repair, on the parent or anywhere else — the one repair a node delete makes
- * has no location equivalent to make.
+ * has no location equivalent to make. A subtree that no longer fits one batch
+ * is refused before anything is deleted, the same guard the REST delete makes.
  */
 export async function deleteLocation(
 	homeId: string,
 	location: Location,
 ): Promise<void> {
 	const descendants = await subtreeOf(homeId, location.id);
+	refuseOversizedSubtree(descendants.length, "This delete");
 
 	const batch = writeBatch(db);
 	for (const snapshot of descendants) batch.delete(snapshot.ref);

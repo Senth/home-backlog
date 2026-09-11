@@ -8,6 +8,7 @@ import {
 	compareLocations,
 	createLocation,
 	deleteLocation,
+	locationErrorKey,
 	moveLocation,
 	renameLocation,
 } from "@/data/locations";
@@ -68,6 +69,15 @@ function stored(id: string, ancestorIds: string[]) {
 
 function found(...documents: QueryDocumentSnapshot<DocumentData>[]) {
 	return { docs: documents } as unknown as QuerySnapshot<DocumentData>;
+}
+
+/** `count` descendants under garden, to exercise the batch cap. */
+function descendants(count: number) {
+	return found(
+		...Array.from({ length: count }, (_, index) =>
+			stored(`loc-${index}`, ["garden"]),
+		),
+	);
 }
 
 let batch: { update: jest.Mock; delete: jest.Mock };
@@ -246,6 +256,28 @@ describe("moveLocation", () => {
 		);
 	});
 
+	it("refuses a move whose subtree no longer fits one batch", async () => {
+		mockGetDocsFromServer.mockReturnValueOnce(
+			Promise.resolve(descendants(500)),
+		);
+
+		await expect(
+			moveLocation("home-1", location(), location({ id: "ute" }), "a1"),
+		).rejects.toMatchObject({ code: "subtree-too-large" });
+
+		expect(mockWriteBatch).not.toHaveBeenCalled();
+	});
+
+	it("commits at the cap: 499 descendants plus the moved location", async () => {
+		mockGetDocsFromServer.mockReturnValueOnce(
+			Promise.resolve(descendants(499)),
+		);
+
+		await moveLocation("home-1", location(), location({ id: "ute" }), "a1");
+
+		expect(batch.update).toHaveBeenCalledTimes(500);
+	});
+
 	it("moves to the top level as a root", async () => {
 		mockGetDocsFromServer.mockReturnValueOnce(Promise.resolve(found()));
 
@@ -288,5 +320,28 @@ describe("deleteLocation", () => {
 			"bed",
 			"garden",
 		]);
+	});
+
+	it("refuses a delete whose subtree no longer fits one batch", async () => {
+		mockGetDocsFromServer.mockReturnValueOnce(
+			Promise.resolve(descendants(500)),
+		);
+
+		await expect(deleteLocation("home-1", location())).rejects.toMatchObject({
+			code: "subtree-too-large",
+		});
+
+		expect(mockWriteBatch).not.toHaveBeenCalled();
+	});
+});
+
+describe("locationErrorKey", () => {
+	it.each([
+		[{ code: "subtree-too-large" }, "error.subtreeTooLarge"],
+		[{ code: "permission-denied" }, "error.saveFailed"],
+		[new Error("boom"), "error.saveFailed"],
+		[null, "error.saveFailed"],
+	])("maps %p to %p", (reason, key) => {
+		expect(locationErrorKey(reason)).toBe(key);
 	});
 });

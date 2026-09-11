@@ -23,6 +23,7 @@ import { useHome } from "@/contexts/HomeContext";
 import {
 	createLocation,
 	deleteLocation,
+	locationErrorKey,
 	moveLocation,
 	renameLocation,
 } from "@/data/locations";
@@ -355,7 +356,7 @@ function LocationRow({
 			rankAtEnd(siblings.at(-1)?.rank ?? null),
 		).catch((reason) => {
 			console.error("Could not move the location:", reason);
-			onError("error.saveFailed");
+			onError(locationErrorKey(reason));
 		});
 	};
 
@@ -365,7 +366,7 @@ function LocationRow({
 			await deleteLocation(homeId, location);
 		} catch (reason) {
 			console.error("Could not delete the location:", reason);
-			onError("error.saveFailed");
+			onError(locationErrorKey(reason));
 		}
 	};
 
