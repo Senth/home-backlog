@@ -55,7 +55,6 @@ Home Backlog: an Expo / React Native web-first PWA on Firebase.
   the `ship` skill opens a **draft** PR. The merge is the human's;
   [`scripts/create-pr-and-merge.sh`](scripts/create-pr-and-merge.sh) is the helper for it.
 - Work lives in **GitHub Issues + the Kanban board** (project 4), not markdown —
-  labels `bug` / `feature` / `idea` / `cleanup`, an `idea` moves to the Idea column,
-  and the PR closes it with `Closes #NN`.
+  labels `bug` / `feature` / `idea` / `cleanup`, and the PR closes it with `Closes #NN`.
 - One off migrations are stored in `node/scripts/<script>.mjs` and be removed before creating a PR.
   - Always dry-run first, then add --apply, finally dry-run again to confirm 0 changes.
