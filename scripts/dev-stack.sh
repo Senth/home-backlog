@@ -63,6 +63,10 @@ command -v jq >/dev/null 2>&1 || {
 }
 
 STATE=".tmp/dev-stack"
+# A stack this old is torn down by the next `up` and booted fresh: a long-lived
+# Firestore emulator keeps answering REST but refuses new webchannel
+# connections (#242), and no single e2e run (~20 min) crosses the threshold.
+RECYCLE_AFTER=3600
 # The registry lives next to the main worktree's .git, so every worktree of
 # this repository shares one book of port claims. The path is derived once, in
 # scripts/alloc-ports.mjs, and read through its `registry` subcommand — which
@@ -182,6 +186,18 @@ cmd_up() {
 	done
 
 	local ports_json=""
+	# #242: an emulator that has been up for hours refuses new webchannel
+	# connections while REST still answers, and a spec failing on that reads as
+	# a code bug. Recycle any stack past RECYCLE_AFTER instead of trusting it.
+	if running emulators; then
+		local started age
+		started=$(jq -r '.started // 0' "$STATE/stack.json")
+		age=$(($(date +%s) - started))
+		if [ "$started" -gt 0 ] && [ "$age" -ge "$RECYCLE_AFTER" ]; then
+			echo "dev-stack: stack is ${age}s old — recycling it (long-lived emulator stops answering new webchannel connections, #242)"
+			cmd_down
+		fi
+	fi
 	if running emulators; then
 		echo "dev-stack: emulators already up (ours)"
 	else
@@ -223,8 +239,8 @@ cmd_up() {
 
 		local emu_pid
 		emu_pid=$(cat "$STATE/emulators.pid")
-		jq -n --argjson ports "$ports_json" --argjson pid "$emu_pid" \
-			'{ports: $ports, pids: {emulators: $pid}}' >"$STATE/stack.json"
+		jq -n --argjson ports "$ports_json" --argjson pid "$emu_pid" --argjson started "$(date +%s)" \
+			'{ports: $ports, pids: {emulators: $pid}, started: $started}' >"$STATE/stack.json"
 		adopt_claims "$emu_pid" $(jq -r 'to_entries[] | .value' <<<"$ports_json")
 		echo "dev-stack: emulators up"
 	fi
