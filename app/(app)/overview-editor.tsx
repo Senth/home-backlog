@@ -66,7 +66,7 @@ import {
  * map rewritten, a shared card is its own document — so all of it queues
  * offline like any other write. Import is clipboard-local: the pasted string
  * is decoded before anything is written, and the card it makes is the
- * importer's own, in the scope they chose.
+ * importer's own, in All homes — scope is the editor's to move.
  */
 export default function OverviewEditor() {
 	const { t } = useTranslation();
