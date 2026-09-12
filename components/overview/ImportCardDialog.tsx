@@ -1,13 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, useWindowDimensions, View } from "react-native";
-import {
-	Button,
-	HelperText,
-	SegmentedButtons,
-	Text,
-	TextInput,
-} from "react-native-paper";
+import { Button, HelperText, Text, TextInput } from "react-native-paper";
 import { fieldSpecs } from "@/components/overview/CardEditSheet";
 import { AppDialog } from "@/components/ui/AppDialog";
 import type { Member } from "@/models/home";
@@ -19,13 +13,15 @@ import {
 	importCard,
 } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
-import { segmentedLabelLineHeight, space, touchTarget } from "@/theme/tokens";
+import { space, touchTarget } from "@/theme/tokens";
 
 /**
  * Import a card someone shared as text: paste the string, see what it says,
- * choose where it lives, add it. The decode is the model's own `importCard`,
- * so an invalid string is one plain sentence — never a stack trace — and the
- * preview is the card the Add will actually create, as the importer's own.
+ * add it. The card lands in All homes; moving it between scopes is the
+ * editor's job, one open away from the snackbar. The decode is the model's
+ * own `importCard`, so an invalid string is one plain sentence — never a
+ * stack trace — and the preview is the card the Add will actually create,
+ * as the importer's own.
  *
  * A member reference the home does not have simply matches nothing until the
  * card is edited; the preview names such a member by uid, which is exactly
@@ -54,16 +50,12 @@ export function ImportCardDialog({
 	const { height } = useWindowDimensions();
 
 	const [pasted, setPasted] = useState("");
-	const [scope, setScope] = useState<CardScope>("global");
 
 	// Reset when the dialog *opens*, during render, the way CardEditSheet does.
 	const [opened, setOpened] = useState(visible);
 	if (opened !== visible) {
 		setOpened(visible);
-		if (visible) {
-			setPasted("");
-			setScope("global");
-		}
+		if (visible) setPasted("");
 	}
 
 	const decoded = importCard(pasted);
@@ -71,7 +63,7 @@ export function ImportCardDialog({
 
 	const add = () => {
 		if (decoded === null) return;
-		onAdd(decoded, scope);
+		onAdd(decoded, "global");
 		onDismiss();
 	};
 
@@ -116,28 +108,6 @@ export function ImportCardDialog({
 							{t("overview.cards.editor.importInvalid")}
 						</HelperText>
 					</View>
-
-					<SegmentedButtons
-						value={scope}
-						onValueChange={(value) => setScope(value as CardScope)}
-						buttons={[
-							{
-								value: "global",
-								label: t("overview.cards.editor.scope.global"),
-								labelStyle: { lineHeight: segmentedLabelLineHeight },
-							},
-							{
-								value: "home",
-								label: t("overview.cards.editor.scope.home"),
-								labelStyle: { lineHeight: segmentedLabelLineHeight },
-							},
-							{
-								value: "shared",
-								label: t("overview.cards.editor.scope.shared"),
-								labelStyle: { lineHeight: segmentedLabelLineHeight },
-							},
-						]}
-					/>
 
 					{decoded === null ? null : (
 						<View
