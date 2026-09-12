@@ -12,18 +12,18 @@
 # Usage:   yarn invariants [--base <ref>]
 # Exit:    0 = all pass, 1 = an invariant failed, 2 = the script could not run
 #
-# Checks 1-6, 8, 14 and 15 read the whole working tree — tracked files *and*
-# untracked ones that git would add, because the moment you most want this run
-# is right after writing a new file, and a new file has not been staged yet. A
-# violation is a violation whoever wrote it, and the tree being clean today is
-# what makes whole-tree scanning affordable.
+# Checks 1-6, 8 and 14 through 19 read the whole working tree — tracked files
+# *and* untracked ones that git would add, because the moment you most want
+# this run is right after writing a new file, and a new file has not been
+# staged yet. A violation is a violation whoever wrote it, and the tree being
+# clean today is what makes whole-tree scanning affordable.
 #
 # Check 7 is diff-shaped by nature and needs a base ref. Auto-detected, it
 # reports `skip` when there is nothing to diff against; named explicitly with
 # `--base` and unresolvable, it is a hard error — a CI expression that evaluates
 # to an empty string must never read as a pass.
 #
-# Requires: git, grep, jq, node, and bash 4.4+ for `mapfile -d`.
+# Requires: git, grep, awk, jq, node, and bash 4.4+ for `mapfile -d`.
 set -uo pipefail
 
 # `sort` orders by codepoint and `comm` compares by LC_COLLATE. Under a UTF-8
@@ -552,6 +552,120 @@ if [[ $? -ne 0 ]]; then
 		"Run yarn icon-names and commit the regenerated functions/src/icon-names.ts."
 else
 	report 16 "icon names generated" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 17. Button hierarchy — no surface renders two contained buttons
+#
+# docs/DESIGN.md § Components: `contained` is the one primary action on a
+# surface. A screen file is one surface and each `AppDialog` / `AppSheet`
+# region is another, so the count is per region, not per file — the same
+# screen may legitimately hold one on the page and one inside a dialog
+# (app/(app)/automations.tsx does exactly that).
+#
+# The FAB half of the rule — a screen with a FAB has no contained button — is
+# the half no grep decides: the FAB legitimately stands down while an empty
+# state's button is up (locations.tsx, labels.tsx), and whether two renders
+# are mutually exclusive is not a text fact. The reviewer owns that half,
+# like every part of the rule that is wider than this regex.
+# ---------------------------------------------------------------------------
+button_hits=$(
+	for f in "${SRC[@]}"; do
+		[[ "$f" =~ \.test\.tsx?$ ]] && continue
+		awk -v re="mode=[\"']contained[\"']" '
+			function flush() {
+				if (n_dialog > 1) print hits_dialog
+				if (n_bare > 1) print hits_bare
+				dialog = 0; n_dialog = 0; hits_dialog = ""
+				n_bare = 0; hits_bare = ""
+			}
+			FNR == 1 { flush() }
+			# A wholly-comment line is not a render, same as strip_comments.
+			/^[[:space:]]*(\/\/|\*|\/\*)/ { next }
+			/<AppDialog/ || /<AppSheet/ { dialog = 1 }
+			/<\/AppDialog>/ || /<\/AppSheet>/ {
+				if (n_dialog > 1) print hits_dialog
+				dialog = 0; n_dialog = 0; hits_dialog = ""
+			}
+			$0 ~ re {
+				line = FILENAME ":" FNR ":" $0
+				if (dialog) {
+					n_dialog++
+					hits_dialog = hits_dialog (n_dialog > 1 ? "\n" line : line)
+				} else {
+					n_bare++
+					hits_bare = hits_bare (n_bare > 1 ? "\n" line : line)
+				}
+			}
+			END { flush() }
+		' "$f"
+	done
+)
+if [[ -n "$button_hits" ]]; then
+	report 17 "button hierarchy" FAIL "$button_hits" \
+		"contained is the one primary action on a surface — one per screen, one per dialog, never two (docs/DESIGN.md § Components). The FAB is that action wherever it exists; whether a FAB and a contained button stand down for each other is the reviewer's call, not a grep's."
+else
+	report 17 "button hierarchy" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 18. DueChip renders due in warning and nothing else
+#
+# § Token roles: `warning` is status, always carried with words, and
+# components/board/DueChip.tsx is where the due date implements that — the
+# calendar glyph and the words, both warning, no prop to change it. A second
+# color in that file is the first step of a card whose lateness is a hue;
+# no `warning` at all means the words lost the color the contract gives them.
+# ---------------------------------------------------------------------------
+PATTERN='colors\.'
+hits=$(scan components/board/DueChip.tsx | grep -v 'colors\.warning' | strip_comments)
+if ! grep -q 'colors\.warning' components/board/DueChip.tsx; then
+	report 18 "DueChip warning-only" FAIL \
+		"components/board/DueChip.tsx no longer reads colors.warning" \
+		"Due keeps the calendar glyph and the words in warning and nothing else — docs/DESIGN.md § Token roles."
+elif [[ -n "$hits" ]]; then
+	report 18 "DueChip warning-only" FAIL "$hits" \
+		"Due is warning beside the words and nothing else — docs/DESIGN.md § Token roles."
+else
+	report 18 "DueChip warning-only" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 19. The label glyph never renders without a named wrapper
+#
+# § Labels: an icon-only label carries its title as the accessible name on
+# its wrapper. PaperIcon hides every glyph from the accessibility tree on
+# purpose, so a LabelGlyph whose name lives on the glyph has no name at all.
+#
+# The glyph may render only where the control around it provably carries the
+# name, and the exclusions are by file because that is the whole story:
+# LabelDot's own Pressable, LabelPicker's CheckRow, LabelRow's TouchableRipple
+# (whose content is the title itself), the labels DetailRow on a node's
+# details, and the labels List.Item on a home — the last two name the group,
+# and their dots are decoration inside a named control, not marks of their
+# own. A LabelGlyph anywhere else is a dot nobody named — the same shape as
+# check 12's Appbar.BackAction, with the same answer: render it inside a
+# wrapper that names it, or extend the canonical LabelDot.
+# ---------------------------------------------------------------------------
+GLYPH_FILES=()
+for f in "${SRC[@]}"; do
+	[[ "$f" =~ \.test\.tsx?$ ]] && continue
+	# Quoted right-hand sides: these paths hold literal brackets and parens,
+	# and [[ == treats a quoted pattern as the string itself.
+	[[ "$f" == "components/board/LabelDot.tsx" ||
+		"$f" == "components/label/LabelPicker.tsx" ||
+		"$f" == "app/(app)/homes/[homeId]/labels.tsx" ||
+		"$f" == "app/(app)/homes/[homeId].tsx" ||
+		"$f" == "app/(app)/(tabs)/projects/[nodeId]/details.tsx" ]] && continue
+	GLYPH_FILES+=("$f")
+done
+PATTERN='<LabelGlyph'
+hits=$(scan "${GLYPH_FILES[@]}" | strip_comments)
+if [[ -n "$hits" ]]; then
+	report 19 "label glyph named" FAIL "$hits" \
+		"LabelGlyph is silent — PaperIcon hides the glyph from the accessibility tree. Wrap it in LabelDot, or put the name on the row that carries it (see LabelPicker's CheckRow)."
+else
+	report 19 "label glyph named" ok
 fi
 
 # ---------------------------------------------------------------------------

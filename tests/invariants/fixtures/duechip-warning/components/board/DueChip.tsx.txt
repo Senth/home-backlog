@@ -1,0 +1,13 @@
+import { View } from "react-native";
+import { Icon, Text } from "react-native-paper";
+import { useAppTheme } from "@/theme";
+
+export const DueChip = () => {
+	const theme = useAppTheme();
+	return (
+		<View>
+			<Icon source="calendar" color={theme.colors.error} />
+			<Text style={{ color: theme.colors.error }}>late</Text>
+		</View>
+	);
+};

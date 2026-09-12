@@ -38,6 +38,9 @@ const CHECKS = [
 	"e2e spec budget",
 	"emulators via dev-stack",
 	"icon names generated",
+	"button hierarchy",
+	"DueChip warning-only",
+	"label glyph named",
 ];
 
 type Case = {
@@ -88,6 +91,9 @@ const CASES: Case[] = [
 		},
 	},
 	{ name: "icon-names", check: "icon names generated" },
+	{ name: "button-hierarchy", check: "button hierarchy" },
+	{ name: "duechip-warning", check: "DueChip warning-only" },
+	{ name: "label-glyph-named", check: "label glyph named" },
 ];
 
 type Run = { code: number; stdout: string; stderr: string };
@@ -204,19 +210,27 @@ test("a clean fixture passes every check", async () => {
 	for (const check of CHECKS) expect(summary.get(check)).toBe("ok");
 }, 20000);
 
-test.each(CASES)("$name: the check it violates fails, tracked", async (c) => {
-	await plant(c, true);
-	const result = await run(sandbox, c.args ?? []);
-	expect(result.code).toBe(1);
-	expectOnly(result, c.check);
-}, 20000);
+test.each(CASES)(
+	"$name: the check it violates fails, tracked",
+	async (c) => {
+		await plant(c, true);
+		const result = await run(sandbox, c.args ?? []);
+		expect(result.code).toBe(1);
+		expectOnly(result, c.check);
+	},
+	20000,
+);
 
-test.each(CASES)("$name: the check it violates fails, untracked", async (c) => {
-	await plant(c, false);
-	const result = await run(sandbox, c.args ?? []);
-	expect(result.code).toBe(1);
-	expectOnly(result, c.check);
-}, 20000);
+test.each(CASES)(
+	"$name: the check it violates fails, untracked",
+	async (c) => {
+		await plant(c, false);
+		const result = await run(sandbox, c.args ?? []);
+		expect(result.code).toBe(1);
+		expectOnly(result, c.check);
+	},
+	20000,
+);
 
 test("comment-only mentions are stripped, not violations", async () => {
 	await copyTree(path.join(FIXTURES, "comment-only"), sandbox);

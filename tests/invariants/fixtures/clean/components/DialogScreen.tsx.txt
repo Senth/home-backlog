@@ -1,0 +1,12 @@
+import { View } from "react-native";
+import { AppDialog } from "@/components/ui/AppDialog";
+import { Button } from "react-native-paper";
+
+export const DialogScreen = () => (
+	<View>
+		<Button mode="contained">create</Button>
+		<AppDialog visible actions={[<Button key="ok" mode="contained">ok</Button>]}>
+			<View />
+		</AppDialog>
+	</View>
+);
