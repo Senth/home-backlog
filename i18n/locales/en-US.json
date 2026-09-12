@@ -402,6 +402,7 @@
 		"waitingSearchEmpty": "No cards match",
 		"waitingSearchCapped": "Showing the first {{count}} — refine the search",
 		"blockerDone": "Done",
+		"blockerCycle": "Would create a cycle",
 		"blockerGone": "That card is gone.",
 		"pickedCount_one": "{{count}} picked",
 		"pickedCount_other": "{{count}} picked",
