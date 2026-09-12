@@ -402,6 +402,7 @@
 		"waitingSearchEmpty": "Inga kort matchar",
 		"waitingSearchCapped": "Visar de första {{count}} — begränsa sökningen",
 		"blockerDone": "Klar",
+		"blockerCycle": "Skulle skapa en cykel",
 		"blockerGone": "Det kortet är borta.",
 		"pickedCount_one": "{{count}} valda",
 		"pickedCount_other": "{{count}} valda",

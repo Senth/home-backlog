@@ -60,7 +60,9 @@ interface BlockerSearchDialogProps {
  * takeable back off without clearing the search first. On-board rows are one
  * line, because the heading already says the board; rows from elsewhere
  * carry their trail, because there it is the whole answer. A picked blocker
- * that has since completed keeps its *Done* chip.
+ * that has since completed keeps its *Done* chip. A candidate that is
+ * itself waiting on this card carries a warning chip (#183) — the cycle
+ * is permitted, and the chip is its only guard.
  *
  * Typing still searches the whole home through the one-shot
  * `getDocsFromServer` pair (Q-S1/Q-S2 in `data/nodes.ts`) and their dedupe —
@@ -171,6 +173,14 @@ export function BlockerSearchDialog({
 	};
 
 	const doneChip = <MetaChip>{t("detail.blockerDone")}</MetaChip>;
+	// A cycle is permitted and rendered (#183): the chip warns, the pick still
+	// lands. Best-effort by construction — it fires only when the candidate's
+	// own `blockedBy` is in hand, which a sibling row and a search hit both are.
+	const cycleChip = (
+		<MetaChip source="alert" color={theme.colors.warning}>
+			{t("detail.blockerCycle")}
+		</MetaChip>
+	);
 
 	return (
 		<AppSheet
@@ -219,9 +229,13 @@ export function BlockerSearchDialog({
 								label={sibling.title}
 								checked={picked.includes(sibling.id)}
 								right={
-									picked.includes(sibling.id) && sibling.status === "done"
-										? doneChip
-										: null
+									picked.includes(sibling.id)
+										? sibling.status === "done"
+											? doneChip
+											: null
+										: sibling.blockedBy.includes(node.id)
+											? cycleChip
+											: null
 								}
 								onPress={() => toggle(sibling.id)}
 							/>
@@ -269,6 +283,7 @@ export function BlockerSearchDialog({
 								<CheckRow
 									label={result.title}
 									checked={false}
+									right={result.blockedBy.includes(node.id) ? cycleChip : null}
 									onPress={() => toggle(result.id)}
 								/>
 								<PickerTrail
