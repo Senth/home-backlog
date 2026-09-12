@@ -26,6 +26,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { createNode } from "@/data/nodes";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import {
 	crossBoardBlockerIds,
 	hasSteps,
@@ -130,6 +131,9 @@ export function Board({
 	// The household, for a new project's participants. Already on screen: no
 	// listener and no read, the same source both people-controls are built from.
 	const { activeHome } = useHome();
+	// docs/DESIGN.md § Motion: with the query on, the drag does everything but
+	// move on its own — no lift, no edge fill, and the spring in the hook.
+	const reduced = useReducedMotion();
 
 	const [boardWidth, setBoardWidth] = useState(0);
 	const [fabHeight, setFabHeight] = useState(0);
@@ -488,8 +492,12 @@ export function Board({
 			{/* The edge a held card is resting in, filling as the pane it would
 			    switch to gets closer. The switch is never a surprise, and the fill
 			    restarting visibly is what says a *second* one is coming — those are
-			    the dangerous ones, and they get the longer window. */}
-			{drag.edge === null ? null : (
+			    the dangerous ones, and they get the longer window.
+
+			    Under reduced motion the walk keeps its timing — the pane still
+			    arrives — but the filling bar is the animated half, so it is the
+			    part that goes. */}
+			{drag.edge === null || reduced ? null : (
 				<Animated.View
 					style={{
 						position: "absolute",
@@ -526,7 +534,9 @@ export function Board({
 						transform: [
 							{ translateX: drag.offset.x },
 							{ translateY: drag.offset.y },
-							{ scale: dragTokens.lift },
+							// The lift scales the card off the board; reduced motion
+							// keeps it at the size it was, following the finger only.
+							...(reduced ? [] : [{ scale: dragTokens.lift }]),
 						],
 					}}
 				>

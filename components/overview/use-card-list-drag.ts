@@ -5,6 +5,7 @@ import type {
 	CardDragHandlers,
 	Overlay,
 } from "@/components/board/use-board-drag";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { type Box, landingSlot, tieSafeBelow } from "@/models/drag";
 import { rankBetween } from "@/models/node";
 
@@ -70,6 +71,9 @@ export function useCardListDrag({
 	onMove: (id: string, rank: string) => void;
 }): ListDrag {
 	const [session, setSession] = useState<Session | null>(null);
+	// docs/DESIGN.md § Motion: with the query on, the card lands instead of
+	// settling.
+	const reduced = useReducedMotion();
 
 	const live = useRef<Session | null>(null);
 	const start = useRef<DragPoint | null>(null);
@@ -105,6 +109,13 @@ export function useCardListDrag({
 	 */
 	const settle = useCallback(
 		(from: Session) => {
+			// Reduced motion has no flight home: the position is already wherever
+			// the finger left it, so it lands there at once.
+			if (reduced) {
+				clear();
+				return;
+			}
+
 			const home = { ...from, over: from.home };
 			live.current = home;
 			setSession(home);
@@ -117,7 +128,7 @@ export function useCardListDrag({
 				if (live.current === home) clear();
 			});
 		},
-		[clear, offset],
+		[clear, offset, reduced],
 	);
 
 	const boxOf = useCallback(

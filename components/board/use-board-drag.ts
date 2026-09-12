@@ -4,6 +4,7 @@ import { Animated, type View } from "react-native";
 import type { Notice } from "@/components/board/CardMenu";
 import type { DragPoint } from "@/components/board/DragArea.types";
 import { moveNode } from "@/data/nodes";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import {
 	type Box,
 	columnAt,
@@ -155,6 +156,9 @@ export function useBoardDrag({
 	pane,
 }: BoardDragOptions): BoardDrag {
 	const { t } = useTranslation();
+	// docs/DESIGN.md § Motion: with the query on, the card lands instead of
+	// settling and the dwell keeps its timing but animates nothing.
+	const reduced = useReducedMotion();
 
 	const [session, setSession] = useState<Session | null>(null);
 	const [edge, setEdge] = useState<"left" | "right" | null>(null);
@@ -237,6 +241,13 @@ export function useBoardDrag({
 			edgeRef.current = null;
 			setEdge(null);
 
+			// Reduced motion has no flight home: the position is already wherever
+			// the finger left it, so it lands there at once.
+			if (reduced) {
+				clear();
+				return;
+			}
+
 			const home = { ...from, over: from.home };
 			live.current = home;
 			setSession(home);
@@ -249,7 +260,7 @@ export function useBoardDrag({
 				if (live.current === home) clear();
 			});
 		},
-		[clear, offset, stopWalking],
+		[clear, offset, reduced, stopWalking],
 	);
 
 	const measure = useCallback(
