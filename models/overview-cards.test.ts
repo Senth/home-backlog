@@ -169,6 +169,54 @@ describe("seedCards", () => {
 		]);
 		expect(new Set(values).size).toBe(values.length);
 	});
+
+	it("shows the wins cards a task waiting on an open blocker, never (#212)", () => {
+		const waiting = (effort: Node["effort"]) =>
+			node({
+				id: "waiting",
+				parentId: "mine",
+				ancestorIds: ["mine"],
+				participantIds: [me],
+				effort,
+				blockedBy: ["blocker-1"],
+			});
+		const blockers = (status: Node["status"]) =>
+			new Map([["blocker-1", node({ id: "blocker-1", status })]]);
+
+		for (const [seed, effort] of [
+			[seeded.quickWins, "quick"],
+			[seeded.aFewHours, "hours"],
+		] as const) {
+			const task = waiting(effort);
+			expect(
+				cardRows(seed, [task], { ...ctx, blockers: blockers("backlog") }),
+			).toEqual([]);
+			// A done blocker is inert history — the task is a win again.
+			expect(
+				cardRows(seed, [task], {
+					...ctx,
+					blockers: blockers("done"),
+				}).map((each) => each.id),
+			).toEqual(["waiting"]);
+		}
+	});
+
+	it("keeps Needs an estimate to tasks without children (#212)", () => {
+		const under = (overrides: Partial<Node> = {}) =>
+			node({
+				parentId: "mine",
+				ancestorIds: ["mine"],
+				participantIds: [me],
+				...overrides,
+			});
+
+		expect(
+			cardRows(seeded.needsEstimate, [under({ childCount: 2 })], ctx),
+		).toEqual([]);
+		expect(
+			cardRows(seeded.needsEstimate, [under()], ctx).map((each) => each.id),
+		).toEqual(["node-1"]);
+	});
 });
 
 describe("matching", () => {

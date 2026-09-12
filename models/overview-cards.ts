@@ -153,10 +153,13 @@ export function seedCards(): Record<string, Card> {
 			kind: "filter",
 			seedId: "quickWins",
 			title: null,
+			// A win is work you can start now — a task waiting on an open
+			// blocker is not, so the card skips it (#212).
 			conditions: [
 				{ field: "effort", anyOf: ["quick"] },
 				{ field: "isRoot", is: false },
 				{ field: "hasChildren", is: false },
+				{ field: "blockedBy", is: "none" },
 			],
 			sort: { field: "priority", direction: "desc" },
 			shown: 3,
@@ -168,7 +171,10 @@ export function seedCards(): Record<string, Card> {
 			kind: "filter",
 			seedId: "aFewHours",
 			title: null,
-			conditions: [{ field: "effort", anyOf: ["hours", "evening"] }],
+			conditions: [
+				{ field: "effort", anyOf: ["hours", "evening"] },
+				{ field: "blockedBy", is: "none" },
+			],
 			sort: { field: "priority", direction: "desc" },
 			shown: 3,
 			max: 3,
@@ -194,7 +200,10 @@ export function seedCards(): Record<string, Card> {
 			kind: "filter",
 			seedId: "needsEstimate",
 			title: null,
-			conditions: [{ field: "effort", anyOf: ["none"] }],
+			conditions: [
+				{ field: "effort", anyOf: ["none"] },
+				{ field: "hasChildren", is: false },
+			],
 			sort: null,
 			shown: 5,
 			max: 10,
