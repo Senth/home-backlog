@@ -243,14 +243,14 @@
 			"empty": "Inget på gång."
 		},
 		"done": {
-			"title": "Nyligen klart"
+			"title": "Senast Utförda"
 		},
 		"cards": {
 			"title": {
-				"quickWins": "Snabba vinster",
+				"quickWins": "Snabbfixat",
 				"aFewHours": "Några timmar",
 				"needsSplitting": "Behöver delas upp",
-				"needsEstimate": "Behöver en uppskattning"
+				"needsEstimate": "Saknar tidsuppskattning"
 			},
 			"empty": {
 				"generic": "Inget matchar det här kortet.",
