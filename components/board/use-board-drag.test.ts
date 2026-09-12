@@ -8,6 +8,7 @@ import {
 	useBoardDrag,
 } from "@/components/board/use-board-drag";
 import { moveNode } from "@/data/nodes";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { paneDwellMs, paneRepeatDwellMs } from "@/models/drag";
 import type { Node, Status } from "@/models/node";
 
@@ -22,6 +23,10 @@ jest.mock("@/data/nodes", () => ({
 	moveNode: jest.fn(() => Promise.resolve()),
 }));
 
+jest.mock("@/hooks/use-reduced-motion", () => ({
+	useReducedMotion: jest.fn(),
+}));
+
 jest.mock("react-i18next", () => ({
 	// The keys are asserted rather than the sentences: both locale files are
 	// checked for parity by `yarn invariants`, and a test that pinned the English
@@ -33,6 +38,9 @@ jest.mock("react-i18next", () => ({
 }));
 
 const moved = moveNode as jest.MockedFunction<typeof moveNode>;
+const reducedMotion = useReducedMotion as jest.MockedFunction<
+	typeof useReducedMotion
+>;
 
 const homeId = "home-1";
 const shown: Status[] = ["backlog", "next_up"];
@@ -148,6 +156,7 @@ function board({ cards, pane }: Board) {
 beforeEach(() => {
 	jest.useFakeTimers();
 	moved.mockClear();
+	reducedMotion.mockReturnValue(false);
 });
 
 afterEach(() => {
@@ -285,6 +294,24 @@ describe("useBoardDrag", () => {
 		});
 
 		expect(view.result.current.cards).toEqual([a, b, c, arrival]);
+	});
+
+	it("lands the card at once instead of settling it when motion is reduced", async () => {
+		// docs/DESIGN.md § Motion: no spring on release — the card is already
+		// where the finger left it, so it lands there without a timer running.
+		reducedMotion.mockReturnValue(true);
+		const { view, measured, gesture } = board({ cards: [a, b, c] });
+		const card = gesture(a);
+
+		card.grab({ x: 10, y: 50 });
+		await measured();
+		expect(view.result.current.node).not.toBeNull();
+
+		card.cancel();
+
+		expect(view.result.current.node).toBeNull();
+		expect(view.result.current.overlay).toBeNull();
+		expect(view.result.current.cards).toEqual([a, b, c]);
 	});
 
 	it("walks the board one pane per dwell while a card rests at the edge", async () => {

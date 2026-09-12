@@ -5,6 +5,7 @@ import {
 	rowKey,
 	useCardListDrag,
 } from "@/components/overview/use-card-list-drag";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
 /**
  * The pure half — where a dropped card lands and what rank it takes — is
@@ -15,6 +16,14 @@ import {
 jest.mock("react-i18next", () => ({
 	useTranslation: () => ({ t: (key: string) => key }),
 }));
+
+jest.mock("@/hooks/use-reduced-motion", () => ({
+	useReducedMotion: jest.fn(),
+}));
+
+const reducedMotion = useReducedMotion as jest.MockedFunction<
+	typeof useReducedMotion
+>;
 
 function card(id: string, rank: string): { id: string; rank: string } {
 	return { id, rank };
@@ -72,6 +81,7 @@ function list(cards: ListCard[]) {
 
 beforeEach(() => {
 	jest.useFakeTimers();
+	reducedMotion.mockReturnValue(false);
 });
 
 afterEach(() => {
@@ -155,5 +165,23 @@ describe("useCardListDrag", () => {
 
 		expect(view.result.current.draggedId).toBeNull();
 		expect(onMove).not.toHaveBeenCalled();
+	});
+
+	it("lands the card at once instead of settling it when motion is reduced", async () => {
+		// docs/DESIGN.md § Motion: no spring on release — the card is already
+		// where the finger left it, so it lands there without a timer running.
+		reducedMotion.mockReturnValue(true);
+		const { view, measured, gesture } = list([a, b, c]);
+		const drag = gesture("a");
+
+		drag.grab({ x: 10, y: 50 });
+		await measured();
+		expect(view.result.current.draggedId).toBe("a");
+
+		drag.cancel();
+
+		expect(view.result.current.draggedId).toBeNull();
+		expect(view.result.current.gapIndex).toBeNull();
+		expect(view.result.current.order).toEqual([a, b, c]);
 	});
 });
