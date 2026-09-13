@@ -417,7 +417,11 @@
 		"whoIsDoing": "Who's doing it",
 		"createdViaApi": "Added by an automation",
 		"column": "Column",
-		"moveToColumn": "Move to {{column}}"
+		"moveToColumn": "Move to {{column}}",
+		"location": "Location",
+		"locationNone": "The home has no locations yet.",
+		"locationSearchPlaceholder": "Search locations",
+		"locationSearchEmpty": "No locations match"
 	},
 	"labels": {
 		"capReached": "A card can carry at most {{count}} labels.",

@@ -34,6 +34,7 @@ describe("what a caller may send", () => {
 					blockedBy: ["node-9"],
 					checklist: [{ id: "c1", text: "Buy brackets", done: false }],
 					parentId: "project",
+					locationId: "loc-1",
 					visibility: "private",
 					participantIds: ["uidMarcus"],
 					labelIds: ["label-1"],
@@ -51,6 +52,7 @@ describe("what a caller may send", () => {
 			blockedBy: ["node-9"],
 			checklist: [{ id: "c1", text: "Buy brackets", done: false }],
 			parentId: "project",
+			locationId: "loc-1",
 			visibility: "private",
 			participantIds: ["uidMarcus"],
 			labelIds: ["label-1"],
@@ -129,18 +131,24 @@ describe("what the server owns", () => {
 });
 
 /**
- * Filing work in a place is #51's and has no semantics yet, so a location id a
- * caller names cannot be checked, and `locationAncestorIds` is a denormalized
- * path that is unverifiable from outside. An invented one makes "everything in
- * the Basement" return the wrong set permanently, with no screen showing a
- * discrepancy.
+ * `locationId` is taken (#246) — the place's verbs list the valid ids, and the
+ * server derives the stored path from the place. `locationAncestorIds` is that
+ * path, and a caller-supplied one could disagree with the place it rides with:
+ * an invented one makes "everything in the Basement" return the wrong set
+ * permanently, with no screen showing a discrepancy.
  */
 describe("location fields", () => {
-	it.each([
-		"locationId",
-		"locationAncestorIds",
-	])("refuses %s rather than ignoring it", (field) => {
-		const error = refusal({ [field]: "loc-1" }, "create");
+	it("takes locationId on a create and an update, null included", () => {
+		expect(parseNodeBody({ locationId: "loc-1" }, "create")).toEqual({
+			locationId: "loc-1",
+		});
+		expect(parseNodeBody({ locationId: null }, "update")).toEqual({
+			locationId: null,
+		});
+	});
+
+	it("refuses locationAncestorIds rather than ignoring it", () => {
+		const error = refusal({ locationAncestorIds: ["loc-1"] }, "create");
 
 		expect(error.code).toBe("locations_unavailable");
 		expect(error.status).toBe(400);

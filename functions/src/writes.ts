@@ -12,6 +12,7 @@ import { ApiError } from "./errors.js";
 import {
 	db,
 	homesCollection,
+	locationsCollection,
 	maxBatchWrites,
 	nodesCollection,
 } from "./firestore.js";
@@ -51,6 +52,13 @@ function homeNodes(homeId: string) {
 	return db.collection(homesCollection).doc(homeId).collection(nodesCollection);
 }
 
+function homeLocations(homeId: string) {
+	return db
+		.collection(homesCollection)
+		.doc(homeId)
+		.collection(locationsCollection);
+}
+
 function notFound(nodeId: string, homeId: string): ApiError {
 	// The same answer for "not there" and "not yours", exactly as `getNode` in
 	// `data/nodes.ts` returns the same null for both: telling them apart would
@@ -71,8 +79,20 @@ async function visibleNode(
 	return snapshot;
 }
 
-function factsOf(snapshot: DocumentSnapshot<DocumentData>): ParentFacts {
+/**
+ * The facts a parent contributes to the node below it — `ParentFacts`, plus
+ * the location a create inherits when its body stays silent (#246).
+ */
+interface NodeFacts extends ParentFacts {
+	locationId: string | null;
+	locationAncestorIds: string[];
+}
+
+function factsOf(snapshot: DocumentSnapshot<DocumentData>): NodeFacts {
 	const data = snapshot.data() ?? {};
+	const ancestorIds = Array.isArray(data.ancestorIds)
+		? (data.ancestorIds as string[])
+		: [];
 	return {
 		id: snapshot.id,
 		visibility: data.visibility === "private" ? "private" : "shared",
@@ -80,8 +100,13 @@ function factsOf(snapshot: DocumentSnapshot<DocumentData>): ParentFacts {
 			? (data.participantIds as string[])
 			: [],
 		columns: Array.isArray(data.columns) ? (data.columns as Status[]) : [],
-		ancestorIds: Array.isArray(data.ancestorIds)
-			? (data.ancestorIds as string[])
+		ancestorIds,
+		locationId:
+			data.locationId === null || typeof data.locationId === "string"
+				? (data.locationId as string | null)
+				: null,
+		locationAncestorIds: Array.isArray(data.locationAncestorIds)
+			? (data.locationAncestorIds as string[])
 			: [],
 	};
 }
@@ -91,9 +116,36 @@ async function resolveParent(
 	homeId: string,
 	parentId: string | null,
 	uid: string,
-): Promise<ParentFacts | null> {
+): Promise<NodeFacts | null> {
 	if (parentId === null) return null;
 	return factsOf(await visibleNode(homeId, parentId, uid));
+}
+
+/**
+ * The location a body names, as the path to store under it, or `null` when it
+ * unfiles the node. The path is read off the place and never taken from the
+ * body — a caller-supplied path that disagreed with the place is exactly the
+ * state nothing can see.
+ */
+async function filedLocation(
+	homeId: string,
+	locationId: string,
+): Promise<{ locationId: string; locationAncestorIds: string[] }> {
+	const snapshot = await homeLocations(homeId).doc(locationId).get();
+	if (!snapshot.exists) {
+		throw new ApiError(
+			404,
+			"location_not_found",
+			`No location ${locationId} in ${homeId}.`,
+		);
+	}
+	const ancestorIds = snapshot.get("ancestorIds");
+	return {
+		locationId,
+		locationAncestorIds: Array.isArray(ancestorIds)
+			? (ancestorIds as string[])
+			: [],
+	};
 }
 
 /**
@@ -281,14 +333,26 @@ async function createNode(request: Request, response: Response): Promise<void> {
 	const ancestorIds = childAncestorIds(parent);
 	const ref = homeNodes(homeId).doc();
 
+	// Filing (#246): the place the body names wins, with its path read off the
+	// place; silence inherits the parent's place, exactly as the app's
+	// `newNodeData` does; an explicit `null` unfiles.
+	const location =
+		body.locationId === undefined
+			? {
+					locationId: parent?.locationId ?? null,
+					locationAncestorIds: [...(parent?.locationAncestorIds ?? [])],
+				}
+			: body.locationId === null
+				? { locationId: null, locationAncestorIds: [] }
+				: await filedLocation(homeId, body.locationId);
+
 	const document: Record<string, unknown> = {
 		title: (body.title ?? "").trim(),
 		status,
 		rank: await rankAtEndOfColumn(homeId, parent?.id ?? null, status),
 		parentId: parent?.id ?? null,
 		ancestorIds,
-		locationId: null,
-		locationAncestorIds: [],
+		...location,
 		participantIds,
 		assigneeIds: body.assigneeIds ?? [],
 		visibility,
@@ -402,6 +466,16 @@ async function patchNode(request: Request, response: Response): Promise<void> {
 		refuseEmptyRootParticipants("shared", true, promotedParticipants);
 	}
 
+	// Filing (#246): `null` unfiles, an id takes the place and its path — read
+	// off the place, never the body. An update inherits nothing: it writes
+	// exactly what was asked.
+	const location =
+		body.locationId === undefined
+			? null
+			: body.locationId === null
+				? { locationId: null, locationAncestorIds: [] as string[] }
+				: await filedLocation(homeId, body.locationId);
+
 	const changes: Record<string, unknown> = {
 		...(body.title !== undefined ? { title: body.title.trim() } : {}),
 		...(body.notes !== undefined ? { notes: body.notes } : {}),
@@ -414,6 +488,7 @@ async function patchNode(request: Request, response: Response): Promise<void> {
 		...(body.blockedBy !== undefined ? { blockedBy: body.blockedBy } : {}),
 		...(body.labelIds !== undefined ? { labelIds: body.labelIds } : {}),
 		...(body.checklist !== undefined ? { checklist: body.checklist } : {}),
+		...(location ?? {}),
 		...(body.status !== undefined ? { status } : {}),
 		...(completion === "set"
 			? { completedAt: FieldValue.serverTimestamp() }

@@ -6,6 +6,7 @@ import { Button, HelperText, Text, TextInput } from "react-native-paper";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
 import { AppSheet } from "@/components/ui/AppSheet";
 import { CheckRow } from "@/components/ui/CheckRow";
+import { foldTitle } from "@/components/ui/fold-title";
 import { applyLabel, removeLabel } from "@/data/nodes";
 import { type LabelWithId, maxLabelsPerNode } from "@/models/label";
 import type { Node } from "@/models/node";
@@ -20,18 +21,6 @@ interface LabelPickerProps {
 	onDismiss: () => void;
 	testID: string;
 	returnFocusTo?: RefObject<View | null>;
-}
-
-/**
- * The title case-folds away diacritics as well as case, so `Trädgård` is
- * found from `trad` — the picker is searched by thumbs that do not compose
- * å on an English keyboard.
- */
-function foldTitle(title: string): string {
-	return title
-		.toLowerCase()
-		.normalize("NFD")
-		.replace(/\p{Diacritic}/gu, "");
 }
 
 /**

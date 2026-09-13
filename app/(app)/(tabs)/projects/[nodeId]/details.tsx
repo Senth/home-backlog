@@ -28,6 +28,7 @@ import { DetailCard } from "@/components/node/DetailCard";
 import { DetailRow } from "@/components/node/DetailRow";
 import { DueDateField } from "@/components/node/DueDateField";
 import { FlipDialog, useFlip } from "@/components/node/FlipDialog";
+import { LocationPicker } from "@/components/node/LocationPicker";
 import { NotesField } from "@/components/node/NotesField";
 import { PeopleSection } from "@/components/node/PeopleSection";
 import { StepsSection } from "@/components/node/StepsSection";
@@ -39,6 +40,7 @@ import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { type NodeChanges, updateNode } from "@/data/nodes";
+import { useLocations } from "@/hooks/use-locations";
 import { useNode } from "@/hooks/use-node";
 import { useNodes } from "@/hooks/use-nodes";
 import { formatList } from "@/i18n/format-list";
@@ -135,10 +137,18 @@ export default function NodeDetails() {
 	const assignable = assignableMembers(root, members);
 	const flip = useFlip(homeId ?? "");
 
+	// The location tree (#50), heard once here and passed down — the card
+	// face's footer reads titles from it, and so does the row below (#246).
+	const { locations } = useLocations(homeId);
+	const locationTitles = new Map(
+		locations.map((location) => [location.id, location.title]),
+	);
+
 	const [failed, setFailed] = useState(false);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [renaming, setRenaming] = useState(false);
 	const [labelling, setLabelling] = useState(false);
+	const [locating, setLocating] = useState(false);
 	const [editor, setEditor] = useState<Editor | null>(null);
 	const menuAnchor = useRef<View | null>(null);
 
@@ -192,10 +202,10 @@ export default function NodeDetails() {
 	);
 
 	/**
-	 * The nine rows in the settled order (#237): Steps · Priority · Time needed ·
-	 * Labels · Waiting on · Due by · Who can see it · Who's in it · Who's doing
-	 * it. The people rows keep today's visibility rules — hidden in a one-member
-	 * home, except a node already private.
+	 * The ten rows in the settled order (#237, #246): Steps · Priority · Time
+	 * needed · Location · Labels · Waiting on · Due by · Who can see it · Who's
+	 * in it · Who's doing it. The people rows keep today's visibility rules —
+	 * hidden in a one-member home, except a node already private.
 	 */
 	const rowsOf = (current: Node) => {
 		const ownLabels = (activeHome?.labels ?? [])
@@ -249,6 +259,20 @@ export default function NodeDetails() {
 						{current.effort === null
 							? t("detail.notSet")
 							: t(`effort.${current.effort}`)}
+					</Text>
+				}
+			/>,
+			<DetailRow
+				key="location"
+				glyph="crosshairs-gps"
+				name={t("detail.location")}
+				testID={`field-location-${current.id}`}
+				onPress={() => setLocating(true)}
+				value={
+					<Text variant="bodyMedium">
+						{current.locationId === null
+							? t("detail.notSet")
+							: (locationTitles.get(current.locationId) ?? t("detail.notSet"))}
 					</Text>
 				}
 			/>,
@@ -474,6 +498,7 @@ export default function NodeDetails() {
 						<DetailCard
 							homeId={homeId}
 							node={node}
+							locations={locationTitles}
 							onRename={() => setRenaming(true)}
 							onOpenCrumb={(crumbId) => router.dismissTo(boardHref(crumbId))}
 						/>
@@ -650,6 +675,17 @@ export default function NodeDetails() {
 					node={node}
 					onDismiss={() => setLabelling(false)}
 					testID={`label-picker-${node.id}`}
+				/>
+			) : null}
+
+			{/* Mounted only while open — see `CardMenu`'s dialogs. */}
+			{locating && homeId !== null && node !== null ? (
+				<LocationPicker
+					locations={locations}
+					node={node}
+					onDismiss={() => setLocating(false)}
+					onSave={save}
+					testID={`location-picker-${node.id}`}
 				/>
 			) : null}
 

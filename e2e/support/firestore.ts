@@ -497,6 +497,47 @@ export async function deleteLabelsByTitlePrefix(prefix: string): Promise<void> {
 	}
 }
 
+/**
+ * One location in the seeded home's tree (#246), written directly like
+ * `createFixtureNode` — the app reads the document defensively, so only the
+ * fields the location screen needs are written.
+ */
+export async function createFixtureLocation(
+	overrides: Record<string, Json>,
+): Promise<string> {
+	const home = await homeId();
+	const response = await fetch(`${BASE}/homes/${home}/locations`, {
+		method: "POST",
+		headers: { ...HEADERS, "Content-Type": "application/json" },
+		body: JSON.stringify({ fields: encodeFields(overrides) }),
+	});
+	if (!response.ok) {
+		throw new Error(
+			`emulator REST could not create a fixture location: ${response.status} ${response.statusText}`,
+		);
+	}
+	const created = (await response.json()) as { name: string };
+	return idOf(created.name);
+}
+
+/**
+ * Deletes every location whose title begins with this prefix — the same
+ * plumbing `deleteNodesByTitlePrefix` is, one collection over. Finding nothing
+ * is a normal outcome.
+ */
+export async function deleteLocationsByTitlePrefix(
+	prefix: string,
+): Promise<void> {
+	const home = await homeId();
+	const { documents = [] } = await get(`/homes/${home}/locations?pageSize=300`);
+
+	for (const doc of documents) {
+		const title = doc.fields?.title?.stringValue;
+		if (title === undefined || !title.startsWith(prefix)) continue;
+		await deleteDocumentByName(doc.name, title);
+	}
+}
+
 /** Every current member's uid, from the seeded home's `members` map. */
 export async function homeMemberUids(): Promise<string[]> {
 	const home = await homeId();

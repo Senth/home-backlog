@@ -93,6 +93,7 @@ function resetStore(): void {
 jest.unstable_mockModule("./firestore.js", () => ({
 	homesCollection: "homes",
 	nodesCollection: "nodes",
+	locationsCollection: "locations",
 	maxBatchWrites: 500,
 	db: {
 		collection: (name: string) => collectionAt(name),
@@ -262,6 +263,56 @@ describe("POST /homes/:homeId/nodes", () => {
 
 		expect(writtenDocument().labelIds).toEqual([]);
 	});
+
+	it("files the card where locationId says, deriving the path from the place", async () => {
+		document(`homes/${HOME}/locations/loc-1`, { ancestorIds: ["loc-root"] });
+
+		await route("POST", "/homes/:homeId/nodes")(
+			aRequest({ title: "Card", locationId: "loc-1" }),
+			aResponse(),
+		);
+
+		expect(writtenDocument()).toMatchObject({
+			locationId: "loc-1",
+			locationAncestorIds: ["loc-root"],
+		});
+	});
+
+	it("answers 404 for a location the home does not have", async () => {
+		await expect(
+			route("POST", "/homes/:homeId/nodes")(
+				aRequest({ title: "Card", locationId: "loc-gone" }),
+				aResponse(),
+			),
+		).rejects.toMatchObject({ status: 404, code: "location_not_found" });
+	});
+
+	it("inherits the parent's place when the body is silent, and unfiles on null", async () => {
+		storedNode("root", {
+			parentId: null,
+			ancestorIds: [],
+			locationId: "loc-1",
+			locationAncestorIds: ["loc-root"],
+		});
+
+		await route("POST", "/homes/:homeId/nodes")(
+			aRequest({ title: "Card", parentId: "root" }),
+			aResponse(),
+		);
+		expect(writtenDocument()).toMatchObject({
+			locationId: "loc-1",
+			locationAncestorIds: ["loc-root"],
+		});
+
+		await route("POST", "/homes/:homeId/nodes")(
+			aRequest({ title: "Card", parentId: "root", locationId: null }),
+			aResponse(),
+		);
+		expect(store.batches[1].set.mock.calls[0][1]).toMatchObject({
+			locationId: null,
+			locationAncestorIds: [],
+		});
+	});
 });
 
 /** Only the fields `validateNode` reads on the merged document. */
@@ -333,6 +384,32 @@ describe("PATCH /homes/:homeId/nodes/:nodeId", () => {
 		const update = store.batches[0].update as jest.Mock;
 		expect(update.mock.calls[0][1]).toMatchObject({
 			labelIds: ["label-1"],
+		});
+	});
+
+	it("files the card where locationId says, and unfiles on null", async () => {
+		storedNode("root", { parentId: null, ancestorIds: [] });
+		storedNode("step");
+		document(`homes/${HOME}/locations/loc-1`, { ancestorIds: ["loc-root"] });
+
+		await route("PATCH", "/homes/:homeId/nodes/:nodeId")(
+			aRequest({ locationId: "loc-1" }, "step"),
+			aResponse(),
+		);
+		const update = store.batches[0].update as jest.Mock;
+		expect(update.mock.calls[0][1]).toMatchObject({
+			locationId: "loc-1",
+			locationAncestorIds: ["loc-root"],
+		});
+
+		await route("PATCH", "/homes/:homeId/nodes/:nodeId")(
+			aRequest({ locationId: null }, "step"),
+			aResponse(),
+		);
+		const unfiled = store.batches[1].update as jest.Mock;
+		expect(unfiled.mock.calls[0][1]).toMatchObject({
+			locationId: null,
+			locationAncestorIds: [],
 		});
 	});
 });
