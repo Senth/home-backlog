@@ -16,7 +16,7 @@
 		"test": "jest && yarn --cwd functions test",
 		"postinstall": "yarn --cwd functions install",
 		"test:rules": "node scripts/test-rules.mjs",
-		"e2e": "scripts/dev-stack.sh up && playwright test",
+		"e2e": "scripts/dev-stack.sh up && scripts/e2e.sh",
 		"e2e:report": "playwright show-report .tmp/e2e/report",
 		"emulators": "scripts/dev-stack.sh up --no-web",
 		"emulators:export": "scripts/dev-stack.sh export",
