@@ -24,13 +24,12 @@ import {
  *
  * Four fields are refused **by name**, because each deserves its own answer:
  *
- * - `locationId` and `locationAncestorIds` on a **node** — filing work in a
- *   place is #51's and has no semantics yet, so nothing can check a location id
- *   a caller names, and `locationAncestorIds` is a denormalized path that is
- *   unverifiable from outside. An invented one makes "everything in the
- *   Basement" return the wrong set permanently, with no screen anywhere showing
- *   a discrepancy. The places themselves have verbs (`parseLocationBody`
- *   below); filing work in them does not.
+ * - `locationAncestorIds` on a **node** — a denormalized path the server
+ *   derives from the `locationId` the body names, so a caller-supplied one
+ *   could disagree with the place and make "everything in the Basement"
+ *   return the wrong set permanently, with no screen anywhere showing a
+ *   discrepancy. `locationId` itself is taken (#246): the places have verbs
+ *   (`parseLocationBody` below), and now the filing of work in them does too.
  * - `visibility` and `participantIds` on an **existing** node — the same
  *   restriction stated twice. A bearer token in an env file must not be able to
  *   change who can see a household's work, and on a private node
@@ -56,6 +55,13 @@ export interface NodeBody {
 	blockedBy?: string[];
 	checklist?: unknown[];
 	parentId?: string | null;
+	/**
+	 * The id of one of the home's locations the card is filed in (#246). The
+	 * stored path is derived from the place, never sent. On a create with no
+	 * `locationId` at all, the card takes its parent's place — the same
+	 * semantics the app's `newNodeData` gives; `null` unfiles it.
+	 */
+	locationId?: string | null;
 	/** Honoured on a create at the root, and refused everywhere else. */
 	visibility?: Visibility;
 	/**
@@ -85,6 +91,7 @@ const createFields = [
 	"blockedBy",
 	"checklist",
 	"parentId",
+	"locationId",
 	"visibility",
 	"participantIds",
 	"labelIds",
@@ -115,6 +122,7 @@ const updateFields = [
 	"blockedBy",
 	"checklist",
 	"parentId",
+	"locationId",
 	"labelIds",
 ] as const;
 
@@ -199,10 +207,10 @@ export function parseNodeBody(
 	for (const field of Object.keys(raw)) {
 		if (allowed.includes(field)) continue;
 
-		if (field === "locationId" || field === "locationAncestorIds") {
+		if (field === "locationAncestorIds") {
 			refuse(
 				"locations_unavailable",
-				"Work cannot be filed in a place over the API yet, so it is created unfiled. Sending a location id would file it somewhere that cannot be checked.",
+				"locationAncestorIds is derived from the location that locationId names, so it cannot be sent. Send locationId alone.",
 				field,
 			);
 		}
@@ -257,6 +265,9 @@ export function parseNodeBody(
 	}
 	if ("parentId" in raw) {
 		parsed.parentId = asStringOrNull(raw.parentId, "parentId");
+	}
+	if ("locationId" in raw) {
+		parsed.locationId = asStringOrNull(raw.locationId, "locationId");
 	}
 	if ("visibility" in raw) {
 		parsed.visibility = asEnum(raw.visibility, visibilities, "visibility");

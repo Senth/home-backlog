@@ -5,7 +5,6 @@ import { IconButton } from "react-native-paper";
 import { BoardCard } from "@/components/board/BoardCard";
 import { useAncestors } from "@/hooks/use-ancestors";
 import { useBlockerReads } from "@/hooks/use-blockers";
-import { useLocations } from "@/hooks/use-locations";
 import type { Node } from "@/models/node";
 import {
 	cardGutterBreakpoint,
@@ -19,6 +18,8 @@ interface DetailCardProps {
 	homeId: string | null;
 	/** The card this screen is about — the one that was tapped. */
 	node: Node;
+	/** Location id → title, read by the screen and handed down. */
+	locations: ReadonlyMap<string, string>;
 	/** Opens the rename dialog the overflow menu also opens. */
 	onRename: () => void;
 	/** Where a crumb goes: that ancestor's board. */
@@ -35,11 +36,13 @@ interface DetailCardProps {
  * What it adds over a board card is what only details can know: the trail as
  * links that wrap (`CardTrail`, first crumb the project), the card's own
  * blockers read on focus so the waiting mark is live, and the location map for
- * the footer. The title stays `bodyLarge` — the loudest text on the screen.
+ * the footer — the screen's reads, handed down (#246). The title stays
+ * `bodyLarge` — the loudest text on the screen.
  */
 export function DetailCard({
 	homeId,
 	node,
+	locations,
 	onRename,
 	onOpenCrumb,
 }: DetailCardProps) {
@@ -49,7 +52,6 @@ export function DetailCard({
 
 	const { crumbs } = useAncestors(homeId, node.ancestorIds);
 	const blockers = useBlockerReads(homeId, node.blockedBy, focused);
-	const { locations } = useLocations(homeId);
 
 	// The card fills the screen's form column, so its own width — not the
 	// window's — is what the gutter breakpoint names. The screen hands this
@@ -77,9 +79,7 @@ export function DetailCard({
 			linkedTrail={crumbs.length === 0 ? undefined : { crumbs, onOpenCrumb }}
 			blockers={blockers}
 			ancestorLabelIds={crumbs.flatMap((crumb) => crumb.node?.labelIds ?? [])}
-			locations={
-				new Map(locations.map((location) => [location.id, location.title]))
-			}
+			locations={locations}
 			narrow={narrow}
 		/>
 	);

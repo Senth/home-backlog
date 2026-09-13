@@ -233,7 +233,7 @@ carries an `ETag`, and `If-Match` guards the write exactly as it does for nodes.
 
 A place with children answers `409 has_children` and tells you how many. Repeat with
 `?cascade=true` to delete the subtree. Work anchored to a deleted place is unfiled — its
-`locationId` becomes `null` — the same state work you create today is in.
+`locationId` becomes `null`.
 
 ### `POST /v1/homes/{homeId}/locations:bulk`
 
@@ -342,15 +342,16 @@ filed work you did not file.
 | `effort` | ✅ | Shown in the app. `quick`, `hours`, `evening`, `weekend`, `multi_week`, or `null`. |
 | `assigneeIds` | ✅ | Shown in the app. Who is doing this card. Uids from `GET /v1/homes`. |
 | `parentId` | ✅ | Structure. On `POST` it places the node; on `PATCH` it moves the subtree. |
+| `locationId` | ✅ | Filing work in a place (#246): the id of one of the home's places, which the **Locations** verbs above list and create. On `POST` an omitted `locationId` inherits the parent's place and `null` unfiles; on `PATCH` only what you send is written, `null` unfiles. A place that does not exist answers `404 location_not_found`. Rendered in the app as the place's leaf name on the card footer and the detail screen. |
 | `visibility` | ✅ on create, at the top level only | Shown in the app. `shared` or `private`. |
 | `blockedBy` | ✅ | Rendered in the app as *Waiting*: the app derives the state from the blockers' statuses, and nothing auto-clears it — a done blocker stops holding cards, and reopening one re-blocks them. Writing a private node's id into a shared card's list leaves the other members a row they cannot read and can remove. |
 | `labelIds` | ✅ | The card's labels, as ids of the home's label definitions — at most **6**. Rendered as colored dots beside the card. The definitions behind the ids are the **Labels** verbs above: list them there, and create one before you write its id onto a card. A card naming a gone id renders as nothing and stays updatable. |
 | `checklist` | ✅ | **Stored, no screen yet.** Up to 200 items. Nothing renders it today. |
+| `locationAncestorIds` | ❌ | Derived from the place `locationId` names, so sending it is refused rather than ignored. |
 | `participantIds` | ❌ | Shown in the app. Whose project this is. Set by a person. |
 | `archived` | ❌ | Hides a card from every board. Nothing in the app can bring one back yet, so nothing here may hide one. |
 | `rank`, `columns`, `ancestorIds`, `childCount`, `doneCount`, `completedAt` | ❌ | Computed. |
 | `createdAt`, `createdBy`, `updatedAt`, `createdVia` | ❌ | Computed. |
-| `locationId`, `locationAncestorIds` | ❌ | See below. |
 | `photos` | ❌ | Uploaded by a person, from a device. |
 
 Everything marked **stored, no screen yet** accepts writes and renders nowhere. Populate it if
@@ -358,11 +359,9 @@ it helps you, but do not expect a person to see it.
 
 ## What this API cannot do yet
 
-- **Filing work in a place.** Places can be created, listed and managed with the location
-  verbs above, but a node cannot be filed in one yet: sending `locationId` or
-  `locationAncestorIds` on a node write is refused rather than ignored, so everything you
-  create is unfiled. Nothing can check a location id you name, and an invented one would
-  make "everything in the bathroom" return the wrong set.
+- **Filing work in a place, in bulk.** The node verbs take `locationId` (#246), but the
+  bulk node create does not: a payload naming one is refused rather than ignored, since
+  the planner does not resolve places. File each node with a follow-up `PATCH`.
 - **Recurring maintenance.** No verbs yet.
 - **Changing `visibility` or `participantIds`** on anything that exists. A person does that.
 - **Creating a home, inviting, accepting an invitation.** Human-only.

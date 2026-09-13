@@ -176,6 +176,20 @@ export function parseBulkBody(body: unknown): BulkPayload {
 				continue;
 			}
 
+			// The single-node verbs file work in a place (#246); the bulk planner
+			// does not resolve places, so a payload that named one would be
+			// silently unfiled — refused rather than ignored.
+			if ("locationId" in object || "locationAncestorIds" in object) {
+				details.push({
+					index,
+					field: "locationId" in object ? "locationId" : "locationAncestorIds",
+					code: "locations_unavailable",
+					message:
+						"A bulk create files nothing yet: it cannot check a location id. PATCH each node's locationId afterwards.",
+				});
+				continue;
+			}
+
 			const fields = parseNodeBody(object, "create", ["ref", "parentRef"]);
 			const ref = object.ref;
 			if (typeof ref !== "string" || ref.length === 0) {

@@ -7,7 +7,9 @@ import {
 	VIEWPORTS,
 } from "@/e2e/support/app";
 import {
+	createFixtureLocation,
 	createFixtureNode,
+	deleteLocationsByTitlePrefix,
 	deleteNodesByTitlePrefix,
 	memberUid,
 	nodeFields,
@@ -40,8 +42,12 @@ const CARD = '[data-testid="card-container"]';
 /** What every node this file creates is titled, so cleanup can find it. */
 const PREFIX = "E2E details ";
 
+/** What every location this file creates is titled, for the same reason. */
+const LOC_PREFIX = "E2E loc ";
+
 test.afterEach(async () => {
 	await deleteNodesByTitlePrefix(PREFIX);
+	await deleteLocationsByTitlePrefix(LOC_PREFIX);
 });
 
 /** Adds a card to the first column of the board on screen. */
@@ -79,6 +85,27 @@ test("1: every control on the details screen writes on the spot, and a reload pu
 	const renamed = `${PREFIX}walk renamed`;
 	const notesText = "Acetyl fog, do not sand";
 	const stepTitle = `${PREFIX}walk step`;
+
+	// A small place tree, since the seed ships none: Hallway sits under
+	// Basement under House, so the picker has a trail to draw.
+	const houseTitle = `${LOC_PREFIX}House`;
+	const basementTitle = `${LOC_PREFIX}Basement`;
+	const hallwayTitle = `${LOC_PREFIX}Hallway`;
+	const houseId = await createFixtureLocation({
+		title: houseTitle,
+		parentId: null,
+		ancestorIds: [],
+	});
+	const basementId = await createFixtureLocation({
+		title: basementTitle,
+		parentId: houseId,
+		ancestorIds: [houseId],
+	});
+	const hallwayId = await createFixtureLocation({
+		title: hallwayTitle,
+		parentId: basementId,
+		ancestorIds: [houseId, basementId],
+	});
 
 	await gotoAndSettle(page, BOARD);
 	await addCard(page, title);
@@ -132,6 +159,26 @@ test("1: every control on the details screen writes on the spot, and a reload pu
 	await expect
 		.poll(async () => (await nodeFields(nodeId)).effort, { timeout: 30_000 })
 		.toBe("evening");
+	await page.keyboard.press("Escape");
+
+	// Location (#246): the row opens the picker, picking a place writes the
+	// card's place and its denormalized path in one write, and the trail under
+	// the ticked row names where that place sits. The trail's titles also ride
+	// their own rows above, so the visibility claim takes the first of each.
+	await page.getByRole("button", { name: enUS.detail.location }).click();
+	const locationPicker = page.getByTestId(`location-picker-${nodeId}-surface`);
+	await locationPicker.getByRole("checkbox", { name: hallwayTitle }).click();
+	await expect
+		.poll(async () => (await nodeFields(nodeId)).locationId, {
+			timeout: 30_000,
+		})
+		.toBe(hallwayId);
+	await expect
+		.poll(async () => (await nodeFields(nodeId)).locationAncestorIds, {
+			timeout: 30_000,
+		})
+		.toEqual([houseId, basementId]);
+	await expect(locationPicker.getByText(basementTitle).first()).toBeVisible();
 	await page.keyboard.press("Escape");
 
 	// Notes save themselves after a pause in typing; the Saved line is the
@@ -247,6 +294,20 @@ test("1: every control on the details screen writes on the spot, and a reload pu
 		.click();
 	await expect
 		.poll(async () => (await nodeFields(nodeId)).effort, { timeout: 30_000 })
+		.toBeNull();
+	await page.keyboard.press("Escape");
+
+	// The location came back from the server too, and the ticked row's tap —
+	// the same one that filed the card — is what takes the place off.
+	await page.getByRole("button", { name: enUS.detail.location }).click();
+	await page
+		.getByTestId(`location-picker-${nodeId}-surface`)
+		.getByRole("checkbox", { name: hallwayTitle })
+		.click();
+	await expect
+		.poll(async () => (await nodeFields(nodeId)).locationId, {
+			timeout: 30_000,
+		})
 		.toBeNull();
 	await page.keyboard.press("Escape");
 
@@ -508,7 +569,7 @@ test.describe("at 200% text in sv-SE (#237)", () => {
 	test("5: every row keeps a name column and a value that reads, and the bar's name reads before it clips", async ({
 		page,
 	}) => {
-		// A root card with both members on it, so all nine rows render. No
+		// A root card with both members on it, so all ten rows render. No
 		// assignee, so *Who's doing it* carries the "nobody yet" text value.
 		const marcus = await memberUid("Marcus");
 		const nodeId = await createFixtureNode({
@@ -541,6 +602,11 @@ test.describe("at 200% text in sv-SE (#237)", () => {
 			{
 				field: "effort",
 				name: svSE.detail.effort,
+				value: svSE.detail.notSet,
+			},
+			{
+				field: "location",
+				name: svSE.detail.location,
 				value: svSE.detail.notSet,
 			},
 			{
@@ -577,7 +643,7 @@ test.describe("at 200% text in sv-SE (#237)", () => {
 			a.y < b.y + b.height &&
 			b.y < a.y + a.height;
 
-		// The card is a seeded root and Huset has two members, so all nine rows
+		// The card is a seeded root and Huset has two members, so all ten rows
 		// render. Each name keeps a column at least a touch target wide, which a
 		// one-character-per-line collapse cannot fake — and each value keeps a
 		// real width clear of its chevron, which is the same failure on the

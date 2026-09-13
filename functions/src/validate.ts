@@ -37,10 +37,10 @@ import {
  *   of the seven because #63 will edit column sets, but a card in a column the
  *   board does not show has a one-way exit — the move sheet only offers frozen
  *   destinations — and an agent has no eyes on the board it is writing to.
- * - `locationId` and `locationAncestorIds` are refused outright. Nothing can
- *   hand an agent a valid location id yet, and `locationAncestorIds` is a
- *   denormalized path that is unverifiable from outside; an invented one makes
- *   "everything in the Basement" return the wrong set permanently.
+ * - `locationAncestorIds` is a denormalized path the server derives from the
+ *   `locationId` a body may name (#246), never one the body supplies; an
+ *   invented path makes "everything in the Basement" return the wrong set
+ *   permanently.
  *
  * Pure, with no I/O: a bulk request is validated in **full** before anything is
  * written, so the caller gets per-index errors it can fix and resend, and a

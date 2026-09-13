@@ -417,7 +417,11 @@
 		"whoIsDoing": "Vem gör det",
 		"createdViaApi": "Tillagd av en automation",
 		"column": "Kolumn",
-		"moveToColumn": "Flytta till {{column}}"
+		"moveToColumn": "Flytta till {{column}}",
+		"location": "Plats",
+		"locationNone": "Hemmet har inga platser än.",
+		"locationSearchPlaceholder": "Sök platser",
+		"locationSearchEmpty": "Inga platser matchar"
 	},
 	"labels": {
 		"capReached": "Ett kort kan ha som mest {{count}} etiketter.",
