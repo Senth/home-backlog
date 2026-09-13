@@ -216,9 +216,10 @@ describe("LabelDialog", () => {
 					element.props.accessibilityLabel !== "star",
 			);
 		expect(cell).toBeDefined();
+		if (!cell) throw new Error("no unselected grid cell found");
 		// Read the name before pressing: choosing closes the picker, and the
 		// cell's instance dies with it.
-		const chosen = cell?.props.accessibilityLabel;
+		const chosen = cell.props.accessibilityLabel;
 		fireEvent.press(cell);
 
 		fireEvent.press(screen.getByText("labels.save"));

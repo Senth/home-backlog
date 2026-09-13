@@ -296,20 +296,17 @@ describe("a location body", () => {
 		expect(error.message).toContain("title");
 	});
 
-	it.each([
-		"ancestorIds",
-		"createdAt",
-		"createdBy",
-		"updatedAt",
-		"id",
-	])("refuses %s on a create and an update", (field) => {
-		expect(locationRefusal({ [field]: "anything" }, "create").code).toBe(
-			"unknown_field",
-		);
-		expect(locationRefusal({ [field]: "anything" }, "update").code).toBe(
-			"unknown_field",
-		);
-	});
+	it.each(["ancestorIds", "createdAt", "createdBy", "updatedAt", "id"])(
+		"refuses %s on a create and an update",
+		(field) => {
+			expect(locationRefusal({ [field]: "anything" }, "create").code).toBe(
+				"unknown_field",
+			);
+			expect(locationRefusal({ [field]: "anything" }, "update").code).toBe(
+				"unknown_field",
+			);
+		},
+	);
 
 	it("refuses a parentId that is neither a string nor null", () => {
 		expect(locationRefusal({ parentId: 7 }, "create").code).toBe(
