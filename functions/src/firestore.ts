@@ -30,6 +30,8 @@ export const usersCollection = "users";
 export const apiKeysCollection = "apiKeys";
 export const apiClientsCollection = "apiClients";
 export const runsCollection = "runs";
+export const dashboardsCollection = "dashboards";
+export const dashboardCardsCollection = "dashboardCards";
 
 /** The most documents one Firestore batch may carry. */
 export const maxBatchWrites = 500;

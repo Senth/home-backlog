@@ -1,4 +1,10 @@
-import { parseLabelBody, parseLocationBody, parseNodeBody } from "./body.js";
+import {
+	parseCardBody,
+	parseCardReorderBody,
+	parseLabelBody,
+	parseLocationBody,
+	parseNodeBody,
+} from "./body.js";
 import type { ApiError } from "./errors.js";
 
 function refusal(body: unknown, mode: "create" | "update"): ApiError {
@@ -384,5 +390,130 @@ describe("a label body", () => {
 
 	it("refuses a body that is not an object", () => {
 		expect(labelRefusal([], "create").code).toBe("invalid_body");
+	});
+});
+
+/**
+ * The overview-card body (#255). `scope` is where the card is stored and, on
+ * an update, its presence is a move; `rank` is the reorder verb's; `hidden`
+ * is not a field of the card at all but one member's flag, with its own
+ * verbs.
+ */
+function cardRefusal(body: unknown, mode: "create" | "update"): ApiError {
+	try {
+		parseCardBody(body, mode);
+	} catch (error) {
+		return error as ApiError;
+	}
+	throw new Error("Expected the body to be refused.");
+}
+
+describe("an overview-card body", () => {
+	it("takes every field a create writes", () => {
+		expect(
+			parseCardBody(
+				{
+					scope: "shared",
+					title: "Bathroom this month",
+					conditions: [{ field: "status", anyOf: ["backlog"] }],
+					sort: { field: "priority", direction: "desc" },
+					shown: 3,
+					max: 10,
+				},
+				"create",
+			),
+		).toEqual({
+			scope: "shared",
+			title: "Bathroom this month",
+			conditions: [{ field: "status", anyOf: ["backlog"] }],
+			sort: { field: "priority", direction: "desc" },
+			shown: 3,
+			max: 10,
+		});
+	});
+
+	it("takes an empty body, for a patch that only moves nothing", () => {
+		expect(parseCardBody({}, "update")).toEqual({});
+	});
+
+	it("requires scope and title on a create", () => {
+		expect(cardRefusal({ title: "No scope" }, "create").code).toBe(
+			"scope_required",
+		);
+		expect(cardRefusal({ scope: "home" }, "create").code).toBe(
+			"title_required",
+		);
+	});
+
+	it("takes a null title on an update, which reverts a seed to its name", () => {
+		expect(parseCardBody({ title: null }, "update")).toEqual({ title: null });
+	});
+
+	it("refuses a scope outside the three surfaces", () => {
+		expect(cardRefusal({ scope: "theirs" }, "create").code).toBe(
+			"invalid_scope",
+		);
+	});
+
+	it.each([
+		"id",
+		"kind",
+		"seedId",
+		"rank",
+		"etag",
+		"empty",
+	])("refuses %s on a create and an update", (field) => {
+		expect(cardRefusal({ [field]: "anything" }, "create").code).toBe(
+			"unknown_field",
+		);
+		expect(cardRefusal({ [field]: "anything" }, "update").code).toBe(
+			"unknown_field",
+		);
+	});
+
+	it("refuses hidden by name, because a hide is its own verb", () => {
+		const error = cardRefusal({ hidden: true }, "update");
+
+		expect(error.code).toBe("hidden_has_own_verb");
+		expect(error.message).toContain("/hidden");
+	});
+
+	it("refuses conditions that are not a list, and counts that are not whole", () => {
+		expect(cardRefusal({ conditions: {} }, "create").code).toBe("invalid_type");
+		expect(cardRefusal({ shown: 2.5 }, "create").code).toBe("invalid_type");
+		expect(cardRefusal({ max: "many" }, "create").code).toBe("invalid_type");
+	});
+
+	it("refuses a body that is not an object", () => {
+		expect(cardRefusal([], "create").code).toBe("invalid_body");
+	});
+});
+
+function reorderRefusal(body: unknown): ApiError {
+	try {
+		parseCardReorderBody(body);
+	} catch (error) {
+		return error as ApiError;
+	}
+	throw new Error("Expected the body to be refused.");
+}
+
+describe("a reorder body", () => {
+	it("takes the scope and the ids", () => {
+		expect(parseCardReorderBody({ scope: "shared", ids: ["b", "a"] })).toEqual({
+			scope: "shared",
+			ids: ["b", "a"],
+		});
+	});
+
+	it("requires both", () => {
+		expect(reorderRefusal({ ids: ["a"] }).code).toBe("scope_required");
+		expect(reorderRefusal({ scope: "home" }).code).toBe("ids_required");
+	});
+
+	it("refuses anything else", () => {
+		expect(reorderRefusal({ scope: "home", ids: [], rank: "V0" }).code).toBe(
+			"unknown_field",
+		);
 	});
 });

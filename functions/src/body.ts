@@ -1,3 +1,4 @@
+import { type CardScope, scopes as cardScopes } from "./card.js";
 import { ApiError } from "./errors.js";
 import {
 	type Effort,
@@ -376,4 +377,161 @@ export function parseLabelBody(
 	if ("rank" in raw) parsed.rank = asString(raw.rank, "rank");
 
 	return parsed;
+}
+
+export interface CardBody {
+	/**
+	 * Where the card is stored. Required on a create; on an update its
+	 * presence **moves** the card between scopes, in the one atomic write the
+	 * app's own `moveScopeCard` is.
+	 */
+	scope?: CardScope;
+	title?: string | null;
+	/** Checked field-by-field against the model's vocabulary by `validateCard`. */
+	conditions?: unknown[];
+	sort?: unknown;
+	shown?: number;
+	max?: number;
+}
+
+/** Fields a caller may send when creating an overview card. */
+const cardCreateFields = [
+	"scope",
+	"title",
+	"conditions",
+	"sort",
+	"shown",
+	"max",
+] as const;
+
+/** Fields a caller may send when changing one. `rank` is the reorder verb's. */
+const cardUpdateFields = [
+	"title",
+	"conditions",
+	"sort",
+	"shown",
+	"max",
+	"scope",
+] as const;
+
+/**
+ * Read an overview-card body against the allow-list for this verb.
+ *
+ * `id`, `kind`, `seedId` and `rank` are the server's — a card keeps its id
+ * when it moves scope, `"completed"` is only ever the app's Recently done
+ * seed, and order is sent to the reorder verb, never as a rank. `hidden` is
+ * refused by name because it is not a field of the card at all: a hide is
+ * per-member, and it has its own verbs on `/hidden`.
+ *
+ * The condition objects are only checked for *listness* here; each one is
+ * validated against the vocabulary the app matches with by `validateCard`,
+ * on the card as it will be written.
+ */
+export function parseCardBody(
+	body: unknown,
+	mode: "create" | "update",
+): CardBody {
+	const raw = asObject(body);
+	const allowed: readonly string[] =
+		mode === "create" ? cardCreateFields : cardUpdateFields;
+
+	for (const field of Object.keys(raw)) {
+		if (allowed.includes(field)) continue;
+		if (field === "hidden") {
+			refuse(
+				"hidden_has_own_verb",
+				"hidden is not a field of a card — it is one member's hide flag. Put or delete /overview-cards/{id}/hidden to change your own.",
+				field,
+			);
+		}
+		refuse(
+			"unknown_field",
+			`${field} is not a field this endpoint writes. Allowed: ${allowed.join(", ")}.`,
+			field,
+		);
+	}
+
+	const parsed: CardBody = {};
+	if ("scope" in raw) parsed.scope = asEnum(raw.scope, cardScopes, "scope");
+	if ("title" in raw) {
+		parsed.title = raw.title === null ? null : asString(raw.title, "title");
+	}
+	if ("conditions" in raw) {
+		if (!Array.isArray(raw.conditions)) {
+			refuse("invalid_type", "conditions must be a list.", "conditions");
+		}
+		parsed.conditions = raw.conditions;
+	}
+	if ("sort" in raw) parsed.sort = raw.sort;
+	if ("shown" in raw) {
+		if (!Number.isInteger(raw.shown)) {
+			refuse("invalid_type", "shown must be a whole number.", "shown");
+		}
+		parsed.shown = raw.shown as number;
+	}
+	if ("max" in raw) {
+		if (!Number.isInteger(raw.max)) {
+			refuse("invalid_type", "max must be a whole number.", "max");
+		}
+		parsed.max = raw.max as number;
+	}
+
+	if (mode === "create") {
+		if (parsed.scope === undefined) {
+			refuse(
+				"scope_required",
+				"A card needs a scope: global (All homes, the key owner's own), home (this home, this member) or shared (the whole household).",
+				"scope",
+			);
+		}
+		if (parsed.title === undefined) {
+			refuse("title_required", "A card needs a title.", "title");
+		}
+	}
+
+	return parsed;
+}
+
+export interface CardReorderBody {
+	scope: CardScope;
+	/** The scope's cards, all of them, in the order they should sit in. */
+	ids: string[];
+}
+
+/**
+ * Read a reorder body: the scope whose block is being arranged, and the ids
+ * in their new order. Exactly the scope's current ids — a list that names a
+ * card the scope does not have, or omits one it does, is refused rather than
+ * applied, because a partial reorder is a lost card.
+ */
+export function parseCardReorderBody(body: unknown): CardReorderBody {
+	const raw = asObject(body);
+	const allowed = ["scope", "ids"] as const;
+
+	for (const field of Object.keys(raw)) {
+		if ((allowed as readonly string[]).includes(field)) continue;
+		refuse(
+			"unknown_field",
+			`${field} is not a field this endpoint writes. Allowed: ${allowed.join(", ")}.`,
+			field,
+		);
+	}
+	if (!("scope" in raw)) {
+		refuse(
+			"scope_required",
+			"Reorder needs a scope: global, home or shared.",
+			"scope",
+		);
+	}
+	if (!("ids" in raw)) {
+		refuse(
+			"ids_required",
+			"Reorder needs ids: the scope's cards in the order they should sit in.",
+			"ids",
+		);
+	}
+	return {
+		scope: asEnum(raw.scope, cardScopes, "scope"),
+		ids: asStringList(raw.ids, "ids"),
+	};
 }

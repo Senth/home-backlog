@@ -1,7 +1,7 @@
 ---
 name: home-backlog-api
-description: Read and write a Home Backlog board over REST — nested kanban nodes where a project, a task and a subtask are the same thing at different depths. Use when asked to research, break down, file or re-prioritise home-improvement work for a household, or when a prompt mentions Home Backlog, hb.senth.org, or an API key beginning hb_. Covers bearer auth, the node verbs, and the atomic bulk create that writes a whole subtree in one undoable call.
-api-version: 1.3.0
+description: Read and write a Home Backlog board over REST — nested kanban nodes where a project, a task and a subtask are the same thing at different depths. Use when asked to research, break down, file or re-prioritise home-improvement work for a household, or when a prompt mentions Home Backlog, hb.senth.org, or an API key beginning hb_. Covers bearer auth, the node verbs, the atomic bulk create that writes a whole subtree in one undoable call, and the overview-card verbs that arrange the Overview tab's sections.
+api-version: 1.4.0
 ---
 
 # Home Backlog API
@@ -326,6 +326,112 @@ Deletes the definition only. Cards keep the id: they render the label as nothing
 fully updatable, and that is a designed-for state, not a broken reference. `If-Match` guards
 the write as everywhere else.
 
+## Overview sections
+
+The Overview tab's sections are dashboard cards — seven built-in seeds plus custom filter
+cards, merged from three scopes. An Overview card is a saved question over the household's
+work: a list of conditions that all hold (ANDed; within one condition the values are ORs),
+a sort, and how many rows to show.
+
+```json
+{
+  "id": "AbCdEfGhIjKlMnOpQrSt",
+  "scope": "shared",
+  "hidden": false,
+  "etag": "\"3f2a…\"",
+  "kind": "filter",
+  "seedId": null,
+  "title": "Bathroom this month",
+  "conditions": [
+    { "field": "locationId", "anyOf": ["wJg9A41tevu4ydzlnZvz"] },
+    { "field": "status", "anyOf": ["backlog", "next_up", "execution"] }
+  ],
+  "sort": { "field": "priority", "direction": "desc" },
+  "shown": 5,
+  "max": 20,
+  "empty": { "mode": "say", "key": "overview.cards.empty.generic" },
+  "rank": "a2"
+}
+```
+
+The three scopes are where a card is stored, and who it belongs to:
+
+| Scope | Stored on | Whose |
+| --- | --- | --- |
+| `global` | the key owner's cross-home config | the key's owner, in every home they open |
+| `home` | the key owner's per-home config | the key's owner, in this home only |
+| `shared` | one document per card | the whole household |
+
+The screen renders global → home → shared merged, a later scope winning on an id
+collision, minus the shared cards this member hid. A key is its owner: global and home
+writes touch **only the key owner's own documents**, and a hide writes the owner's own
+hide list. You cannot arrange another member's Overview, and their `hiddenSharedIds` is
+out of reach no matter how the request is shaped.
+
+Conditions reference the same vocabulary the app matches with. `assigneeIds` and
+`participantIds` take uids from `GET /v1/homes`, with the reserved word `me`; `assigneeIds`
+also takes `none` for unassigned. `locationId` takes ids from the locations verbs, or
+`is: "any"` / `"none"`. An id the home does not have simply matches nothing.
+
+### `GET /v1/homes/{homeId}/overview-cards`
+
+Every Overview section this member sees, as the editor sees it: the merged list, ordered by
+`(rank, id)`, each row carrying its `scope`, its `hidden` flag (shared cards only — a hide
+removes it from this member's screen, not from the household's), and an `etag` for later
+writes. Hidden shared cards stay in the list.
+
+### `POST /v1/homes/{homeId}/overview-cards`
+
+One card. `scope` and `title` are required; `conditions`, `sort`, `shown` and `max` are
+optional, defaulting to no conditions, board order, 5 shown and 20 held.
+
+```json
+{
+  "scope": "shared",
+  "title": "Bathroom this month",
+  "conditions": [{ "field": "locationId", "anyOf": ["wJg9A41tevu4ydzlnZvz"] }]
+}
+```
+
+Returns `201` and the card. It lands at the end of the screen; the app's editor or a later
+reorder places it. Writing to `global` before the key's owner has ever opened the Overview
+tab is `409 global_cards_not_seeded` — the app seeds that config on its first read, and the
+API will not seed it, because seeding is never diffed against the seed list and a faked
+marker would leave the owner without their built-ins.
+
+### `PATCH /v1/homes/{homeId}/overview-cards/{cardId}`
+
+Send the fields you want changed — `title`, `conditions`, `sort`, `shown`, `max` — and send
+`scope` to move the card between scopes. A move is one atomic write: the card is gone from
+the old surface exactly when it arrives on the new one, so it can never sit on two surfaces
+under one id. Its `rank` rides along unchanged. `If-Match` guards the card's own fields; a
+sibling card in the same scope is safe regardless, because every write commits as one
+transaction.
+
+### `POST /v1/homes/{homeId}/overview-cards:reorder`
+
+Send `scope` and `ids` — **all** of that scope's cards, in the order they should sit in:
+
+```json
+{ "scope": "shared", "ids": ["yWZwxblsNX8GiZZzOtA6", "twQ7kQTHVfBinUgwXHfs"] }
+```
+
+Ranks are fractional and computed: send order, not rank, and the API recomputes them as one
+block between the scopes that surround it, so the scope keeps its place on the screen. An
+`ids` that is not exactly the scope's current set — one missing, one extra, one duplicated —
+is `400 card_set_mismatch`, because a partial reorder is a lost card.
+
+### `DELETE /v1/homes/{homeId}/overview-cards/{cardId}`
+
+Removes the card from the scope it is on. A seed the household deleted stays deleted —
+nothing here re-adds one. `If-Match` guards the write.
+
+### `PUT /v1/homes/{homeId}/overview-cards/{cardId}/hidden`
+
+Hides a **shared** card from this member's Overview, by writing the key owner's own
+`hiddenSharedIds` — never the card, never another member's list. `DELETE` on the same path
+unhides. A card that is not shared has nothing to hide and answers `404`.
+
 ## Fields
 
 Fields you may send are marked ✅. The API computes the rest, and sending one is a
@@ -362,11 +468,19 @@ it helps you, but do not expect a person to see it.
   verbs above, but a node cannot be filed in one yet: sending `locationId` or
   `locationAncestorIds` on a node write is refused rather than ignored, so everything you
   create is unfiled. Nothing can check a location id you name, and an invented one would
-  make "everything in the bathroom" return the wrong set.
+  make "everything in the bathroom" return the wrong set. An Overview card's `locationId`
+  *condition* can name one — that is a filter, not a filing.
 - **Recurring maintenance.** No verbs yet.
 - **Changing `visibility` or `participantIds`** on anything that exists. A person does that.
 - **Creating a home, inviting, accepting an invitation.** Human-only.
 - **Custom statuses.** The four are the vocabulary.
+- **Restoring a removed seed, or writing a custom empty message.** *Removed originals* and
+  every empty-mode text are the app editor's: the API can re-create a card from its parts,
+  but not restore a seed's original settings, and an Overview section that runs empty can
+  say only the app's own nothing-here line.
+- **Arranging another member's Overview.** Global and home cards live on the key owner's
+  own documents, and a hide is the owner's own flag. A shared card is the one thing a key
+  can file for the whole household.
 - **Notifications of any kind.** There are no webhooks. Poll.
 
 ## Practical notes
