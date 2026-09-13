@@ -208,7 +208,7 @@ export default function Homes() {
 											</View>
 										) : null}
 										<IconButton
-											icon="chevron-right"
+											icon="pencil"
 											accessibilityLabel={t("manageHome.manageNamed", {
 												home: home.name,
 											})}
