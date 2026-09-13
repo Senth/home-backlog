@@ -1,0 +1,8 @@
+import { View } from "react-native";
+import { LabelGlyph } from "@/components/label/LabelGlyph";
+
+export const Screen = () => (
+	<View>
+		<LabelGlyph color="amber" icon="tag" />
+	</View>
+);

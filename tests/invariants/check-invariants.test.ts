@@ -38,6 +38,9 @@ const CHECKS = [
 	"e2e spec budget",
 	"emulators via dev-stack",
 	"icon names generated",
+	"button hierarchy",
+	"DueChip warning-only",
+	"label glyph named",
 ];
 
 type Case = {
@@ -88,6 +91,9 @@ const CASES: Case[] = [
 		},
 	},
 	{ name: "icon-names", check: "icon names generated" },
+	{ name: "button-hierarchy", check: "button hierarchy" },
+	{ name: "duechip-warning", check: "DueChip warning-only" },
+	{ name: "label-glyph-named", check: "label glyph named" },
 ];
 
 type Run = { code: number; stdout: string; stderr: string };
