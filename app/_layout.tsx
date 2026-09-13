@@ -1,3 +1,4 @@
+import "@/utils/raf-polyfill";
 import "@/i18n";
 
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";

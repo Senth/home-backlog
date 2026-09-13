@@ -49,12 +49,13 @@ describe("iconColumns", () => {
 	// The brief's three widths: a cell may never undercut the touch target.
 	const widths = [195, 320, 390];
 
-	it.each(
-		widths,
-	)("keeps every cell at or over the touch target at %ipx", (width) => {
-		const columns = iconColumns(width);
-		expect(cellWidth(width, columns)).toBeGreaterThanOrEqual(touchTarget);
-	});
+	it.each(widths)(
+		"keeps every cell at or over the touch target at %ipx",
+		(width) => {
+			const columns = iconColumns(width);
+			expect(cellWidth(width, columns)).toBeGreaterThanOrEqual(touchTarget);
+		},
+	);
 
 	it("lands on six columns at 390px and three at 195px", () => {
 		expect(iconColumns(390)).toBe(6);

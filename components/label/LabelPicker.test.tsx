@@ -95,9 +95,11 @@ function renderPicker(card: Node) {
 
 /** The cap sentence, whose slot `HelperText` keeps even while hidden. */
 function capSentence() {
-	return screen
+	const helper = screen
 		.UNSAFE_getAllByType(HelperText)
 		.find((helper) => helper.props.type === "info");
+	if (!helper) throw new Error("cap sentence not found");
+	return helper;
 }
 
 afterEach(() => {
