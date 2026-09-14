@@ -258,8 +258,14 @@ export async function gotoAndSettle(page: Page, route: Route): Promise<void> {
  * same point the sweeps consider the page settled.
  */
 export async function stripDevToast(page: Page): Promise<void> {
+	// Hidden, not removed: the bubble is inside the React tree, and detaching
+	// it here leaves the next commit removing a node that is no longer a child
+	// of its parent — the uncaught `removeChild` this file exists to keep out
+	// of the console. `display: none` takes it out of every measurement and
+	// every screenshot while leaving the ownership alone.
 	await page.evaluate(() => {
-		document.querySelector(".__expo_fast_refresh")?.remove();
+		const toast = document.querySelector(".__expo_fast_refresh");
+		if (toast) (toast as HTMLElement).style.display = "none";
 	});
 }
 

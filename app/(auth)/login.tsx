@@ -1,7 +1,8 @@
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, useWindowDimensions, View } from "react-native";
-import { Snackbar, Surface, Text } from "react-native-paper";
+import { Button, Snackbar, Surface, Text } from "react-native-paper";
 import type { AuthErrorKey } from "@/auth/errors";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignIn";
 import { BrandMark } from "@/components/ui/BrandMark";
@@ -14,6 +15,7 @@ import {
 	elevation,
 	radius,
 	space,
+	touchTarget,
 } from "@/theme/tokens";
 
 /**
@@ -32,6 +34,7 @@ import {
 export default function Login() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
+	const router = useRouter();
 	const online = useOnlineStatus();
 	const { redirectError, dismissRedirectError } = useAuth();
 	const { width } = useWindowDimensions();
@@ -111,6 +114,32 @@ export default function Login() {
 								{t("screen.login.offlineHint")}
 							</Text>
 						)}
+					</View>
+
+					{/* Navigation, so text mode. Reached most often by someone who has
+					    not signed in yet, which is exactly who the legal pages must
+					    stay readable for. */}
+					<View
+						style={{
+							flexDirection: "row",
+							justifyContent: "center",
+							gap: space.sm,
+						}}
+					>
+						<Button
+							mode="text"
+							onPress={() => router.push("/(legal)/privacy")}
+							contentStyle={{ minHeight: touchTarget }}
+						>
+							{t("screen.privacy.title")}
+						</Button>
+						<Button
+							mode="text"
+							onPress={() => router.push("/(legal)/terms")}
+							contentStyle={{ minHeight: touchTarget }}
+						>
+							{t("screen.terms.title")}
+						</Button>
 					</View>
 				</Surface>
 			</ScrollView>

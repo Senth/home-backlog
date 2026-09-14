@@ -4,6 +4,7 @@
 		"tagline": "Allt som behöver göras hemma, på ett ställe."
 	},
 	"common": {
+		"back": "Tillbaka",
 		"cancel": "Avbryt",
 		"closeDialog": "Stäng dialogrutan",
 		"closeMenu": "Stäng menyn",
@@ -62,6 +63,40 @@
 			"tagline": "Allt som behöver göras hemma, på ett ställe.",
 			"google": "Fortsätt med Google",
 			"offlineHint": "Knappen fungerar igen när du är uppkopplad."
+		},
+		"privacy": {
+			"title": "Integritetspolicy",
+			"intro": "Vad appen sparar, och var. Ingen statistik, ingen reklam, inga spårare.",
+			"accountTitle": "Ditt konto",
+			"accountBody": "Inloggningen går via Google. Appen sparar ditt namn, din e-postadress och din profilbild, tillsammans med användaridentifieraren som Google tilldelar dig.",
+			"accountSession": "Din inloggning sparas på enheten, så att appen minns dig.",
+			"contentTitle": "Hushållets innehåll",
+			"contentBody": "Hem, projekt, sysslor, steg, anteckningar, platser, etiketter, förfallodatum, underhållsscheman och översiktens kort sparas i Google Cloud Firestore, i EU (europe-west1). Alla i hushållet ser samma innehåll.",
+			"contentMembers": "Ett hem sparar varje medlems namn och profilbild, och ett hashvärde av e-postadressen i stället för själva adressen.",
+			"contentInvites": "En inbjudan sparar den inbjudna e-postadressen, läsbar bara för hemmets ägare, och ett hashvärde av samma adress.",
+			"keysTitle": "Automationsnycklar",
+			"keysStorage": "En nyckel du skapar för dina egna program sparas som ett hashvärde. Hela nyckeln visas en gång, när den skapas; efteråt återstår bara namnet, de sista fyra tecknen och när den senast användes.",
+			"keysRequests": "Anrop med en nyckel hanteras av Cloud Functions i EU. Google sparar sina egna anropsloggar där.",
+			"deviceTitle": "På din enhet",
+			"deviceOffline": "Appen sparar en offlinekopia av det du läst, så att den fungerar utan uppkoppling. Den minns också vilket hem du hade öppet och behåller din inloggning. Allt ligger i webbläsarens lagring och försvinner när du loggar ut eller rensar det.",
+			"deviceShell": "Själva appen cachas av service workern, så att den kan installeras. Cachen innehåller inga personuppgifter.",
+			"neverTitle": "Vad appen aldrig gör",
+			"neverBody": "Ingen statistik, ingen reklam, ingen felrapportering utöver Googles egna tjänster, ingen positionsspårning. Ingenting säljs eller delas, och ingen annan än Google Cloud är inblandad.",
+			"deletionTitle": "Ta bort dina uppgifter",
+			"deletionHome": "Lämnar du ett hem försvinner din åtkomst. Hemmets sista medlem kan ta bort det, vilket tar bort det och dess innehåll för alla. Firebase kan behålla borttagna dokument i krypterade säkerhetskopior en kort tid.",
+			"deletionSignout": "Att logga ut tar bort sessionen från enheten. För att få ett konto och dess uppgifter borttagna helt, kontakta den som driver appen."
+		},
+		"terms": {
+			"title": "Användarvillkor",
+			"intro": "Ett privat verktyg för ett hushåll, drivet av en av dess medlemmar. Att använda appen innebär att du godkänner villkoren nedan.",
+			"useTitle": "Att använda appen",
+			"useBody": "Håll din inloggning för dig själv, och bjud bara in personer som vet att de blir inbjudna. Du ansvarar för det som skrivs under ditt konto.",
+			"contentTitle": "Ditt innehåll",
+			"contentBody": "Det ett hushåll skriver tillhör hushållet. Den som driver appen läser det bara för att åtgärda ett problem hen bett om, eller där Googles verktyg gör det oundvikligt.",
+			"availabilityTitle": "Tillgänglighet",
+			"availabilityBody": "Appen tillhandahålls som den är, utan löfte om drift eller om någon särskild funktion. Den ändras ofta, och funktioner kan ändras eller försvinna utan förvarning.",
+			"changesTitle": "Ändringar av villkoren",
+			"changesBody": "Villkoren kan ändras tillsammans med appen. Att fortsätta använda den efter en ändring räknas som godkännande."
 		},
 		"locations": {
 			"loadFailed": "Kunde inte ladda platserna. Kontrollera din anslutning."

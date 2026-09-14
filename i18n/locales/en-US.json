@@ -4,6 +4,7 @@
 		"tagline": "Every job around the house, in one place."
 	},
 	"common": {
+		"back": "Back",
 		"cancel": "Cancel",
 		"closeDialog": "Close the dialog",
 		"closeMenu": "Close the menu",
@@ -62,6 +63,40 @@
 			"tagline": "Every job around the house, in one place.",
 			"google": "Continue with Google",
 			"offlineHint": "Signing in needs a connection."
+		},
+		"privacy": {
+			"title": "Privacy policy",
+			"intro": "What this app stores, and where. No analytics, no advertising, no trackers.",
+			"accountTitle": "Your account",
+			"accountBody": "Signing in goes through Google. The app stores your name, email address and profile picture, together with the user identifier Google assigns you.",
+			"accountSession": "Your sign-in session is kept on the device, so the app remembers you.",
+			"contentTitle": "Your household's content",
+			"contentBody": "Homes, projects, tasks, steps, notes, locations, labels, due dates, maintenance schedules and the overview's cards are stored in Google Cloud Firestore, in the EU (europe-west1). Everyone in the household sees the same content.",
+			"contentMembers": "A home stores each member's name and profile picture, and a hash of their email address instead of the address itself.",
+			"contentInvites": "An invitation stores the invited email address, readable only by that home's owners, and a hash of the same address.",
+			"keysTitle": "Automation keys",
+			"keysStorage": "A key you create for your own programs is stored as a hash. The full key is shown once, when it is created; afterwards only its name, its last four characters and when it was last used remain.",
+			"keysRequests": "Requests made with a key are handled by Cloud Functions in the EU. Google keeps its own request logs there.",
+			"deviceTitle": "On your device",
+			"deviceOffline": "The app keeps an offline copy of what you have read, so it works without a connection. It also remembers which home you had open and keeps your sign-in session. It all sits in the browser's storage and goes when you sign out or clear it.",
+			"deviceShell": "The app itself is cached by the service worker, so it can be installed. That cache holds no personal data.",
+			"neverTitle": "What the app never does",
+			"neverBody": "No analytics, no advertising, no crash reporting beyond Google's own services, no location tracking. Nothing is sold or shared, and no company beyond Google Cloud is involved.",
+			"deletionTitle": "Deleting your data",
+			"deletionHome": "Leaving a home takes away your access. Its last member can delete the home, which removes it and its content for everyone. Firebase may keep removed documents in encrypted backups for a short while.",
+			"deletionSignout": "Signing out removes the session from the device. To have an account and its details removed completely, contact the person who runs the app."
+		},
+		"terms": {
+			"title": "Terms of service",
+			"intro": "A private tool for one household, run by one of its members. Using the app means accepting the terms below.",
+			"useTitle": "Using the app",
+			"useBody": "Keep your sign-in to yourself, and only invite people who know they are being invited. You are responsible for what is written under your account.",
+			"contentTitle": "Your content",
+			"contentBody": "What a household writes belongs to that household. The person running the app reads it only to fix a problem they have been asked about, or where Google's tools make it unavoidable.",
+			"availabilityTitle": "Availability",
+			"availabilityBody": "The app is provided as is, with no promise of availability or of any particular feature. It changes often, and features may change or stop without notice.",
+			"changesTitle": "Changes to these terms",
+			"changesBody": "These terms may change with the app. Continuing to use it after a change counts as accepting it."
 		},
 		"locations": {
 			"loadFailed": "Could not load the locations. Check your connection."
