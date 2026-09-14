@@ -421,7 +421,8 @@
 		"location": "Location",
 		"locationNone": "The home has no locations yet.",
 		"locationSearchPlaceholder": "Search locations",
-		"locationSearchEmpty": "No locations match"
+		"locationSearchEmpty": "No locations match",
+		"locationInherited": "Inherited"
 	},
 	"labels": {
 		"capReached": "A card can carry at most {{count}} labels.",

@@ -26,7 +26,13 @@ import { createNode } from "@/data/nodes";
 import { useLabelAncestors } from "@/hooks/use-label-ancestors";
 import { useLocations } from "@/hooks/use-locations";
 import { useOverview } from "@/hooks/use-overview";
-import { crumbTitlesOf, hasSteps, type Node, rankAtEnd } from "@/models/node";
+import {
+	crumbTitlesOf,
+	effectiveLocation,
+	hasSteps,
+	type Node,
+	rankAtEnd,
+} from "@/models/node";
 import { recentlyDone } from "@/models/overview";
 import { type Card, cardRows, seedTitleKeys } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
@@ -108,6 +114,21 @@ export default function Overview() {
 	];
 	const ancestors = useLabelAncestors(homeId, ancestorIds, pool.nodes);
 
+	// The place every pooled card answers to (#290): its own, or the nearest
+	// one its trail passes down — what the location conditions filter on, so a
+	// step under a filed project matches "in or under" that project's place.
+	// `ancestors` already holds the trail by id; a crumb it cannot answer
+	// contributes no place, the same neutral answer its crumb renders.
+	const located = new Map(
+		pool.nodes.map((node) => [
+			node.id,
+			effectiveLocation(
+				node,
+				node.ancestorIds.map((id) => ancestors.get(id) ?? null),
+			),
+		]),
+	);
+
 	// Above the breakpoint the sections flow and wrap, each a column the board
 	// would recognize — the board's own dividing arithmetic, clamped at the
 	// same two ends. Below it, one full-width stack as ever.
@@ -183,6 +204,7 @@ export default function Overview() {
 							now,
 							roots: rootsById,
 							blockers: nodesById,
+							locations: located,
 						}),
 			);
 		}

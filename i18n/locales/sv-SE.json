@@ -421,7 +421,8 @@
 		"location": "Plats",
 		"locationNone": "Hemmet har inga platser än.",
 		"locationSearchPlaceholder": "Sök platser",
-		"locationSearchEmpty": "Inga platser matchar"
+		"locationSearchEmpty": "Inga platser matchar",
+		"locationInherited": "Ärvd"
 	},
 	"labels": {
 		"capReached": "Ett kort kan ha som mest {{count}} etiketter.",

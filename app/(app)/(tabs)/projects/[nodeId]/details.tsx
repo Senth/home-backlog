@@ -40,6 +40,7 @@ import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { type NodeChanges, updateNode } from "@/data/nodes";
+import { useAncestors } from "@/hooks/use-ancestors";
 import { useLocations } from "@/hooks/use-locations";
 import { useNode } from "@/hooks/use-node";
 import { useNodes } from "@/hooks/use-nodes";
@@ -51,6 +52,7 @@ import type { Node } from "@/models/node";
 import {
 	assignableMembers,
 	defaultColumns,
+	effectiveLocation,
 	efforts,
 	priorities,
 	rootIdOf,
@@ -133,6 +135,14 @@ export default function NodeDetails() {
 	const board = useNodes(homeId, node?.parentId ?? null);
 	const columns = parent?.columns ?? defaultColumns;
 
+	// The trail above the card (#290): the location row and its picker answer
+	// for the nearest place an ancestor passes down when the card carries none
+	// of its own. `useAncestors` is the cached read the breadcrumbs resolve —
+	// a crumb it cannot answer contributes no place, the neutral answer it
+	// renders.
+	const { crumbs } = useAncestors(homeId, node?.ancestorIds ?? []);
+	const trail = crumbs.map((crumb) => crumb.node);
+
 	const members = activeHome === null ? [] : membersOf(activeHome);
 	const assignable = assignableMembers(root, members);
 	const flip = useFlip(homeId ?? "");
@@ -211,6 +221,11 @@ export default function NodeDetails() {
 		const ownLabels = (activeHome?.labels ?? [])
 			.filter((label) => current.labelIds.includes(label.id))
 			.slice(0, maxLabelsPerNode);
+		// The place the card answers to (#290) — its own, or the nearest one an
+		// ancestor passes down.
+		const at = effectiveLocation(current, trail);
+		const place =
+			at === null ? null : (locationTitles.get(at.locationId) ?? null);
 
 		return [
 			homeId === null ? null : (
@@ -268,13 +283,7 @@ export default function NodeDetails() {
 				name={t("detail.location")}
 				testID={`field-location-${current.id}`}
 				onPress={() => setLocating(true)}
-				value={
-					<Text variant="bodyMedium">
-						{current.locationId === null
-							? t("detail.notSet")
-							: (locationTitles.get(current.locationId) ?? t("detail.notSet"))}
-					</Text>
-				}
+				value={<Text variant="bodyMedium">{place ?? t("detail.notSet")}</Text>}
 			/>,
 			homeId === null ? null : (
 				<DetailRow
@@ -683,6 +692,9 @@ export default function NodeDetails() {
 				<LocationPicker
 					locations={locations}
 					node={node}
+					effectiveLocationId={
+						effectiveLocation(node, trail)?.locationId ?? null
+					}
 					onDismiss={() => setLocating(false)}
 					onSave={save}
 					testID={`location-picker-${node.id}`}

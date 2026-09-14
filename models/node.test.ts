@@ -10,6 +10,7 @@ import {
 	crumbTitlesOf,
 	defaultColumns,
 	doneChange,
+	effectiveLocation,
 	effectiveParticipants,
 	flipPlan,
 	hasDetails,
@@ -441,7 +442,7 @@ describe("newNodeData", () => {
 		).toEqual([...defaultColumns]);
 	});
 
-	it("inherits the parent's structure and location", () => {
+	it("inherits the parent's structure, never its location (#290)", () => {
 		const parent = node({
 			id: "project",
 			ancestorIds: [],
@@ -453,8 +454,11 @@ describe("newNodeData", () => {
 
 		expect(data.parentId).toBe("project");
 		expect(data.ancestorIds).toEqual(["project"]);
-		expect(data.locationId).toBe("basement");
-		expect(data.locationAncestorIds).toEqual(["inside", "basement"]);
+		// Inherited by derivation now: the card's own field stays empty, so
+		// moving the project's place moves every card under it, and the card
+		// keeps no stale copy of a place it only borrowed.
+		expect(data.locationId).toBeNull();
+		expect(data.locationAncestorIds).toEqual([]);
 	});
 
 	it("lets a child sit in a different room from its parent", () => {
@@ -619,6 +623,57 @@ describe("effectiveParticipants", () => {
 		expect(
 			effectiveParticipants(node({ participantIds: ["uid-a", "uid-b"] })),
 		).toEqual(["uid-a", "uid-b"]);
+	});
+});
+
+describe("effectiveLocation", () => {
+	const project = node({
+		id: "project",
+		locationId: "house",
+		locationAncestorIds: [],
+	});
+	const task = node({
+		id: "task",
+		parentId: "project",
+		ancestorIds: ["project"],
+		locationId: "hallway",
+		locationAncestorIds: ["house", "hallway"],
+	});
+	const step = node({
+		id: "step",
+		parentId: "task",
+		ancestorIds: ["project", "task"],
+	});
+
+	it("answers the card's own place when it carries one", () => {
+		expect(effectiveLocation(task, [project])).toEqual({
+			locationId: "hallway",
+			locationAncestorIds: ["house", "hallway"],
+		});
+	});
+
+	it("answers the nearest place the trail passes down", () => {
+		// The step was never filed: the task's hallway, not the project's
+		// house above it, is the closest answer.
+		expect(effectiveLocation(step, [project, task])).toEqual({
+			locationId: "hallway",
+			locationAncestorIds: ["house", "hallway"],
+		});
+		expect(effectiveLocation(step, [project])).toEqual({
+			locationId: "house",
+			locationAncestorIds: [],
+		});
+	});
+
+	it("reads an unresolved crumb as no place of its own", () => {
+		expect(effectiveLocation(step, [null, task])).toEqual({
+			locationId: "hallway",
+			locationAncestorIds: ["house", "hallway"],
+		});
+	});
+
+	it("answers null when neither the card nor the trail names a place", () => {
+		expect(effectiveLocation(step, [])).toBeNull();
 	});
 });
 

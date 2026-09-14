@@ -197,10 +197,30 @@ test("1: every control on the details screen writes on the spot, and a reload pu
 	await page.getByRole("button", { name: enUS.detail.steps }).click();
 	await page.waitForURL(new RegExp(`/projects/${nodeId}$`));
 	await addCard(page, stepTitle);
-	await waitForNodeIdByTitle(stepTitle);
+	const stepId = await waitForNodeIdByTitle(stepTitle);
 	// Back to the details. Tapping the card here would open its own board —
 	// the screen we are standing on — so the stack's back is the way out.
 	await page.goBack();
+
+	// The step inherits the project's place (#290): its own field stays empty
+	// in the store, the row names Hallway anyway, and the picker ticks it as
+	// inherited.
+	expect((await nodeFields(stepId)).locationId).toBeNull();
+	await page.goto(`/projects/${stepId}/details`);
+	await expect(page.getByTestId(`field-location-${stepId}`)).toContainText(
+		hallwayTitle,
+		{ timeout: 30_000 },
+	);
+	await page.getByRole("button", { name: enUS.detail.location }).click();
+	const stepPicker = page.getByTestId(`location-picker-${stepId}-surface`);
+	await expect(
+		stepPicker.getByRole("checkbox", { name: hallwayTitle }),
+	).toBeChecked();
+	await expect(
+		stepPicker.getByText(enUS.detail.locationInherited),
+	).toBeVisible();
+	await page.keyboard.press("Escape");
+	await page.goto(`/projects/${nodeId}/details`);
 
 	// Participants are the whole household on a fresh project; taking one off
 	// is the write.

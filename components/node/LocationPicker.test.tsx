@@ -83,12 +83,17 @@ const tree = [
 	location("hallway", "Hallway", ["house", "basement"]),
 ];
 
-function renderPicker(card: Node, onSave: (changes: NodeChanges) => void) {
+function renderPicker(
+	card: Node,
+	onSave: (changes: NodeChanges) => void,
+	effectiveLocationId: string | null = null,
+) {
 	return render(
 		<Provider theme={lightTheme}>
 			<LocationPicker
 				locations={tree}
 				node={card}
+				effectiveLocationId={effectiveLocationId}
 				onDismiss={() => {}}
 				onSave={onSave}
 				testID="location-picker"
@@ -99,7 +104,7 @@ function renderPicker(card: Node, onSave: (changes: NodeChanges) => void) {
 
 describe("LocationPicker", () => {
 	it("lists the home's locations and marks the one the card is filed in", () => {
-		renderPicker(node("hallway"), () => {});
+		renderPicker(node("hallway"), () => {}, "hallway");
 
 		expect(
 			screen.getByRole("checkbox", { name: "Hallway" }).props
@@ -126,6 +131,7 @@ describe("LocationPicker", () => {
 				<LocationPicker
 					locations={[location("orphan", "Orphan", ["gone"])]}
 					node={node(null)}
+					effectiveLocationId={null}
 					onDismiss={() => {}}
 					onSave={() => {}}
 					testID="location-picker"
@@ -148,9 +154,9 @@ describe("LocationPicker", () => {
 		});
 	});
 
-	it("unfiles the card when the filed row is tapped again", () => {
+	it("unfiles the card when its own filed row is tapped again", () => {
 		const save = jest.fn();
-		renderPicker(node("hallway"), save);
+		renderPicker(node("hallway"), save, "hallway");
 
 		fireEvent.press(screen.getByLabelText("Hallway"));
 
@@ -160,12 +166,44 @@ describe("LocationPicker", () => {
 		});
 	});
 
+	it("ticks the place the trail passes down and says it is inherited (#290)", () => {
+		renderPicker(node(null), () => {}, "hallway");
+
+		expect(
+			screen.getByRole("checkbox", { name: "Hallway" }).props
+				.accessibilityState,
+		).toMatchObject({ checked: true });
+		expect(screen.getByText("detail.locationInherited")).toBeOnTheScreen();
+	});
+
+	it("writes nothing when the inherited row is tapped", () => {
+		const save = jest.fn();
+		renderPicker(node(null), save, "hallway");
+
+		fireEvent.press(screen.getByLabelText("Hallway"));
+
+		expect(save).not.toHaveBeenCalled();
+	});
+
+	it("still files the card somewhere else while a place is inherited", () => {
+		const save = jest.fn();
+		renderPicker(node(null), save, "hallway");
+
+		fireEvent.press(screen.getByLabelText("Basement"));
+
+		expect(save).toHaveBeenCalledWith({
+			locationId: "basement",
+			locationAncestorIds: ["house"],
+		});
+	});
+
 	it("says the home has no locations yet rather than an empty dialog", () => {
 		render(
 			<Provider theme={lightTheme}>
 				<LocationPicker
 					locations={[]}
 					node={node(null)}
+					effectiveLocationId={null}
 					onDismiss={() => {}}
 					onSave={() => {}}
 					testID="location-picker"
@@ -182,6 +220,7 @@ describe("LocationPicker", () => {
 				<LocationPicker
 					locations={[location("garden", "Trädgård"), ...tree]}
 					node={node(null)}
+					effectiveLocationId={null}
 					onDismiss={() => {}}
 					onSave={() => {}}
 					testID="location-picker"
