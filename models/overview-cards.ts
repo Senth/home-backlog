@@ -2,6 +2,7 @@ import { dayDifference, dueState, soonInDays } from "@/models/due-date";
 import {
 	type CreatedVia,
 	compareNodes,
+	type EffectiveLocation,
 	type Effort,
 	effortOrder,
 	type Node,
@@ -246,6 +247,15 @@ export interface MatchContext {
 	 * behavior the condition shipped with.
 	 */
 	blockers: ReadonlyMap<string, Node | null>;
+	/**
+	 * The place each node answers to (#290) — its own, or the nearest one an
+	 * ancestor passes down, with that place's own path — keyed by node id, so
+	 * "in or under" reads an inherited place the node's stored fields do not
+	 * name. Optional: a caller with no ancestor data omits it, and every node
+	 * then answers from its stored fields, which is what the condition read
+	 * before #290.
+	 */
+	locations?: ReadonlyMap<string, EffectiveLocation | null>;
 }
 
 function matches(node: Node, condition: CardCondition, ctx: MatchContext) {
@@ -300,20 +310,27 @@ function matches(node: Node, condition: CardCondition, ctx: MatchContext) {
 				: unresolved.length === 0;
 		}
 		case "locationId": {
-			// The picker form: in or under any of the picked locations. The
-			// node's own location is *not* in its ancestor chain —
-			// `locationAncestorIds` holds only the ancestors — so the union
-			// with the own location is the whole "in or under".
+			// The picker form: in or under the place the card answers to (#290) —
+			// its own, or the nearest one an ancestor passes down. The place's
+			// id is the "in", its `locationAncestorIds` the "under". Without the
+			// context map the node's stored fields are the whole answer, which
+			// is what the condition read before #290.
+			const at =
+				ctx.locations?.get(node.id) ??
+				(node.locationId === null
+					? null
+					: {
+							locationId: node.locationId,
+							locationAncestorIds: node.locationAncestorIds,
+						});
 			if ("anyOf" in condition) {
 				return (
-					(node.locationId !== null &&
-						condition.anyOf.includes(node.locationId)) ||
-					condition.anyOf.some((id) => node.locationAncestorIds.includes(id))
+					at !== null &&
+					(condition.anyOf.includes(at.locationId) ||
+						condition.anyOf.some((id) => at.locationAncestorIds.includes(id)))
 				);
 			}
-			return condition.is === "any"
-				? node.locationId !== null
-				: node.locationId === null;
+			return condition.is === "any" ? at !== null : at === null;
 		}
 		case "visibility":
 			return node.visibility === condition.is;

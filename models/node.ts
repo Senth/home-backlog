@@ -822,6 +822,46 @@ export function effectiveParticipants(root: Node | null): string[] {
 	return root === null ? [] : [...root.participantIds];
 }
 
+/** The place a card answers to: which one, and its own path in the place tree. */
+export interface EffectiveLocation {
+	locationId: string;
+	/** The place's stored path — what an "in or under" roll-up reads. */
+	locationAncestorIds: string[];
+}
+
+/**
+ * The place a card answers to (#290): its own, or the nearest one an ancestor
+ * passes down — labels' rule, applied to locations.
+ *
+ * `ancestors` is the trail root-first, as `useAncestors` hands it out; a crumb
+ * it could not resolve is `null`, and a place it may have carried is unknown —
+ * the trail reads as one without, the same neutral answer the crumb renders.
+ * Derived at read time, never written down the tree: filing the project in
+ * another room moves every card under it, and a card that was never filed
+ * keeps no stale copy of a place it only borrowed.
+ */
+export function effectiveLocation(
+	node: Node,
+	ancestors: readonly (Node | null)[],
+): EffectiveLocation | null {
+	if (node.locationId !== null) {
+		return {
+			locationId: node.locationId,
+			locationAncestorIds: node.locationAncestorIds,
+		};
+	}
+	for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+		const ancestor = ancestors[index];
+		if (ancestor !== null && ancestor.locationId !== null) {
+			return {
+				locationId: ancestor.locationId,
+				locationAncestorIds: ancestor.locationAncestorIds,
+			};
+		}
+	}
+	return null;
+}
+
 /**
  * Who may be given a step in this project: its participants, or everyone in the
  * home when it has none — the common case, and one with no friction at all.
@@ -1019,9 +1059,11 @@ export interface NewNodeInput {
  * participants. A caller that got either wrong would be refused by the rules,
  * which is the right backstop but a poor first line.
  *
- * A location is *not* inherited when it is explicitly given: a child may sit in
- * a different room from its parent, and moving a node in the project tree never
- * moves it in the location tree.
+ * A location is *not* taken from the parent, not even when the caller is
+ * silent (#290): inheritance is derived at read time by `effectiveLocation`,
+ * so a card's own field stays empty until somebody files *it* somewhere —
+ * and moving the parent's place moves every card under it. A caller that
+ * names a place still files the new node itself, the way the REST API does.
  */
 export function newNodeData(input: NewNodeInput): NodeData {
 	const parent = input.parent ?? null;
@@ -1034,16 +1076,10 @@ export function newNodeData(input: NewNodeInput): NodeData {
 
 	const ancestorIds = childAncestorIds(parent);
 
-	const location =
-		input.locationId === undefined
-			? {
-					locationId: parent?.locationId ?? null,
-					locationAncestorIds: [...(parent?.locationAncestorIds ?? [])],
-				}
-			: {
-					locationId: input.locationId,
-					locationAncestorIds: [...(input.locationAncestorIds ?? [])],
-				};
+	const location = {
+		locationId: input.locationId ?? null,
+		locationAncestorIds: [...(input.locationAncestorIds ?? [])],
+	};
 
 	return {
 		title: input.title.trim(),

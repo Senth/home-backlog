@@ -460,6 +460,57 @@ describe("matching", () => {
 			).toEqual([under.id]);
 		});
 
+		it("matches a card through the place its trail passes down (#290)", () => {
+			// The step was never filed; it answers for the kitchen its project
+			// carries, with the kitchen's own path as the "under".
+			const step = task({ id: "step-1", locationId: null });
+			const located = {
+				...ctx,
+				locations: new Map([
+					["step-1", { locationId: "kitchen", locationAncestorIds: ["house"] }],
+				]),
+			};
+
+			expect(
+				cardRows(card(picking(["house"])), [step], located).map(
+					(each) => each.id,
+				),
+			).toEqual(["step-1"]);
+			expect(
+				cardRows(card(picking(["kitchen"])), [step], located).map(
+					(each) => each.id,
+				),
+			).toEqual(["step-1"]);
+			expect(
+				cardRows(card(picking(["boat"])), [step], located).map(
+					(each) => each.id,
+				),
+			).toEqual([]);
+			expect(
+				cardRows(
+					card([{ field: "locationId", is: "any" }]),
+					[step],
+					located,
+				).map((each) => each.id),
+			).toEqual(["step-1"]);
+			expect(
+				cardRows(
+					card([{ field: "locationId", is: "none" }]),
+					[step],
+					located,
+				).map((each) => each.id),
+			).toEqual([]);
+		});
+
+		it("answers from the stored fields when no ancestor data rides along", () => {
+			const placed = task({ locationId: "kitchen" });
+
+			expect(
+				rowsOf([{ field: "locationId", is: "none" }], [placed, task()]),
+			).toEqual([task().id]);
+			expect(rowsPicking(["kitchen"], [placed])).toEqual(["node-1"]);
+		});
+
 		it("decodes the picker form, dropping junk and empty lists to the is-form", () => {
 			const read = toCard("p", {
 				conditions: [
