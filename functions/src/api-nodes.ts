@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { type CardRow, type CardScope, etagForCard } from "./card.js";
 import {
 	type CreatedVia,
 	type Effort,
@@ -264,6 +265,49 @@ export function apiLabel(id: string, data: Record<string, unknown>): ApiLabel {
 		rank: stringOr(data.rank, ""),
 	};
 	return { id, ...entry, etag: etagForLabel(entry) };
+}
+
+export interface ApiCardRow {
+	id: string;
+	kind: "filter" | "completed";
+	seedId: string | null;
+	title: string | null;
+	conditions: unknown[];
+	sort: { field: string; direction: "asc" | "desc" } | null;
+	shown: number;
+	max: number;
+	empty: { mode: "hide" } | { mode: "say"; key: string };
+	rank: string;
+	/** Which surface holds this card — what a write on the id reaches. */
+	scope: CardScope;
+	/** A shared card the calling member hid, and the read screen drops. */
+	hidden: boolean;
+	/** A quoted sha-1 over the card's own fields, for `If-Match`. */
+	etag: string;
+}
+
+/**
+ * One merged card row as JSON. The card itself arrives through `readCard`,
+ * which has already read it defensively — this only flattens the editor's
+ * view onto the wire, scope and hide flag included.
+ */
+export function apiCardRow(row: CardRow): ApiCardRow {
+	const { card } = row;
+	return {
+		id: card.id,
+		kind: card.kind,
+		seedId: card.seedId,
+		title: card.title,
+		conditions: card.conditions,
+		sort: card.sort,
+		shown: card.shown,
+		max: card.max,
+		empty: card.empty,
+		rank: card.rank,
+		scope: row.scope,
+		hidden: row.hidden,
+		etag: etagForCard(card),
+	};
 }
 
 export interface ApiHomeMember {

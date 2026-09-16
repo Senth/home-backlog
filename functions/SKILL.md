@@ -1,7 +1,7 @@
 ---
 name: home-backlog-api
-description: Read and write a Home Backlog board over REST — nested kanban nodes where a project, a task and a subtask are the same thing at different depths. Use when asked to research, break down, file or re-prioritise home-improvement work for a household, or when a prompt mentions Home Backlog, hb.senth.org, or an API key beginning hb_. Covers bearer auth, the node verbs, and the atomic bulk create that writes a whole subtree in one undoable call.
-api-version: 1.3.0
+description: Read and write a Home Backlog board over REST — nested kanban nodes where a project, a task and a subtask are the same thing at different depths. Use when asked to research, break down, file or re-prioritise home-improvement work for a household, or when a prompt mentions Home Backlog, hb.senth.org, or an API key beginning hb_. Covers bearer auth, the node verbs, the atomic bulk create that writes a whole subtree in one undoable call, and the Overview dashboard card config.
+api-version: 1.4.0
 ---
 
 # Home Backlog API
@@ -71,7 +71,7 @@ payload. Messages are not translated, because the app never shows them.
 | --- | --- |
 | `400` | The request is wrong. Fix it and resend; it will not become right. |
 | `401` | The key is missing, malformed or revoked. |
-| `404` | No such home, node, location or label — or a node you are not allowed to see. Deliberately the same answer. |
+| `404` | No such home, node, location, label or card — or a node you are not allowed to see. Deliberately the same answer. |
 | `409` | You asked for something that needs confirming (`has_children`) or does not fit (`subtree_too_large`). |
 | `412` | `If-Match` did not agree. Read the node or place again. |
 | `413` | The body is over 1 MB. |
@@ -326,6 +326,89 @@ Deletes the definition only. Cards keep the id: they render the label as nothing
 fully updatable, and that is a designed-for state, not a broken reference. `If-Match` guards
 the write as everywhere else.
 
+## Overview cards
+
+The Overview tab's sections are dashboard cards: the seven built-ins plus custom filter
+cards the household composes. Each card is a filter over the nodes — `conditions` AND
+together, and within one condition the values are ORs — with a `sort`, a `shown`/`max`
+slice, and a fractional `rank` that orders the merged list.
+
+Cards live on three surfaces, and `scope` names which one:
+
+- `global` — the owner's own cross-home config. What you write here follows them into
+  every home they are in. A key writes only its owner's global config.
+- `home` — the key owner's own arrangement in this one home. Again, only their own.
+- `shared` — one document per card, visible to every member. Any member may write these.
+
+The merged list is global, then home, then shared, later scope winning on an id collision —
+the same merge the app's editor runs.
+
+The seven built-ins carry a `seedId`: `ongoing`, `comingUp`, `quickWins`, `aFewHours`,
+`needsSplitting`, `needsEstimate`, `recentlyDone`. An untouched one has `title: null` and is
+titled by the screen's own translations. **The API never seeds and never re-adds a
+built-in**: the app writes them once, on its own first open, and a built-in the household
+removed stays removed.
+
+### `GET /v1/homes/{homeId}/cards`
+
+The merged card list, ordered by `(rank, id)`, exactly as the editor shows it. Each row
+carries the card, its `scope`, and — for a shared card — `hidden`, which says whether the
+key's owner has hidden it on this home's overview. Each row also carries an `etag`, which
+is what a later write sends as `If-Match`.
+
+### `POST /v1/homes/{homeId}/cards`
+
+One card. `scope` is required — a create has to name the surface it lands on — and so is
+`title`. Everything else is optional and defaults the way the app's composer does: no
+conditions, no sort, `shown` 5, `max` 20, and a "nothing here yet" empty state.
+
+```json
+{
+  "scope": "home",
+  "title": "This week outside",
+  "conditions": [
+    { "field": "dueDate", "is": "comingUp", "n": 7 },
+    { "field": "isRoot", "is": true }
+  ],
+  "sort": { "field": "dueDate", "direction": "asc" }
+}
+```
+
+Returns `201` and the card, appended at the end of the merged list. `rank` is computed;
+sending it is `400 rank_computed`.
+
+### `PATCH /v1/homes/{homeId}/cards/{cardId}`
+
+One update verb, and it owns moving as well as editing. Send the fields you want changed:
+`title`, `conditions`, `sort`, `shown`, `max`, `empty`. Send `scope` and the card moves
+surfaces — one atomic write, so it can never end up on two surfaces under one id, which is
+the same guarantee the app's own scope move gives.
+
+Send `hidden: true` or `hidden: false` to hide or unhide a **shared** card — this writes
+only the key owner's own list of hidden shared cards, and changes nobody else's overview.
+A card that would not end on the shared surface answers `400 hidden_not_shared`.
+
+`If-Match` with the row's `etag` guards the write.
+
+### `DELETE /v1/homes/{homeId}/cards/{cardId}`
+
+Removes the card from the surface it is on — the one the merged list named as its `scope`.
+A removed card is gone from every surface the write touches, not merely marked. `If-Match`
+guards the write.
+
+### `POST /v1/homes/{homeId}/cards:reorder`
+
+The whole merged order, in one call. `order` is the complete list of card ids in the order
+the overview should hold them — including hidden shared cards, which the editor lists too.
+The API computes fresh fractional ranks from the order you send, so you never send a rank.
+
+```json
+{ "order": ["ongoing", "comingUp", "ktQ3fVr8", "quickWins"] }
+```
+
+An order that names an unknown id is `400 unknown_card`; one that omits a card or names one
+twice is `400 invalid_order`.
+
 ## Fields
 
 Fields you may send are marked ✅. The API computes the rest, and sending one is a
@@ -362,6 +445,10 @@ it helps you, but do not expect a person to see it.
 - **Filing work in a place, in bulk.** The node verbs take `locationId` (#246), but the
   bulk node create does not: a payload naming one is refused rather than ignored, since
   the planner does not resolve places. File each node with a follow-up `PATCH`.
+- **Restoring a removed built-in card as a seed.** A seed the household removed stays
+  removed — recreate the card with `POST` (it will not carry its `seedId`, and the app
+  will keep listing it under *Removed originals*), or restore it in the app, where the
+  original settings are kept.
 - **Recurring maintenance.** No verbs yet.
 - **Changing `visibility` or `participantIds`** on anything that exists. A person does that.
 - **Creating a home, inviting, accepting an invitation.** Human-only.
