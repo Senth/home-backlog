@@ -382,7 +382,10 @@ export function Board({
 				</Text>
 			) : null}
 
-			{boardWidth === 0 ? null : compact ? (
+			{/* Not while `loading`: an empty column strip under the spinner is the
+			    "empty board before the data arrives" of #266, and the first launch
+			    is exactly the launch the cache has nothing for. */}
+			{loading || boardWidth === 0 ? null : compact ? (
 				<>
 					<ColumnStrip
 						columns={shown}
@@ -589,7 +592,7 @@ export function Board({
 			    The height does not change, so the measured inset below keeps its
 			    arithmetic — a taller box here would be a second, silent change to
 			    the pane's bottom padding. */}
-			{compact && onScreen !== undefined ? (
+			{compact && !loading && onScreen !== undefined ? (
 				<FAB
 					icon={boardWidth < denseBreakpoint ? undefined : "plus"}
 					label={t("board.addTo", { column: t(`status.${onScreen}`) })}

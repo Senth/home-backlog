@@ -142,6 +142,22 @@ test("2: a missing config seeds the seven cards once, and a seed removed in the 
 	const uid = await memberUid("Marcus");
 	await deleteDashboardConfig(uid);
 
+	// The recently-done section hides itself when it is empty, and the only
+	// recently completed card in the emulator seed carries a fixed date that
+	// has aged past `doneWithinDays`. The section's own fixture completes
+	// relative to now, the way test 5's do.
+	const dayInMs = 24 * 60 * 60 * 1000;
+	await createFixtureNode({
+		title: `${PREFIX}seed recently done`,
+		status: "done",
+		parentId: null,
+		ancestorIds: [],
+		visibility: "shared",
+		participantIds: [],
+		dueDate: null,
+		completedAt: new Date(Date.now() - dayInMs),
+	});
+
 	await gotoOverview(page);
 	for (const id of SEED_IDS) {
 		await expect(page.getByTestId(`overview-section-${id}`)).toBeVisible();
