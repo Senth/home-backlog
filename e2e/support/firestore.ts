@@ -53,7 +53,7 @@ const HOME_NAME = "Huset";
 
 type Document = {
 	name: string;
-	fields?: Record<string, { stringValue?: string }>;
+	fields?: Record<string, { stringValue?: string; timestampValue?: string }>;
 };
 
 async function get(path: string): Promise<{ documents?: Document[] }> {
@@ -494,6 +494,51 @@ export async function deleteLabelsByTitlePrefix(prefix: string): Promise<void> {
 		throw new Error(
 			`emulator REST could not rewrite the home's labels: ${response.status} ${response.statusText}${body ? ` — ${body}` : ""}`,
 		);
+	}
+}
+
+/**
+ * The seeded completions, made recent again.
+ *
+ * `.emulator-seed` is committed with its Done card already completed, and
+ * Overview's Recently done section shows only what was completed in the last
+ * 30 days — so the stored `completedAt` ages past the window one month after
+ * the export, the section empties (an empty *Completed* card hides itself by
+ * design), and the seven-seed claim in `overview.spec.ts` fails on
+ * wall-clock drift rather than on anything the suite did. Refreshed here,
+ * beside the sweep, because "the seed's done card is recent" is fixture
+ * state, and this is the file that owns fixture state. Runs after the sweep,
+ * so a done card a crashed run left behind is deleted rather than refreshed.
+ */
+export async function refreshSeededCompletions(): Promise<void> {
+	const home = await homeId();
+	const { documents = [] } = await get(`/homes/${home}/nodes?pageSize=300`);
+	for (const document of documents) {
+		const fields = document.fields ?? {};
+		if (
+			fields.status?.stringValue !== "done" ||
+			!fields.completedAt?.timestampValue
+		) {
+			continue;
+		}
+		const response = await fetch(
+			`${BASE}/homes/${home}/nodes/${idOf(document.name)}?updateMask=completedAt`,
+			{
+				method: "PATCH",
+				headers: { ...HEADERS, "Content-Type": "application/json" },
+				body: JSON.stringify({
+					fields: {
+						completedAt: { timestampValue: new Date().toISOString() },
+					},
+				}),
+			},
+		);
+		if (!response.ok) {
+			const body = await response.text().catch(() => "");
+			throw new Error(
+				`emulator REST could not refresh completedAt on ${document.name}: ${response.status} ${response.statusText}${body ? ` — ${body}` : ""}`,
+			);
+		}
 	}
 }
 

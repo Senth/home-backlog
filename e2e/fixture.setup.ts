@@ -2,6 +2,7 @@ import { test as setup } from "@playwright/test";
 import {
 	deleteLabelsByTitlePrefix,
 	deleteNodesByTitlePrefix,
+	refreshSeededCompletions,
 } from "@/e2e/support/firestore";
 
 /**
@@ -29,4 +30,7 @@ const FIXTURE_PREFIX = "E2E ";
 setup("clear cards and labels left behind by an earlier run", async () => {
 	await deleteNodesByTitlePrefix(FIXTURE_PREFIX);
 	await deleteLabelsByTitlePrefix(FIXTURE_PREFIX);
+	// The sweep first, so a done card a crashed run left behind is deleted
+	// rather than made recent — only the seed's own completions refresh.
+	await refreshSeededCompletions();
 });

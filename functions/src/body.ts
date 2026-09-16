@@ -1,3 +1,4 @@
+import { cardScopes } from "./card.js";
 import { ApiError } from "./errors.js";
 import {
 	type Effort,
@@ -385,6 +386,151 @@ export function parseLabelBody(
 	if ("icon" in raw) parsed.icon = asString(raw.icon, "icon");
 	if ("color" in raw) parsed.color = asString(raw.color, "color");
 	if ("rank" in raw) parsed.rank = asString(raw.rank, "rank");
+
+	return parsed;
+}
+
+export interface CardBody {
+	/**
+	 * Where the card lives. Required on a create; on an update it is the one
+	 * field that moves the card between surfaces, in the same one-atomic-write
+	 * move `moveScopeCard` makes in the app.
+	 */
+	scope?: "global" | "home" | "shared";
+	title?: string;
+	/**
+	 * Conditions AND together; within one, the values are ORs. The items are
+	 * checked against the app's vocabulary by `validateCard` on the assembled
+	 * card, so they travel raw out of here.
+	 */
+	conditions?: unknown;
+	sort?: unknown;
+	shown?: number;
+	max?: number;
+	empty?: unknown;
+	/**
+	 * Update-only. Hiding rides on the caller's own document — the one member
+	 * whose overview loses the card is the key's owner — and a card that does
+	 * not end on the shared surface has nothing to hide.
+	 */
+	hidden?: boolean;
+}
+
+/** Fields a caller may send when creating a card. */
+const cardCreateFields = [
+	"scope",
+	"title",
+	"conditions",
+	"sort",
+	"shown",
+	"max",
+	"empty",
+] as const;
+
+/** Fields a caller may send when changing one. `hidden` is update-only. */
+const cardUpdateFields = [
+	"scope",
+	"title",
+	"conditions",
+	"sort",
+	"shown",
+	"max",
+	"empty",
+	"hidden",
+] as const;
+
+/**
+ * Read a card body against the allow-list for this verb.
+ *
+ * `rank` and `seedId` are refused **by name**, because each deserves its own
+ * answer: a rank is fractional and computed — order is sent to the reorder
+ * verb, the way a node's rank is computed from its column — and a `seedId`
+ * names a built-in card, which only a person restores, in the app.
+ */
+export function parseCardBody(
+	body: unknown,
+	mode: "create" | "update",
+): CardBody {
+	const raw = asObject(body);
+	const allowed: readonly string[] =
+		mode === "create" ? cardCreateFields : cardUpdateFields;
+
+	for (const field of Object.keys(raw)) {
+		if (allowed.includes(field)) continue;
+
+		if (field === "rank") {
+			refuse(
+				"rank_computed",
+				"rank is fractional and computed. Send the whole order to POST /v1/homes/{homeId}/cards:reorder instead.",
+				field,
+			);
+		}
+		if (field === "seedId") {
+			refuse(
+				"seed_immutable",
+				"seedId names a built-in card. A seed the household removed stays removed; recreate the card without one, or restore it in the app.",
+				field,
+			);
+		}
+		refuse(
+			"unknown_field",
+			`${field} is not a field this endpoint writes. Allowed: ${allowed.join(", ")}.`,
+			field,
+		);
+	}
+
+	const parsed: CardBody = {};
+
+	if ("scope" in raw) {
+		const scope = raw.scope;
+		if (
+			typeof scope !== "string" ||
+			!(cardScopes as readonly string[]).includes(scope)
+		) {
+			refuse(
+				"invalid_scope",
+				"scope must be one of global, home, shared.",
+				"scope",
+			);
+		}
+		parsed.scope = scope as CardBody["scope"];
+	}
+	if ("title" in raw) {
+		if (raw.title === null) {
+			refuse(
+				"title_required",
+				"A card needs a title; only a built-in seed may go unnamed.",
+				"title",
+			);
+		}
+		parsed.title = asString(raw.title, "title");
+	}
+	if ("conditions" in raw) {
+		if (!Array.isArray(raw.conditions)) {
+			refuse("invalid_type", "conditions must be a list.", "conditions");
+		}
+		parsed.conditions = raw.conditions;
+	}
+	if ("sort" in raw) parsed.sort = raw.sort;
+	if ("shown" in raw) {
+		if (typeof raw.shown !== "number" || !Number.isInteger(raw.shown)) {
+			refuse("invalid_type", "shown must be an integer.", "shown");
+		}
+		parsed.shown = raw.shown;
+	}
+	if ("max" in raw) {
+		if (typeof raw.max !== "number" || !Number.isInteger(raw.max)) {
+			refuse("invalid_type", "max must be an integer.", "max");
+		}
+		parsed.max = raw.max;
+	}
+	if ("empty" in raw) parsed.empty = raw.empty;
+	if ("hidden" in raw) {
+		if (typeof raw.hidden !== "boolean") {
+			refuse("invalid_type", "hidden must be a boolean.", "hidden");
+		}
+		parsed.hidden = raw.hidden;
+	}
 
 	return parsed;
 }

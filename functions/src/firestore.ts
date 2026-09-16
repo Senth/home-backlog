@@ -30,6 +30,17 @@ export const usersCollection = "users";
 export const apiKeysCollection = "apiKeys";
 export const apiClientsCollection = "apiClients";
 export const runsCollection = "runs";
+/**
+ * Overview card config (#255), on the three surfaces `data/cards.ts` owns:
+ * `users/{uid}/dashboard/config` is the cross-home global doc (the `config`
+ * document under the `dashboard` collection), `homes/{homeId}/dashboards/{uid}`
+ * is a member's home doc — cards and the shared cards they hid — and
+ * `homes/{homeId}/dashboardCards/{cardId}` is one document per shared card.
+ */
+export const dashboardCollection = "dashboard";
+export const dashboardConfigDoc = "config";
+export const dashboardsCollection = "dashboards";
+export const dashboardCardsCollection = "dashboardCards";
 
 /** The most documents one Firestore batch may carry. */
 export const maxBatchWrites = 500;
