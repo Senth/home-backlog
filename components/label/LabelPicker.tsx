@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { type RefObject, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import type { View } from "react-native";
 import { Button, HelperText } from "react-native-paper";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
 import {
