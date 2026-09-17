@@ -4,14 +4,10 @@ import { ScrollView, useWindowDimensions, View } from "react-native";
 import { Button, HelperText, Text, TextInput } from "react-native-paper";
 import { fieldSpecs } from "@/components/overview/CardEditSheet";
 import { AppDialog } from "@/components/ui/AppDialog";
+import type { CardCondition } from "@/models/filter";
 import type { Member } from "@/models/home";
 import type { Location } from "@/models/locations";
-import {
-	type Card,
-	type CardCondition,
-	type CardScope,
-	importCard,
-} from "@/models/overview-cards";
+import { type Card, type CardScope, importCard } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
 import { space, touchTarget } from "@/theme/tokens";
 

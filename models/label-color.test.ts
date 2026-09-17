@@ -57,16 +57,15 @@ describe("clampLabelColor", () => {
 		["a mid grey in dark", midGrey, "dark", darkCard],
 		["an already-deep color in light", deepGreen, "light", lightCard],
 	];
-	it.each(cases)(
-		"derives an on-color that clears 4.5:1 against the fill for %s",
-		(_label, picked, scheme, card) => {
-			const { fill, on } = clampLabelColor(picked, scheme, card);
+	it.each(
+		cases,
+	)("derives an on-color that clears 4.5:1 against the fill for %s", (_label, picked, scheme, card) => {
+		const { fill, on } = clampLabelColor(picked, scheme, card);
 
-			expect(contrast(parseHex(on), parseHex(fill))).toBeGreaterThanOrEqual(
-				onFloor,
-			);
-		},
-	);
+		expect(contrast(parseHex(on), parseHex(fill))).toBeGreaterThanOrEqual(
+			onFloor,
+		);
+	});
 
 	it("answers a color the picker could never have stored, without throwing", () => {
 		// The rules cannot inspect the map's values, so a corrupt string is the

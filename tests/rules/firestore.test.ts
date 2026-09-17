@@ -263,18 +263,15 @@ describe("homes/{homeId}", () => {
 		it.each([
 			["a member", MEMBER],
 			["an owner", OWNER],
-		])(
-			"does not let %s claim a hash that is not their own address",
-			async (_label, user) => {
-				await seedHome();
+		])("does not let %s claim a hash that is not their own address", async (_label, user) => {
+			await seedHome();
 
-				await assertFails(
-					updateDoc(doc(dbAs(env, user), homePath), {
-						[`memberEmailHashes.${user.uid}`]: emailHash(OUTSIDER.email),
-					}),
-				);
-			},
-		);
+			await assertFails(
+				updateDoc(doc(dbAs(env, user), homePath), {
+					[`memberEmailHashes.${user.uid}`]: emailHash(OUTSIDER.email),
+				}),
+			);
+		});
 	});
 
 	describe("the labels map", () => {
@@ -928,12 +925,14 @@ describe("homes/{homeId}/nodes", () => {
 			);
 		});
 
-		it.each(["2026-9-1", "01/09/2026", "not a date", "2026-09-30T00:00:00Z"])(
-			"refuses a dueDate of %s",
-			async (dueDate) => {
-				await assertFails(create(dbAs(env, MEMBER), "bad-date", { dueDate }));
-			},
-		);
+		it.each([
+			"2026-9-1",
+			"01/09/2026",
+			"not a date",
+			"2026-09-30T00:00:00Z",
+		])("refuses a dueDate of %s", async (dueDate) => {
+			await assertFails(create(dbAs(env, MEMBER), "bad-date", { dueDate }));
+		});
 
 		it("accepts a dueDate that is a calendar day", async () => {
 			await assertSucceeds(
@@ -1031,21 +1030,22 @@ describe("homes/{homeId}/nodes", () => {
 		 * list shrank, so nothing stored holds one — and a client that still writes
 		 * one is writing a column no board draws.
 		 */
-		it.each(["research", "planning", "review"])(
-			"refuses the retired stage %s",
-			async (status) => {
-				await assertFails(
-					create(dbAs(env, MEMBER), `stage-${status}`, {
-						status,
-					}),
-				);
-				await assertFails(
-					create(dbAs(env, MEMBER), `column-${status}`, {
-						columns: ["backlog", status, "done"],
-					}),
-				);
-			},
-		);
+		it.each([
+			"research",
+			"planning",
+			"review",
+		])("refuses the retired stage %s", async (status) => {
+			await assertFails(
+				create(dbAs(env, MEMBER), `stage-${status}`, {
+					status,
+				}),
+			);
+			await assertFails(
+				create(dbAs(env, MEMBER), `column-${status}`, {
+					columns: ["backlog", status, "done"],
+				}),
+			);
+		});
 
 		describe("the column set", () => {
 			it("refuses a board with no columns at all", async () => {

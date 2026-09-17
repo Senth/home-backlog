@@ -238,13 +238,15 @@ describe("a label on the wire", () => {
 
 	// One value serves both the row's `etag` field and the `ETag` header, so any
 	// field change must move it — the whole property `If-Match` rests on.
-	it.each(["title", "icon", "color", "rank"] as const)(
-		"changes when %s changes",
-		(field) => {
-			const changed = { ...stored, [field]: `other-${field}` };
-			expect(etagForLabel(changed)).not.toBe(etagForLabel(stored));
-		},
-	);
+	it.each([
+		"title",
+		"icon",
+		"color",
+		"rank",
+	] as const)("changes when %s changes", (field) => {
+		const changed = { ...stored, [field]: `other-${field}` };
+		expect(etagForLabel(changed)).not.toBe(etagForLabel(stored));
+	});
 });
 
 describe("a home on the wire", () => {
