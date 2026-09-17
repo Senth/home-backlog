@@ -248,6 +248,38 @@ describe("BoardCard", () => {
 		expect(screen.queryByText("Workshop")).toBeNull();
 	});
 
+	it("shows the trail's place on a card that carries none of its own (#296)", () => {
+		renderCard(
+			<BoardCard
+				node={node()}
+				onOpen={() => {}}
+				ancestorLocationId="loc-1"
+				locations={new Map([["loc-1", "Workshop"]])}
+			/>,
+		);
+
+		expect(screen.getByText("Workshop")).toBeOnTheScreen();
+	});
+
+	it("keeps the card's own place over the trail's (#296)", () => {
+		renderCard(
+			<BoardCard
+				node={node({ locationId: "loc-2" })}
+				onOpen={() => {}}
+				ancestorLocationId="loc-1"
+				locations={
+					new Map([
+						["loc-1", "Workshop"],
+						["loc-2", "Attic"],
+					])
+				}
+			/>,
+		);
+
+		expect(screen.getByText("Attic")).toBeOnTheScreen();
+		expect(screen.queryByText("Workshop")).toBeNull();
+	});
+
 	it("keeps overdue as words in the footer", () => {
 		renderCard(
 			<BoardCard node={node({ dueDate: "2001-02-03" })} onOpen={() => {}} />,

@@ -17,6 +17,7 @@ import { useLocations } from "@/hooks/use-locations";
 import { useNode } from "@/hooks/use-node";
 import { useNodes } from "@/hooks/use-nodes";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
+import { effectiveLocation } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { appBarStackBreakpoint, space } from "@/theme/tokens";
 
@@ -69,6 +70,19 @@ export default function NodeBoard() {
 					node,
 					...crumbs.flatMap((crumb) => (crumb.node ? [crumb.node] : [])),
 				].flatMap((ancestor) => ancestor.labelIds);
+
+	// The nearest place the board's own chain passes down (#290) — the board
+	// node itself first, then everything above it. Every card without a place
+	// of its own answers to it, resolved once here rather than per card. An
+	// unreadable ancestor contributes nothing, the same neutral answer its
+	// crumb renders.
+	const ancestorLocationId =
+		node === null
+			? null
+			: (effectiveLocation(
+					node,
+					crumbs.map((crumb) => crumb.node ?? null),
+				)?.locationId ?? null);
 
 	// The card face's location facts (#100), read from the leaf: id → title,
 	// from the one listener this screen holds.
@@ -165,6 +179,7 @@ export default function NodeBoard() {
 					onRetry={retry}
 					hidden={filtered.hidden}
 					ancestorLabelIds={ancestorLabelIds}
+					ancestorLocationId={ancestorLocationId}
 					locations={locationTitles}
 				/>
 			) : (

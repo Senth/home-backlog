@@ -30,6 +30,7 @@ import {
 	crumbTitlesOf,
 	effectiveLocation,
 	hasSteps,
+	inheritedLocation,
 	type Node,
 	rankAtEnd,
 } from "@/models/node";
@@ -592,6 +593,9 @@ function CardSection({
 							path={crumbTitlesOf(node, nodesById)}
 							ancestorLabelIds={node.ancestorIds.flatMap(
 								(id) => ancestors.get(id)?.labelIds ?? [],
+							)}
+							ancestorLocationId={inheritedLocation(
+								node.ancestorIds.map((id) => ancestors.get(id) ?? null),
 							)}
 							locations={locations}
 							wide={wide}

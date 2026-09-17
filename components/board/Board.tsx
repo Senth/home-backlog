@@ -84,6 +84,12 @@ interface BoardProps {
 	 * that already holds them. See `BoardCard`.
 	 */
 	ancestorLabelIds?: readonly string[];
+	/**
+	 * The nearest place the board's own chain passes down (#290) — the board
+	 * node itself first, then its ancestors, resolved once by the screen.
+	 * See `BoardCard`.
+	 */
+	ancestorLocationId?: string | null;
 	/** Location id → title, the leaf. See `BoardCard`. */
 	locations?: ReadonlyMap<string, string>;
 }
@@ -122,6 +128,7 @@ export function Board({
 	onRetry,
 	hidden = noneHidden,
 	ancestorLabelIds,
+	ancestorLocationId,
 	locations,
 }: BoardProps) {
 	const { t } = useTranslation();
@@ -451,6 +458,7 @@ export function Board({
 									drag={columnDrag(status)}
 									blockers={blockers}
 									ancestorLabelIds={ancestorLabelIds}
+									ancestorLocationId={ancestorLocationId}
 									locations={locations}
 								/>
 							</View>
@@ -486,6 +494,7 @@ export function Board({
 							drag={columnDrag(status)}
 							blockers={blockers}
 							ancestorLabelIds={ancestorLabelIds}
+							ancestorLocationId={ancestorLocationId}
 							locations={locations}
 						/>
 					))}
@@ -567,6 +576,7 @@ export function Board({
 							narrow={narrow}
 							blockers={blockers}
 							ancestorLabelIds={ancestorLabelIds}
+							ancestorLocationId={ancestorLocationId}
 							locations={locations}
 						/>
 					</Surface>

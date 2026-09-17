@@ -11,9 +11,14 @@ import { border, icon, space } from "@/theme/tokens";
 interface CardFooterProps {
 	node: Node;
 	/**
-	 * Location id → title, as passed down by the screen. A location the map
-	 * cannot answer — gone, or not loaded — says nothing rather than a wrong
-	 * name, the same neutral answer an unreadable crumb renders.
+	 * The place the card answers to — its own, or the nearest its trail passes
+	 * down (#290, #296), resolved by `BoardCard`. A location the map cannot
+	 * answer — gone, or not loaded — says nothing rather than a wrong name, the
+	 * same neutral answer an unreadable crumb renders.
+	 */
+	locationId: string | null;
+	/**
+	 * Location id → title, as passed down by the screen.
 	 */
 	locations?: ReadonlyMap<string, string>;
 	/** The waiting mark, when the card is waiting; `null` when it is not. */
@@ -89,6 +94,7 @@ function Pair({ children }: { children: ReactNode }) {
  */
 export function CardFooter({
 	node,
+	locationId,
 	locations,
 	waiting,
 	style,
@@ -100,7 +106,7 @@ export function CardFooter({
 	const showDue = showsDue(node, new Date());
 
 	const locationTitle =
-		node.locationId === null ? undefined : locations?.get(node.locationId);
+		locationId === null ? undefined : locations?.get(locationId);
 	const where = locationTitle !== undefined || node.effort !== null;
 	const when = showDue || waiting !== null;
 

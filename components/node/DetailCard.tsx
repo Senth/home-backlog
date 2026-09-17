@@ -5,7 +5,7 @@ import { IconButton } from "react-native-paper";
 import { BoardCard } from "@/components/board/BoardCard";
 import { useAncestors } from "@/hooks/use-ancestors";
 import { useBlockerReads } from "@/hooks/use-blockers";
-import type { Node } from "@/models/node";
+import { inheritedLocation, type Node } from "@/models/node";
 import {
 	cardGutterBreakpoint,
 	contentWidth,
@@ -79,6 +79,9 @@ export function DetailCard({
 			linkedTrail={crumbs.length === 0 ? undefined : { crumbs, onOpenCrumb }}
 			blockers={blockers}
 			ancestorLabelIds={crumbs.flatMap((crumb) => crumb.node?.labelIds ?? [])}
+			ancestorLocationId={inheritedLocation(
+				crumbs.map((crumb) => crumb.node ?? null),
+			)}
 			locations={locations}
 			narrow={narrow}
 		/>

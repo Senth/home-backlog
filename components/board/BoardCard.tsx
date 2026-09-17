@@ -80,6 +80,14 @@ interface BoardCardProps {
 	 * cannot answer says nothing rather than a wrong name.
 	 */
 	locations?: ReadonlyMap<string, string>;
+	/**
+	 * The nearest place the trail passes down (#290) — the board's own chain on
+	 * a board, resolved once by the screen that already holds it; the card's
+	 * own ancestors on Overview and details. The card's own field wins, and an
+	 * inherited place renders exactly like the card's own (#296) — the same
+	 * rule the labels above follow.
+	 */
+	ancestorLocationId?: string | null;
 }
 
 /** What a card resolves its waiting against before its board has said anything. */
@@ -128,6 +136,7 @@ export function BoardCard({
 	linkedTrail,
 	ancestorLabelIds = noAncestorLabelIds,
 	locations,
+	ancestorLocationId = null,
 }: BoardCardProps) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
@@ -144,6 +153,10 @@ export function BoardCard({
 
 	const steps = hasSteps(node);
 	const isDone = node.status === "done";
+
+	// The card's own place wins; otherwise the trail's nearest (#290) — the
+	// same rule the location picker and the details row resolve by.
+	const locationId = node.locationId ?? ancestorLocationId;
 
 	// Two projects in one path may share a title, so the key is content plus
 	// position — the trail never reorders, only grows or disappears.
@@ -364,6 +377,7 @@ export function BoardCard({
 
 					<CardFooter
 						node={node}
+						locationId={locationId}
 						locations={locations}
 						waiting={waiting}
 						// The title owns the space between them; the footer hangs one
