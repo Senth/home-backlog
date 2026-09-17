@@ -6,11 +6,13 @@ import { PriorityDot } from "@/components/board/PriorityDot";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
 import { DetailRow } from "@/components/node/DetailRow";
 import type { FieldSpec } from "@/components/overview/CardEditSheet";
+import type { CheckItem } from "@/components/ui/CheckListPicker";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import type { CardCondition } from "@/models/filter";
 import type { Member } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
 import type { Priority } from "@/models/node";
+import { doneWithinDays } from "@/models/overview";
 import { useAppTheme } from "@/theme";
 import { border, radius, size, space } from "@/theme/tokens";
 
@@ -32,9 +34,10 @@ export const filterFields = [
 	"isRoot",
 	"blockedBy",
 	"notes",
-] as const satisfies readonly CardCondition["field"][];
+] as const satisfies readonly FilterField[];
 
-export type FilterField = (typeof filterFields)[number];
+/** Any field a condition can name — the board's nine, and the card editor's rest. */
+export type FilterField = CardCondition["field"];
 
 /** The glyph each row leads with — the details screen's own, per field. */
 const fieldGlyphs: Record<FilterField, string> = {
@@ -44,9 +47,17 @@ const fieldGlyphs: Record<FilterField, string> = {
 	priority: "thermometer",
 	effort: "clock-outline",
 	dueDate: "calendar",
+	completedAt: "checkbox-marked-circle-outline",
 	isRoot: "file-tree-outline",
+	hasChildren: "format-list-checks",
+	participantIds: "account-multiple-outline",
 	blockedBy: "timer-sand",
+	visibility: "eye-outline",
+	createdVia: "source-branch",
 	notes: "pencil-outline",
+	photos: "image-outline",
+	checklist: "format-list-checklist",
+	status: "list-status",
 };
 
 export interface FilterContext {
@@ -152,6 +163,13 @@ export function filterWord(
 	ctx: FilterContext,
 	t: ReturnType<typeof useTranslation>["t"],
 ): string | null {
+	// The done window reads as its sentence, not its field name — the spec
+	// carries no values to look up, the window is the whole answer.
+	if (condition.field === "completedAt" && condition.is === "within") {
+		return t("overview.cards.completedAtLine", {
+			count: condition.n ?? doneWithinDays,
+		});
+	}
 	if (condition.field === "locationId") {
 		if ("anyOf" in condition) {
 			return condition.anyOf
@@ -179,6 +197,14 @@ export function filterWord(
 			words.push(t("overview.cards.field.notSet"));
 		}
 		return words.length === 0 ? null : words.join(", ");
+	}
+	// A widened "coming up" names its window; the plain one reads as the word.
+	if (
+		condition.field === "dueDate" &&
+		condition.is === "comingUp" &&
+		condition.n !== undefined
+	) {
+		return t("overview.cards.due.comingUpWithin", { count: condition.n });
 	}
 	return labelOf(String(condition.is));
 }
@@ -252,4 +278,117 @@ export function BoardFilterRow({
 			testID={testID}
 		/>
 	);
+}
+
+/**
+ * The picker rows one field offers, in display order: the spec's own values,
+ * the location's places riding after its any/none pair, and avatars on the
+ * people rows. The shared vocabulary, rendered as rows for both sheets.
+ */
+export function fieldPickerItems(
+	spec: FieldSpec,
+	opts: { uid: string; members: readonly Member[] },
+): CheckItem[] {
+	const items = spec.values.map((value) => ({
+		id: String(value.value),
+		title: value.label,
+	}));
+
+	if (spec.field === "assigneeIds") {
+		const memberOf = (value: string) =>
+			opts.members.find(
+				(member) => member.uid === (value === "me" ? opts.uid : value),
+			);
+		return items.map((item) => {
+			const member = memberOf(item.id);
+			return {
+				...item,
+				left:
+					member === undefined ? undefined : (
+						<PersonAvatar
+							name={member.displayName}
+							photoURL={member.photoURL}
+							px={size.avatarXs}
+						/>
+					),
+			};
+		});
+	}
+
+	if (spec.extraValues !== undefined) {
+		return [
+			...items,
+			...spec.extraValues.map((value) => ({
+				id: String(value.value),
+				title: value.label,
+			})),
+		];
+	}
+
+	return items;
+}
+
+/**
+ * The controlled selection the open picker starts from: an any-of's picked
+ * ids, or the one `is` answer as a one-element list.
+ */
+export function pickerValueFor(
+	condition: CardCondition | null,
+): readonly string[] {
+	if (condition === null) return [];
+	if ("anyOf" in condition) return [...condition.anyOf];
+	return [String(condition.is)];
+}
+
+/** The stored `is` value for an is-field, from the picker's string id. */
+function castIs(field: FilterField, value: string): unknown {
+	switch (field) {
+		case "isRoot":
+		case "notes":
+		case "photos":
+		case "checklist":
+		case "hasChildren":
+			return value === "true";
+		default:
+			return value;
+	}
+}
+
+/**
+ * The condition a picker's resulting selection writes, or `null` when it says
+ * nothing. The any-of fields are plain multi-select; the is-fields are one
+ * answer at a time — the tap that removes the set value clears the field, and
+ * any other tap replaces it; the location field carries both forms, where
+ * picking a place replaces any/none and picking any/none replaces the places.
+ */
+export function pickerConditionFromIds(
+	spec: FieldSpec,
+	ids: readonly string[],
+	locationIds: ReadonlySet<string>,
+): CardCondition | null {
+	if (spec.field === "locationId") {
+		const places = ids.filter((id) => locationIds.has(id));
+		const flags = ids.filter((id) => id === "any" || id === "none");
+		// The flag checked last wins, and either form replaces the other: the
+		// editor never holds an is-answer and picked places at once.
+		const flag = flags.at(-1);
+		if (flag !== undefined) {
+			return { field: "locationId", is: flag as "any" | "none" };
+		}
+		return places.length === 0 ? null : { field: "locationId", anyOf: places };
+	}
+
+	if (spec.kind === "anyOf") {
+		return ids.length === 0
+			? null
+			: ({ field: spec.field, anyOf: ids } as CardCondition);
+	}
+
+	// The is-fields take one answer. The picker toggles, so the checked list
+	// ends with the answer the last tap chose — an uncheck of the only one
+	// leaves nothing, which says the field is unset.
+	const last = ids.at(-1);
+	return last === undefined
+		? null
+		: ({ field: spec.field, is: castIs(spec.field, last) } as CardCondition);
 }

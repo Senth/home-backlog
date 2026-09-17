@@ -7,6 +7,11 @@ import { CardEditSheet } from "@/components/overview/CardEditSheet";
 import { lightTheme } from "@/theme";
 import { space } from "@/theme/tokens";
 
+jest.mock("@/contexts/AuthContext", () => ({
+	// firebase/auth does not parse under jest; the sheet reads only the uid.
+	useAuth: () => ({ user: { uid: "uid-me" } }),
+}));
+
 jest.mock("react-i18next", () => ({
 	// Keys asserted, not sentences — the sheet is translated elsewhere, and
 	// `Board.test.tsx` carries the reasoning.
@@ -86,6 +91,53 @@ describe("CardEditSheet", () => {
 
 		expect(screen.queryByText("overview.cards.field.completedAt")).toBeNull();
 		expect(screen.queryByText("overview.cards.field.status")).toBeTruthy();
+	});
+
+	it("a field row opens the values as check rows, and a pick writes the condition", () => {
+		const onSave = jest.fn();
+		renderSheet(onSave);
+
+		fireEvent.press(screen.getByTestId("overview-card-edit-field-priority"));
+		fireEvent.press(screen.getByRole("checkbox", { name: "priority.high" }));
+		fireEvent.changeText(
+			screen.getByTestId("overview-card-edit-title"),
+			"Urgent jobs",
+		);
+		fireEvent.press(screen.getByText("manageHome.save"));
+
+		expect(onSave).toHaveBeenCalledWith(
+			expect.objectContaining({
+				conditions: [{ field: "priority", anyOf: ["high"] }],
+			}),
+			"home",
+		);
+	});
+
+	it("a row's clear takes that field off and leaves the rest standing", () => {
+		const onSave = jest.fn();
+		renderSheet(onSave);
+
+		fireEvent.press(screen.getByTestId("overview-card-edit-field-priority"));
+		fireEvent.press(screen.getByRole("checkbox", { name: "priority.high" }));
+		fireEvent.press(screen.getByTestId("overview-card-edit-field-effort"));
+		fireEvent.press(screen.getByRole("checkbox", { name: "effort.quick" }));
+		fireEvent.press(
+			screen.getByLabelText(
+				'board.filter.removeFilter:{"what":"detail.priority"}',
+			),
+		);
+		fireEvent.changeText(
+			screen.getByTestId("overview-card-edit-title"),
+			"Quick ones",
+		);
+		fireEvent.press(screen.getByText("manageHome.save"));
+
+		expect(onSave).toHaveBeenCalledWith(
+			expect.objectContaining({
+				conditions: [{ field: "effort", anyOf: ["quick"] }],
+			}),
+			"home",
+		);
 	});
 
 	it("says what each mode collects", () => {

@@ -11,7 +11,16 @@ import {
 	Text,
 	TextInput,
 } from "react-native-paper";
+import {
+	BoardFilterRow,
+	type FilterContext,
+	fieldPickerItems,
+	pickerConditionFromIds,
+	pickerValueFor,
+} from "@/components/board/BoardFilterRow";
 import { AppDialog } from "@/components/ui/AppDialog";
+import { CheckListPicker } from "@/components/ui/CheckListPicker";
+import { useAuth } from "@/contexts/AuthContext";
 import { soonInDays } from "@/models/due-date";
 import {
 	type CardCondition,
@@ -394,9 +403,6 @@ export function CardEditSheet({
 		}
 	}
 
-	const setConditions = (next: CardCondition | null) =>
-		setDraft({ ...draft, conditions: withCondition(draft.conditions, next) });
-
 	const setMode = (mode: CardMode) => setDraft(withMode(draft, mode));
 
 	const fields = fieldSpecs(members, locations, t, draft.kind);
@@ -466,13 +472,25 @@ export function CardEditSheet({
 				draft={draft}
 				scope={scope}
 				fields={fields}
+				members={members}
+				locations={locations}
 				field={field}
 				sortOpen={sortOpen}
 				titleProblem={titleProblem}
 				onMode={setMode}
 				onScope={setScope}
 				onField={setField}
-				onConditions={setConditions}
+				onFieldCondition={(target, next) =>
+					setDraft({
+						...draft,
+						conditions:
+							next === null
+								? draft.conditions.filter(
+										(condition) => condition.field !== target,
+									)
+								: withCondition(draft.conditions, next),
+					})
+				}
 				onSortOpen={setSortOpen}
 				onSort={(sort) => setDraft({ ...draft, sort })}
 				onTitle={(title) => {
@@ -490,13 +508,24 @@ interface SheetBodyProps {
 	draft: Card;
 	scope: "global" | "home" | "shared";
 	fields: FieldSpec[];
+	/** The home's members and places, for the rows' avatars and word values. */
+	members: readonly Member[];
+	locations: readonly Location[];
 	field: CardCondition["field"] | null;
 	sortOpen: boolean;
 	titleProblem: string | null;
 	onMode: (mode: CardMode) => void;
 	onScope: (scope: "global" | "home" | "shared") => void;
 	onField: (field: CardCondition["field"] | null) => void;
-	onConditions: (next: CardCondition | null) => void;
+	/**
+	 * Writes one field's condition, clearing that field whole with `null` —
+	 * the rows' ✕ and the pickers' empty selections are per-field, where
+	 * `withCondition(conditions, null)` would empty every field at once.
+	 */
+	onFieldCondition: (
+		target: CardCondition["field"],
+		next: CardCondition | null,
+	) => void;
 	onSortOpen: (open: boolean) => void;
 	onSort: (sort: Card["sort"]) => void;
 	onTitle: (title: string) => void;
@@ -513,13 +542,15 @@ function SheetBody({
 	draft,
 	scope,
 	fields,
+	members,
+	locations,
 	field,
 	sortOpen,
 	titleProblem,
 	onMode,
 	onScope,
 	onField,
-	onConditions,
+	onFieldCondition,
 	onSortOpen,
 	onSort,
 	onTitle,
@@ -529,6 +560,16 @@ function SheetBody({
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const { height } = useWindowDimensions();
+	const { user } = useAuth();
+
+	const fieldsCtx: FilterContext = {
+		uid: user?.uid ?? "",
+		members,
+		labels: [],
+		locationTitles: new Map(locations.map((l) => [l.id, l.title])),
+		surface: theme.colors.surface,
+	};
+	const locationIds = new Set(locations.map((l) => l.id));
 
 	return (
 		<ScrollView style={{ maxHeight: height - space.xxl * 4 }}>
@@ -618,6 +659,9 @@ function SheetBody({
 					</HelperText>
 				) : null}
 
+				{/* One field, one row — the board filter sheet's own pattern, so
+				    the two sheets read as one product. The row names the field and
+				    previews its value; opening it offers the values as check rows. */}
 				<View style={{ gap: space.sm }}>
 					<Text
 						variant="labelLarge"
@@ -625,58 +669,51 @@ function SheetBody({
 					>
 						{t("overview.cards.field.conditions")}
 					</Text>
-					<View
-						style={{
-							flexDirection: "row",
-							flexWrap: "wrap",
-							gap: space.sm,
-						}}
-					>
+					<View>
 						{fields.map((spec) => {
-							const applied =
-								conditionForField(draft.conditions, spec.field) !== null;
+							const applied = conditionForField(draft.conditions, spec.field);
 
 							return (
-								<Chip
+								<BoardFilterRow
 									key={spec.field}
-									mode={applied ? "flat" : "outlined"}
-									selected={applied}
-									showSelectedCheck={false}
-									aria-pressed={applied}
+									field={spec.field}
+									condition={applied}
+									specs={fields}
+									ctx={fieldsCtx}
+									testID={`overview-card-edit-field-${spec.field}`}
 									onPress={() =>
 										onField(field === spec.field ? null : spec.field)
 									}
-									style={{
-										minHeight: outlinedTouchTarget,
-										flexGrow: 1,
-									}}
-								>
-									{spec.label}
-								</Chip>
+									onClear={
+										applied === null
+											? undefined
+											: () => onFieldCondition(spec.field, null)
+									}
+									clearLabel={t("board.filter.removeFilter", {
+										what: spec.label,
+									})}
+								/>
 							);
 						})}
 					</View>
 				</View>
 
 				{field === null ? null : field === "completedAt" ? (
-					<CompletedWithin
+					<CompletedWithinPicker
 						condition={conditionForField(draft.conditions, "completedAt")}
-						onChange={onConditions}
+						onField={onField}
+						onWrite={(next) => onFieldCondition("completedAt", next)}
 					/>
 				) : (
-					<ConditionValues
+					<FieldValuePicker
 						spec={fields.find((each) => each.field === field) as FieldSpec}
-						conditions={draft.conditions}
-						onChange={onConditions}
+						condition={conditionForField(draft.conditions, field)}
+						onField={onField}
+						onWrite={(next) => onFieldCondition(field, next)}
+						members={members}
+						locationIds={locationIds}
 					/>
 				)}
-
-				{field === "dueDate" ? (
-					<ComingUpWindow
-						condition={conditionForField(draft.conditions, "dueDate")}
-						onChange={onConditions}
-					/>
-				) : null}
 
 				{draft.kind === "open" ? (
 					<View style={{ gap: space.sm }}>
@@ -859,151 +896,106 @@ function CompletedWithin({
 				: { field: "completedAt", is: "within", n: next },
 		);
 
+	// The picker's own row carries the sentence; the stepper is the window's
+	// one editable number, in the picker's note slot.
 	return (
-		<View style={{ gap: space.sm }}>
-			<Chip
-				mode="flat"
-				selected
-				showSelectedCheck={false}
-				aria-pressed
-				onPress={() => onChange(null)}
-				style={{ minHeight: outlinedTouchTarget, alignSelf: "flex-start" }}
-			>
-				{t("overview.cards.completedAtLine", { count: n })}
-			</Chip>
-			<Stepper
-				label={t("overview.cards.edit.daysBack")}
-				value={n}
-				min={1}
-				max={maxDoneWithinDays}
-				onChange={write}
-			/>
-		</View>
-	);
-}
-
-/** One value group for the field being edited. */
-function ConditionValues({
-	spec,
-	conditions,
-	onChange,
-}: {
-	spec: FieldSpec;
-	conditions: readonly CardCondition[];
-	onChange: (next: CardCondition | null) => void;
-}) {
-	const current = conditionForField(conditions, spec.field);
-
-	const select = (value: string | boolean) => {
-		if (spec.kind === "anyOf") {
-			const anyOf = (current as { anyOf: string[] } | null)?.anyOf ?? [];
-			const next = anyOf.includes(String(value))
-				? anyOf.filter((each) => each !== String(value))
-				: [...anyOf, String(value)];
-			// `FieldSpec` carries the model's own field literals and the values
-			// they were built from; `toCondition` re-checks both on the way back
-			// out of storage.
-			onChange(
-				next.length === 0
-					? null
-					: ({ field: spec.field, anyOf: next } as CardCondition),
-			);
-			return;
-		}
-
-		const same = (current as { is: string | boolean } | null)?.is === value;
-		onChange(same ? null : ({ field: spec.field, is: value } as CardCondition));
-	};
-
-	return (
-		<View style={{ gap: space.sm }}>
-			<Text variant="bodyMedium">{spec.label}</Text>
-			<View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
-				{spec.values.map((chip) => {
-					const selected =
-						spec.kind === "anyOf"
-							? ((current as { anyOf: string[] } | null)?.anyOf ?? []).includes(
-									String(chip.value),
-								)
-							: (current as { is: string | boolean } | null)?.is === chip.value;
-
-					return (
-						<Chip
-							key={String(chip.value)}
-							mode={selected ? "flat" : "outlined"}
-							selected={selected}
-							showSelectedCheck={false}
-							aria-pressed={selected}
-							onPress={() => select(chip.value)}
-							style={{
-								minHeight: outlinedTouchTarget,
-								flexGrow: 1,
-							}}
-						>
-							{chip.label}
-						</Chip>
-					);
-				})}
-			</View>
-
-			<PickerChips spec={spec} current={current} onChange={onChange} />
-		</View>
+		<Stepper
+			label={t("overview.cards.edit.daysBack")}
+			value={n}
+			min={1}
+			max={maxDoneWithinDays}
+			onChange={write}
+		/>
 	);
 }
 
 /**
- * The location picker: one chip per location, multi-select, riding beside
- * the any/none pair in the same field group. Selecting writes the anyOf
- * form; unticking the last one removes the condition — a location filter
- * with nothing picked says nothing, like every other any-of.
+ * One field's values as the shared picker's check rows — the same component
+ * the board's filter opens, driven by the same spec-to-items mapping and the
+ * same ids-to-condition mapping. A due-date condition widens in the picker's
+ * note slot, where its one editable number lives.
  */
-function PickerChips({
+function FieldValuePicker({
 	spec,
-	current,
-	onChange,
+	condition,
+	onField,
+	onWrite,
+	members,
+	locationIds,
 }: {
 	spec: FieldSpec;
-	current: CardCondition | null;
-	onChange: (next: CardCondition | null) => void;
+	condition: CardCondition | null;
+	onField: (field: CardCondition["field"] | null) => void;
+	onWrite: (next: CardCondition | null) => void;
+	members: readonly Member[];
+	locationIds: ReadonlySet<string>;
 }) {
-	const picker = spec.extraValues ?? [];
-	if (picker.length === 0) return null;
-
-	const currentAnyOf =
-		(current as { anyOf: readonly string[] } | null)?.anyOf ?? [];
+	const { t } = useTranslation();
+	const { user } = useAuth();
 
 	return (
-		<View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
-			{picker.map((chip) => {
-				const selected = currentAnyOf.includes(String(chip.value));
+		<CheckListPicker
+			onDismiss={() => onField(null)}
+			testID={`overview-card-edit-${spec.field}`}
+			title={spec.label}
+			searchLabel={t("board.filter.search")}
+			items={fieldPickerItems(spec, { uid: user?.uid ?? "", members })}
+			value={pickerValueFor(condition)}
+			onChange={(ids) =>
+				onWrite(pickerConditionFromIds(spec, ids, locationIds))
+			}
+			note={
+				spec.field === "dueDate" ? (
+					<ComingUpWindow condition={condition} onChange={onWrite} />
+				) : undefined
+			}
+		/>
+	);
+}
 
-				return (
-					<Chip
-						key={String(chip.value)}
-						mode={selected ? "flat" : "outlined"}
-						selected={selected}
-						showSelectedCheck={false}
-						aria-pressed={selected}
-						onPress={() => {
-							const anyOf = selected
-								? currentAnyOf.filter((each) => each !== String(chip.value))
-								: [...currentAnyOf, String(chip.value)];
-							onChange(
-								anyOf.length === 0
-									? null
-									: ({ field: spec.field, anyOf } as CardCondition),
-							);
-						}}
-						style={{
-							minHeight: outlinedTouchTarget,
-							flexGrow: 1,
-						}}
-					>
-						{chip.label}
-					</Chip>
-				);
-			})}
-		</View>
+/**
+ * The done card's completion window as a picker: the one row *is* the
+ * condition — tapping it on writes the default window, tapping it off clears
+ * the field — and the stepper in the note slot widens or narrows it, the way
+ * `ComingUpWindow` does for a due date.
+ */
+function CompletedWithinPicker({
+	condition,
+	onField,
+	onWrite,
+}: {
+	condition: CardCondition | null;
+	onField: (field: CardCondition["field"] | null) => void;
+	onWrite: (next: CardCondition | null) => void;
+}) {
+	const { t } = useTranslation();
+	const within =
+		condition !== null && condition.field === "completedAt"
+			? (condition.n ?? doneWithinDays)
+			: doneWithinDays;
+
+	return (
+		<CheckListPicker
+			onDismiss={() => onField(null)}
+			testID="overview-card-edit-completedAt"
+			title={t("overview.cards.field.completedAt")}
+			searchLabel={t("board.filter.search")}
+			items={[
+				{
+					id: "within",
+					title: t("overview.cards.completedAtLine", { count: within }),
+				},
+			]}
+			value={condition === null ? [] : ["within"]}
+			onChange={(ids) =>
+				onWrite(
+					ids.length === 0
+						? null
+						: ({ field: "completedAt", is: "within" } as CardCondition),
+				)
+			}
+			note={<CompletedWithin condition={condition} onChange={onWrite} />}
+		/>
 	);
 }
 

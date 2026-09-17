@@ -16,6 +16,11 @@ import type { LabelWithId } from "@/models/label";
 import type { Location } from "@/models/locations";
 import { lightTheme } from "@/theme";
 
+jest.mock("@/contexts/AuthContext", () => ({
+	// CardEditSheet now reads the uid, and its module pulls firebase/auth.
+	useAuth: () => ({ user: { uid: "uid-me" } }),
+}));
+
 jest.mock("react-i18next", () => ({
 	// Keys asserted, not sentences — `CheckListPicker.test.tsx` for the reasoning.
 	useTranslation: () => ({

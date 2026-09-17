@@ -12,7 +12,10 @@ import {
 import {
 	BoardFilterRow,
 	type FilterContext,
+	fieldPickerItems,
 	filterFields,
+	pickerConditionFromIds,
+	pickerValueFor,
 } from "@/components/board/BoardFilterRow";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
 import { fieldSpecs } from "@/components/overview/CardEditSheet";
@@ -21,7 +24,6 @@ import {
 	type CheckItem,
 	CheckListPicker,
 } from "@/components/ui/CheckListPicker";
-import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { Row } from "@/components/ui/Row";
 import { useAuth } from "@/contexts/AuthContext";
 import type { BoardFilter } from "@/models/board-filter";
@@ -149,7 +151,12 @@ export function BoardFilterSheet({
 		openField === null ? null : (openField as CardCondition["field"]);
 	const closePicker = () => setOpenField(null);
 
-	/** The picker's items for the field being edited, in display order. */
+	/**
+	 * The picker for the field being edited: the shared row vocabulary renders
+	 * the items, and its mapping turns the checked ids back into a condition.
+	 * `labelIds` is the board sheet's own field — the card editor has no
+	 * labels group to share a spec with — so its rows are built here.
+	 */
 	const pickerItems = (): CheckItem[] => {
 		if (openField === "labelIds") {
 			return labels.map((label) => ({
@@ -159,64 +166,17 @@ export function BoardFilterSheet({
 			}));
 		}
 		const spec = specs.find((each) => each.field === openField);
-		if (spec === undefined) return [];
-		const items = spec.values.map((value) => ({
-			id: String(value.value),
-			title: value.label,
-		}));
-		if (openField === "assigneeIds") {
-			// The people rows carry their avatar, the way the row's value does.
-			const memberOf = (value: string) =>
-				members.find(
-					(member) =>
-						member.uid === (value === "me" ? (user?.uid ?? "") : value),
-				);
-			return items.map((item) => {
-				const member = memberOf(item.id);
-				return {
-					...item,
-					left:
-						member === undefined ? undefined : (
-							<PersonAvatar
-								name={member.displayName}
-								photoURL={member.photoURL}
-								px={size.avatarXs}
-							/>
-						),
-				};
-			});
-		}
-		if (openField === "locationId") {
-			return [
-				...items,
-				...locations.map((location) => ({
-					id: location.id,
-					title: location.title,
-				})),
-			];
-		}
-		return items;
+		return spec === undefined
+			? []
+			: fieldPickerItems(spec, { uid: user?.uid ?? "", members });
 	};
 
-	/** The controlled selection the open picker starts from. */
-	const pickerValue = (): readonly string[] => {
-		const current = open === null ? null : conditionFor(open);
-		if (current === null) return [];
-		if ("anyOf" in current) return [...current.anyOf];
-		return [String(current.is)];
-	};
+	const pickerValue = (): readonly string[] =>
+		pickerValueFor(open === null ? null : conditionFor(open));
 
 	const pickerChange = (ids: string[]) => {
 		if (open === null) return;
-
-		// The any-of fields are plain multi-select: what is checked is picked,
-		// and unchecking the last one says nothing.
-		if (
-			open === "assigneeIds" ||
-			open === "priority" ||
-			open === "effort" ||
-			open === "labelIds"
-		) {
+		if (open === "labelIds") {
 			setCondition(
 				open,
 				ids.length === 0
@@ -225,47 +185,9 @@ export function BoardFilterSheet({
 			);
 			return;
 		}
-
-		if (open === "locationId") {
-			const current = conditionFor(open);
-			const places = ids.filter((id) => locationIds.has(id));
-			const flags = ids.filter((id) => !locationIds.has(id));
-			// The flags are an is-form answer, one at a time, the same toggle
-			// arithmetic the is-fields below run.
-			const previousFlags: string[] =
-				current === null || "anyOf" in current ? [] : [String(current.is)];
-			const added = flags.find((flag) => !previousFlags.includes(flag));
-			const removed = previousFlags.some((flag) => !flags.includes(flag));
-			// Any/none replaces the picked places, and picked places replace
-			// any/none — the editor's own rule for the two forms.
-			if (added !== undefined && !removed) {
-				setCondition(open, {
-					field: "locationId",
-					is: added as "any" | "none",
-				});
-				return;
-			}
-			setCondition(
-				open,
-				places.length === 0 ? null : { field: "locationId", anyOf: places },
-			);
-			return;
-		}
-
-		// The is-fields are one answer at a time. The picker toggles, so the
-		// tap that removes the set value clears the condition, and any other
-		// tap replaces it with the row just checked.
-		const current = conditionFor(open);
-		const previous: string[] =
-			current === null || !("is" in current) ? [] : [String(current.is)];
-		const added = ids.find((id) => !previous.includes(id));
-		const removed = previous.some((id) => !ids.includes(id));
-		setCondition(
-			open,
-			added !== undefined && !removed
-				? ({ field: open, is: castIs(open, added) } as CardCondition)
-				: null,
-		);
+		const spec = specs.find((each) => each.field === open);
+		if (spec === undefined) return;
+		setCondition(open, pickerConditionFromIds(spec, ids, locationIds));
 	};
 
 	return (
@@ -425,17 +347,6 @@ export function BoardFilterSheet({
 			)}
 		</>
 	);
-}
-
-/** The stored `is` value for an is-field, from the picker's string id. */
-function castIs(field: CardCondition["field"], value: string): unknown {
-	switch (field) {
-		case "isRoot":
-		case "notes":
-			return value === "true";
-		default:
-			return value;
-	}
 }
 
 interface BoardFilterActionProps {
