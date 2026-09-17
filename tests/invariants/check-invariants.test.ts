@@ -210,19 +210,27 @@ test("a clean fixture passes every check", async () => {
 	for (const check of CHECKS) expect(summary.get(check)).toBe("ok");
 }, 20000);
 
-test.each(CASES)("$name: the check it violates fails, tracked", async (c) => {
-	await plant(c, true);
-	const result = await run(sandbox, c.args ?? []);
-	expect(result.code).toBe(1);
-	expectOnly(result, c.check);
-}, 20000);
+test.each(CASES)(
+	"$name: the check it violates fails, tracked",
+	async (c) => {
+		await plant(c, true);
+		const result = await run(sandbox, c.args ?? []);
+		expect(result.code).toBe(1);
+		expectOnly(result, c.check);
+	},
+	20000,
+);
 
-test.each(CASES)("$name: the check it violates fails, untracked", async (c) => {
-	await plant(c, false);
-	const result = await run(sandbox, c.args ?? []);
-	expect(result.code).toBe(1);
-	expectOnly(result, c.check);
-}, 20000);
+test.each(CASES)(
+	"$name: the check it violates fails, untracked",
+	async (c) => {
+		await plant(c, false);
+		const result = await run(sandbox, c.args ?? []);
+		expect(result.code).toBe(1);
+		expectOnly(result, c.check);
+	},
+	20000,
+);
 
 test("comment-only mentions are stripped, not violations", async () => {
 	await copyTree(path.join(FIXTURES, "comment-only"), sandbox);
