@@ -695,6 +695,25 @@ export function compareNodes(a: Node, b: Node): number {
 	return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
+/**
+ * The board's **real** sibling set: every card in the list whose parent is
+ * this board's own, filtered and hidden alike, in `(rank, id)` order.
+ *
+ * This is the set the rank arithmetic reads (#90). The screen's list is the
+ * participant-filtered half of it — a column whose last card is somebody
+ * else's personal project renders empty — and a rank computed against that
+ * half lands a new card or a moved card **on top of** the card the filter is
+ * holding back, where the next unhide buries it. The hidden half is in the
+ * list the board already holds, so no extra read is needed; `parentId` does
+ * the deriving, so a stray in the list cannot borrow a rank slot.
+ */
+export function siblingsOf(
+	nodes: readonly Node[],
+	parentId: string | null,
+): Node[] {
+	return nodes.filter((node) => node.parentId === parentId).sort(compareNodes);
+}
+
 /*
  * ---------------------------------------------------------------------------
  * Structure

@@ -30,6 +30,7 @@ import {
 	rootIdOf,
 	type Status,
 	siblingCandidates,
+	siblingsOf,
 	staleAssignees,
 	titleError,
 	toNode,
@@ -1429,5 +1430,36 @@ describe("toNode", () => {
 		expect(
 			toNode(snapshot("node-9", { visibility: "private" })).visibility,
 		).toBe("private");
+	});
+});
+
+describe("siblingsOf", () => {
+	const root = (id: string, rank: string, overrides: Partial<Node> = {}) =>
+		node({ id, rank, ...overrides });
+
+	it("derives the set from parentId, sorted in (rank, id) order", () => {
+		const board = [
+			root("later", "a2"),
+			root("child", "a0", { parentId: "p", ancestorIds: ["p"] }),
+			root("earlier", "a1"),
+		];
+
+		expect(siblingsOf(board, null).map((each) => each.id)).toEqual([
+			"earlier",
+			"later",
+		]);
+		expect(siblingsOf(board, "p").map((each) => each.id)).toEqual(["child"]);
+		expect(siblingsOf(board, "gone")).toEqual([]);
+	});
+
+	it("keeps the hidden half in, so a rank can land after it (#90)", () => {
+		const visible = root("visible", "a0");
+		const hidden = root("hidden", "a1");
+
+		const column = siblingsOf([visible, hidden], null).filter(
+			(each) => each.status === "backlog",
+		);
+
+		expect(column.at(-1)?.rank).toBe("a1");
 	});
 });

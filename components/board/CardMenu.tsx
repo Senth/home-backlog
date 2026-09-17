@@ -19,7 +19,13 @@ import {
 } from "@/data/nodes";
 import { useAnchorFocusGuard, useTabTrap } from "@/hooks/use-modal-focus";
 import { useOnlineStatus } from "@/hooks/use-online-status";
-import { type Node, rankAtEnd, rankBetween, type Status } from "@/models/node";
+import {
+	type Node,
+	rankAtEnd,
+	rankBetween,
+	type Status,
+	siblingsOf,
+} from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { icon, size, space, touchTarget } from "@/theme/tokens";
 
@@ -40,8 +46,14 @@ interface CardMenuProps {
 	 * never a destination.
 	 */
 	columns: readonly Status[];
-	/** Every card on this board, in `(rank, id)` order. */
+	/** Every card on this board the filter is showing, in `(rank, id)` order. */
 	nodes: Node[];
+	/**
+	 * The cards the default-hide filter is holding back — the other half of
+	 * the real sibling set (#90). Never rendered; read only where a card
+	 * lands.
+	 */
+	hidden?: Node[];
 	/**
 	 * What a chosen blocker's title is read from — the board's own nodes plus
 	 * the watcher's cross-board documents. Same-board picks need nothing from
@@ -81,6 +93,7 @@ export function CardMenu({
 	parent,
 	columns,
 	nodes,
+	hidden = [],
 	blockers,
 	onNotice,
 	onDetails,
@@ -140,10 +153,14 @@ export function CardMenu({
 	const column = nodes.filter((card) => card.status === node.status);
 	const index = column.findIndex((card) => card.id === node.id);
 	const others = column.filter((card) => card.id !== node.id);
+	// The real sibling set (#90): the board's cards plus the ones the filter
+	// is holding back. Both the *Move under* hosts and the one-tap move's
+	// end-of-column rank read this, so a hidden sibling still counts.
+	const siblings = siblingsOf([...nodes, ...hidden], parent?.id ?? null);
 	// A shared card under a private parent breaks the uniform-visibility
 	// invariant, and the rules refuse it. Offering it would be offering a
 	// permission error.
-	const hosts = nodes.filter(
+	const hosts = siblings.filter(
 		(card) => card.id !== node.id && card.visibility === node.visibility,
 	);
 
@@ -175,7 +192,9 @@ export function CardMenu({
 		close();
 		if (status === node.status) return;
 
-		const last = nodes.filter((card) => card.status === status).at(-1);
+		// The end of the destination column is the real one (#90): a sibling
+		// the filter hides still owns that slot.
+		const last = siblings.filter((card) => card.status === status).at(-1);
 		moveNode(homeId, node, status, rankAtEnd(last?.rank ?? null)).catch(failed);
 
 		onNotice({

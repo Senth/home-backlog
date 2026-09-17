@@ -33,6 +33,7 @@ import {
 	type Node,
 	rankAtEnd,
 	type Status,
+	siblingsOf,
 	visibleColumns,
 } from "@/models/node";
 import { useAppTheme } from "@/theme";
@@ -287,7 +288,14 @@ export function Board({
 	const add = (title: string) => {
 		if (user === null || adding === null) return;
 
-		const last = cardsIn(adding).at(-1)?.rank ?? null;
+		// The real sibling set, not the filtered column (#90): the last card a
+		// filter is holding back still owns the end of the column, and a new
+		// card lands after it — where the next unhide finds it, not stacked on
+		// top of it.
+		const last =
+			siblingsOf([...nodes, ...hidden], parent?.id ?? null)
+				.filter((card) => card.status === adding)
+				.at(-1)?.rank ?? null;
 		createNode(homeId, user.uid, {
 			title,
 			rank: rankAtEnd(last),
@@ -322,6 +330,7 @@ export function Board({
 			parent={parent}
 			columns={columns}
 			nodes={nodes}
+			hidden={hidden}
 			blockers={blockers}
 			onNotice={setNotice}
 			// The only way in for a card that *is* a board, where a tap drills in.

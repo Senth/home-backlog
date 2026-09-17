@@ -1,12 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 // `Provider`, not `ThemeProvider`: the board's Snackbar mounts a Portal host.
-import { Provider } from "react-native-paper";
+import { Provider, TextInput } from "react-native-paper";
 // Paper's Snackbar reads the safe-area insets its provider carries.
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { ReactTestInstance } from "react-test-renderer";
 import { Board } from "@/components/board/Board";
+import { createNode } from "@/data/nodes";
 import type { Node } from "@/models/node";
-import { defaultColumns } from "@/models/node";
+import { defaultColumns, rankAtEnd } from "@/models/node";
 import { lightTheme } from "@/theme";
 import { space } from "@/theme/tokens";
 
@@ -19,8 +20,10 @@ jest.mock("react-i18next", () => ({
 	}),
 }));
 
+let mockUser: { uid: string } | null = null;
+
 jest.mock("@/contexts/AuthContext", () => ({
-	useAuth: () => ({ user: null }),
+	useAuth: () => ({ user: mockUser }),
 }));
 
 jest.mock("@/contexts/HomeContext", () => ({
@@ -94,6 +97,7 @@ function renderBoard(props: {
 	loading: boolean;
 	viewport: number;
 	nodes?: Node[];
+	hidden?: Node[];
 }) {
 	const utils = render(
 		// Without `initialMetrics` the provider renders nothing in the test
@@ -110,6 +114,7 @@ function renderBoard(props: {
 					parent={null}
 					columns={defaultColumns}
 					nodes={props.nodes ?? []}
+					hidden={props.hidden}
 					loading={props.loading}
 				/>
 			</Provider>
@@ -169,5 +174,36 @@ describe("Board", () => {
 		renderBoard({ loading: false, viewport: 400 });
 
 		expect(screen.getByText(/board\.addTo:/)).toBeOnTheScreen();
+	});
+
+	/**
+	 * #90: the participant filter hides the column's last card, but that card
+	 * still owns the column's end. A new card ranks after it — where the next
+	 * unhide finds it — instead of stacking on top of it.
+	 */
+	it("ranks a new card after the sibling the filter is hiding", () => {
+		const hiddenCard = node("backlog");
+		hiddenCard.id = "hidden";
+		hiddenCard.rank = "V5";
+		mockUser = { uid: "uid-me" };
+		renderBoard({
+			loading: false,
+			viewport: 400,
+			nodes: [],
+			hidden: [hiddenCard],
+		});
+
+		fireEvent.press(screen.getByText(/board\.addTo:/));
+		fireEvent.changeText(screen.UNSAFE_getByType(TextInput), "Paint the shed");
+		fireEvent.press(screen.getByText("board.add"));
+
+		expect(createNode).toHaveBeenCalledWith(
+			"home-1",
+			"uid-me",
+			expect.objectContaining({
+				status: "backlog",
+				rank: rankAtEnd("V5"),
+			}),
+		);
 	});
 });
