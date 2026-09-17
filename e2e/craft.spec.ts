@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import {
+	cardSelector,
 	columnSelector,
 	gotoAndSettle,
 	ROUTES,
@@ -836,7 +837,7 @@ test("14: the desktop column header, card title and add button are unclipped", a
 	await gotoAndSettle(page, BOARD);
 
 	const offenders = await page.evaluate(
-		({ columns }) => {
+		({ card, columns }) => {
 			const bad: string[] = [];
 			const overflows = (node: Element) =>
 				node.scrollWidth > node.clientWidth + 1 ||
@@ -869,8 +870,8 @@ test("14: the desktop column header, card title and add button are unclipped", a
 				// Whatever card this column happens to hold: the titles are the
 				// household's own Swedish, in both locales, and the desktop face
 				// renders them a step smaller than the phone one does.
-				const card = column.querySelector('[data-testid="card-container"]');
-				const title = card?.querySelector("div[dir]");
+				const cardBox = column.querySelector(card);
+				const title = cardBox?.querySelector("div[dir]");
 				if (title !== null && title !== undefined && overflows(title)) {
 					bad.push(
 						`card title "${title.textContent}" (${title.scrollWidth}px in ${title.clientWidth}px)`,
@@ -880,6 +881,7 @@ test("14: the desktop column header, card title and add button are unclipped", a
 			return bad;
 		},
 		{
+			card: cardSelector(),
 			columns: (["backlog", "next_up", "execution", "done"] as const).map(
 				(status) => ({
 					selector: columnSelector(status),

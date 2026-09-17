@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
+	cardSelector,
 	clickMenuItem,
 	createThrowawayHome,
 	deleteThrowawayHome,
@@ -33,7 +34,7 @@ import { doneWithinDays } from "@/models/overview";
  */
 
 const BOARD = ROUTES[1];
-const CARD = '[data-testid="card-container"]';
+const CARD = cardSelector();
 
 /**
  * The strip chip that switches the phone-width board to its In progress pane

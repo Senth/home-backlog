@@ -124,6 +124,16 @@ export function columnSelector(status: string): string {
 	return `[data-testid="board-column-${status}"]`;
 }
 
+/**
+ * A board card's box, by the `data-testid` `BoardCard` puts on its `Card`.
+ *
+ * Same story as the column: the format is `cardTestID` in
+ * `components/board/BoardCard.tsx`, written out here rather than imported.
+ */
+export function cardSelector(): string {
+	return '[data-testid="board-card"]';
+}
+
 /** A route, plus the thing that proves its data has arrived. */
 export type Route = (typeof ROUTES)[number];
 
