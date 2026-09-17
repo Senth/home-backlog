@@ -13,7 +13,8 @@
 		"retry": "Try again",
 		"signOut": "Sign out",
 		"undo": "Undo",
-		"done": "Done"
+		"done": "Done",
+		"clear": "Clear"
 	},
 	"account": {
 		"labelFor": "Account: {{name}}",

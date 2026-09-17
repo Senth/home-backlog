@@ -13,7 +13,8 @@
 		"retry": "Försök igen",
 		"signOut": "Logga ut",
 		"undo": "Ångra",
-		"done": "Klar"
+		"done": "Klar",
+		"clear": "Rensa"
 	},
 	"account": {
 		"labelFor": "Konto: {{name}}",
