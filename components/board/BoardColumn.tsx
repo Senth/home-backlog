@@ -45,6 +45,13 @@ interface BoardColumnProps {
 	 */
 	hiddenCount?: number;
 	/**
+	 * The bound on the Done column in subtree reach, in days — the footer that
+	 * says so (Q2). Switching reach can make a done card disappear, and saying
+	 * nothing is the failure `board.allHidden` exists to prevent. Absent on
+	 * this-board reach, where every done child is here forever.
+	 */
+	doneWindowDays?: number;
+	/**
 	 * How much room the pane keeps free at the bottom for the FAB floating over
 	 * it, measured by the board rather than guessed at.
 	 *
@@ -107,6 +114,7 @@ export function BoardColumn({
 	wide,
 	narrow = false,
 	hiddenCount = 0,
+	doneWindowDays,
 	bottomInset = space.xxl,
 	onAdd,
 	onOpen,
@@ -386,8 +394,8 @@ export function BoardColumn({
 							: null}
 
 					{/* Says a card is there rather than leaving the column to read as
-				    empty. Not a control: turning it back on is one item in the app
-				    bar's overflow, which this names. */}
+				    empty. Not a control: turning it back on is the switch inside
+				    the filter sheet, which this names. */}
 					{hiddenCount > 0 ? (
 						<Text
 							variant="bodySmall"
@@ -396,10 +404,23 @@ export function BoardColumn({
 								paddingVertical: space.sm,
 							}}
 						>
-							{t("board.hiddenHere", {
-								count: hiddenCount,
-								action: t("board.showEveryone"),
-							})}
+							{t("board.hiddenHere", { count: hiddenCount })}
+						</Text>
+					) : null}
+
+					{/* The bound, said where the bounded cards are (Q2): subtree
+					    reach reads the windowed done pair, so the column's last line
+					    names the window instead of letting a missing card read as
+					    data loss. */}
+					{status === "done" && doneWindowDays !== undefined ? (
+						<Text
+							variant="bodySmall"
+							style={{
+								color: theme.colors.onSurfaceVariant,
+								paddingVertical: space.sm,
+							}}
+						>
+							{t("board.doneWindow", { count: doneWindowDays })}
 						</Text>
 					) : null}
 

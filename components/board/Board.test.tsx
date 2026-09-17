@@ -5,6 +5,7 @@ import { Provider, TextInput } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { ReactTestInstance } from "react-test-renderer";
 import { Board } from "@/components/board/Board";
+import { DragArea } from "@/components/board/DragArea";
 import { createNode } from "@/data/nodes";
 import type { BoardFilter } from "@/models/board-filter";
 import type { Node } from "@/models/node";
@@ -53,6 +54,9 @@ jest.mock("firebase/firestore", () => ({
 jest.mock("@/data/nodes", () => ({
 	createNode: jest.fn(),
 	moveNode: jest.fn(),
+	// `useLabelAncestors` getDocs the chain nodes the pool does not hold; a
+	// test's pool holds them all, so the fetch never fires.
+	getNode: jest.fn(),
 }));
 
 // A live listener per cross-board blocker id; the gate under test is not it,
@@ -102,6 +106,8 @@ function renderBoard(props: {
 	filter?: BoardFilter | null;
 	onChangeFilter?: (next: BoardFilter | null) => void;
 	onOpenFilter?: () => void;
+	reach?: "board" | "subtree";
+	pool?: Node[];
 }) {
 	const utils = render(
 		// Without `initialMetrics` the provider renders nothing in the test
@@ -123,6 +129,8 @@ function renderBoard(props: {
 					filter={props.filter}
 					onChangeFilter={props.onChangeFilter}
 					onOpenFilter={props.onOpenFilter}
+					reach={props.reach}
+					pool={props.pool}
 				/>
 			</Provider>
 		</SafeAreaProvider>,
@@ -272,12 +280,60 @@ describe("Board", () => {
 			hidden: [node("backlog")],
 			filter: {
 				mode: "open",
-				reach: "board",
+				reach: "subtree",
 				conditions: [{ field: "priority", anyOf: ["low"] }],
 			},
 		});
 
 		expect(screen.getByText("board.filterEmpty")).toBeOnTheScreen();
 		expect(screen.queryByText("board.allHidden")).not.toBeOnTheScreen();
+	});
+
+	it("subtree reach shows a card three levels down that an inherited label answers for", () => {
+		const boardId = "board-1";
+		const project = node("backlog");
+		project.id = "project";
+		project.parentId = boardId;
+		project.ancestorIds = [boardId];
+		project.labelIds = ["garden"];
+		const deep = node("backlog");
+		deep.id = "deep";
+		deep.parentId = "project";
+		deep.ancestorIds = [boardId, "project"];
+		deep.labelIds = [];
+
+		renderBoard({
+			loading: false,
+			viewport: 800,
+			nodes: [deep],
+			pool: [project, deep],
+			reach: "subtree",
+			filter: {
+				mode: "open",
+				reach: "subtree",
+				conditions: [{ field: "labelIds", anyOf: ["garden"] }],
+			},
+			onChangeFilter: jest.fn(),
+		});
+
+		// The card carries no label of its own; the one it inherits from the
+		// project above it is what lets it through (D7 and F3 in one).
+		expect(screen.getAllByText("Fix the gutter")).toHaveLength(1);
+		// The drag is off in subtree reach: nothing on this board can be
+		// carried, because nothing here has a neighbour to swap ranks with.
+		expect(screen.UNSAFE_queryAllByType(DragArea)).toHaveLength(0);
+		// And the Done column says its bound.
+		expect(screen.getByText('board.doneWindow:{"count":30}')).toBeOnTheScreen();
+	});
+
+	it("this-board reach keeps the drag and does not bound the Done column", () => {
+		renderBoard({
+			loading: false,
+			viewport: 800,
+			nodes: [node("backlog")],
+		});
+
+		expect(screen.UNSAFE_queryAllByType(DragArea).length).toBeGreaterThan(0);
+		expect(screen.queryByText(/board\.doneWindow/)).not.toBeOnTheScreen();
 	});
 });

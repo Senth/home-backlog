@@ -17,10 +17,10 @@ import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
 import { useAncestors } from "@/hooks/use-ancestors";
 import { useBoardFilter } from "@/hooks/use-board-filter";
+import { useBoardNodes } from "@/hooks/use-board-nodes";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useLocations } from "@/hooks/use-locations";
 import { useNode } from "@/hooks/use-node";
-import { useNodes } from "@/hooks/use-nodes";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
 import { filterActionVisible } from "@/models/board-filter";
 import { membersOf } from "@/models/home";
@@ -52,18 +52,25 @@ export default function NodeBoard() {
 	const notice = useGoneNotice();
 	const focused = useIsFocused();
 
-	// `null` is not "not ready" to either hook — `useNodes` reads it as the
-	// *root* board — so a missing param must subscribe to nothing at all rather
+	// `null` is not "not ready" to either hook — `useBoardNodes` reads it as
+	// the *root* board — so a missing param must subscribe to nothing at all rather
 	// than to the wrong board. Scoping the home to null is what says "wait". It
 	// is a required segment of this route, so this only ever holds for a frame.
 	const board = nodeId ?? null;
 	const homeId = board === null ? null : (activeHome?.id ?? null);
 	const { node, gone } = useNode(homeId, board);
-	const { nodes, loading, failed, retry } = useNodes(homeId, board);
 	const { crumbs } = useAncestors(homeId, node?.ancestorIds ?? noAncestors);
+	const { filter, loading: filterLoading, setFilter } = useBoardFilter(homeId);
+	// The reach the stored filter names (D2): this board's children, or
+	// everything below them — the pool pair and the done pair (Q1), filtered
+	// on the trail.
+	const { nodes, pool, loading, failed, retry } = useBoardNodes(
+		homeId,
+		board,
+		filter?.reach ?? "board",
+	);
 	const filtered = useParticipantFilter(nodes);
 	const { locations } = useLocations(homeId);
-	const { filter, loading: filterLoading, setFilter } = useBoardFilter(homeId);
 	const [filterOpen, setFilterOpen] = useState(false);
 	const filterAnchor = useRef<View>(null);
 
@@ -200,6 +207,8 @@ export default function NodeBoard() {
 					filter={filter}
 					onChangeFilter={setFilter}
 					onOpenFilter={() => setFilterOpen(true)}
+					reach={filter?.reach ?? "board"}
+					pool={pool}
 				/>
 			) : (
 				<ActivityIndicator

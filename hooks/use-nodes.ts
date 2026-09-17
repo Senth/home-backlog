@@ -19,19 +19,22 @@ import {
 export function useNodes(
 	homeId: string | null,
 	parentId: string | null,
+	/** False keeps the pair closed — the board's subtree reach (#62) asks the
+	 *  pool pair and the done pair instead, and this one stays shut. */
+	enabled = true,
 ): PairedResult {
 	const { user } = useAuth();
 	const uid = user?.uid ?? null;
 
 	const build = useCallback(
 		(): QueryPair =>
-			homeId === null || uid === null
+			!enabled || homeId === null || uid === null
 				? null
 				: {
 						shared: sharedBoardQuery(homeId, parentId),
 						participating: participatingBoardQuery(homeId, parentId, uid),
 					},
-		[homeId, parentId, uid],
+		[enabled, homeId, parentId, uid],
 	);
 
 	// The three parts are joined on NUL written as an *escape*, never as a raw
@@ -39,7 +42,7 @@ export function useNodes(
 	// and every change to this hook then arrives in review as
 	// `Bin 3757 -> 5342 bytes`, with not one line of diff to read.
 	return usePairedListener(
-		`${homeId ?? ""}\u0000${parentId ?? ""}\u0000${uid ?? ""}`,
+		`${homeId ?? ""}\u0000${parentId ?? ""}\u0000${uid ?? ""}\u0000${enabled ? "open" : "off"}`,
 		build,
 		{
 			shared: "Could not load this board",

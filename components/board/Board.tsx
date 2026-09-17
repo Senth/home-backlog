@@ -28,8 +28,9 @@ import { fieldSpecs } from "@/components/overview/CardEditSheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { createNode } from "@/data/nodes";
+import { useLabelAncestors } from "@/hooks/use-label-ancestors";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
-import type { BoardFilter } from "@/models/board-filter";
+import type { BoardFilter, BoardReach } from "@/models/board-filter";
 import {
 	type CardCondition,
 	type MatchContext,
@@ -41,6 +42,7 @@ import type { Location } from "@/models/locations";
 import {
 	crossBoardBlockerIds,
 	type EffectiveLocation,
+	effectiveLocation,
 	hasSteps,
 	type Node,
 	rankAtEnd,
@@ -48,6 +50,7 @@ import {
 	siblingsOf,
 	visibleColumns,
 } from "@/models/node";
+import { doneWithinDays } from "@/models/overview";
 import { useAppTheme } from "@/theme";
 import {
 	cardGutterBreakpoint,
@@ -116,6 +119,19 @@ interface BoardProps {
 	onChangeFilter?: (next: BoardFilter | null) => void;
 	/** Opens the filter sheet, which the screen above owns. */
 	onOpenFilter?: () => void;
+	/**
+	 * How wide the filter looks (D2): this board's children, or everything
+	 * below it. Subtree reach turns the drag off — a card from two levels down
+	 * has no neighbour on *this* board to swap ranks with — and bounds the
+	 * Done column, which says so.
+	 */
+	reach?: BoardReach;
+	/**
+	 * Everything the open listeners hold, unordered — the pool the subtree
+	 * cards' ancestor chains resolve against. Defaults to `nodes`, which is
+	 * the whole answer in this-board reach.
+	 */
+	pool?: Node[];
 }
 
 /**
@@ -157,6 +173,8 @@ export function Board({
 	filter = null,
 	onChangeFilter,
 	onOpenFilter,
+	reach = "board",
+	pool,
 }: BoardProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
@@ -238,26 +256,46 @@ export function Board({
 	 * can never surface a card the household has chosen not to see.
 	 */
 	const universe = useMemo(() => [...nodes, ...hidden], [nodes, hidden]);
+	const held = pool ?? nodes;
 
 	const conditions = filter?.conditions ?? noConditions;
 	const ancestorLocationId = ancestorLocation?.locationId ?? null;
 
+	// Subtree reach: the ancestor chains the cards answer through, resolved by
+	// id out of the pool (#100) — a card three levels down inherits from two
+	// nodes no board-chain prop can name. Resolved once for the whole board;
+	// ids the pool holds come straight from it, and the rest are cached reads.
+	const ancestorIdList = useMemo(
+		() =>
+			reach === "subtree"
+				? [...new Set(held.flatMap((node) => node.ancestorIds))]
+				: noLabelIds,
+		[reach, held],
+	);
+	const ancestorsById = useLabelAncestors(homeId, ancestorIdList, held);
+
 	// The label ids each card answers to, for the filter's `labelIds`
-	// condition: its own plus the board's inherited chain (#100), which is the
-	// whole inheritance a card on this board has. Empty until a filter asks.
+	// condition. This-board reach: the board's inherited chain (#100), which is
+	// the whole inheritance a card here has. Subtree reach: the card's own
+	// trail, resolved per card. Empty until a filter asks.
 	const filterLabelIds = useMemo(() => {
 		const map = new Map<string, readonly string[]>();
 		if (conditions.length === 0) return map;
 		for (const node of universe) {
-			map.set(node.id, [
-				...new Set([...(ancestorLabelIds ?? noLabelIds), ...node.labelIds]),
-			]);
+			const inherited =
+				reach === "subtree"
+					? node.ancestorIds.flatMap(
+							(id) => ancestorsById.get(id)?.labelIds ?? [],
+						)
+					: (ancestorLabelIds ?? noLabelIds);
+			map.set(node.id, [...new Set([...inherited, ...node.labelIds])]);
 		}
 		return map;
-	}, [conditions, universe, ancestorLabelIds]);
+	}, [conditions, universe, reach, ancestorsById, ancestorLabelIds]);
 
-	// The place each card answers to, for `locationId` "in or under": its own,
-	// or the board's chain (#290), which every card here shares. Empty until a
+	// The place each card answers to, for `locationId` "in or under". This-board
+	// reach: its own, or the board's chain (#290), which every card here shares.
+	// Subtree reach: the card's own trail, resolved per card. Empty until a
 	// filter asks.
 	const filterLocations = useMemo(() => {
 		const map = new Map<string, EffectiveLocation | null>();
@@ -265,16 +303,21 @@ export function Board({
 		for (const node of universe) {
 			map.set(
 				node.id,
-				node.locationId !== null
-					? {
-							locationId: node.locationId,
-							locationAncestorIds: node.locationAncestorIds,
-						}
-					: (ancestorLocation ?? null),
+				reach === "subtree"
+					? effectiveLocation(
+							node,
+							node.ancestorIds.map((id) => ancestorsById.get(id) ?? null),
+						)
+					: node.locationId !== null
+						? {
+								locationId: node.locationId,
+								locationAncestorIds: node.locationAncestorIds,
+							}
+						: (ancestorLocation ?? null),
 			);
 		}
 		return map;
-	}, [conditions, universe, ancestorLocation]);
+	}, [conditions, universe, reach, ancestorsById, ancestorLocation]);
 
 	const matchCtx = useMemo<MatchContext | null>(() => {
 		if (conditions.length === 0) return null;
@@ -348,6 +391,12 @@ export function Board({
 	const column = Math.min(current, shown.length - 1);
 	const onScreen: Status | undefined = shown[column];
 
+	// Subtree reach turns the drag off: a card from two levels down has no
+	// neighbour on this board to swap ranks with, so a lift could promise a
+	// reorder the board cannot name. The hook stays mounted — hooks do not
+	// branch — but nothing is handed a gesture, and no column is handed a drag.
+	const dragEnabled = reach === "board";
+
 	const drag = useBoardDrag({
 		homeId,
 		nodes: shownNodes,
@@ -357,24 +406,31 @@ export function Board({
 		// so there is nowhere for an edge hold to walk to. The pane it sets is the
 		// same state a chip tap sets — deliberate input, never read back from a
 		// scroll position — so the board simply stays where the drag left it.
-		pane: compact
-			? { index: column, count: shown.length, onChange: setCurrent }
-			: undefined,
+		pane:
+			dragEnabled && compact
+				? { index: column, count: shown.length, onChange: setCurrent }
+				: undefined,
 	});
 
 	// The frozen order while a card is up, the live one otherwise. A board is two
 	// listeners, and a card arriving mid-drag would move the gap out from under
-	// the finger.
+	// the finger. In subtree reach the hook holds nothing — the drawn list is
+	// the answer.
 	const cardsIn = (status: Status) =>
-		drag.cards.filter((node) => node.status === status);
+		(dragEnabled ? drag.cards : shownNodes).filter(
+			(node) => node.status === status,
+		);
 
-	const columnDrag = (status: Status): ColumnDrag => ({
-		node: drag.node,
-		gapAt: drag.over?.status === status ? drag.over.index : null,
-		gapHeight: drag.overlay?.height ?? space.none,
-		register: drag.register,
-		handlers: drag.handlers,
-	});
+	const columnDrag = (status: Status): ColumnDrag | undefined =>
+		dragEnabled
+			? {
+					node: drag.node,
+					gapAt: drag.over?.status === status ? drag.over.index : null,
+					gapHeight: drag.overlay?.height ?? space.none,
+					register: drag.register,
+					handlers: drag.handlers,
+				}
+			: undefined;
 
 	const hiddenIn = (status: Status) =>
 		hidden.filter((node) => node.status === status).length;
@@ -629,6 +685,9 @@ export function Board({
 									narrow={narrow}
 									bottomInset={fabInset}
 									hiddenCount={visible ? hiddenIn(status) : undefined}
+									doneWindowDays={
+										reach === "subtree" ? doneWithinDays : undefined
+									}
 									onAdd={() => setAdding(status)}
 									onOpen={open}
 									renderMenu={menu}
@@ -665,6 +724,7 @@ export function Board({
 							wide
 							narrow={narrow}
 							hiddenCount={hiddenIn(status)}
+							doneWindowDays={reach === "subtree" ? doneWithinDays : undefined}
 							onAdd={() => setAdding(status)}
 							onOpen={open}
 							renderMenu={menu}

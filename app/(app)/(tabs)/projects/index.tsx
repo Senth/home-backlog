@@ -12,9 +12,9 @@ import {
 import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
 import { useBoardFilter } from "@/hooks/use-board-filter";
+import { useBoardNodes } from "@/hooks/use-board-nodes";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useLocations } from "@/hooks/use-locations";
-import { useNodes } from "@/hooks/use-nodes";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
 import { filterActionVisible } from "@/models/board-filter";
 import { membersOf } from "@/models/home";
@@ -42,10 +42,18 @@ export default function Projects() {
 	const notice = useGoneNotice();
 
 	const homeId = activeHome?.id ?? null;
-	const { nodes, loading, failed, retry } = useNodes(homeId, null);
+	const { filter, loading: filterLoading, setFilter } = useBoardFilter(homeId);
+	// The reach the stored filter names (D2): this board's children, or
+	// everything below them — the pool pair and the done pair (Q1), filtered
+	// on the trail. Nothing on the board reads the filter before this: the
+	// reach is what decides which listeners exist at all.
+	const { nodes, pool, loading, failed, retry } = useBoardNodes(
+		homeId,
+		null,
+		filter?.reach ?? "board",
+	);
 	const board = useParticipantFilter(nodes);
 	const { locations } = useLocations(homeId);
-	const { filter, loading: filterLoading, setFilter } = useBoardFilter(homeId);
 	const [filterOpen, setFilterOpen] = useState(false);
 	const filterAnchor = useRef<View>(null);
 
@@ -99,6 +107,8 @@ export default function Projects() {
 					filter={filter}
 					onChangeFilter={setFilter}
 					onOpenFilter={() => setFilterOpen(true)}
+					reach={filter?.reach ?? "board"}
+					pool={pool}
 				/>
 			) : null}
 

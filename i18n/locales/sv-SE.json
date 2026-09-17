@@ -211,8 +211,8 @@
 		"empty": "Inget här ännu. Lägg till första kortet.",
 		"loadFailed": "Kunde inte ladda den här tavlan. Kontrollera din anslutning.",
 		"allHidden": "Allt här är någons eget projekt. Öppna filtret för att se det.",
-		"hiddenHere_one": "1 till här är någons eget projekt. Slå på ”{{action}}” för att se det.",
-		"hiddenHere_other": "{{count}} till här är någons egna projekt. Slå på ”{{action}}” för att se dem.",
+		"hiddenHere_one": "1 till här är någons eget projekt. Öppna filtret för att se det.",
+		"hiddenHere_other": "{{count}} fler här är någons egna projekt. Öppna filtret för att se dem.",
 		"columnEmpty": "Inget här",
 		"columnChip": "{{column}} · {{count}}",
 		"columnChipA11y_one": "{{column}}, {{count}} kort",
@@ -286,7 +286,9 @@
 			"search": "Sök",
 			"empty": "Inget att välja bland än.",
 			"searchEmpty": "Inga träffar"
-		}
+		},
+		"doneWindow_one": "Klart den senaste {{count}} dagen",
+		"doneWindow_other": "Klart de senaste {{count}} dagarna"
 	},
 	"overview": {
 		"ongoing": {

@@ -109,8 +109,15 @@ export function useOverview(homeId: string | null): {
  * done pair's `day` rides in the key and in `build`'s dependencies, which is
  * what re-asks `doneSince(now)` at the day turnover instead of whenever a
  * render happens to come.
+ *
+ * Exported because the board's subtree reach (#62) is the fourth caller of
+ * this exact shape — the pool pair and the done pair, reached from a board —
+ * and forking the wiring would fork the retry ladder with it. `enabled`
+ * (board reach) keeps a pair's listeners closed without unmounting the hook
+ * that holds it: a reach switch re-keys the pair, which is what clears the
+ * previous reach's rows.
  */
-function useOverviewPair(
+export function useOverviewPair(
 	homeId: string | null,
 	uid: string | null,
 	sharedQuery: (homeId: string, days?: number) => Query<DocumentData>,
@@ -124,22 +131,24 @@ function useOverviewPair(
 	day: string | null = null,
 	/** Only the done pair carries one; the pool pair leaves it out. */
 	days: number | null = null,
+	/** False keeps the pair closed — an answer of "nothing", not a wait. */
+	enabled = true,
 ) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the day never enters a query — it is what re-opens the done pair, so `doneSince` is re-asked at the turnover, not at some render.
 	const build = useCallback((): QueryPair => {
-		if (homeId === null || uid === null) return null;
+		if (!enabled || homeId === null || uid === null) return null;
 
 		return {
 			shared: sharedQuery(homeId, days ?? undefined),
 			participating: participatingQuery(homeId, uid, days ?? undefined),
 		};
-	}, [homeId, uid, sharedQuery, participatingQuery, day, days]);
+	}, [enabled, homeId, uid, sharedQuery, participatingQuery, day, days]);
 
 	// Same NUL-as-an-escape rule as `useNodes`, and for the same reason: a raw
 	// byte here makes git store this file as binary, and every review of it then
 	// arrives with no diff to read.
 	return usePairedListener(
-		`${homeId ?? ""}\u0000${uid ?? ""}\u0000${day ?? ""}\u0000${days ?? ""}`,
+		`${homeId ?? ""}\u0000${uid ?? ""}\u0000${day ?? ""}\u0000${days ?? ""}\u0000${enabled ? "open" : "off"}`,
 		build,
 		labels,
 	);

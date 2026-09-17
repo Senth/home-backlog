@@ -211,8 +211,8 @@
 		"empty": "Nothing here yet. Add the first card.",
 		"loadFailed": "Could not load this board. Check your connection.",
 		"allHidden": "Everything here is somebody's own project. Open the filter to see it.",
-		"hiddenHere_one": "1 more here is somebody's own project. Turn on \"{{action}}\" to see it.",
-		"hiddenHere_other": "{{count}} more here are somebody's own projects. Turn on \"{{action}}\" to see them.",
+		"hiddenHere_one": "1 more here is somebody's own project. Open the filter to see it.",
+		"hiddenHere_other": "{{count}} more here are somebody's own projects. Open the filter to see them.",
 		"columnEmpty": "Nothing here",
 		"columnChip": "{{column}} · {{count}}",
 		"columnChipA11y_one": "{{column}}, {{count}} card",
@@ -286,7 +286,9 @@
 			"search": "Search",
 			"empty": "Nothing to pick from yet.",
 			"searchEmpty": "No matches"
-		}
+		},
+		"doneWindow_one": "Done in the last {{count}} day",
+		"doneWindow_other": "Done in the last {{count}} days"
 	},
 	"overview": {
 		"ongoing": {
