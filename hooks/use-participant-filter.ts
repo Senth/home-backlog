@@ -16,8 +16,10 @@ import { hiddenByParticipants, type Node } from "@/models/node";
  * preference, not a permission, and a rule cannot express "hidden but
  * readable".
  *
- * `hiddenCount` is what the app bar goes by, so the toggle appears where it has
- * something to do rather than on every board in a household of one.
+ * `hiddenCount` is what told the old app-bar menu the toggle had something to
+ * do; the toggle now lives in the filter sheet (D8), where the rest of the
+ * board's show/hide decisions sit, and the column footers still count what is
+ * hidden from the board you are standing on.
  *
  * The state is board-level and **not persisted**: a board always opens in the
  * hiding state, the same way it always opens on its first column.

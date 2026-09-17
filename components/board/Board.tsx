@@ -13,6 +13,7 @@ import {
 import { BlockerWatcher } from "@/components/board/BlockerWatcher";
 import { BoardCard } from "@/components/board/BoardCard";
 import { BoardColumn } from "@/components/board/BoardColumn";
+import { BoardFilterChips } from "@/components/board/BoardFilterChips";
 import { boardHref, detailsHref } from "@/components/board/board-href";
 import { CardMenu, type Notice } from "@/components/board/CardMenu";
 import { ColumnStrip } from "@/components/board/ColumnStrip";
@@ -23,12 +24,23 @@ import {
 	type ColumnDrag,
 	useBoardDrag,
 } from "@/components/board/use-board-drag";
+import { fieldSpecs } from "@/components/overview/CardEditSheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { createNode } from "@/data/nodes";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import type { BoardFilter } from "@/models/board-filter";
+import {
+	type CardCondition,
+	type MatchContext,
+	matchesConditions,
+} from "@/models/filter";
+import { membersOf } from "@/models/home";
+import type { LabelWithId } from "@/models/label";
+import type { Location } from "@/models/locations";
 import {
 	crossBoardBlockerIds,
+	type EffectiveLocation,
 	hasSteps,
 	type Node,
 	rankAtEnd,
@@ -86,13 +98,24 @@ interface BoardProps {
 	 */
 	ancestorLabelIds?: readonly string[];
 	/**
-	 * The nearest place the board's own chain passes down (#290) — the board
-	 * node itself first, then its ancestors, resolved once by the screen.
-	 * See `BoardCard`.
+	 * The nearest place the board's own chain passes down (#290), as the whole
+	 * answer — which place, and its own path — so the filter's "in or under"
+	 * can read an inherited place exactly as the card face draws it. See
+	 * `effectiveLocation`.
 	 */
-	ancestorLocationId?: string | null;
+	ancestorLocation?: EffectiveLocation | null;
 	/** Location id → title, the leaf. See `BoardCard`. */
 	locations?: ReadonlyMap<string, string>;
+	/**
+	 * The home's stored filter (#62), whose conditions hold back the cards
+	 * that do not answer to them. The pills row and the three empty states
+	 * read the same prop; the pickers live in the screen above.
+	 */
+	filter?: BoardFilter | null;
+	/** Writes the filter — a pill's ✕, and the empty state's clear button. */
+	onChangeFilter?: (next: BoardFilter | null) => void;
+	/** Opens the filter sheet, which the screen above owns. */
+	onOpenFilter?: () => void;
 }
 
 /**
@@ -129,8 +152,11 @@ export function Board({
 	onRetry,
 	hidden = noneHidden,
 	ancestorLabelIds,
-	ancestorLocationId,
-	locations,
+	ancestorLocation,
+	locations = noLocationTitles,
+	filter = null,
+	onChangeFilter,
+	onOpenFilter,
 }: BoardProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
@@ -204,12 +230,85 @@ export function Board({
 		return map;
 	}, [nodes, watched]);
 
+	/**
+	 * Every card the board holds: what the listeners delivered, minus what the
+	 * participant preference hides. The stored filter's conditions select from
+	 * *this* list, so the two lenses stack — a hidden-by-default project that
+	 * matches the filter is still hidden by the preference, and a condition
+	 * can never surface a card the household has chosen not to see.
+	 */
+	const universe = useMemo(() => [...nodes, ...hidden], [nodes, hidden]);
+
+	const conditions = filter?.conditions ?? noConditions;
+	const ancestorLocationId = ancestorLocation?.locationId ?? null;
+
+	// The label ids each card answers to, for the filter's `labelIds`
+	// condition: its own plus the board's inherited chain (#100), which is the
+	// whole inheritance a card on this board has. Empty until a filter asks.
+	const filterLabelIds = useMemo(() => {
+		const map = new Map<string, readonly string[]>();
+		if (conditions.length === 0) return map;
+		for (const node of universe) {
+			map.set(node.id, [
+				...new Set([...(ancestorLabelIds ?? noLabelIds), ...node.labelIds]),
+			]);
+		}
+		return map;
+	}, [conditions, universe, ancestorLabelIds]);
+
+	// The place each card answers to, for `locationId` "in or under": its own,
+	// or the board's chain (#290), which every card here shares. Empty until a
+	// filter asks.
+	const filterLocations = useMemo(() => {
+		const map = new Map<string, EffectiveLocation | null>();
+		if (conditions.length === 0) return map;
+		for (const node of universe) {
+			map.set(
+				node.id,
+				node.locationId !== null
+					? {
+							locationId: node.locationId,
+							locationAncestorIds: node.locationAncestorIds,
+						}
+					: (ancestorLocation ?? null),
+			);
+		}
+		return map;
+	}, [conditions, universe, ancestorLocation]);
+
+	const matchCtx = useMemo<MatchContext | null>(() => {
+		if (conditions.length === 0) return null;
+		return {
+			uid: user?.uid ?? "",
+			now: new Date(),
+			blockers,
+			labels: filterLabelIds,
+			locations: filterLocations,
+		};
+	}, [conditions, user, blockers, filterLabelIds, filterLocations]);
+
+	/**
+	 * What the columns draw. The conditions filter **after** the participant
+	 * preference and never write anything — a held-back card is on the board,
+	 * and the pills row is what says so.
+	 */
+	const shownNodes = useMemo(
+		() =>
+			matchCtx === null
+				? universe
+				: universe.filter((node) =>
+						matchesConditions(node, conditions, matchCtx),
+					),
+		[universe, matchCtx, conditions],
+	);
+	const filterActive = conditions.length > 0;
+
 	// The frozen set, plus a column for any status that is on this board but not
 	// in it. A card that exists is visible somewhere — including one the filter
 	// is holding back, which would otherwise have no column to be counted in.
 	const shown = useMemo(
-		() => visibleColumns(columns, [...nodes, ...hidden]),
-		[columns, nodes, hidden],
+		() => visibleColumns(columns, universe),
+		[columns, universe],
 	);
 	const compact = boardWidth > 0 && boardWidth < compactBreakpoint;
 	/**
@@ -251,7 +350,7 @@ export function Board({
 
 	const drag = useBoardDrag({
 		homeId,
-		nodes,
+		nodes: shownNodes,
 		shown,
 		onNotice: setNotice,
 		// Only below the breakpoint: above it every column is already on screen,
@@ -293,7 +392,7 @@ export function Board({
 		// card lands after it — where the next unhide finds it, not stacked on
 		// top of it.
 		const last =
-			siblingsOf([...nodes, ...hidden], parent?.id ?? null)
+			siblingsOf(universe, parent?.id ?? null)
 				.filter((card) => card.status === adding)
 				.at(-1)?.rank ?? null;
 		createNode(homeId, user.uid, {
@@ -338,6 +437,22 @@ export function Board({
 		/>
 	);
 
+	const members = useMemo(
+		() => (activeHome === null ? [] : membersOf(activeHome)),
+		[activeHome],
+	);
+	// The home's label definitions, for the pills' glyphs. Not a listener —
+	// they ride the homes listener the context already holds.
+	const homeLabels = activeHome?.labels ?? noLabels;
+
+	const filterSet =
+		filter !== null &&
+		(filter.conditions.length > 0 || filter.reach === "subtree");
+	const clearFilters = useCallback(
+		() => onChangeFilter?.(null),
+		[onChangeFilter],
+	);
+
 	return (
 		<View
 			ref={drag.register(boardKey)}
@@ -345,6 +460,24 @@ export function Board({
 			style={{ flex: 1 }}
 			onLayout={(event) => setBoardWidth(event.nativeEvent.layout.width)}
 		>
+			{/* The pills, only while the filter holds something back — the glanceable
+			    answer to "why am I not seeing everything". */}
+			{filterSet && filter !== null && onChangeFilter !== undefined ? (
+				<BoardFilterChips
+					filter={filter}
+					onChange={onChangeFilter}
+					onOpen={() => onOpenFilter?.()}
+					specs={fieldSpecs(members, noLocations, t, "open")}
+					ctx={{
+						uid: user?.uid ?? "",
+						members,
+						labels: homeLabels,
+						locationTitles: locations,
+						surface: theme.colors.background,
+					}}
+				/>
+			) : null}
+
 			{loading ? (
 				<ActivityIndicator
 					accessibilityLabel={t("common.loading")}
@@ -383,8 +516,12 @@ export function Board({
 			) : null}
 
 			{/* Not while `failed`: "add the first card" and "could not load" are
-			    contradictory instructions, and only one of them is true. */}
-			{!loading && !failed && nodes.length === 0 ? (
+			    contradictory instructions, and only one of them is true.
+
+			    With a filter on and nothing left on the board, the one board-level
+			    state replaces the four column-level ones (Q4): the sentence names
+			    the filter, and the way out is a tap away. */}
+			{!loading && !failed && shownNodes.length === 0 && !filterActive ? (
 				<Text
 					variant="bodyLarge"
 					style={{
@@ -397,11 +534,42 @@ export function Board({
 					{t(hidden.length > 0 ? "board.allHidden" : "board.empty")}
 				</Text>
 			) : null}
+			{!loading && !failed && shownNodes.length === 0 && filterActive ? (
+				<View
+					style={{
+						gap: space.md,
+						alignItems: "center",
+						paddingHorizontal: space.md,
+						paddingBottom: space.md,
+					}}
+					testID="board-filter-empty"
+				>
+					<Text
+						variant="bodyLarge"
+						style={{
+							color: theme.colors.onSurfaceVariant,
+							textAlign: "center",
+						}}
+					>
+						{t("board.filterEmpty")}
+					</Text>
+					<Button
+						mode="outlined"
+						onPress={clearFilters}
+						contentStyle={{ minHeight: touchTarget }}
+					>
+						{t("board.clearFilters")}
+					</Button>
+				</View>
+			) : null}
 
 			{/* Not while `loading`: an empty column strip under the spinner is the
 			    "empty board before the data arrives" of #266, and the first launch
-			    is exactly the launch the cache has nothing for. */}
-			{loading || boardWidth === 0 ? null : compact ? (
+			    is exactly the launch the cache has nothing for. Nor while a filter
+			    holds every card back: the board-level state above is the answer. */}
+			{loading ||
+			boardWidth === 0 ||
+			(filterActive && shownNodes.length === 0) ? null : compact ? (
 				<>
 					<ColumnStrip
 						columns={shown}
@@ -611,7 +779,10 @@ export function Board({
 			    The height does not change, so the measured inset below keeps its
 			    arithmetic — a taller box here would be a second, silent change to
 			    the pane's bottom padding. */}
-			{compact && !loading && onScreen !== undefined ? (
+			{compact &&
+			!loading &&
+			onScreen !== undefined &&
+			!(filterActive && shownNodes.length === 0) ? (
 				<FAB
 					icon={boardWidth < denseBreakpoint ? undefined : "plus"}
 					label={t("board.addTo", { column: t(`status.${onScreen}`) })}
@@ -698,6 +869,11 @@ const offScreenPane = {
 } as const;
 
 const noCards: Node[] = [];
+const noLabelIds: string[] = [];
+const noConditions: CardCondition[] = [];
+const noLabels: LabelWithId[] = [];
+const noLocations: Location[] = [];
+const noLocationTitles: ReadonlyMap<string, string> = new Map();
 
 /** The lifted card is a picture of a card; the tap belongs to the one it left. */
 const noop = () => {};

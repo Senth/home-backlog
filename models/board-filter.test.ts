@@ -3,6 +3,7 @@ import {
 	boardFilterKey,
 	decodeBoardFilter,
 	encodeBoardFilter,
+	filterActionVisible,
 } from "@/models/board-filter";
 
 const hour = 60 * 60 * 1000;
@@ -18,6 +19,18 @@ const priorityFilter: BoardFilter = {
 describe("boardFilterKey", () => {
 	it("is one key per home, with no board segment in it", () => {
 		expect(boardFilterKey("huset")).toBe("home-backlog.boardFilter.huset");
+	});
+});
+
+describe("filterActionVisible", () => {
+	it("is hidden in a household of one with no labels and no places", () => {
+		expect(filterActionVisible(1, 0, 0)).toBe(false);
+	});
+
+	it("is visible with a second member, a label, or a place", () => {
+		expect(filterActionVisible(2, 0, 0)).toBe(true);
+		expect(filterActionVisible(1, 1, 0)).toBe(true);
+		expect(filterActionVisible(1, 0, 1)).toBe(true);
 	});
 });
 

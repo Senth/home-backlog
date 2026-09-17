@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
+import { IconButton } from "react-native-paper";
 import { PaperIcon } from "@/components/ui/PaperIcon";
 import { Row } from "@/components/ui/Row";
 import { useAppTheme } from "@/theme";
-import { icon, space, touchTarget } from "@/theme/tokens";
+import { icon, space, touchTarget, touchTargetStyle } from "@/theme/tokens";
 
 interface DetailRowProps {
 	/** The leading glyph, always `onSurfaceVariant` and always neutral. */
@@ -16,6 +17,13 @@ interface DetailRowProps {
 	 */
 	value?: ReactNode;
 	onPress: () => void;
+	/**
+	 * Clears the value where it sits, without opening anything — the filter
+	 * sheet's ✕ (Q8). The spoken label is the caller's, because only it knows
+	 * what the value is called.
+	 */
+	onClear?: () => void;
+	clearLabel?: string;
 	testID?: string;
 }
 
@@ -39,6 +47,8 @@ export function DetailRow({
 	name,
 	value,
 	onPress,
+	onClear,
+	clearLabel,
 	testID,
 }: DetailRowProps) {
 	const theme = useAppTheme();
@@ -75,6 +85,16 @@ export function DetailRow({
 					>
 						{value === undefined ? null : (
 							<View style={{ flexShrink: 1 }}>{value}</View>
+						)}
+						{onClear === undefined ? null : (
+							<IconButton
+								icon="close"
+								onPress={onClear}
+								accessibilityLabel={clearLabel}
+								// Paper's IconButton carries its own margin; the row
+								// already owns the rhythm, the same reset `Stepper` makes.
+								style={[touchTargetStyle, { margin: space.none }]}
+							/>
 						)}
 						<PaperIcon
 							name="chevron-right"

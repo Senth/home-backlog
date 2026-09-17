@@ -1,22 +1,29 @@
 import { useIsFocused } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View } from "react-native";
 import { ActivityIndicator, Appbar, Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
+import {
+	BoardFilterAction,
+	BoardFilterSheet,
+} from "@/components/board/BoardFilterSheet";
 import { BoardMenu } from "@/components/board/BoardMenu";
 import { Breadcrumbs } from "@/components/board/Breadcrumbs";
 import { boardHref, goneHref } from "@/components/board/board-href";
 import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
 import { useAncestors } from "@/hooks/use-ancestors";
+import { useBoardFilter } from "@/hooks/use-board-filter";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useLocations } from "@/hooks/use-locations";
 import { useNode } from "@/hooks/use-node";
 import { useNodes } from "@/hooks/use-nodes";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
+import { filterActionVisible } from "@/models/board-filter";
+import { membersOf } from "@/models/home";
 import { effectiveLocation } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { appBarStackBreakpoint, space } from "@/theme/tokens";
@@ -56,6 +63,9 @@ export default function NodeBoard() {
 	const { crumbs } = useAncestors(homeId, node?.ancestorIds ?? noAncestors);
 	const filtered = useParticipantFilter(nodes);
 	const { locations } = useLocations(homeId);
+	const { filter, loading: filterLoading, setFilter } = useBoardFilter(homeId);
+	const [filterOpen, setFilterOpen] = useState(false);
+	const filterAnchor = useRef<View>(null);
 
 	// The labels every card on this board inherits (#100): the board node's own
 	// chain, already held — the board node itself by `useNode`, everything above
@@ -75,30 +85,33 @@ export default function NodeBoard() {
 	// node itself first, then everything above it. Every card without a place
 	// of its own answers to it, resolved once here rather than per card. An
 	// unreadable ancestor contributes nothing, the same neutral answer its
-	// crumb renders.
-	const ancestorLocationId =
+	// crumb renders. The whole answer, not only its id: the filter's "in or
+	// under" reads the path too.
+	const ancestorLocation =
 		node === null
 			? null
-			: (effectiveLocation(
+			: effectiveLocation(
 					node,
 					crumbs.map((crumb) => crumb.node ?? null),
-				)?.locationId ?? null);
+				);
 
 	// The card face's location facts (#100), read from the leaf: id → title,
 	// from the one listener this screen holds.
 	const locationTitles = new Map(locations.map((l) => [l.id, l.title]));
 
+	// The filter action exists where a condition could change something (D10);
+	// the board menu, which now only renames, only where there is a card to
+	// rename — the root board has none.
+	const members = activeHome === null ? [] : membersOf(activeHome);
+	const showFilterAction = filterActionVisible(
+		members.length,
+		activeHome?.labels.length ?? 0,
+		locations.length,
+	);
 	// The predicate is uniform at every depth and *bites* only where participants
 	// exist, which is roots — a shared descendant carries none, and a private one
-	// carries the root's, which include me or I could not have read it. So on a
-	// drill-down board the menu is offered rather than needed, and in a household
-	// of one it is neither.
-	const members = Object.keys(activeHome?.members ?? {}).length;
+	// carries the root's, which include me or I could not have read it.
 	const { width } = useWindowDimensions();
-	const canFilter = filtered.hiddenCount > 0 || members > 1;
-	// The menu also carries Rename, which needs no filtering to have something
-	// to do — only a card to rename, and the root board has none.
-	const showMenu = node !== null || canFilter;
 
 	// Where "up" is once the card itself has stopped existing. Remembered while
 	// it still does, because a deleted card cannot say who its parent was.
@@ -145,14 +158,17 @@ export default function NodeBoard() {
 				    home's name lives on the root board's app bar and one crumb away
 				    — the first crumb goes there. */}
 				<Appbar.Content title={node?.title ?? ""} />
-				{showMenu ? (
-					<BoardMenu
-						homeId={homeId}
-						node={node}
-						showEveryone={filtered.showEveryone}
-						onShowEveryone={filtered.setShowEveryone}
+				{showFilterAction ? (
+					<BoardFilterAction
+						set={
+							filter !== null &&
+							(filter.conditions.length > 0 || filter.reach === "subtree")
+						}
+						onPress={() => setFilterOpen(true)}
+						anchorRef={filterAnchor}
 					/>
 				) : null}
+				{node !== null ? <BoardMenu homeId={homeId} node={node} /> : null}
 				<AccountMenu />
 			</Appbar.Header>
 
@@ -174,13 +190,16 @@ export default function NodeBoard() {
 					parent={node}
 					columns={node.columns}
 					nodes={filtered.nodes}
-					loading={loading}
+					loading={loading || filterLoading}
 					failed={failed}
 					onRetry={retry}
 					hidden={filtered.hidden}
 					ancestorLabelIds={ancestorLabelIds}
-					ancestorLocationId={ancestorLocationId}
+					ancestorLocation={ancestorLocation}
 					locations={locationTitles}
+					filter={filter}
+					onChangeFilter={setFilter}
+					onOpenFilter={() => setFilterOpen(true)}
 				/>
 			) : (
 				<ActivityIndicator
@@ -188,6 +207,21 @@ export default function NodeBoard() {
 					style={{ marginTop: space.xl }}
 				/>
 			)}
+
+			{showFilterAction && homeId !== null && node !== null ? (
+				<BoardFilterSheet
+					visible={filterOpen}
+					onDismiss={() => setFilterOpen(false)}
+					filter={filter}
+					onChange={setFilter}
+					members={members}
+					labels={activeHome?.labels ?? []}
+					locations={locations}
+					showEveryone={filtered.showEveryone}
+					onShowEveryone={filtered.setShowEveryone}
+					returnFocusTo={filterAnchor}
+				/>
+			) : null}
 
 			<Snackbar visible={notice.showing} onDismiss={notice.dismiss}>
 				{t("board.gone")}

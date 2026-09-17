@@ -6,6 +6,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { ReactTestInstance } from "react-test-renderer";
 import { Board } from "@/components/board/Board";
 import { createNode } from "@/data/nodes";
+import type { BoardFilter } from "@/models/board-filter";
 import type { Node } from "@/models/node";
 import { defaultColumns, rankAtEnd } from "@/models/node";
 import { lightTheme } from "@/theme";
@@ -98,6 +99,9 @@ function renderBoard(props: {
 	viewport: number;
 	nodes?: Node[];
 	hidden?: Node[];
+	filter?: BoardFilter | null;
+	onChangeFilter?: (next: BoardFilter | null) => void;
+	onOpenFilter?: () => void;
 }) {
 	const utils = render(
 		// Without `initialMetrics` the provider renders nothing in the test
@@ -116,6 +120,9 @@ function renderBoard(props: {
 					nodes={props.nodes ?? []}
 					hidden={props.hidden}
 					loading={props.loading}
+					filter={props.filter}
+					onChangeFilter={props.onChangeFilter}
+					onOpenFilter={props.onOpenFilter}
 				/>
 			</Provider>
 		</SafeAreaProvider>,
@@ -205,5 +212,72 @@ describe("Board", () => {
 				rank: rankAtEnd("V5"),
 			}),
 		);
+	});
+
+	it("hides the cards the stored filter's conditions do not answer to", () => {
+		const matching = node("backlog");
+		matching.id = "matching";
+		matching.priority = "low";
+		const held = node("backlog");
+		held.id = "held";
+		held.priority = "urgent";
+
+		renderBoard({
+			loading: false,
+			viewport: 800,
+			nodes: [matching, held],
+			filter: {
+				mode: "open",
+				reach: "board",
+				conditions: [{ field: "priority", anyOf: ["low"] }],
+			},
+			onChangeFilter: jest.fn(),
+		});
+
+		expect(screen.getByText("Fix the gutter")).toBeOnTheScreen();
+		expect(screen.getAllByText("Fix the gutter")).toHaveLength(1);
+		// The pills say what is being held back, and tapping one opens the sheet.
+		expect(screen.getByTestId("board-filter-pill-priority")).toBeOnTheScreen();
+	});
+
+	it("with a filter on and nothing matching, one board-level state replaces the columns", () => {
+		const onChangeFilter = jest.fn();
+		renderBoard({
+			loading: false,
+			viewport: 800,
+			nodes: [],
+			filter: {
+				mode: "open",
+				reach: "board",
+				conditions: [{ field: "priority", anyOf: ["low"] }],
+			},
+			onChangeFilter,
+		});
+
+		expect(screen.getByText("board.filterEmpty")).toBeOnTheScreen();
+		expect(screen.queryByTestId("board-column-backlog")).not.toBeOnTheScreen();
+		expect(screen.queryByText("board.empty")).not.toBeOnTheScreen();
+
+		fireEvent.press(screen.getByText("board.clearFilters"));
+		expect(onChangeFilter).toHaveBeenCalledWith(null);
+	});
+
+	it("says the filter is hiding things even when the preference is what hides them", () => {
+		// A participant-hidden card in every column and a filter on top: the
+		// filter is the active lens, so its sentence is the one on screen.
+		renderBoard({
+			loading: false,
+			viewport: 800,
+			nodes: [],
+			hidden: [node("backlog")],
+			filter: {
+				mode: "open",
+				reach: "board",
+				conditions: [{ field: "priority", anyOf: ["low"] }],
+			},
+		});
+
+		expect(screen.getByText("board.filterEmpty")).toBeOnTheScreen();
+		expect(screen.queryByText("board.allHidden")).not.toBeOnTheScreen();
 	});
 });

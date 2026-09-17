@@ -210,7 +210,7 @@
 		"up": "En nivå upp",
 		"empty": "Inget här ännu. Lägg till första kortet.",
 		"loadFailed": "Kunde inte ladda den här tavlan. Kontrollera din anslutning.",
-		"allHidden": "Allt här är någons eget projekt. Slå på ”Visa projekt som är dolda på min tavla” för att se dem.",
+		"allHidden": "Allt här är någons eget projekt. Öppna filtret för att se det.",
 		"hiddenHere_one": "1 till här är någons eget projekt. Slå på ”{{action}}” för att se det.",
 		"hiddenHere_other": "{{count}} till här är någons egna projekt. Slå på ”{{action}}” för att se dem.",
 		"columnEmpty": "Inget här",
@@ -267,7 +267,26 @@
 		"assignedTo_one": "{{names}} gör det här",
 		"assignedTo_other": "{{names}} gör det här",
 		"boardActions": "Tavlans åtgärder",
-		"showEveryone": "Visa projekt som är dolda på min tavla"
+		"showEveryone": "Visa projekt som är dolda på min tavla",
+		"filterEmpty": "Inga kort här matchar ditt filter.",
+		"clearFilters": "Rensa filtret",
+		"filter": {
+			"title": "Filter",
+			"thisBoard": "Den här tavlan",
+			"everythingBelow": "Allt längre ner",
+			"thisBoardDescription": "Bara korten som ligger direkt på den här tavlan.",
+			"everythingBelowDescription": "Också korten som ligger på tavlor under den här.",
+			"reach": "Räckvidd",
+			"clearAll": "Rensa allt",
+			"labels": "Etikett",
+			"labelsInherited": "Matchar även etiketter som kortet ärver från projektet ovanför.",
+			"removeFilter": "Ta bort filtret {{what}}",
+			"countA11y_one": "{{count}} filter är satt",
+			"countA11y_other": "{{count}} filter är satta",
+			"search": "Sök",
+			"empty": "Inget att välja bland än.",
+			"searchEmpty": "Inga träffar"
+		}
 	},
 	"overview": {
 		"ongoing": {

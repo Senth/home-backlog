@@ -1,16 +1,23 @@
 import { useRouter } from "expo-router";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Appbar, Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
-import { BoardMenu } from "@/components/board/BoardMenu";
+import {
+	BoardFilterAction,
+	BoardFilterSheet,
+} from "@/components/board/BoardFilterSheet";
 import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
+import { useBoardFilter } from "@/hooks/use-board-filter";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useLocations } from "@/hooks/use-locations";
 import { useNodes } from "@/hooks/use-nodes";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
+import { filterActionVisible } from "@/models/board-filter";
+import { membersOf } from "@/models/home";
 import { defaultColumns } from "@/models/node";
 import { useAppTheme } from "@/theme";
 
@@ -38,19 +45,24 @@ export default function Projects() {
 	const { nodes, loading, failed, retry } = useNodes(homeId, null);
 	const board = useParticipantFilter(nodes);
 	const { locations } = useLocations(homeId);
+	const { filter, loading: filterLoading, setFilter } = useBoardFilter(homeId);
+	const [filterOpen, setFilterOpen] = useState(false);
+	const filterAnchor = useRef<View>(null);
 
 	// The card face's location facts (#100): id → title, from the one listener
 	// this screen holds. Every card here is a root, so the trail passes down no
 	// labels and none are resolved.
 	const locationTitles = new Map(locations.map((l) => [l.id, l.title]));
 
-	// The menu carries one item, so it appears where that item could have
-	// something to do: a household of one has nobody else's projects to hide, so
-	// no board in it grows a control that can never change anything. A card with
-	// participants arriving from the REST API (#7) into a solo home is the case
-	// `hiddenCount` covers, where hiding with no way back would be a trap.
-	const members = Object.keys(activeHome?.members ?? {}).length;
-	const canFilter = board.hiddenCount > 0 || members > 1;
+	// The filter action exists where a condition could change something (D10):
+	// a second member to filter by, or a label, or a place. A household of one
+	// with neither grows no control that can never hold anything back.
+	const members = activeHome === null ? [] : membersOf(activeHome);
+	const showFilterAction = filterActionVisible(
+		members.length,
+		activeHome?.labels.length ?? 0,
+		locations.length,
+	);
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -60,12 +72,14 @@ export default function Projects() {
 					onPress={() => router.push("/homes")}
 				/>
 				<Appbar.Content title={activeHome?.name ?? ""} />
-				{canFilter ? (
-					<BoardMenu
-						homeId={homeId}
-						node={null}
-						showEveryone={board.showEveryone}
-						onShowEveryone={board.setShowEveryone}
+				{showFilterAction ? (
+					<BoardFilterAction
+						set={
+							filter !== null &&
+							(filter.conditions.length > 0 || filter.reach === "subtree")
+						}
+						onPress={() => setFilterOpen(true)}
+						anchorRef={filterAnchor}
 					/>
 				) : null}
 				<AccountMenu />
@@ -77,11 +91,29 @@ export default function Projects() {
 					parent={null}
 					columns={defaultColumns}
 					nodes={board.nodes}
-					loading={loading}
+					loading={loading || filterLoading}
 					failed={failed}
 					onRetry={retry}
 					hidden={board.hidden}
 					locations={locationTitles}
+					filter={filter}
+					onChangeFilter={setFilter}
+					onOpenFilter={() => setFilterOpen(true)}
+				/>
+			) : null}
+
+			{showFilterAction && homeId !== null ? (
+				<BoardFilterSheet
+					visible={filterOpen}
+					onDismiss={() => setFilterOpen(false)}
+					filter={filter}
+					onChange={setFilter}
+					members={members}
+					labels={activeHome?.labels ?? []}
+					locations={locations}
+					showEveryone={board.showEveryone}
+					onShowEveryone={board.setShowEveryone}
+					returnFocusTo={filterAnchor}
 				/>
 			) : null}
 

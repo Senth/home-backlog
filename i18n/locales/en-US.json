@@ -210,7 +210,7 @@
 		"up": "Up one level",
 		"empty": "Nothing here yet. Add the first card.",
 		"loadFailed": "Could not load this board. Check your connection.",
-		"allHidden": "Everything here is somebody's own project. Turn on \"Show projects hidden from my board\" to see them.",
+		"allHidden": "Everything here is somebody's own project. Open the filter to see it.",
 		"hiddenHere_one": "1 more here is somebody's own project. Turn on \"{{action}}\" to see it.",
 		"hiddenHere_other": "{{count}} more here are somebody's own projects. Turn on \"{{action}}\" to see them.",
 		"columnEmpty": "Nothing here",
@@ -267,7 +267,26 @@
 		"assignedTo_one": "{{names}} is doing this",
 		"assignedTo_other": "{{names}} are doing this",
 		"boardActions": "Board actions",
-		"showEveryone": "Show projects hidden from my board"
+		"showEveryone": "Show projects hidden from my board",
+		"filterEmpty": "No cards here match your filter.",
+		"clearFilters": "Clear filters",
+		"filter": {
+			"title": "Filter",
+			"thisBoard": "This board",
+			"everythingBelow": "Everything below",
+			"thisBoardDescription": "Only the cards sitting directly on this board.",
+			"everythingBelowDescription": "Also the cards on boards below this one.",
+			"reach": "Reach",
+			"clearAll": "Clear all",
+			"labels": "Labels",
+			"labelsInherited": "Also matches labels a card inherits from the project above.",
+			"removeFilter": "Remove the {{what}} filter",
+			"countA11y_one": "{{count}} filter is set",
+			"countA11y_other": "{{count}} filters are set",
+			"search": "Search",
+			"empty": "Nothing to pick from yet.",
+			"searchEmpty": "No matches"
+		}
 	},
 	"overview": {
 		"ongoing": {

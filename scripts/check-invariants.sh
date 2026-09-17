@@ -641,11 +641,14 @@ fi
 # name, and the exclusions are by file because that is the whole story:
 # LabelDot's own Pressable, LabelPicker's CheckRow, LabelRow's TouchableRipple
 # (whose content is the title itself), the labels DetailRow on a node's
-# details, and the labels List.Item on a home — the last two name the group,
+# details, the labels List.Item on a home — the last two name the group,
 # and their dots are decoration inside a named control, not marks of their
-# own. A LabelGlyph anywhere else is a dot nobody named — the same shape as
-# check 12's Appbar.BackAction, with the same answer: render it inside a
-# wrapper that names it, or extend the canonical LabelDot.
+# own — and the board filter's two files, where the stack is a row's value
+# or a pill whose accessible wrapper names the group (the sheet's own use is
+# LabelPicker's CheckRow again). A LabelGlyph anywhere else is a dot nobody
+# named — the same shape as check 12's Appbar.BackAction, with the same
+# answer: render it inside a wrapper that names it, or extend the canonical
+# LabelDot.
 # ---------------------------------------------------------------------------
 GLYPH_FILES=()
 for f in "${SRC[@]}"; do
@@ -654,6 +657,8 @@ for f in "${SRC[@]}"; do
 	# and [[ == treats a quoted pattern as the string itself.
 	[[ "$f" == "components/board/LabelDot.tsx" ||
 		"$f" == "components/label/LabelPicker.tsx" ||
+		"$f" == "components/board/BoardFilterRow.tsx" ||
+		"$f" == "components/board/BoardFilterSheet.tsx" ||
 		"$f" == "app/(app)/homes/[homeId]/labels.tsx" ||
 		"$f" == "app/(app)/homes/[homeId].tsx" ||
 		"$f" == "app/(app)/(tabs)/projects/[nodeId]/details.tsx" ]] && continue

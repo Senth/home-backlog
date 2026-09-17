@@ -36,6 +36,20 @@ export function boardFilterKey(homeId: string): string {
 	return `home-backlog.boardFilter.${homeId}`;
 }
 
+/**
+ * Whether the filter action exists on a board at all (D10): a filter is a way
+ * to hold *something* back, and in a household of one with no labels and no
+ * places there is nothing a condition could name — so the board grows no
+ * control that can never change what it shows.
+ */
+export function filterActionVisible(
+	memberCount: number,
+	labelCount: number,
+	locationCount: number,
+): boolean {
+	return memberCount > 1 || labelCount > 0 || locationCount > 0;
+}
+
 /** The filter as one stored string, stamped with when it was last touched. */
 export function encodeBoardFilter(
 	filter: BoardFilter,

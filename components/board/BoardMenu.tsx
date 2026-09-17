@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { Appbar, Divider, Menu } from "react-native-paper";
+import { Appbar, Menu } from "react-native-paper";
 import { detailsHref } from "@/components/board/board-href";
 import { TitleDialog } from "@/components/board/TitleDialog";
 import { updateNode } from "@/data/nodes";
@@ -15,8 +15,6 @@ interface BoardMenuProps {
 	homeId: string | null;
 	/** The card this board belongs to, or null on the root board. */
 	node: Node | null;
-	showEveryone: boolean;
-	onShowEveryone: (value: boolean) => void;
 }
 
 /**
@@ -24,16 +22,12 @@ interface BoardMenuProps {
  *
  * It lives in an overflow rather than on the board surface because it is
  * rarely touched and a board is already carrying a column strip. The screen
- * renders this only where it has something to do — a board with nothing
- * hidden on it and no card of its own to rename, in a household of one, does
- * not grow a menu.
+ * renders this only where it has something to do — a board with no card of
+ * its own does not grow a menu; the *show everyone* preference that used to
+ * ride here moved into the filter sheet (D8), which is where the rest of the
+ * board's show/hide decisions live.
  */
-export function BoardMenu({
-	homeId,
-	node,
-	showEveryone,
-	onShowEveryone,
-}: BoardMenuProps) {
+export function BoardMenu({ homeId, node }: BoardMenuProps) {
 	const { t } = useTranslation();
 	const router = useRouter();
 	const theme = useAppTheme();
@@ -122,27 +116,6 @@ export function BoardMenu({
 							}}
 						/>
 					)}
-					{/* The two above act on this card; this one changes what the board
-					    shows. Without the rule they read as one list, and on a project's
-					    own board a bare "show everyone" is heard as "show everyone who is
-					    in on this" — the question the details screen just taught. */}
-					{node === null ? null : <Divider />}
-					<Menu.Item
-						leadingIcon="account-group-outline"
-						// A check rather than a switch: Paper's menu row is one tappable
-						// surface, and a switch inside it gives the same row two targets that
-						// do the same thing.
-						trailingIcon={showEveryone ? "check" : undefined}
-						// The ARIA prop, not `accessibilityState` — React Native Web 0.21
-						// does not forward the object form, so the check would be visible
-						// and nothing else.
-						aria-checked={showEveryone}
-						title={t("board.showEveryone")}
-						onPress={() => {
-							onShowEveryone(!showEveryone);
-							setOpen(false);
-						}}
-					/>
 				</View>
 			</Menu>
 
