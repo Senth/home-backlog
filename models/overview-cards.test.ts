@@ -1,5 +1,7 @@
+import type { Timestamp } from "firebase/firestore";
 import type { CardCondition, CardSort } from "@/models/filter";
 import { defaultColumns, type Node } from "@/models/node";
+import { doneWithinDays } from "@/models/overview";
 import {
 	cardRows,
 	cardScopes,
@@ -34,6 +36,11 @@ function at(year: number, month: number, day: number, hour = 12): Date {
 }
 
 const now = at(2026, 8, 15);
+const dayInMs = 24 * 60 * 60 * 1000;
+
+function stamp(ms: number): Timestamp {
+	return { toMillis: () => ms } as unknown as Timestamp;
+}
 
 function node(overrides: Partial<Node> = {}): Node {
 	return {
@@ -111,12 +118,19 @@ describe("seedCards", () => {
 		}
 	});
 
-	it("keeps Recently done the one completed card, absent when empty", () => {
-		expect(seeded.recentlyDone.kind).toBe("completed");
+	it("keeps Recently done the one done card, absent when empty", () => {
+		expect(seeded.recentlyDone.kind).toBe("done");
 		expect(seeded.recentlyDone.empty).toEqual({ mode: "hide" });
+		expect(seeded.recentlyDone.sort).toEqual({
+			field: "completedAt",
+			direction: "desc",
+		});
+		expect(seeded.recentlyDone.conditions).toEqual([
+			{ field: "completedAt", is: "within" },
+		]);
 		for (const id of seedIds) {
 			if (id !== "recentlyDone") {
-				expect(seeded[id].kind).toBe("filter");
+				expect(seeded[id].kind).toBe("open");
 				expect(seeded[id].empty.mode).toBe("say");
 			}
 		}
@@ -226,8 +240,76 @@ it("never shows a node its root hides from the reader", () => {
 });
 
 describe("cardRows", () => {
-	it("never hands rows to the completed card, which the done pair feeds", () => {
-		expect(cardRows(seeded.recentlyDone, [node()], ctx)).toEqual([]);
+	/**
+	 * The done card is ordinary now (#229): the done pair feeds it and
+	 * `cardRows` does the rest — the same predicate, sort and privacy every
+	 * other card answers to. An open node matches nothing on it, however it
+	 * was fed: the mode carries the predicate its conditions cannot say.
+	 */
+	it("renders the done card from the pair it is fed, and never from the open pool", () => {
+		const finished = (id: string, rank: string, msAgo: number) =>
+			node({
+				id,
+				rank,
+				status: "done",
+				parentId: "mine",
+				ancestorIds: ["mine"],
+				participantIds: [me],
+				completedAt: stamp(now.getTime() - msAgo),
+			});
+		const open = node({ id: "open", parentId: "mine", ancestorIds: ["mine"] });
+
+		expect(
+			cardRows(
+				seeded.recentlyDone,
+				[finished("a", "a0", dayInMs), open],
+				ctx,
+			).map((each) => each.id),
+		).toEqual(["a"]);
+		expect(
+			cardRows(seeded.recentlyDone, [open], ctx).map((each) => each.id),
+		).toEqual([]);
+	});
+
+	it("is newest first, to the millisecond at the window's edge", () => {
+		const finished = (id: string, rank: string, msAgo: number) =>
+			node({
+				id,
+				rank,
+				status: "done",
+				parentId: "mine",
+				ancestorIds: ["mine"],
+				participantIds: [me],
+				completedAt: stamp(now.getTime() - msAgo),
+			});
+
+		expect(
+			cardRows(
+				seeded.recentlyDone,
+				[
+					finished("older", "a0", 10 * dayInMs),
+					finished("newest", "a1", dayInMs),
+					finished("middle", "a2", 4 * dayInMs),
+					// Exactly the window ago is in; a moment older is out.
+					finished("edge", "a3", doneWithinDays * dayInMs),
+					finished("past", "a4", doneWithinDays * dayInMs + 1),
+				],
+				ctx,
+			).map((each) => each.id),
+		).toEqual(["newest", "middle", "older", "edge"]);
+	});
+
+	it("drops a finished step of somebody else's project", () => {
+		const step = node({
+			id: "theirs",
+			status: "done",
+			parentId: "yours",
+			ancestorIds: ["yours"],
+			participantIds: [me],
+			completedAt: stamp(now.getTime() - dayInMs),
+		});
+
+		expect(cardRows(seeded.recentlyDone, [step], ctx)).toEqual([]);
 	});
 
 	it("slices to nothing here — the renderer owns shown and max", () => {
@@ -364,9 +446,52 @@ describe("toCard", () => {
 		expect(read).toEqual(stored);
 	});
 
+	it("reads a stored done seed back whole", () => {
+		const stored = seeded.recentlyDone;
+		const read = toCard(
+			stored.id,
+			stored as unknown as Record<string, unknown>,
+		);
+
+		expect(read).toEqual(stored);
+	});
+
+	it("decodes a done card with its open-work questions dropped", () => {
+		const read = toCard("done", {
+			kind: "done",
+			conditions: [
+				{ field: "status", anyOf: ["execution"] },
+				{ field: "dueDate", is: "late" },
+				{ field: "blockedBy", is: "none" },
+				{ field: "completedAt", is: "within", n: 14 },
+			],
+			sort: { field: "completedAt", direction: "desc" },
+		});
+
+		expect(read?.conditions).toEqual([
+			{ field: "completedAt", is: "within", n: 14 },
+		]);
+		expect(read?.sort).toEqual({ field: "completedAt", direction: "desc" });
+	});
+
+	it("decodes an open card with its completed questions dropped", () => {
+		const read = toCard("open", {
+			kind: "open",
+			conditions: [
+				{ field: "effort", anyOf: ["quick"] },
+				{ field: "completedAt", is: "within" },
+			],
+			sort: { field: "completedAt", direction: "desc" },
+		});
+
+		expect(read?.conditions).toEqual([{ field: "effort", anyOf: ["quick"] }]);
+		// A completed-at ranking is a done-card question too.
+		expect(read?.sort).toBeNull();
+	});
+
 	it("falls back field by field instead of crashing the screen", () => {
 		const read = toCard("junk", {
-			kind: "filter",
+			kind: "open",
 			conditions: [
 				"not-a-condition",
 				{ field: "no-such-field" },
@@ -419,7 +544,7 @@ describe("exportCard / importCard", () => {
 		const back = importCard(text);
 
 		expect(back).toEqual({
-			kind: "filter",
+			kind: "open",
 			seedId: null,
 			title: "Quick wins",
 			conditions: source.conditions,
@@ -494,7 +619,7 @@ describe("exportCard / importCard", () => {
 		);
 
 		expect(back).toEqual({
-			kind: "filter",
+			kind: "open",
 			seedId: null,
 			title: "Hand-made",
 			conditions: [{ field: "effort", anyOf: ["quick"] }],

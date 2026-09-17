@@ -6,16 +6,17 @@ import { hiddenByParticipants, type Node, rootIdOf } from "@/models/node";
  *
  * The three fixed sections became filter cards (#166) and live in
  * `models/overview-cards.ts`; what is left here is the part every card
- * shares — the privacy predicate, the *completed* card's own window — and
+ * shares — the privacy predicate, and the done window the done pair's query
+ * and a done card's `completedAt` condition are both written against — and
  * the two row budgets the queries and the seeds are written against.
  *
- * The queries in `data/nodes.ts` bound what arrives; the cards decide what is
- * *shown*. The two overlap on purpose. A listener stays open for hours, so
- * the `now` a query was built with drifts — a card due in seven days is still
- * in the pool pair's result set eight days later — and the cache answers a
- * cold start with whatever it last held. Re-asking the question here is what
- * keeps a card agreeing with its own heading, and it is the half that can be
- * tested without Firestore.
+ * The queries in `data/nodes.ts` bound what *can* arrive; the cards decide
+ * what is *shown*. The two overlap on purpose. A listener stays open for
+ * hours, so the `now` a query was built with drifts — a card due in seven
+ * days is still in the pool pair's result set eight days later — and the
+ * cache answers a cold start with whatever it last held. Re-asking the
+ * question here is what keeps a card agreeing with its own heading, and it
+ * is the half that can be tested without Firestore.
  */
 
 /** How far back Recently done reaches. Named nowhere on screen — see the spec. */
@@ -71,39 +72,4 @@ export function hiddenByRoot(
 ): boolean {
 	const root = rootsById.get(rootIdOf(node));
 	return root === undefined || hiddenByParticipants(root, uid);
-}
-
-/**
- * Recently done: what was completed in the last `doneWithinDays`, newest
- * first.
- *
- * The one card that is not a filter over the pool — the pool excludes
- * completed nodes by definition, so the done pair feeds this one directly.
- *
- * Titles and nothing else — no total, no streak, no per-person tally. A
- * number turns encouragement into a grade.
- */
-export function recentlyDone(
-	nodes: readonly Node[],
-	rootsById: ReadonlyMap<string, Node>,
-	uid: string,
-	now: Date,
-): Node[] {
-	const since = doneSince(now).getTime();
-
-	return nodes
-		.filter((node) => {
-			const completed = node.completedAt;
-			return (
-				completed !== null &&
-				completed.toMillis() >= since &&
-				!hiddenByRoot(node, rootsById, uid)
-			);
-		})
-		.sort((a, b) => {
-			const left = a.completedAt?.toMillis() ?? 0;
-			const right = b.completedAt?.toMillis() ?? 0;
-			if (left !== right) return right - left;
-			return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-		});
 }

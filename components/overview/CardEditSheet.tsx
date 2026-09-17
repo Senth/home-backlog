@@ -257,7 +257,7 @@ interface CardEditSheetProps {
 
 const newCard = (): Card => ({
 	id: "",
-	kind: "filter",
+	kind: "open",
 	seedId: null,
 	title: "",
 	conditions: [],
@@ -496,7 +496,7 @@ function SheetBody({
 					]}
 				/>
 
-				{draft.kind === "filter" ? (
+				{draft.kind === "open" ? (
 					<>
 						<View style={{ gap: space.sm }}>
 							<Text

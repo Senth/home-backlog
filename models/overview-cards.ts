@@ -1,10 +1,13 @@
 import {
 	type CardCondition,
+	type CardMode,
 	type CardSort,
+	conditionCarriedBy,
 	type DueFilter,
 	type MatchContext,
 	matchesConditions,
 	type SortField,
+	sortCarriedBy,
 	sortRows,
 } from "@/models/filter";
 import { type Node, rankSequence } from "@/models/node";
@@ -25,10 +28,10 @@ import { hiddenByRoot, overviewLimit } from "@/models/overview";
 /** What a card says when it has no rows: gone, or one sentence. */
 export type CardEmpty = { mode: "hide" } | { mode: "say"; key: string };
 
-/** `"completed"` is only ever the Recently done seed — see `seedCards`. */
+/** The mode in `models/filter.ts`: what the card's questions are about. */
 export interface Card {
 	id: string;
-	kind: "filter" | "completed";
+	kind: CardMode;
 	/** Set on seeds; a restore re-creates the card from it. */
 	seedId: SeedId | null;
 	/** `null` on an untouched seed, which the screen titles from i18n instead. */
@@ -80,7 +83,7 @@ export function seedCards(): Record<string, Card> {
 	const seeds: Omit<Card, "rank">[] = [
 		{
 			id: "ongoing",
-			kind: "filter",
+			kind: "open",
 			seedId: "ongoing",
 			title: null,
 			conditions: [
@@ -94,7 +97,7 @@ export function seedCards(): Record<string, Card> {
 		},
 		{
 			id: "comingUp",
-			kind: "filter",
+			kind: "open",
 			seedId: "comingUp",
 			title: null,
 			conditions: [{ field: "dueDate", is: "comingUp" }],
@@ -105,7 +108,7 @@ export function seedCards(): Record<string, Card> {
 		},
 		{
 			id: "quickWins",
-			kind: "filter",
+			kind: "open",
 			seedId: "quickWins",
 			title: null,
 			// A win is work you can start now — a task waiting on an open
@@ -123,7 +126,7 @@ export function seedCards(): Record<string, Card> {
 		},
 		{
 			id: "aFewHours",
-			kind: "filter",
+			kind: "open",
 			seedId: "aFewHours",
 			title: null,
 			conditions: [
@@ -137,7 +140,7 @@ export function seedCards(): Record<string, Card> {
 		},
 		{
 			id: "needsSplitting",
-			kind: "filter",
+			kind: "open",
 			seedId: "needsSplitting",
 			title: null,
 			conditions: [
@@ -152,7 +155,7 @@ export function seedCards(): Record<string, Card> {
 		},
 		{
 			id: "needsEstimate",
-			kind: "filter",
+			kind: "open",
 			seedId: "needsEstimate",
 			title: null,
 			conditions: [
@@ -166,10 +169,12 @@ export function seedCards(): Record<string, Card> {
 		},
 		{
 			id: "recentlyDone",
-			kind: "completed",
+			kind: "done",
 			seedId: "recentlyDone",
 			title: null,
-			conditions: [],
+			// An ordinary done card anyone could have built (#229): the window
+			// rides on the condition's own default, `doneWithinDays`.
+			conditions: [{ field: "completedAt", is: "within" }],
 			sort: { field: "completedAt", direction: "desc" },
 			shown: 5,
 			max: overviewLimit,
@@ -182,16 +187,22 @@ export function seedCards(): Record<string, Card> {
 	) as Record<string, Card>;
 }
 
-/** What one card holds from the pool: filtered, de-privatized, sorted. */
+/**
+ * What one card holds from the nodes its caller feeds it: filtered,
+ * de-privatized, sorted. A done card is fed the done pair, not the pool —
+ * but the mode itself carries the predicate its conditions cannot say
+ * (`status` is dropped in done mode), so an open node matches nothing on a
+ * done card however it was fed.
+ */
 export function cardRows(
 	card: Card,
 	nodes: readonly Node[],
 	ctx: MatchContext & { roots: ReadonlyMap<string, Node> },
 ): Node[] {
-	if (card.kind === "completed") return [];
 	return sortRows(
 		nodes.filter(
 			(node) =>
+				(card.kind === "open" || node.completedAt !== null) &&
 				matchesConditions(node, card.conditions, ctx) &&
 				!hiddenByRoot(node, ctx.roots, ctx.uid),
 		),
@@ -334,6 +345,8 @@ const conditionFields = new Set([
 	"priority",
 	"effort",
 	"dueDate",
+	"labelIds",
+	"completedAt",
 	"isRoot",
 	"hasChildren",
 	"assigneeIds",
@@ -358,12 +371,17 @@ const sortFields = new Set([
 /**
  * A stored condition, or `null` when it is not one. Junk is dropped rather
  * than coerced — a half-understood condition hiding rows quietly is worse
- * than a card that says nothing matches.
+ * than a card that says nothing matches. The mode filters first: a question
+ * the card's mode cannot ask is dropped whole, the way a done card cannot
+ * carry a `status` condition no matter how well it is spelled.
  */
-function toCondition(value: unknown): CardCondition | null {
+function toCondition(value: unknown, mode: CardMode): CardCondition | null {
 	if (typeof value !== "object" || value === null) return null;
 	const data = value as Record<string, unknown>;
 	if (typeof data.field !== "string" || !conditionFields.has(data.field)) {
+		return null;
+	}
+	if (!conditionCarriedBy(mode, data.field as CardCondition["field"])) {
 		return null;
 	}
 
@@ -379,6 +397,20 @@ function toCondition(value: unknown): CardCondition | null {
 				field: data.field,
 				anyOf: strings(data.anyOf),
 			} as CardCondition;
+		case "labelIds":
+			return {
+				field: "labelIds",
+				anyOf: strings(data.anyOf),
+			} as CardCondition;
+		case "completedAt": {
+			if (data.is !== "within") return null;
+			// The window rides on the condition; `whole`'s `0` fallback drops an
+			// absent or junk `n`, which is exactly the default-window case.
+			const n = whole(data.n, 0);
+			return n > 0
+				? { field: "completedAt", is: "within", n }
+				: { field: "completedAt", is: "within" };
+		}
 		case "dueDate": {
 			if (
 				!["comingUp", "late", "notLate", "none"].includes(data.is as string)
@@ -451,22 +483,32 @@ export function toCard(
 			? (data.empty as Record<string, unknown>)
 			: undefined;
 
+	const kind: CardMode = data.kind === "done" ? "done" : "open";
+	const sortField =
+		typeof sortData.field === "string" && sortFields.has(sortData.field)
+			? (sortData.field as SortField)
+			: null;
+	const sort =
+		sortField !== null &&
+		(sortData.direction === "asc" || sortData.direction === "desc") &&
+		sortCarriedBy(kind, sortField)
+			? {
+					field: sortField,
+					direction: sortData.direction as "asc" | "desc",
+				}
+			: null;
+
 	return {
 		id,
-		kind: data.kind === "completed" ? "completed" : "filter",
+		kind,
 		seedId: typeof data.seedId === "string" ? (data.seedId as SeedId) : null,
 		title: typeof data.title === "string" ? data.title : null,
 		conditions: Array.isArray(data.conditions)
 			? data.conditions
-					.map(toCondition)
+					.map((condition) => toCondition(condition, kind))
 					.filter((condition): condition is CardCondition => condition !== null)
 			: [],
-		sort:
-			typeof sortData.field === "string" &&
-			sortFields.has(sortData.field) &&
-			(sortData.direction === "asc" || sortData.direction === "desc")
-				? { field: sortData.field as SortField, direction: sortData.direction }
-				: null,
+		sort,
 		shown: whole(data.shown, 5),
 		max: whole(data.max, overviewLimit),
 		empty:
@@ -507,9 +549,9 @@ export function exportCard(card: Card): string {
 /**
  * The string back into a card-to-be, or `null` — never a throw. `toCard` does
  * the defensive reading, so a field the string cannot say falls back exactly
- * the way a stored document does. A card that claims to be the built-in
- * completed card, or that has no title at all, is not a card a member can
- * own — that string is simply not one.
+ * the way a stored document does. A card that claims to be the built-in done
+ * card, or that has no title at all, is not a card a member can own — that
+ * string is simply not one.
  */
 export function importCard(text: string): Omit<Card, "id" | "rank"> | null {
 	let data: unknown;
@@ -520,7 +562,7 @@ export function importCard(text: string): Omit<Card, "id" | "rank"> | null {
 	}
 	if (typeof data !== "object" || data === null) return null;
 	const card = toCard("", data as Record<string, unknown>);
-	if (card === null || card.kind === "completed" || card.title === null) {
+	if (card === null || card.kind === "done" || card.title === null) {
 		return null;
 	}
 	const { id: _id, rank: _rank, ...rest } = card;

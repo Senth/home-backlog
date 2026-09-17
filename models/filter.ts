@@ -12,6 +12,9 @@ import {
 	unresolvedBlockers,
 	type Visibility,
 } from "@/models/node";
+import { doneWithinDays } from "@/models/overview";
+
+const dayInMs = 24 * 60 * 60 * 1000;
 
 /**
  * What a card's conditions match and how its rows sort (unknown last) — the
@@ -19,6 +22,13 @@ import {
  * title, no rank, no scope, no seeds. `models/overview-cards.ts` owns the
  * card and applies this file's predicates and order to its rows.
  */
+
+/**
+ * What a card asks about. An **open** card reads the work still to do; a
+ * **done** card reads what was completed. Both carry conditions and a sort —
+ * the mode changes which questions make sense, not the shape.
+ */
+export type CardMode = "open" | "done";
 
 /** What a `dueDate` condition can ask for — the spec's four plain words. */
 export type DueFilter = "comingUp" | "late" | "notLate" | "none";
@@ -31,13 +41,17 @@ export type DueFilter = "comingUp" | "late" | "notLate" | "none";
  * People conditions name members by uid, with two reserved words: `"me"` is
  * the reader, and `"none"` (assignee only) is unassigned. A `comingUp`
  * `dueDate` condition carries the window it asks about — late or within `n`
- * days, `n` editable, defaulting to `soonInDays` when absent.
+ * days, `n` editable, defaulting to `soonInDays` when absent. A `completedAt`
+ * condition asks for completions within `n` days, defaulting to
+ * `doneWithinDays` when absent; it is a done-card question.
  */
 export type CardCondition =
 	| { field: "status"; anyOf: Status[] }
 	| { field: "priority"; anyOf: (Priority | "none")[] }
 	| { field: "effort"; anyOf: (Effort | "none")[] }
 	| { field: "dueDate"; is: DueFilter; n?: number }
+	| { field: "labelIds"; anyOf: string[] }
+	| { field: "completedAt"; is: "within"; n?: number }
 	| { field: "isRoot"; is: boolean }
 	| { field: "hasChildren"; is: boolean }
 	| { field: "assigneeIds"; anyOf: string[] }
@@ -59,6 +73,37 @@ export type SortField =
 export interface CardSort {
 	field: SortField;
 	direction: "asc" | "desc";
+}
+
+/**
+ * The longest window a `completedAt` condition can ask about, whatever is
+ * stored. A year is already past what a summary can answer for; anything
+ * wider is a misread of "within", not a wider answer.
+ */
+export const maxDoneWithinDays = 365;
+
+/**
+ * Whether a card of `mode` may carry a condition on `field`. The modes split
+ * the condition set where the question stops making sense: status, `dueDate`
+ * and `blockedBy` are questions about work still to do, so a done card drops
+ * them; `completedAt` has no answer on open work, so it is done-only.
+ */
+export function conditionCarriedBy(
+	mode: CardMode,
+	field: CardCondition["field"],
+): boolean {
+	return mode === "done"
+		? field !== "status" && field !== "dueDate" && field !== "blockedBy"
+		: field !== "completedAt";
+}
+
+/**
+ * Whether a card of `mode` may sort on `field`. Sorting a done card by
+ * `completedAt` is the newest-first order its window asks for; an open card
+ * has no completion to rank by.
+ */
+export function sortCarriedBy(mode: CardMode, field: SortField): boolean {
+	return mode === "done" || field !== "completedAt";
 }
 
 /** What one condition holds a node against; `uid` answers `"me"`. */
@@ -83,6 +128,14 @@ export interface MatchContext {
 	 * before #290.
 	 */
 	locations?: ReadonlyMap<string, EffectiveLocation | null>;
+	/**
+	 * The labels each node answers to (#100) — its own plus everything its
+	 * trail passes down, the list `effectiveLabels` resolves — keyed by node
+	 * id, so "labelled" reads an inherited label the node's stored fields do
+	 * not name. Optional: a caller with no label data omits it, and every node
+	 * then answers from its own `labelIds` alone.
+	 */
+	labels?: ReadonlyMap<string, readonly string[]>;
 }
 
 function matches(node: Node, condition: CardCondition, ctx: MatchContext) {
@@ -106,6 +159,18 @@ function matches(node: Node, condition: CardCondition, ctx: MatchContext) {
 				return node.dueDate !== null && state !== "late";
 			}
 			return node.dueDate === null;
+		}
+		case "labelIds":
+			return condition.anyOf.some((id) =>
+				(ctx.labels?.get(node.id) ?? node.labelIds).includes(id),
+			);
+		case "completedAt": {
+			// An instant, not a calendar day: a completion has no timezone shape.
+			const completed = node.completedAt?.toMillis() ?? null;
+			if (completed === null) return false;
+			const window =
+				Math.min(condition.n ?? doneWithinDays, maxDoneWithinDays) * dayInMs;
+			return completed >= ctx.now.getTime() - window;
 		}
 		case "isRoot":
 			return (node.parentId === null) === condition.is;

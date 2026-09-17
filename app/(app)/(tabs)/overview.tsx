@@ -26,6 +26,7 @@ import { createNode } from "@/data/nodes";
 import { useLabelAncestors } from "@/hooks/use-label-ancestors";
 import { useLocations } from "@/hooks/use-locations";
 import { useOverview } from "@/hooks/use-overview";
+import { effectiveLabels } from "@/models/label";
 import {
 	crumbTitlesOf,
 	effectiveLocation,
@@ -34,7 +35,6 @@ import {
 	type Node,
 	rankAtEnd,
 } from "@/models/node";
-import { recentlyDone } from "@/models/overview";
 import { type Card, cardRows, seedTitleKeys } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
 import {
@@ -130,6 +130,20 @@ export default function Overview() {
 		]),
 	);
 
+	// The labels every card's `labelIds` condition filters on (#100): own plus
+	// everything the trail passes down, the list `effectiveLabels` resolves.
+	// Done rows answer too — a done card is labelled like any other.
+	const labelled = new Map(
+		[...pool.nodes, ...done.nodes].map((node) => [
+			node.id,
+			effectiveLabels(
+				node.labelIds,
+				node.ancestorIds.flatMap((id) => ancestors.get(id)?.labelIds ?? []),
+				activeHome?.labels ?? [],
+			).map((label) => label.id),
+		]),
+	);
+
 	// Above the breakpoint the sections flow and wrap, each a column the board
 	// would recognize — the board's own dividing arithmetic, clamped at the
 	// same two ends. Below it, one full-width stack as ever.
@@ -144,8 +158,8 @@ export default function Overview() {
 		width,
 		cards.filter(
 			(card) =>
-				!(card.kind === "filter" && pool.failed) &&
-				!(card.kind === "completed" && done.failed),
+				!(card.kind === "open" && pool.failed) &&
+				!(card.kind === "done" && done.failed),
 		).length,
 	);
 
@@ -198,15 +212,14 @@ export default function Overview() {
 		for (const card of cards) {
 			rows.set(
 				card.id,
-				card.kind === "completed"
-					? recentlyDone(done.nodes, rootsById, uid, now)
-					: cardRows(card, pool.nodes, {
-							uid,
-							now,
-							roots: rootsById,
-							blockers: nodesById,
-							locations: located,
-						}),
+				cardRows(card, card.kind === "done" ? done.nodes : pool.nodes, {
+					uid,
+					now,
+					roots: rootsById,
+					blockers: nodesById,
+					locations: located,
+					labels: labelled,
+				}),
 			);
 		}
 	}
@@ -286,8 +299,8 @@ export default function Overview() {
 	// Built once; in the flowing layout it is one wrapping row, in the stack it
 	// is the column the screen has always been.
 	const sections = cards.map((card) => {
-		if (card.kind === "filter" && pool.failed) return null;
-		if (card.kind === "completed" && done.failed) return null;
+		if (card.kind === "open" && pool.failed) return null;
+		if (card.kind === "done" && done.failed) return null;
 		return (
 			<CardSection
 				key={card.id}

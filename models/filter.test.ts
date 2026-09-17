@@ -1,6 +1,7 @@
 import type { Timestamp } from "firebase/firestore";
 import { type CardCondition, type CardSort, sortRows } from "@/models/filter";
 import { defaultColumns, type Node } from "@/models/node";
+import { doneWithinDays } from "@/models/overview";
 import {
 	cardRows,
 	exportCard,
@@ -239,6 +240,82 @@ describe("matching", () => {
 				[task({ checklist: [{ id: "c1", text: "x", done: false }] })],
 			),
 		).toEqual(["node-1"]);
+	});
+
+	describe("labelIds", () => {
+		// The kitchen's trail passes a label down; the node's own fields name
+		// only what is stuck on it directly.
+		const labelled = new Map([["node-1", ["own", "passed-down"]]]);
+		const rowsLabelled = (conditions: CardCondition[], node: Node) =>
+			cardRows(card(conditions), [node], { ...ctx, labels: labelled }).map(
+				(each) => each.id,
+			);
+		const asking = (anyOf: string[]) =>
+			[{ field: "labelIds", anyOf }] as CardCondition[];
+
+		it("matches an own label", () => {
+			expect(
+				rowsLabelled(asking(["own"]), task({ labelIds: ["own"] })),
+			).toEqual(["node-1"]);
+		});
+
+		it("matches an inherited-only label the stored fields do not name", () => {
+			expect(rowsLabelled(asking(["passed-down"]), task())).toEqual(["node-1"]);
+		});
+
+		it("matches when the label arrives both ways", () => {
+			expect(
+				rowsLabelled(
+					asking(["passed-down", "boat"]),
+					task({ labelIds: ["own"] }),
+				),
+			).toEqual(["node-1"]);
+		});
+
+		it("matches nothing when the node answers to neither", () => {
+			expect(
+				rowsLabelled(asking(["boat"]), task({ labelIds: ["own"] })),
+			).toEqual([]);
+			// Without label data a node answers from its own fields alone.
+			expect(cardRows(card(asking(["passed-down"])), [task()], ctx)).toEqual(
+				[],
+			);
+		});
+	});
+
+	describe("completedAt", () => {
+		const finished = (msAgo: number) => [
+			task({ status: "done", completedAt: stamp(now.getTime() - msAgo) }),
+		];
+		const within = (n?: number) =>
+			[
+				n === undefined
+					? { field: "completedAt", is: "within" }
+					: { field: "completedAt", is: "within", n },
+			] as CardCondition[];
+
+		it("holds a completion exactly the default window ago, not a moment older", () => {
+			expect(rowsOf(within(), finished(doneWithinDays * dayInMs))).toEqual([
+				"node-1",
+			]);
+			expect(rowsOf(within(), finished(doneWithinDays * dayInMs + 1))).toEqual(
+				[],
+			);
+		});
+
+		it("widens the window to the condition's own n", () => {
+			expect(rowsOf(within(14), finished(14 * dayInMs))).toEqual(["node-1"]);
+			expect(rowsOf(within(14), finished(15 * dayInMs))).toEqual([]);
+		});
+
+		it("reads an absent n as the done window, not as everything", () => {
+			expect(rowsOf(within(), finished(60 * dayInMs))).toEqual([]);
+		});
+
+		it("clamps an n past the ceiling to the ceiling", () => {
+			expect(rowsOf(within(400), finished(200 * dayInMs))).toEqual(["node-1"]);
+			expect(rowsOf(within(400), finished(366 * dayInMs))).toEqual([]);
+		});
 	});
 
 	describe("blockedBy means #66's waiting", () => {
