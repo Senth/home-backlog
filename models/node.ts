@@ -863,6 +863,24 @@ export function effectiveLocation(
 }
 
 /**
+ * The nearest place an ancestor trail passes down (#290), the card's own field
+ * never counting — what a card face shows when it carries no place of its own
+ * (#296). A crumb the trail cannot resolve contributes nothing, the same
+ * neutral answer `effectiveLocation` gives it.
+ */
+export function inheritedLocation(
+	ancestors: readonly (Node | null)[],
+): string | null {
+	for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+		const ancestor = ancestors[index];
+		if (ancestor !== null && ancestor.locationId !== null) {
+			return ancestor.locationId;
+		}
+	}
+	return null;
+}
+
+/**
  * Who may be given a step in this project: its participants, or everyone in the
  * home when it has none — the common case, and one with no friction at all.
  *

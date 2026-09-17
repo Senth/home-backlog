@@ -75,6 +75,12 @@ interface BoardColumnProps {
 	 * screen. See `BoardCard`.
 	 */
 	ancestorLabelIds?: readonly string[];
+	/**
+	 * The nearest place the trail above this board passes down (#290) — one
+	 * chain, shared by the whole board, resolved once by the screen. See
+	 * `BoardCard`.
+	 */
+	ancestorLocationId?: string | null;
 	/** Location id → title, the leaf. See `BoardCard`. */
 	locations?: ReadonlyMap<string, string>;
 }
@@ -108,6 +114,7 @@ export function BoardColumn({
 	drag,
 	blockers,
 	ancestorLabelIds,
+	ancestorLocationId,
 	locations,
 }: BoardColumnProps) {
 	const { t } = useTranslation();
@@ -348,6 +355,7 @@ export function BoardColumn({
 										narrow={narrow}
 										blockers={blockers}
 										ancestorLabelIds={ancestorLabelIds}
+										ancestorLocationId={ancestorLocationId}
 										locations={locations}
 									/>
 								) : (
@@ -360,6 +368,7 @@ export function BoardColumn({
 											narrow={narrow}
 											blockers={blockers}
 											ancestorLabelIds={ancestorLabelIds}
+											ancestorLocationId={ancestorLocationId}
 											locations={locations}
 										/>
 									</DragArea>

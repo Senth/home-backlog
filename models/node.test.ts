@@ -16,6 +16,7 @@ import {
 	hasDetails,
 	hasSteps,
 	hiddenByParticipants,
+	inheritedLocation,
 	mergeNodeResults,
 	movedAncestorIds,
 	type Node,
@@ -674,6 +675,25 @@ describe("effectiveLocation", () => {
 
 	it("answers null when neither the card nor the trail names a place", () => {
 		expect(effectiveLocation(step, [])).toBeNull();
+	});
+});
+
+describe("inheritedLocation", () => {
+	const project = node({ id: "project", locationId: "house" });
+	const task = node({ id: "task", locationId: "hallway" });
+
+	it("answers the nearest place the trail passes down", () => {
+		expect(inheritedLocation([project, task])).toBe("hallway");
+		expect(inheritedLocation([project])).toBe("house");
+	});
+
+	it("skips a crumb the trail cannot resolve", () => {
+		expect(inheritedLocation([null, task])).toBe("hallway");
+		expect(inheritedLocation([null])).toBeNull();
+	});
+
+	it("answers null when no ancestor names a place", () => {
+		expect(inheritedLocation([])).toBeNull();
 	});
 });
 
