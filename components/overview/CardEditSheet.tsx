@@ -13,11 +13,23 @@ import {
 } from "react-native-paper";
 import { AppDialog } from "@/components/ui/AppDialog";
 import { soonInDays } from "@/models/due-date";
-import type { CardCondition, CardSort, SortField } from "@/models/filter";
+import {
+	type CardCondition,
+	type CardMode,
+	type CardSort,
+	conditionCarriedBy,
+	type SortField,
+	sortCarriedBy,
+} from "@/models/filter";
 import type { Member } from "@/models/home";
 import type { Location } from "@/models/locations";
 import { titleError } from "@/models/node";
-import { overviewLimit, rowsPerSection } from "@/models/overview";
+import {
+	doneWithinDays,
+	maxDoneWithinDays,
+	overviewLimit,
+	rowsPerSection,
+} from "@/models/overview";
 import {
 	type Card,
 	conditionForField,
@@ -43,10 +55,12 @@ import {
  * to be precise, and it is: the labels here name fields, which is exactly
  * what the read screen must never do.
  *
- * The scope choice is the one `SegmentedButtons` on the surface, per the
- * spec's own call — three plain words, not a query-builder control. A
- * `completed` card has no conditions and no sort — its rows are the done
- * pair's, not a filter — so those two groups stay hidden for it.
+ * The mode is the first and loudest choice, because it decides which fields
+ * exist below it: a done card has no *Status*, *Due* or *Waiting* group to
+ * offer, and an open card has no *Done within*. Under each segmented control
+ * a quiet sentence says what the choice means, so the two read as two
+ * decisions rather than one five-way one. A **blank** card moved to done
+ * becomes the Recently done card (#229) — one tap is the whole configuration.
  *
  * The field vocabulary is one list, `fieldSpecs`, and the import preview
  * reads its words from the same list: a condition says what the chips would
@@ -80,13 +94,18 @@ export interface FieldSpec {
  * render, with the words each of their values reads as. The one vocabulary:
  * the sheet's chips, the "Coming up" window and the import preview's
  * condition lines are all read from here.
+ *
+ * The mode filters the list — a question the card's mode cannot ask is no
+ * chip at all, which is what makes the mode decide which fields exist below
+ * it rather than which chips sit disabled among the rest.
  */
 export function fieldSpecs(
 	members: readonly Member[],
 	locations: readonly Location[],
 	t: Translate,
+	mode: CardMode,
 ): FieldSpec[] {
-	return [
+	const specs: FieldSpec[] = [
 		{
 			field: "status",
 			label: t("overview.cards.field.status"),
@@ -127,6 +146,14 @@ export function fieldSpecs(
 				value: due,
 				label: t(`overview.cards.due.${due}`),
 			})),
+		},
+		{
+			field: "completedAt",
+			label: t("overview.cards.field.completedAt"),
+			kind: "is",
+			// The window itself is the group's one value, rendered by
+			// `CompletedWithin` — a plain chip row has nothing to offer here.
+			values: [],
 		},
 		{
 			field: "isRoot",
@@ -239,6 +266,7 @@ export function fieldSpecs(
 			],
 		},
 	];
+	return specs.filter((spec) => conditionCarriedBy(mode, spec.field));
 }
 
 interface CardEditSheetProps {
@@ -268,6 +296,57 @@ const newCard = (): Card => ({
 	rank: "",
 });
 
+/**
+ * The draft after the mode selector moved. Conditions the mode cannot carry
+ * drop whole — a done card cannot ask about *Status*, *Due* or *Waiting*, and
+ * an open card has no completion to ask about.
+ *
+ * A **blank** card moved to done becomes the Recently done card (#229): one
+ * tap on *Färdiga* is the whole configuration, the same shape the seed
+ * carries. Moved back to open with nothing left on it, the card returns to a
+ * fresh one — the completion condition cannot follow, and the empty state
+ * goes back to the sentence a card with no configuration carries.
+ */
+function withMode(draft: Card, mode: CardMode): Card {
+	const conditions = draft.conditions.filter((condition) =>
+		conditionCarriedBy(mode, condition.field),
+	);
+
+	if (
+		mode === "done" &&
+		conditions.length === 0 &&
+		draft.sort === null &&
+		draft.empty.mode !== "hide"
+	) {
+		return {
+			...draft,
+			kind: mode,
+			conditions: [{ field: "completedAt", is: "within" }],
+			sort: { field: "completedAt", direction: "desc" },
+			empty: { mode: "hide" },
+		};
+	}
+	if (
+		mode === "open" &&
+		conditions.length === 0 &&
+		draft.empty.mode === "hide"
+	) {
+		return {
+			...draft,
+			kind: mode,
+			conditions,
+			sort: null,
+			empty: { mode: "say", key: "overview.cards.empty.generic" },
+		};
+	}
+
+	const sort =
+		draft.sort !== null && sortCarriedBy(mode, draft.sort.field)
+			? draft.sort
+			: null;
+	return { ...draft, kind: mode, conditions, sort };
+}
+
 /** The sort a fresh card offers first, and the label each field reads as. */
 const SORT_FIELDS = ["dueDate", "priority", "effort", "status"] as const;
 
@@ -276,8 +355,9 @@ const SORT_LABELS: Record<SortField, string> = {
 	priority: "detail.priority",
 	effort: "detail.effort",
 	status: "overview.cards.field.status",
-	// The completed card sorts by completion, and its sheet hides the sort
-	// group — the label exists only so the map is honest about every field.
+	// The sort group is an open-card group — a done card's newest-first order
+	// rides on its `completedAt` condition — so this label exists only so the
+	// map is honest about every field.
 	completedAt: "overview.cards.sort.completedAt",
 };
 
@@ -317,7 +397,9 @@ export function CardEditSheet({
 	const setConditions = (next: CardCondition | null) =>
 		setDraft({ ...draft, conditions: withCondition(draft.conditions, next) });
 
-	const fields = fieldSpecs(members, locations, t);
+	const setMode = (mode: CardMode) => setDraft(withMode(draft, mode));
+
+	const fields = fieldSpecs(members, locations, t, draft.kind);
 
 	// The clamp lives on the way out rather than in the stepper, so a held
 	// count can be raised above the shown one without the shown one chasing it
@@ -387,6 +469,7 @@ export function CardEditSheet({
 				field={field}
 				sortOpen={sortOpen}
 				titleProblem={titleProblem}
+				onMode={setMode}
 				onScope={setScope}
 				onField={setField}
 				onConditions={setConditions}
@@ -410,6 +493,7 @@ interface SheetBodyProps {
 	field: CardCondition["field"] | null;
 	sortOpen: boolean;
 	titleProblem: string | null;
+	onMode: (mode: CardMode) => void;
 	onScope: (scope: "global" | "home" | "shared") => void;
 	onField: (field: CardCondition["field"] | null) => void;
 	onConditions: (next: CardCondition | null) => void;
@@ -422,8 +506,8 @@ interface SheetBodyProps {
 
 /**
  * The form itself, inside the dialog's scrolling content. One group per row:
- * the title, the scope, the conditions and their one open field, the sort,
- * and the two row budgets.
+ * the mode and its sentence, the scope and its sentence, the title, the
+ * conditions and their one open field, the sort, and the two row budgets.
  */
 function SheetBody({
 	draft,
@@ -432,6 +516,7 @@ function SheetBody({
 	field,
 	sortOpen,
 	titleProblem,
+	onMode,
 	onScope,
 	onField,
 	onConditions,
@@ -449,160 +534,200 @@ function SheetBody({
 		<ScrollView style={{ maxHeight: height - space.xxl * 4 }}>
 			<View style={{ gap: space.lg, paddingBottom: space.sm }}>
 				<View>
-					<TextInput
-						mode="outlined"
-						label={t("board.titleLabel")}
-						value={draft.title ?? ""}
-						onChangeText={onTitle}
-						onSubmitEditing={() => onTitle(draft.title ?? "")}
-						selectTextOnFocus
-						error={titleProblem !== null}
-						// An untouched seed has no title of its own; the box shows
-						// the name it currently travels under, in grey, rather
-						// than an empty field that reads as lost data.
-						placeholder={
-							draft.seedId === null ? undefined : t(seedTitleKeys[draft.seedId])
-						}
+					<SegmentedButtons
+						value={draft.kind}
+						onValueChange={(value) => onMode(value as CardMode)}
+						buttons={[
+							{
+								value: "open",
+								label: t("overview.cards.editor.mode.open"),
+								labelStyle: { lineHeight: segmentedLabelLineHeight },
+							},
+							{
+								value: "done",
+								label: t("overview.cards.editor.mode.done"),
+								labelStyle: { lineHeight: segmentedLabelLineHeight },
+							},
+						]}
 					/>
-					<HelperText type="error" visible={titleProblem !== null}>
-						{titleProblem === null ? "" : t(titleProblem)}
-					</HelperText>
-					{draft.seedId !== null && (draft.title ?? "") === "" ? (
-						<HelperText type="info" visible>
-							{t("overview.cards.edit.followsDefault")}
-						</HelperText>
-					) : null}
+					{/* The sentence is what keeps the two segmented controls from
+					    reading as one five-way choice: each says what its own
+					    choice means, and the pair stays two decisions. */}
+					<Text
+						variant="bodySmall"
+						style={{ color: theme.colors.onSurfaceVariant }}
+					>
+						{draft.kind === "done"
+							? t("overview.cards.editor.mode.doneDescription")
+							: t("overview.cards.editor.mode.openDescription")}
+					</Text>
 				</View>
 
-				<SegmentedButtons
-					value={scope}
-					onValueChange={(value) => onScope(value as typeof scope)}
-					buttons={[
-						{
-							value: "global",
-							label: t("overview.cards.editor.scope.global"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-						{
-							value: "home",
-							label: t("overview.cards.editor.scope.home"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-						{
-							value: "shared",
-							label: t("overview.cards.editor.scope.shared"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-					]}
+				<View>
+					<SegmentedButtons
+						value={scope}
+						onValueChange={(value) => onScope(value as typeof scope)}
+						buttons={[
+							{
+								value: "global",
+								label: t("overview.cards.editor.scope.global"),
+								labelStyle: { lineHeight: segmentedLabelLineHeight },
+							},
+							{
+								value: "home",
+								label: t("overview.cards.editor.scope.home"),
+								labelStyle: { lineHeight: segmentedLabelLineHeight },
+							},
+							{
+								value: "shared",
+								label: t("overview.cards.editor.scope.shared"),
+								labelStyle: { lineHeight: segmentedLabelLineHeight },
+							},
+						]}
+					/>
+					<Text
+						variant="bodySmall"
+						style={{ color: theme.colors.onSurfaceVariant }}
+					>
+						{t(`overview.cards.editor.scope.${scope}Description`)}
+					</Text>
+				</View>
+
+				<TextInput
+					mode="outlined"
+					testID="overview-card-edit-title"
+					label={t("board.titleLabel")}
+					value={draft.title ?? ""}
+					onChangeText={onTitle}
+					onSubmitEditing={() => onTitle(draft.title ?? "")}
+					selectTextOnFocus
+					error={titleProblem !== null}
+					// An untouched seed has no title of its own; the box shows
+					// the name it currently travels under, in grey, rather
+					// than an empty field that reads as lost data.
+					placeholder={
+						draft.seedId === null ? undefined : t(seedTitleKeys[draft.seedId])
+					}
 				/>
+				<HelperText type="error" visible={titleProblem !== null}>
+					{titleProblem === null ? "" : t(titleProblem)}
+				</HelperText>
+				{draft.seedId !== null && (draft.title ?? "") === "" ? (
+					<HelperText type="info" visible>
+						{t("overview.cards.edit.followsDefault")}
+					</HelperText>
+				) : null}
+
+				<View style={{ gap: space.sm }}>
+					<Text
+						variant="labelLarge"
+						style={{ color: theme.colors.onSurfaceVariant }}
+					>
+						{t("overview.cards.field.conditions")}
+					</Text>
+					<View
+						style={{
+							flexDirection: "row",
+							flexWrap: "wrap",
+							gap: space.sm,
+						}}
+					>
+						{fields.map((spec) => {
+							const applied =
+								conditionForField(draft.conditions, spec.field) !== null;
+
+							return (
+								<Chip
+									key={spec.field}
+									mode={applied ? "flat" : "outlined"}
+									selected={applied}
+									showSelectedCheck={false}
+									aria-pressed={applied}
+									onPress={() =>
+										onField(field === spec.field ? null : spec.field)
+									}
+									style={{
+										minHeight: outlinedTouchTarget,
+										flexGrow: 1,
+									}}
+								>
+									{spec.label}
+								</Chip>
+							);
+						})}
+					</View>
+				</View>
+
+				{field === null ? null : field === "completedAt" ? (
+					<CompletedWithin
+						condition={conditionForField(draft.conditions, "completedAt")}
+						onChange={onConditions}
+					/>
+				) : (
+					<ConditionValues
+						spec={fields.find((each) => each.field === field) as FieldSpec}
+						conditions={draft.conditions}
+						onChange={onConditions}
+					/>
+				)}
+
+				{field === "dueDate" ? (
+					<ComingUpWindow
+						condition={conditionForField(draft.conditions, "dueDate")}
+						onChange={onConditions}
+					/>
+				) : null}
 
 				{draft.kind === "open" ? (
-					<>
-						<View style={{ gap: space.sm }}>
-							<Text
-								variant="labelLarge"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								{t("overview.cards.field.conditions")}
-							</Text>
-							<View
-								style={{
-									flexDirection: "row",
-									flexWrap: "wrap",
-									gap: space.sm,
+					<View style={{ gap: space.sm }}>
+						<Text
+							variant="labelLarge"
+							style={{ color: theme.colors.onSurfaceVariant }}
+						>
+							{t("overview.cards.sort.label")}
+						</Text>
+						<Menu
+							visible={sortOpen}
+							onDismiss={() => onSortOpen(false)}
+							anchor={
+								<Button
+									mode="outlined"
+									icon="sort"
+									onPress={() => onSortOpen(true)}
+									contentStyle={{ minHeight: touchTarget }}
+									style={{ alignSelf: "flex-start" }}
+								>
+									{draft.sort === null
+										? t("overview.cards.sort.boardOrder")
+										: t(SORT_LABELS[draft.sort.field])}
+								</Button>
+							}
+						>
+							<Menu.Item
+								title={t("overview.cards.sort.boardOrder")}
+								onPress={() => {
+									onSortOpen(false);
+									onSort(null);
 								}}
-							>
-								{fields.map((spec) => {
-									const applied =
-										conditionForField(draft.conditions, spec.field) !== null;
-
-									return (
-										<Chip
-											key={spec.field}
-											mode={applied ? "flat" : "outlined"}
-											selected={applied}
-											showSelectedCheck={false}
-											aria-pressed={applied}
-											onPress={() =>
-												onField(field === spec.field ? null : spec.field)
-											}
-											style={{
-												minHeight: outlinedTouchTarget,
-												flexGrow: 1,
-											}}
-										>
-											{spec.label}
-										</Chip>
-									);
-								})}
-							</View>
-						</View>
-
-						{field === null ? null : (
-							<ConditionValues
-								spec={fields.find((each) => each.field === field) as FieldSpec}
-								conditions={draft.conditions}
-								onChange={onConditions}
 							/>
-						)}
-
-						{field === "dueDate" ? (
-							<ComingUpWindow
-								condition={conditionForField(draft.conditions, "dueDate")}
-								onChange={onConditions}
-							/>
-						) : null}
-
-						<View style={{ gap: space.sm }}>
-							<Text
-								variant="labelLarge"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								{t("overview.cards.sort.label")}
-							</Text>
-							<Menu
-								visible={sortOpen}
-								onDismiss={() => onSortOpen(false)}
-								anchor={
-									<Button
-										mode="outlined"
-										icon="sort"
-										onPress={() => onSortOpen(true)}
-										contentStyle={{ minHeight: touchTarget }}
-										style={{ alignSelf: "flex-start" }}
-									>
-										{draft.sort === null
-											? t("overview.cards.sort.boardOrder")
-											: t(SORT_LABELS[draft.sort.field])}
-									</Button>
-								}
-							>
+							{SORT_FIELDS.map((sortField) => (
 								<Menu.Item
-									title={t("overview.cards.sort.boardOrder")}
+									key={sortField}
+									title={t(SORT_LABELS[sortField])}
 									onPress={() => {
 										onSortOpen(false);
-										onSort(null);
+										onSort({
+											field: sortField,
+											direction: draft.sort?.direction ?? "asc",
+										});
 									}}
 								/>
-								{SORT_FIELDS.map((sortField) => (
-									<Menu.Item
-										key={sortField}
-										title={t(SORT_LABELS[sortField])}
-										onPress={() => {
-											onSortOpen(false);
-											onSort({
-												field: sortField,
-												direction: draft.sort?.direction ?? "asc",
-											});
-										}}
-									/>
-								))}
-							</Menu>
-							{draft.sort === null ? null : (
-								<DirectionChips sort={draft.sort} onSort={onSort} />
-							)}
-						</View>
-					</>
+							))}
+						</Menu>
+						{draft.sort === null ? null : (
+							<DirectionChips sort={draft.sort} onSort={onSort} />
+						)}
+					</View>
 				) : null}
 
 				<Stepper
@@ -704,6 +829,56 @@ function ComingUpWindow({
 			max={30}
 			onChange={write}
 		/>
+	);
+}
+
+/**
+ * The *Done within* window: the done card's one editable number. The chip is
+ * the condition itself — tapping it removes the window, and a done card with
+ * no window reaches the ceiling — and the stepper writes `n`, dropping it
+ * again at the seed's own window, the way `ComingUpWindow` does.
+ */
+function CompletedWithin({
+	condition,
+	onChange,
+}: {
+	condition: CardCondition | null;
+	onChange: (next: CardCondition | null) => void;
+}) {
+	const { t } = useTranslation();
+
+	if (condition === null || condition.field !== "completedAt") {
+		return null;
+	}
+
+	const n = condition.n ?? doneWithinDays;
+	const write = (next: number) =>
+		onChange(
+			next === doneWithinDays
+				? { field: "completedAt", is: "within" }
+				: { field: "completedAt", is: "within", n: next },
+		);
+
+	return (
+		<View style={{ gap: space.sm }}>
+			<Chip
+				mode="flat"
+				selected
+				showSelectedCheck={false}
+				aria-pressed
+				onPress={() => onChange(null)}
+				style={{ minHeight: outlinedTouchTarget, alignSelf: "flex-start" }}
+			>
+				{t("overview.cards.completedAtLine", { count: n })}
+			</Chip>
+			<Stepper
+				label={t("overview.cards.edit.daysBack")}
+				value={n}
+				min={1}
+				max={maxDoneWithinDays}
+				onChange={write}
+			/>
+		</View>
 	);
 }
 

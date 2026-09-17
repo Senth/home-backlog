@@ -304,9 +304,18 @@
 				"scope": {
 					"global": "Alla hem",
 					"home": "Hem",
-					"shared": "Alla här"
+					"shared": "Alla här",
+					"globalDescription": "Kortet följer med till alla dina hem.",
+					"homeDescription": "Kortet syns bara i det här hemmet, och bara för dig.",
+					"sharedDescription": "Kortet syns för alla i hemmet."
 				},
-				"hiddenBadge": "Dold"
+				"hiddenBadge": "Dold",
+				"mode": {
+					"open": "Ej klara",
+					"done": "Färdiga",
+					"openDescription": "Kort som ingen har bockat av än.",
+					"doneDescription": "Kort som är avbockade, senast först."
+				}
 			},
 			"menu": {
 				"edit": "Redigera",
@@ -327,7 +336,8 @@
 				"more": "Fler",
 				"fewer": "Färre",
 				"withinDays": "Dagar framåt",
-				"followsDefault": "Använder sitt standardnamn. Skriv för att ge den ett eget."
+				"followsDefault": "Använder sitt standardnamn. Skriv för att ge den ett eget.",
+				"daysBack": "Dagar bakåt"
 			},
 			"due": {
 				"comingUp": "Blir aktuellt",
@@ -373,7 +383,12 @@
 				"checklist": "Checklista",
 				"withChecklist": "Har en checklista",
 				"noChecklist": "Utan checklista",
-				"inLocation": "i {{location}}"
+				"inLocation": "i {{location}}",
+				"completedAt": "Klart inom"
+			},
+			"completedAtLine": {
+				"one": "Klart inom {{count}} dagar",
+				"other": "Klart inom {{count}} dagar"
 			}
 		},
 		"more": "+{{count}} till",

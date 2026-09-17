@@ -304,9 +304,18 @@
 				"scope": {
 					"global": "All homes",
 					"home": "Home",
-					"shared": "Everyone"
+					"shared": "Everyone",
+					"globalDescription": "The card follows you to every home.",
+					"homeDescription": "The card shows only in this home, and only for you.",
+					"sharedDescription": "The card shows for everyone in the home."
 				},
-				"hiddenBadge": "Hidden"
+				"hiddenBadge": "Hidden",
+				"mode": {
+					"open": "Open",
+					"done": "Done",
+					"openDescription": "Cards nobody has ticked off yet.",
+					"doneDescription": "Cards somebody has ticked off, newest first."
+				}
 			},
 			"menu": {
 				"edit": "Edit",
@@ -327,7 +336,8 @@
 				"more": "More",
 				"fewer": "Fewer",
 				"withinDays": "Days ahead",
-				"followsDefault": "Uses its default name. Type to give it your own."
+				"followsDefault": "Uses its default name. Type to give it your own.",
+				"daysBack": "Days back"
 			},
 			"due": {
 				"comingUp": "Coming up",
@@ -373,7 +383,12 @@
 				"checklist": "Checklist",
 				"withChecklist": "Has a checklist",
 				"noChecklist": "No checklist",
-				"inLocation": "in {{location}}"
+				"inLocation": "in {{location}}",
+				"completedAt": "Done within"
+			},
+			"completedAtLine": {
+				"one": "Done within {{count}} day",
+				"other": "Done within {{count}} days"
 			}
 		},
 		"more": "+{{count}} more",
