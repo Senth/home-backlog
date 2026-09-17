@@ -134,6 +134,39 @@ describe("useBoardFilter", () => {
 		}
 	});
 
+	it("a clear that lands during the read is not resurrected by the read", async () => {
+		const stored = JSON.stringify({
+			v: 1,
+			savedAt: t0,
+			mode: "open",
+			reach: "board",
+			conditions: [{ field: "priority", anyOf: ["high"] }],
+		});
+		mockStore[key] = stored;
+
+		// Hold the read open, so the clear can land while it is in flight.
+		let release!: (raw: string) => void;
+		jest.mocked(AsyncStorage.getItem).mockImplementationOnce(
+			() =>
+				new Promise<string>((resolve) => {
+					release = resolve;
+				}),
+		);
+
+		const board = openBoard();
+		act(() => board.result.current.setFilter(null));
+		expect(board.result.current.filter).toBeNull();
+
+		// The read comes back with the filter the clear just removed.
+		release(stored);
+		await waitFor(() => expect(board.result.current.loading).toBe(false));
+
+		expect(board.result.current.filter).toBeNull();
+		// And the slide write must not put the cleared blob back in storage.
+		expect(mockStore[key]).toBeUndefined();
+		board.unmount();
+	});
+
 	it("switching homes re-points: each home holds its own filter", async () => {
 		mockStore[boardFilterKey("stugan")] = JSON.stringify({
 			v: 1,

@@ -140,6 +140,32 @@ describe("CardEditSheet", () => {
 		);
 	});
 
+	it("a card that already had a condition still lands on done's newest-first sort", () => {
+		const onSave = jest.fn();
+		renderSheet(onSave);
+
+		// A card with a condition takes none of withMode's seed branches: the
+		// mode moves and the conditions ride along — but done has no sort
+		// control, so the default order has to arrive here, not from the user.
+		fireEvent.press(screen.getByTestId("overview-card-edit-field-priority"));
+		fireEvent.press(screen.getByRole("checkbox", { name: "priority.high" }));
+		fireEvent.press(screen.getByText("overview.cards.editor.mode.done"));
+		fireEvent.changeText(
+			screen.getByTestId("overview-card-edit-title"),
+			"Urgent finished",
+		);
+		fireEvent.press(screen.getByText("manageHome.save"));
+
+		expect(onSave).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: "done",
+				conditions: [{ field: "priority", anyOf: ["high"] }],
+				sort: { field: "completedAt", direction: "desc" },
+			}),
+			"home",
+		);
+	});
+
 	it("says what each mode collects", () => {
 		renderSheet();
 

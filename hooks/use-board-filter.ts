@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	type BoardFilter,
 	boardFilterKey,
@@ -32,6 +32,11 @@ export function useBoardFilter(homeId: string | null): {
 } {
 	const [filter, setFilterState] = useState<BoardFilter | null>(null);
 	const [loading, setLoading] = useState(true);
+	// True from the moment this mount's `setFilter` first lands. The read below
+	// can resolve after one — the household cleared the filter while the read
+	// was out — and re-applying the decoded blob would resurrect a filter the
+	// member has just removed, in memory and in storage alike.
+	const touched = useRef(false);
 
 	// Cleared *during render*, the same way `HomeContext` re-points on a uid
 	// change: an effect runs after the commit, so switching homes would show
@@ -48,6 +53,8 @@ export function useBoardFilter(homeId: string | null): {
 			setLoading(false);
 			return;
 		}
+		// This read belongs to this home only; a fresh read starts untainted.
+		touched.current = false;
 		let live = true;
 		const key = boardFilterKey(homeId);
 
@@ -60,6 +67,12 @@ export function useBoardFilter(homeId: string | null): {
 			})
 			.then((raw) => {
 				if (!live) return;
+				if (touched.current) {
+					// A setFilter landed while the read was out: its write is the
+					// newer answer. Loading is the only thing left to end.
+					setLoading(false);
+					return;
+				}
 				const now = Date.now();
 				const decoded = decodeBoardFilter(raw, new Date(now));
 				if (decoded !== null) {
@@ -90,6 +103,7 @@ export function useBoardFilter(homeId: string | null): {
 
 	const setFilter = useCallback(
 		(next: BoardFilter | null) => {
+			touched.current = true;
 			setFilterState(next);
 			if (homeId === null) return;
 			const key = boardFilterKey(homeId);

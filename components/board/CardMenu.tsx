@@ -155,8 +155,10 @@ export function CardMenu({
 	const others = column.filter((card) => card.id !== node.id);
 	// The real sibling set (#90): the board's cards plus the ones the filter
 	// is holding back. Both the *Move under* hosts and the one-tap move's
-	// end-of-column rank read this, so a hidden sibling still counts.
-	const siblings = siblingsOf([...nodes, ...hidden], parent?.id ?? null);
+	// end-of-column rank read this, so a hidden sibling still counts. The
+	// card's own parent, not the board's — in "Everything below" reach they
+	// differ, and a rank is ordered within the card's own (parentId, status).
+	const siblings = siblingsOf([...nodes, ...hidden], node.parentId);
 	// A shared card under a private parent breaks the uniform-visibility
 	// invariant, and the rules refuse it. Offering it would be offering a
 	// permission error.

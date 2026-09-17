@@ -86,13 +86,18 @@ function node(id: string, overrides: Partial<Node> = {}): Node {
 	};
 }
 
-function renderMenu(props: { nodes: Node[]; hidden?: Node[] }) {
+function renderMenu(props: {
+	nodes: Node[];
+	hidden?: Node[];
+	node?: Node;
+	parent?: Node | null;
+}) {
 	return render(
 		<Provider theme={lightTheme}>
 			<CardMenu
 				homeId="home-1"
-				node={node("self")}
-				parent={null}
+				node={props.node ?? node("self")}
+				parent={props.parent ?? null}
 				columns={defaultColumns}
 				nodes={props.nodes}
 				hidden={props.hidden}
@@ -148,5 +153,40 @@ describe("CardMenu", () => {
 		fireEvent.press(screen.getByText("board.moveUnder"));
 
 		expect(screen.getByText("Card host")).toBeOnTheScreen();
+	});
+
+	/**
+	 * Subtree reach (#62 review): a deep card's siblings are the children of
+	 * *its own* parent, not of the board's. Deriving them from the board's
+	 * parent appends a level-1 card's rank into the deep card's own column —
+	 * out of order, and on top of a rank that may already be taken.
+	 */
+	it("reads a deep card's siblings from its own parent, not the board's", () => {
+		renderMenu({
+			node: node("self", { parentId: "mid" }),
+			parent: node("board-card"),
+			nodes: [
+				node("mid", { parentId: "board-card" }),
+				node("cousin", {
+					parentId: "board-card",
+					status: "done",
+					rank: "V9",
+				}),
+				node("sib", { parentId: "mid", status: "done", rank: "V5" }),
+			],
+		});
+
+		fireEvent.press(screen.getByLabelText("board.actions"), {
+			stopPropagation: () => {},
+		});
+		fireEvent.press(screen.getByText("board.moveTo"));
+		fireEvent.press(screen.getByText("status.done"));
+
+		expect(moveNode).toHaveBeenCalledWith(
+			"home-1",
+			expect.objectContaining({ id: "self" }),
+			"done",
+			rankAtEnd("V5"),
+		);
 	});
 });

@@ -319,16 +319,21 @@ export function Board({
 		return map;
 	}, [conditions, universe, reach, ancestorsById, ancestorLocation]);
 
+	// The clock is read in the render body, not inside the memo: a board left
+	// open re-renders without any of the memo's inputs changing, and a memoized
+	// `now` would keep filtering against the moment it last changed — past a
+	// window boundary until some unrelated prop moved it.
+	const now = new Date();
 	const matchCtx = useMemo<MatchContext | null>(() => {
 		if (conditions.length === 0) return null;
 		return {
 			uid: user?.uid ?? "",
-			now: new Date(),
+			now,
 			blockers,
 			labels: filterLabelIds,
 			locations: filterLocations,
 		};
-	}, [conditions, user, blockers, filterLabelIds, filterLocations]);
+	}, [conditions, user, blockers, filterLabelIds, filterLocations, now]);
 
 	/**
 	 * What the columns draw. The conditions filter **after** the participant

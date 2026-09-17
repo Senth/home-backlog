@@ -109,7 +109,9 @@ function renderBoard(props: {
 	reach?: "board" | "subtree";
 	pool?: Node[];
 }) {
-	const utils = render(
+	// Held as a tree over the props, so a test can re-render the same board
+	// with the same props — the shape a board left open re-renders in.
+	const tree = (current: typeof props) => (
 		// Without `initialMetrics` the provider renders nothing in the test
 		// environment; the values themselves are read by nothing under test.
 		<SafeAreaProvider
@@ -123,18 +125,19 @@ function renderBoard(props: {
 					homeId="home-1"
 					parent={null}
 					columns={defaultColumns}
-					nodes={props.nodes ?? []}
-					hidden={props.hidden}
-					loading={props.loading}
-					filter={props.filter}
-					onChangeFilter={props.onChangeFilter}
-					onOpenFilter={props.onOpenFilter}
-					reach={props.reach}
-					pool={props.pool}
+					nodes={current.nodes ?? []}
+					hidden={current.hidden}
+					loading={current.loading}
+					filter={current.filter}
+					onChangeFilter={current.onChangeFilter}
+					onOpenFilter={current.onOpenFilter}
+					reach={current.reach}
+					pool={current.pool}
 				/>
 			</Provider>
-		</SafeAreaProvider>,
+		</SafeAreaProvider>
 	);
+	const utils = render(tree(props));
 	// The board measures itself before drawing any column; the layout event is
 	// what a browser delivers on mount, and it is the board's own View that
 	// carries `onLayout` — not the providers around it.
@@ -147,7 +150,10 @@ function renderBoard(props: {
 	fireEvent(boardView, "layout", {
 		nativeEvent: { layout: { width: props.viewport } },
 	});
-	return utils;
+	return {
+		...utils,
+		rerenderBoard: (next: typeof props) => utils.rerender(tree(next)),
+	};
 }
 
 describe("Board", () => {
@@ -335,5 +341,57 @@ describe("Board", () => {
 
 		expect(screen.UNSAFE_queryAllByType(DragArea).length).toBeGreaterThan(0);
 		expect(screen.queryByText(/board\.doneWindow/)).not.toBeOnTheScreen();
+	});
+
+	/**
+	 * #62 review: the match context memoized `now`, so a board left open kept
+	 * filtering against the moment it last re-rendered — past a window
+	 * boundary the answer stays wrong until some unrelated prop changes.
+	 * Reading the clock in the render body is what lets a re-render move it.
+	 */
+	it("re-reads the clock on re-render, so a stale now cannot hold a window edge", () => {
+		jest.useFakeTimers();
+		try {
+			// The card is due in five days — outside the filter's three-day
+			// "coming up" window, so it starts held back.
+			jest.setSystemTime(new Date(2026, 8, 10, 12, 0, 0));
+			const coming = node("backlog");
+			coming.id = "coming";
+			coming.dueDate = "2026-09-15";
+			// One identity across renders: a new array or a new callback would
+			// recompute the match context on its own, and the gate would pass
+			// for the wrong reason.
+			const cards = [coming];
+			const onChangeFilter = jest.fn();
+
+			const filter = {
+				mode: "open",
+				reach: "board",
+				conditions: [{ field: "dueDate", is: "comingUp", n: 3 }],
+			} as BoardFilter;
+			const board = renderBoard({
+				loading: false,
+				viewport: 800,
+				nodes: cards,
+				filter,
+				onChangeFilter,
+			});
+			expect(screen.queryByText("Fix the gutter")).toBeNull();
+
+			// Three days pass with the board open. A re-render is what a live
+			// update delivers, and the window has since closed over the card.
+			jest.setSystemTime(new Date(2026, 8, 13, 12, 0, 0));
+			board.rerenderBoard({
+				loading: false,
+				viewport: 800,
+				nodes: cards,
+				filter,
+				onChangeFilter,
+			});
+
+			expect(screen.getByText("Fix the gutter")).toBeOnTheScreen();
+		} finally {
+			jest.useRealTimers();
+		}
 	});
 });

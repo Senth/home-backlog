@@ -349,10 +349,16 @@ function withMode(draft: Card, mode: CardMode): Card {
 		};
 	}
 
-	const sort =
+	const carried =
 		draft.sort !== null && sortCarriedBy(mode, draft.sort.field)
 			? draft.sort
 			: null;
+	// Done mode offers no sort control, so a card that moves there without one
+	// cannot pick the order its own description promises — default it here.
+	const sort: CardSort | null =
+		mode === "done" && carried === null
+			? { field: "completedAt", direction: "desc" }
+			: carried;
 	return { ...draft, kind: mode, conditions, sort };
 }
 
