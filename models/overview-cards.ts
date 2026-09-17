@@ -374,8 +374,14 @@ const sortFields = new Set([
  * than a card that says nothing matches. The mode filters first: a question
  * the card's mode cannot ask is dropped whole, the way a done card cannot
  * carry a `status` condition no matter how well it is spelled.
+ *
+ * Exported because the board's stored filter (`models/board-filter.ts`)
+ * decodes through the same posture: same fields, same junk rules.
  */
-function toCondition(value: unknown, mode: CardMode): CardCondition | null {
+export function toCondition(
+	value: unknown,
+	mode: CardMode,
+): CardCondition | null {
 	if (typeof value !== "object" || value === null) return null;
 	const data = value as Record<string, unknown>;
 	if (typeof data.field !== "string" || !conditionFields.has(data.field)) {
