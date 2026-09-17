@@ -1,6 +1,6 @@
 import type { ReactNode, RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions, View } from "react-native";
+import { ScrollView, useWindowDimensions, View } from "react-native";
 import { Modal, Portal } from "react-native-paper";
 import { useModalFocus } from "@/hooks/use-modal-focus";
 import { useAppTheme } from "@/theme";
@@ -27,6 +27,11 @@ interface AppSheetProps {
  * uses — supplies the focus return and Escape. Paper's own scrim label, which
  * `Dialog` has no prop to reach, `Modal` takes directly; the scrim relabel
  * rides along so the two containers stay on one behaviour.
+ *
+ * The content scrolls (#297): a sheet whose rows outgrow the window used to
+ * hang its top — the title and the search — past the screen edge, so the
+ * scrollable region is the sheet's body and the cap moves onto it. The handle
+ * stays fixed above it, and a short sheet hugs its content exactly as before.
  */
 export function AppSheet({
 	visible,
@@ -62,13 +67,12 @@ export function AppSheet({
 					paddingHorizontal: space.lg,
 					paddingTop: space.sm,
 					paddingBottom: space.lg,
-					maxHeight: height - space.xxl * 2,
 				}}
 			>
 				{/* The drag handle, decorative on purpose: it marks the surface as a
-				    sheet, and the dismissal is the scrim's — a 4dp control would
-				    undercut the touch floor, and the affordance it would duplicate is
-				    already a full-width target. */}
+			    sheet, and the dismissal is the scrim's — a 4dp control would
+			    undercut the touch floor, and the affordance it would duplicate is
+			    already a full-width target. */}
 				<View
 					style={{
 						width: space.xl,
@@ -79,7 +83,17 @@ export function AppSheet({
 						marginBottom: space.md,
 					}}
 				/>
-				{children}
+				{/* The cap the content container used to carry (#297): with the
+			    handle and the sheet's own padding outside it, the whole sheet
+			    still fits the window, and the rows scroll under the top edge
+			    instead of past it. `keyboardShouldPersistTaps` keeps a row tap
+			    on a search-plus-list sheet one tap, as `IconPicker` does. */}
+				<ScrollView
+					keyboardShouldPersistTaps="handled"
+					style={{ maxHeight: height - space.xxl * 2 }}
+				>
+					{children}
+				</ScrollView>
 			</Modal>
 		</Portal>
 	);
