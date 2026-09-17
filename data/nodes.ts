@@ -40,7 +40,7 @@ import {
 	toNode,
 	type Visibility,
 } from "@/models/node";
-import { doneSince, overviewLimit } from "@/models/overview";
+import { doneFetchLimit, doneSince, doneWithinDays } from "@/models/overview";
 
 /**
  * Every Firestore read and write that touches a node.
@@ -192,21 +192,32 @@ export function participatingPoolQuery(
 }
 
 /**
- * Q5 — everything shared that was completed inside the recent window.
+ * Q5 — everything shared that was completed inside the requested window.
  *
- * `completedAt` needs no lower-bound trick of its own: `null` sorts below every
- * timestamp, so the range excludes not-done nodes by itself. `now` is taken
- * when the query is built — at subscribe, and again on every retry — which is
- * the same instant the caller would have passed it.
+ * The window is the caller's: the widest any Done-mode card wants, from
+ * `doneWindow` — the query cannot read card config and must not guess. A card
+ * asking for 500 days gets 365: `useOverview` clamps before this is called.
+ * `completedAt` needs no lower-bound trick of its own: `null` sorts below
+ * every timestamp, so the range excludes not-done nodes by itself. `now` is
+ * taken when the query is built — at subscribe, and again on every retry —
+ * which is the same instant the caller would have passed it.
+ *
+ * The known cost: `limit` bounds the fetch and the card's own conditions
+ * filter **after** it, so a narrow done card can come back empty while its
+ * matches sit past row `doneFetchLimit`. The fetch budget is 100 rows per
+ * arm for exactly that reason; it is not a display bound.
  */
-export function sharedDoneQuery(homeId: string): Query<DocumentData> {
+export function sharedDoneQuery(
+	homeId: string,
+	days: number = doneWithinDays,
+): Query<DocumentData> {
 	return query(
 		nodesRef(homeId),
 		where("archived", "==", false),
 		where("visibility", "==", "shared"),
-		where("completedAt", ">=", doneSince(new Date())),
+		where("completedAt", ">=", doneSince(new Date(), days)),
 		orderBy("completedAt", "desc"),
-		limit(overviewLimit),
+		limit(doneFetchLimit),
 	);
 }
 
@@ -214,14 +225,15 @@ export function sharedDoneQuery(homeId: string): Query<DocumentData> {
 export function participatingDoneQuery(
 	homeId: string,
 	uid: string,
+	days: number = doneWithinDays,
 ): Query<DocumentData> {
 	return query(
 		nodesRef(homeId),
 		where("archived", "==", false),
 		where("participantIds", "array-contains", uid),
-		where("completedAt", ">=", doneSince(new Date())),
+		where("completedAt", ">=", doneSince(new Date(), days)),
 		orderBy("completedAt", "desc"),
-		limit(overviewLimit),
+		limit(doneFetchLimit),
 	);
 }
 

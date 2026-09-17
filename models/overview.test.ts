@@ -1,5 +1,11 @@
 import { defaultColumns, type Node } from "@/models/node";
-import { doneSince, doneWithinDays, hiddenByRoot } from "@/models/overview";
+import {
+	doneSince,
+	doneWindow,
+	doneWithinDays,
+	hiddenByRoot,
+	maxDoneWithinDays,
+} from "@/models/overview";
 
 /**
  * Pinned for the same reason `due-date.test.ts` pins it: Recently done's
@@ -72,6 +78,26 @@ describe("doneSince", () => {
 		expect(now.getTime() - doneSince(now).getTime()).toBe(
 			doneWithinDays * dayInMs,
 		);
+	});
+
+	it("reaches back the window it is given", () => {
+		expect(now.getTime() - doneSince(now, 100).getTime()).toBe(100 * dayInMs);
+	});
+});
+
+describe("doneWindow", () => {
+	it("is the widest window any card asks for", () => {
+		expect(doneWindow([30, 90])).toBe(90);
+	});
+
+	/** The ceiling the plan pins: a card asking for 500 gets 365. */
+	it("clamps a card asking for 500 days at the 365-day ceiling", () => {
+		expect(maxDoneWithinDays).toBe(365);
+		expect(doneWindow([500])).toBe(maxDoneWithinDays);
+	});
+
+	it("floors at the seed window when no done card asks for anything", () => {
+		expect(doneWindow([])).toBe(doneWithinDays);
 	});
 });
 

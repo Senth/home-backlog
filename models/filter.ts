@@ -12,7 +12,7 @@ import {
 	unresolvedBlockers,
 	type Visibility,
 } from "@/models/node";
-import { doneWithinDays } from "@/models/overview";
+import { doneWithinDays, maxDoneWithinDays } from "@/models/overview";
 
 const dayInMs = 24 * 60 * 60 * 1000;
 
@@ -74,13 +74,6 @@ export interface CardSort {
 	field: SortField;
 	direction: "asc" | "desc";
 }
-
-/**
- * The longest window a `completedAt` condition can ask about, whatever is
- * stored. A year is already past what a summary can answer for; anything
- * wider is a misread of "within", not a wider answer.
- */
-export const maxDoneWithinDays = 365;
 
 /**
  * Whether a card of `mode` may carry a condition on `field`. The modes split
