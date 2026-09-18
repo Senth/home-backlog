@@ -56,7 +56,7 @@ const fieldGlyphs: Record<FilterField, string> = {
 	createdVia: "source-branch",
 	notes: "pencil-outline",
 	photos: "image-outline",
-	checklist: "format-list-checklist",
+	checklist: "format-list-checks",
 	status: "list-status",
 };
 

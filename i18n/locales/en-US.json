@@ -408,10 +408,8 @@
 				"inLocation": "in {{location}}",
 				"completedAt": "Done within"
 			},
-			"completedAtLine": {
-				"one": "Done within {{count}} day",
-				"other": "Done within {{count}} days"
-			}
+			"completedAtLine_one": "Done within {{count}} day",
+			"completedAtLine_other": "Done within {{count}} days"
 		},
 		"more": "+{{count}} more",
 		"less": "Show less",
