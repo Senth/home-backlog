@@ -43,9 +43,11 @@ const nextKind = (kind) =>
  * a collection of the same id.
  */
 async function* surfaces() {
-	for (const doc of (await db.collectionGroup("config").get()).docs) {
+	// The collection id here is `dashboard`; `config` is the document's own id,
+	// so a collectionGroup("config") finds nothing at all.
+	for (const doc of (await db.collectionGroup("dashboard").get()).docs) {
 		const path = doc.ref.path.split("/");
-		if (path.length === 4 && path[0] === "users" && path[2] === "dashboard") {
+		if (path.length === 4 && path[0] === "users" && path[3] === "config") {
 			yield {
 				name: doc.ref.path,
 				ref: doc.ref,
