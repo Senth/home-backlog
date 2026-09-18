@@ -684,7 +684,11 @@ test.describe("at 200% text in sv-SE (#237)", () => {
 				valueBox?.width ?? 0,
 				`the value of "${name}" at 195px`,
 			).toBeGreaterThan(0);
+			// The chevron is a sibling of the row's pressable, never inside it —
+			// a real <button> may not contain another button (#237) — so it is
+			// scoped to the row container, the pressable's parent.
 			const chevron = await row
+				.locator("xpath=..")
 				.getByTestId(`field-${field}-${nodeId}-chevron`)
 				.boundingBox();
 			expect(

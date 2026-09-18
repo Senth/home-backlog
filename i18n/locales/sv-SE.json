@@ -408,7 +408,7 @@
 				"inLocation": "i {{location}}",
 				"completedAt": "Klart inom"
 			},
-			"completedAtLine_one": "Klart inom {{count}} dagar",
+			"completedAtLine_one": "Klart inom {{count}} dag",
 			"completedAtLine_other": "Klart inom {{count}} dagar"
 		},
 		"more": "+{{count}} till",
