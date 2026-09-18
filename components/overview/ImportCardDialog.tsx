@@ -4,14 +4,11 @@ import { ScrollView, useWindowDimensions, View } from "react-native";
 import { Button, HelperText, Text, TextInput } from "react-native-paper";
 import { fieldSpecs } from "@/components/overview/CardEditSheet";
 import { AppDialog } from "@/components/ui/AppDialog";
+import type { CardCondition, CardMode } from "@/models/filter";
 import type { Member } from "@/models/home";
 import type { Location } from "@/models/locations";
-import {
-	type Card,
-	type CardCondition,
-	type CardScope,
-	importCard,
-} from "@/models/overview-cards";
+import { doneWithinDays } from "@/models/overview";
+import { type Card, type CardScope, importCard } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
 import { space, touchTarget } from "@/theme/tokens";
 
@@ -121,7 +118,13 @@ export function ImportCardDialog({
 									variant="bodyMedium"
 									style={{ color: theme.colors.onSurfaceVariant }}
 								>
-									{conditionLine(condition, members, locations, t)}
+									{conditionLine(
+										condition,
+										decoded.kind,
+										members,
+										locations,
+										t,
+									)}
 								</Text>
 							))}
 						</View>
@@ -142,14 +145,23 @@ export function ImportCardDialog({
  */
 function conditionLine(
 	condition: CardCondition,
+	mode: CardMode,
 	members: readonly Member[],
 	locations: readonly Location[],
 	t: ReturnType<typeof useTranslation>["t"],
 ): string {
-	const spec = fieldSpecs(members, locations, t).find(
+	const spec = fieldSpecs(members, locations, t, mode).find(
 		(each) => each.field === condition.field,
 	);
 	const label = spec?.label ?? condition.field;
+
+	// The completed window names the whole line: "Klart inom 30 dagar" — the
+	// count is the condition's own `n`, the seed window when it carries none.
+	if (condition.field === "completedAt" && condition.is === "within") {
+		return t("overview.cards.completedAtLine", {
+			count: condition.n ?? doneWithinDays,
+		});
+	}
 
 	// The picker form: one "in <location>" per picked id, named by title —
 	// an id the home does not have prints as what it is, the rule member

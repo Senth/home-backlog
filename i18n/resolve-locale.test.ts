@@ -49,4 +49,31 @@ describe("locale files", () => {
 			expect(`${name}:${values.includes('""')}`).toBe(`${name}:false`);
 		}
 	});
+
+	// A plural nested as `{one, other}` resolves to an object, so `t()` prints
+	// its "returned an object instead of string" diagnostic on screen — here
+	// plurals travel as flat `_one`/`_other` suffixes, and nothing else catches
+	// a key shaped the other way.
+	it("carry no nested plural objects", () => {
+		const nested = (value: unknown, prefix: string): string[] =>
+			typeof value !== "object" || value === null
+				? []
+				: Object.entries(value).flatMap(([key, child]) => {
+						const path = prefix ? `${prefix}.${key}` : key;
+						if (
+							typeof child === "object" &&
+							child !== null &&
+							("one" in child || "other" in child)
+						) {
+							return [path];
+						}
+						return nested(child, path);
+					});
+		for (const [name, file] of [
+			["en-US", enUS],
+			["sv-SE", svSE],
+		] as const) {
+			expect(`${name}:${nested(file, "").join(",")}`).toBe(`${name}:`);
+		}
+	});
 });

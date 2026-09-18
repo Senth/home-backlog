@@ -239,6 +239,16 @@ const PAPER_INTERNALS: {
 const FAB_SELECTOR = '[data-testid="fab-container"]';
 
 /**
+ * Expo's dev fast-refresh bubble is bundler chrome: it slides into the page
+ * on its own schedule, so `stripDevToast` can run before it has arrived and
+ * a sweep that starts right after still catches its dark fill and border.
+ * None of the sweeps is allowed to report the dev server's UI, so each one
+ * skips the bubble's subtree outright. A literal here, not a module constant:
+ * the sweeps are serialized into the page by `page.evaluate`, which carries
+ * the function body and nothing around it.
+ */
+
+/**
  * The off-scale spacing sweep (claim 24). Every computed `padding*`,
  * `margin*` and `*Gap` must be a step in `space` by absolute value, a token
  * value, a named Paper internal, or the one value the spec's "derived at
@@ -246,6 +256,7 @@ const FAB_SELECTOR = '[data-testid="fab-container"]';
  * `measuredFABHeight + space.md * 2` (`Board.tsx`'s `fabBottom = space.md`
  * plus one `space.md` of daylight), which the caller folds into `allowed`.
  */
+
 function spacingSweep(args: {
 	allowed: number[];
 	paper: { value: number; css: string | null }[];
@@ -269,6 +280,7 @@ function spacingSweep(args: {
 		});
 
 	for (const element of Array.from(document.querySelectorAll("*"))) {
+		if (element.closest(".__expo_fast_refresh")) continue;
 		const style = window.getComputedStyle(element);
 		// Read as properties, not `getPropertyValue("paddingTop")`: the camel-
 		// case spelling returns "" from Chrome's computed style, and a sweep
@@ -339,6 +351,7 @@ function paletteSweep(args: { palette: string[] }): string[] {
 	};
 
 	for (const element of Array.from(document.querySelectorAll("*"))) {
+		if (element.closest(".__expo_fast_refresh")) continue;
 		const style = window.getComputedStyle(element);
 		const paintsText = Array.from(element.childNodes).some(
 			(node) =>
@@ -432,6 +445,7 @@ function alignmentSweep(args: { xs: number }): string[] {
 
 	const boxes: { rect: DOMRect; name: string; element: Element }[] = [];
 	for (const element of Array.from(document.querySelectorAll("*"))) {
+		if (element.closest(".__expo_fast_refresh")) continue;
 		if (!painted(element)) continue;
 		const rect = element.getBoundingClientRect();
 		if (rect.width === 0 || rect.height === 0) continue;
@@ -988,5 +1002,155 @@ test("31: the FAB spans no more than 60% of a 195px viewport, in this locale", a
 	expect(
 		failures,
 		`FAB width share at 195px (${testInfo.project.name})`,
+	).toEqual([]);
+});
+
+test("32: the board's filter pills center glyph, word and ✕ on one line", async ({
+	page,
+}, testInfo) => {
+	// The pill row renders only while a filter holds something back, so no
+	// per-route sweep above ever sees one — this sets one the way a person
+	// does, through the sheet. What it pins is the shape a browser-review
+	// round caught by eye: the chip's `minHeight` grows the box while Paper's
+	// content row keeps its natural ~32dp and sits at the top of it, which is
+	// how the glyphs once rode ~7dp above the absolutely-centered ✕. The
+	// label's line box (`pillText` in `BoardFilterChips`) is what carries the
+	// row's height now, on the icon pill and the word pill both — the two
+	// shapes the labels pill and the reach pill stand for.
+	//
+	// Two things the row's own height cannot see get their own measure. The
+	// content row is `touchTarget` tall *by construction of the line box*, so
+	// a glyph that un-centers inside that line box — a baseline shift — would
+	// pass a row-only check while looking exactly like the fixed bug; the
+	// deepest painted box under the row (the icon stack, the glyphs) is
+	// measured against the ✕ too. And the overflow count chip co-renders with
+	// the pills exactly in the 200%-Swedish state this component's docblock
+	// says it exists for, so it is held to the same floors and the shared
+	// center line at `phoneZoomed`, where the row always overflows.
+	const strings = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
+
+	await gotoAndSettle(page, BOARD);
+
+	await page.getByRole("button", { name: strings.board.filter.title }).click();
+	await page
+		.getByRole("button", { name: new RegExp(strings.board.filter.labels) })
+		.click();
+	await page.getByRole("checkbox").first().click();
+	// The labels row opened its picker over the sheet's root page, whose
+	// backdrop eats every press until it is gone — the picker's own footer
+	// *Done* (the later of the two footers) is what returns to the root.
+	await page.getByRole("button", { name: strings.common.done }).last().click();
+	// The reach pill is the word pill: no glyph, so the label's line box is
+	// the only thing centering it. The sheet edits the live filter — Done
+	// only dismisses — so the pills are already on the board when it closes.
+	await page
+		.getByRole("button", { name: strings.board.filter.everythingBelow })
+		.click();
+	await page.keyboard.press("Escape");
+
+	const floors = {
+		// A float step of slack on each floor: the original bug sat 7px off
+		// a 32dp content row, whole pixels away from both.
+		containerFloor: outlinedTouchTarget - 1,
+		pressableFloor: touchTarget - 1,
+	};
+
+	// One measure for both shapes. `rowCenter` set means "hold to the row's
+	// shared line" (the count chip, which has no ✕); null means "hold to the
+	// ✕" (the pills).
+	const measure = (selector: string, rowCenter: number | null) =>
+		page.evaluate(
+			({ selector, rowCenter, containerFloor, pressableFloor }) => {
+				const bad: string[] = [];
+				const center = (node: Element) => {
+					const box = node.getBoundingClientRect();
+					return box.top + box.height / 2;
+				};
+				// The center of what actually paints under a box: its deepest
+				// element, read through a Range so the box is the inline content —
+				// the icon stack, or the glyphs inside the line box — and not the
+				// line box the row's height already guarantees.
+				const ink = (row: Element) => {
+					let node: Element = row;
+					while (node.firstElementChild) node = node.firstElementChild;
+					const range = document.createRange();
+					range.selectNodeContents(node);
+					const box = range.getBoundingClientRect();
+					return box.height > 0 ? box.top + box.height / 2 : null;
+				};
+				for (const item of Array.from(document.querySelectorAll(selector))) {
+					const name = item.getAttribute("data-testid") ?? "pill";
+					const container = item.querySelector(
+						'[data-testid="chip-container"]',
+					);
+					const chip = container?.querySelector('[data-testid="chip"]');
+					const content = chip?.firstElementChild;
+					const close = container?.querySelector("button[aria-label]");
+					if (container === null || !chip || !content) {
+						bad.push(`${name}: chip or content row missing`);
+						continue;
+					}
+					const reference = rowCenter ?? (close ? center(close) : null);
+					if (reference === null) {
+						bad.push(`${name}: neither a ✕ nor a row line to hold to`);
+						continue;
+					}
+					const chipBox = container.getBoundingClientRect();
+					if (chipBox.height < containerFloor)
+						bad.push(
+							`${name}: the chip is ${chipBox.height}px, under the ${containerFloor}px target`,
+						);
+					const pressable = chip.getBoundingClientRect();
+					if (pressable.height < pressableFloor)
+						bad.push(
+							`${name}: the pressable is ${pressable.height}px, under the ${pressableFloor}px target`,
+						);
+					const drift = Math.abs(center(content) - reference);
+					if (drift > 1.5)
+						bad.push(
+							`${name}: content sits ${drift.toFixed(1)}px off its center line`,
+						);
+					const inkCenter = ink(content);
+					if (inkCenter === null) {
+						bad.push(`${name}: nothing painted to measure`);
+						continue;
+					}
+					const inkDrift = Math.abs(inkCenter - reference);
+					if (inkDrift > 1.5)
+						bad.push(
+							`${name}: the glyph stack sits ${inkDrift.toFixed(1)}px off its center line`,
+						);
+				}
+				return bad;
+			},
+			{ selector, rowCenter, ...floors },
+		);
+
+	const offenders = await measure('[data-testid^="board-filter-pill-"]', null);
+
+	// The count chip renders beside the pills only when the row overflows —
+	// guaranteed at 195px, the 200%-Swedish window. It has no ✕, so its center
+	// line is the row's own: the first pill's pressable.
+	await page.setViewportSize(VIEWPORTS.phoneZoomed);
+	await page.getByTestId("board-filter-count").waitFor();
+	const rowCenter = await page.evaluate(() => {
+		const box = document
+			.querySelector('[data-testid^="board-filter-pill-"] [data-testid="chip"]')
+			?.getBoundingClientRect();
+		return box ? box.top + box.height / 2 : null;
+	});
+	expect(
+		rowCenter,
+		`no pill to hold the count chip's line against (${testInfo.project.name})`,
+	).not.toBeNull();
+
+	const countOffenders = await measure(
+		'[data-testid="board-filter-count"]',
+		rowCenter,
+	);
+
+	expect(
+		[...offenders, ...countOffenders],
+		`filter pill centering (${testInfo.project.name})`,
 	).toEqual([]);
 });

@@ -8,6 +8,11 @@ import { newNodeData } from "@/models/node";
 
 jest.mock("@/config/firebase", () => ({ db: {} }));
 
+jest.mock("@/models/overview", () => ({
+	doneSince: jest.fn((_now: Date, days: number) => `doneSince(${days})`),
+	doneFetchLimit: 100,
+}));
+
 jest.mock("firebase/firestore", () => ({
 	collection: jest.fn(() => ({})),
 	doc: jest.fn((...args: unknown[]) => ({
@@ -32,6 +37,7 @@ jest.mock("firebase/firestore", () => ({
 import {
 	getDocs,
 	getDocsFromServer,
+	limit,
 	updateDoc,
 	where,
 	writeBatch,
@@ -40,9 +46,12 @@ import {
 	addToSharedRoots,
 	applyLabel,
 	moveErrorKey,
+	participatingDoneQuery,
 	removeLabel,
 	reparentNode,
+	sharedDoneQuery,
 } from "@/data/nodes";
+import { doneFetchLimit, doneSince } from "@/models/overview";
 
 beforeEach(() => {
 	jest.clearAllMocks();
@@ -244,5 +253,27 @@ describe("the label writes", () => {
 				updatedAt: "server-timestamp",
 			},
 		);
+	});
+});
+
+describe("the done queries", () => {
+	it("bounds the fetch at the fetch limit and asks the window it is given", () => {
+		sharedDoneQuery("home-1", 365);
+
+		expect(jest.mocked(limit)).toHaveBeenLastCalledWith(doneFetchLimit);
+		expect(jest.mocked(doneSince)).toHaveBeenLastCalledWith(
+			expect.any(Date),
+			365,
+		);
+	});
+
+	it("carries the window through the participating arm unchanged", () => {
+		participatingDoneQuery("home-1", "uid-me", 90);
+
+		expect(jest.mocked(doneSince)).toHaveBeenLastCalledWith(
+			expect.any(Date),
+			90,
+		);
+		expect(jest.mocked(limit)).toHaveBeenLastCalledWith(doneFetchLimit);
 	});
 });

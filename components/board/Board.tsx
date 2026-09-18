@@ -13,6 +13,7 @@ import {
 import { BlockerWatcher } from "@/components/board/BlockerWatcher";
 import { BoardCard } from "@/components/board/BoardCard";
 import { BoardColumn } from "@/components/board/BoardColumn";
+import { BoardFilterChips } from "@/components/board/BoardFilterChips";
 import { boardHref, detailsHref } from "@/components/board/board-href";
 import { CardMenu, type Notice } from "@/components/board/CardMenu";
 import { ColumnStrip } from "@/components/board/ColumnStrip";
@@ -23,18 +24,33 @@ import {
 	type ColumnDrag,
 	useBoardDrag,
 } from "@/components/board/use-board-drag";
+import { fieldSpecs } from "@/components/overview/CardEditSheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { createNode } from "@/data/nodes";
+import { useLabelAncestors } from "@/hooks/use-label-ancestors";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import type { BoardFilter, BoardReach } from "@/models/board-filter";
+import {
+	type CardCondition,
+	type MatchContext,
+	matchesConditions,
+} from "@/models/filter";
+import { membersOf } from "@/models/home";
+import type { LabelWithId } from "@/models/label";
+import type { Location } from "@/models/locations";
 import {
 	crossBoardBlockerIds,
+	type EffectiveLocation,
+	effectiveLocation,
 	hasSteps,
 	type Node,
 	rankAtEnd,
 	type Status,
+	siblingsOf,
 	visibleColumns,
 } from "@/models/node";
+import { doneWithinDays } from "@/models/overview";
 import { useAppTheme } from "@/theme";
 import {
 	cardGutterBreakpoint,
@@ -85,13 +101,37 @@ interface BoardProps {
 	 */
 	ancestorLabelIds?: readonly string[];
 	/**
-	 * The nearest place the board's own chain passes down (#290) — the board
-	 * node itself first, then its ancestors, resolved once by the screen.
-	 * See `BoardCard`.
+	 * The nearest place the board's own chain passes down (#290), as the whole
+	 * answer — which place, and its own path — so the filter's "in or under"
+	 * can read an inherited place exactly as the card face draws it. See
+	 * `effectiveLocation`.
 	 */
-	ancestorLocationId?: string | null;
+	ancestorLocation?: EffectiveLocation | null;
 	/** Location id → title, the leaf. See `BoardCard`. */
 	locations?: ReadonlyMap<string, string>;
+	/**
+	 * The home's stored filter (#62), whose conditions hold back the cards
+	 * that do not answer to them. The pills row and the three empty states
+	 * read the same prop; the pickers live in the screen above.
+	 */
+	filter?: BoardFilter | null;
+	/** Writes the filter — a pill's ✕, and the empty state's clear button. */
+	onChangeFilter?: (next: BoardFilter | null) => void;
+	/** Opens the filter sheet, which the screen above owns. */
+	onOpenFilter?: () => void;
+	/**
+	 * How wide the filter looks (D2): this board's children, or everything
+	 * below it. Subtree reach turns the drag off — a card from two levels down
+	 * has no neighbour on *this* board to swap ranks with — and bounds the
+	 * Done column, which says so.
+	 */
+	reach?: BoardReach;
+	/**
+	 * Everything the open listeners hold, unordered — the pool the subtree
+	 * cards' ancestor chains resolve against. Defaults to `nodes`, which is
+	 * the whole answer in this-board reach.
+	 */
+	pool?: Node[];
 }
 
 /**
@@ -128,8 +168,13 @@ export function Board({
 	onRetry,
 	hidden = noneHidden,
 	ancestorLabelIds,
-	ancestorLocationId,
-	locations,
+	ancestorLocation,
+	locations = noLocationTitles,
+	filter = null,
+	onChangeFilter,
+	onOpenFilter,
+	reach = "board",
+	pool,
 }: BoardProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
@@ -203,12 +248,115 @@ export function Board({
 		return map;
 	}, [nodes, watched]);
 
+	/**
+	 * Every card the board holds: what the listeners delivered, minus what the
+	 * participant preference hides. The stored filter's conditions select from
+	 * *this* list, so the two lenses stack — a hidden-by-default project that
+	 * matches the filter is still hidden by the preference, and a condition
+	 * can never surface a card the household has chosen not to see.
+	 */
+	const universe = useMemo(() => [...nodes, ...hidden], [nodes, hidden]);
+	const held = pool ?? nodes;
+
+	const conditions = filter?.conditions ?? noConditions;
+	const ancestorLocationId = ancestorLocation?.locationId ?? null;
+
+	// Subtree reach: the ancestor chains the cards answer through, resolved by
+	// id out of the pool (#100) — a card three levels down inherits from two
+	// nodes no board-chain prop can name. Resolved once for the whole board;
+	// ids the pool holds come straight from it, and the rest are cached reads.
+	const ancestorIdList = useMemo(
+		() =>
+			reach === "subtree"
+				? [...new Set(held.flatMap((node) => node.ancestorIds))]
+				: noLabelIds,
+		[reach, held],
+	);
+	const ancestorsById = useLabelAncestors(homeId, ancestorIdList, held);
+
+	// The label ids each card answers to, for the filter's `labelIds`
+	// condition. This-board reach: the board's inherited chain (#100), which is
+	// the whole inheritance a card here has. Subtree reach: the card's own
+	// trail, resolved per card. Empty until a filter asks.
+	const filterLabelIds = useMemo(() => {
+		const map = new Map<string, readonly string[]>();
+		if (conditions.length === 0) return map;
+		for (const node of universe) {
+			const inherited =
+				reach === "subtree"
+					? node.ancestorIds.flatMap(
+							(id) => ancestorsById.get(id)?.labelIds ?? [],
+						)
+					: (ancestorLabelIds ?? noLabelIds);
+			map.set(node.id, [...new Set([...inherited, ...node.labelIds])]);
+		}
+		return map;
+	}, [conditions, universe, reach, ancestorsById, ancestorLabelIds]);
+
+	// The place each card answers to, for `locationId` "in or under". This-board
+	// reach: its own, or the board's chain (#290), which every card here shares.
+	// Subtree reach: the card's own trail, resolved per card. Empty until a
+	// filter asks.
+	const filterLocations = useMemo(() => {
+		const map = new Map<string, EffectiveLocation | null>();
+		if (conditions.length === 0) return map;
+		for (const node of universe) {
+			map.set(
+				node.id,
+				reach === "subtree"
+					? effectiveLocation(
+							node,
+							node.ancestorIds.map((id) => ancestorsById.get(id) ?? null),
+						)
+					: node.locationId !== null
+						? {
+								locationId: node.locationId,
+								locationAncestorIds: node.locationAncestorIds,
+							}
+						: (ancestorLocation ?? null),
+			);
+		}
+		return map;
+	}, [conditions, universe, reach, ancestorsById, ancestorLocation]);
+
+	// The clock is read in the render body, not inside the memo: a board left
+	// open re-renders without any of the memo's inputs changing, and a memoized
+	// `now` would keep filtering against the moment it last changed — past a
+	// window boundary until some unrelated prop moved it.
+	const now = new Date();
+	const matchCtx = useMemo<MatchContext | null>(() => {
+		if (conditions.length === 0) return null;
+		return {
+			uid: user?.uid ?? "",
+			now,
+			blockers,
+			labels: filterLabelIds,
+			locations: filterLocations,
+		};
+	}, [conditions, user, blockers, filterLabelIds, filterLocations, now]);
+
+	/**
+	 * What the columns draw. The conditions filter **after** the participant
+	 * preference and never write anything — a held-back card is on the board,
+	 * and the pills row is what says so.
+	 */
+	const shownNodes = useMemo(
+		() =>
+			matchCtx === null
+				? universe
+				: universe.filter((node) =>
+						matchesConditions(node, conditions, matchCtx),
+					),
+		[universe, matchCtx, conditions],
+	);
+	const filterActive = conditions.length > 0;
+
 	// The frozen set, plus a column for any status that is on this board but not
 	// in it. A card that exists is visible somewhere — including one the filter
 	// is holding back, which would otherwise have no column to be counted in.
 	const shown = useMemo(
-		() => visibleColumns(columns, [...nodes, ...hidden]),
-		[columns, nodes, hidden],
+		() => visibleColumns(columns, universe),
+		[columns, universe],
 	);
 	const compact = boardWidth > 0 && boardWidth < compactBreakpoint;
 	/**
@@ -248,33 +396,46 @@ export function Board({
 	const column = Math.min(current, shown.length - 1);
 	const onScreen: Status | undefined = shown[column];
 
+	// Subtree reach turns the drag off: a card from two levels down has no
+	// neighbour on this board to swap ranks with, so a lift could promise a
+	// reorder the board cannot name. The hook stays mounted — hooks do not
+	// branch — but nothing is handed a gesture, and no column is handed a drag.
+	const dragEnabled = reach === "board";
+
 	const drag = useBoardDrag({
 		homeId,
-		nodes,
+		nodes: shownNodes,
 		shown,
 		onNotice: setNotice,
 		// Only below the breakpoint: above it every column is already on screen,
 		// so there is nowhere for an edge hold to walk to. The pane it sets is the
 		// same state a chip tap sets — deliberate input, never read back from a
 		// scroll position — so the board simply stays where the drag left it.
-		pane: compact
-			? { index: column, count: shown.length, onChange: setCurrent }
-			: undefined,
+		pane:
+			dragEnabled && compact
+				? { index: column, count: shown.length, onChange: setCurrent }
+				: undefined,
 	});
 
 	// The frozen order while a card is up, the live one otherwise. A board is two
 	// listeners, and a card arriving mid-drag would move the gap out from under
-	// the finger.
+	// the finger. In subtree reach the hook holds nothing — the drawn list is
+	// the answer.
 	const cardsIn = (status: Status) =>
-		drag.cards.filter((node) => node.status === status);
+		(dragEnabled ? drag.cards : shownNodes).filter(
+			(node) => node.status === status,
+		);
 
-	const columnDrag = (status: Status): ColumnDrag => ({
-		node: drag.node,
-		gapAt: drag.over?.status === status ? drag.over.index : null,
-		gapHeight: drag.overlay?.height ?? space.none,
-		register: drag.register,
-		handlers: drag.handlers,
-	});
+	const columnDrag = (status: Status): ColumnDrag | undefined =>
+		dragEnabled
+			? {
+					node: drag.node,
+					gapAt: drag.over?.status === status ? drag.over.index : null,
+					gapHeight: drag.overlay?.height ?? space.none,
+					register: drag.register,
+					handlers: drag.handlers,
+				}
+			: undefined;
 
 	const hiddenIn = (status: Status) =>
 		hidden.filter((node) => node.status === status).length;
@@ -287,7 +448,14 @@ export function Board({
 	const add = (title: string) => {
 		if (user === null || adding === null) return;
 
-		const last = cardsIn(adding).at(-1)?.rank ?? null;
+		// The real sibling set, not the filtered column (#90): the last card a
+		// filter is holding back still owns the end of the column, and a new
+		// card lands after it — where the next unhide finds it, not stacked on
+		// top of it.
+		const last =
+			siblingsOf(universe, parent?.id ?? null)
+				.filter((card) => card.status === adding)
+				.at(-1)?.rank ?? null;
 		createNode(homeId, user.uid, {
 			title,
 			rank: rankAtEnd(last),
@@ -322,11 +490,28 @@ export function Board({
 			parent={parent}
 			columns={columns}
 			nodes={nodes}
+			hidden={hidden}
 			blockers={blockers}
 			onNotice={setNotice}
 			// The only way in for a card that *is* a board, where a tap drills in.
 			onDetails={() => router.push(detailsHref(node.id))}
 		/>
+	);
+
+	const members = useMemo(
+		() => (activeHome === null ? [] : membersOf(activeHome)),
+		[activeHome],
+	);
+	// The home's label definitions, for the pills' glyphs. Not a listener —
+	// they ride the homes listener the context already holds.
+	const homeLabels = activeHome?.labels ?? noLabels;
+
+	const filterSet =
+		filter !== null &&
+		(filter.conditions.length > 0 || filter.reach === "subtree");
+	const clearFilters = useCallback(
+		() => onChangeFilter?.(null),
+		[onChangeFilter],
 	);
 
 	return (
@@ -336,6 +521,24 @@ export function Board({
 			style={{ flex: 1 }}
 			onLayout={(event) => setBoardWidth(event.nativeEvent.layout.width)}
 		>
+			{/* The pills, only while the filter holds something back — the glanceable
+			    answer to "why am I not seeing everything". */}
+			{filterSet && filter !== null && onChangeFilter !== undefined ? (
+				<BoardFilterChips
+					filter={filter}
+					onChange={onChangeFilter}
+					onOpen={() => onOpenFilter?.()}
+					specs={fieldSpecs(members, noLocations, t, "open")}
+					ctx={{
+						uid: user?.uid ?? "",
+						members,
+						labels: homeLabels,
+						locationTitles: locations,
+						surface: theme.colors.background,
+					}}
+				/>
+			) : null}
+
 			{loading ? (
 				<ActivityIndicator
 					accessibilityLabel={t("common.loading")}
@@ -374,8 +577,12 @@ export function Board({
 			) : null}
 
 			{/* Not while `failed`: "add the first card" and "could not load" are
-			    contradictory instructions, and only one of them is true. */}
-			{!loading && !failed && nodes.length === 0 ? (
+			    contradictory instructions, and only one of them is true.
+
+			    With a filter on and nothing left on the board, the one board-level
+			    state replaces the four column-level ones (Q4): the sentence names
+			    the filter, and the way out is a tap away. */}
+			{!loading && !failed && shownNodes.length === 0 && !filterActive ? (
 				<Text
 					variant="bodyLarge"
 					style={{
@@ -388,11 +595,42 @@ export function Board({
 					{t(hidden.length > 0 ? "board.allHidden" : "board.empty")}
 				</Text>
 			) : null}
+			{!loading && !failed && shownNodes.length === 0 && filterActive ? (
+				<View
+					style={{
+						gap: space.md,
+						alignItems: "center",
+						paddingHorizontal: space.md,
+						paddingBottom: space.md,
+					}}
+					testID="board-filter-empty"
+				>
+					<Text
+						variant="bodyLarge"
+						style={{
+							color: theme.colors.onSurfaceVariant,
+							textAlign: "center",
+						}}
+					>
+						{t("board.filterEmpty")}
+					</Text>
+					<Button
+						mode="outlined"
+						onPress={clearFilters}
+						contentStyle={{ minHeight: touchTarget }}
+					>
+						{t("board.clearFilters")}
+					</Button>
+				</View>
+			) : null}
 
 			{/* Not while `loading`: an empty column strip under the spinner is the
 			    "empty board before the data arrives" of #266, and the first launch
-			    is exactly the launch the cache has nothing for. */}
-			{loading || boardWidth === 0 ? null : compact ? (
+			    is exactly the launch the cache has nothing for. Nor while a filter
+			    holds every card back: the board-level state above is the answer. */}
+			{loading ||
+			boardWidth === 0 ||
+			(filterActive && shownNodes.length === 0) ? null : compact ? (
 				<>
 					<ColumnStrip
 						columns={shown}
@@ -452,6 +690,9 @@ export function Board({
 									narrow={narrow}
 									bottomInset={fabInset}
 									hiddenCount={visible ? hiddenIn(status) : undefined}
+									doneWindowDays={
+										reach === "subtree" ? doneWithinDays : undefined
+									}
 									onAdd={() => setAdding(status)}
 									onOpen={open}
 									renderMenu={menu}
@@ -488,6 +729,7 @@ export function Board({
 							wide
 							narrow={narrow}
 							hiddenCount={hiddenIn(status)}
+							doneWindowDays={reach === "subtree" ? doneWithinDays : undefined}
 							onAdd={() => setAdding(status)}
 							onOpen={open}
 							renderMenu={menu}
@@ -602,7 +844,10 @@ export function Board({
 			    The height does not change, so the measured inset below keeps its
 			    arithmetic — a taller box here would be a second, silent change to
 			    the pane's bottom padding. */}
-			{compact && !loading && onScreen !== undefined ? (
+			{compact &&
+			!loading &&
+			onScreen !== undefined &&
+			!(filterActive && shownNodes.length === 0) ? (
 				<FAB
 					icon={boardWidth < denseBreakpoint ? undefined : "plus"}
 					label={t("board.addTo", { column: t(`status.${onScreen}`) })}
@@ -689,6 +934,11 @@ const offScreenPane = {
 } as const;
 
 const noCards: Node[] = [];
+const noLabelIds: string[] = [];
+const noConditions: CardCondition[] = [];
+const noLabels: LabelWithId[] = [];
+const noLocations: Location[] = [];
+const noLocationTitles: ReadonlyMap<string, string> = new Map();
 
 /** The lifted card is a picture of a card; the tap belongs to the one it left. */
 const noop = () => {};

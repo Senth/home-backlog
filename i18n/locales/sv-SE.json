@@ -13,7 +13,8 @@
 		"retry": "Försök igen",
 		"signOut": "Logga ut",
 		"undo": "Ångra",
-		"done": "Klar"
+		"done": "Klar",
+		"clear": "Rensa"
 	},
 	"account": {
 		"labelFor": "Konto: {{name}}",
@@ -209,9 +210,9 @@
 		"up": "En nivå upp",
 		"empty": "Inget här ännu. Lägg till första kortet.",
 		"loadFailed": "Kunde inte ladda den här tavlan. Kontrollera din anslutning.",
-		"allHidden": "Allt här är någons eget projekt. Slå på ”Visa projekt som är dolda på min tavla” för att se dem.",
-		"hiddenHere_one": "1 till här är någons eget projekt. Slå på ”{{action}}” för att se det.",
-		"hiddenHere_other": "{{count}} till här är någons egna projekt. Slå på ”{{action}}” för att se dem.",
+		"allHidden": "Allt här är någons eget projekt. Öppna filtret för att se det.",
+		"hiddenHere_one": "1 till här är någons eget projekt. Öppna filtret för att se det.",
+		"hiddenHere_other": "{{count}} fler här är någons egna projekt. Öppna filtret för att se dem.",
 		"columnEmpty": "Inget här",
 		"columnChip": "{{column}} · {{count}}",
 		"columnChipA11y_one": "{{column}}, {{count}} kort",
@@ -266,7 +267,28 @@
 		"assignedTo_one": "{{names}} gör det här",
 		"assignedTo_other": "{{names}} gör det här",
 		"boardActions": "Tavlans åtgärder",
-		"showEveryone": "Visa projekt som är dolda på min tavla"
+		"showEveryone": "Visa projekt som är dolda på min tavla",
+		"filterEmpty": "Inga kort här matchar ditt filter.",
+		"clearFilters": "Rensa filtret",
+		"filter": {
+			"title": "Filter",
+			"thisBoard": "Den här tavlan",
+			"everythingBelow": "Allt längre ner",
+			"thisBoardDescription": "Bara korten som ligger direkt på den här tavlan.",
+			"everythingBelowDescription": "Också korten som ligger på tavlor under den här.",
+			"reach": "Räckvidd",
+			"clearAll": "Rensa allt",
+			"labels": "Etikett",
+			"labelsInherited": "Matchar även etiketter som kortet ärver från projektet ovanför.",
+			"removeFilter": "Ta bort filtret {{what}}",
+			"countA11y_one": "{{count}} filter är satt",
+			"countA11y_other": "{{count}} filter är satta",
+			"search": "Sök",
+			"empty": "Inget att välja bland än.",
+			"searchEmpty": "Inga träffar"
+		},
+		"doneWindow_one": "Klart den senaste {{count}} dagen",
+		"doneWindow_other": "Klart de senaste {{count}} dagarna"
 	},
 	"overview": {
 		"ongoing": {
@@ -304,9 +326,18 @@
 				"scope": {
 					"global": "Alla hem",
 					"home": "Hem",
-					"shared": "Alla här"
+					"shared": "Alla här",
+					"globalDescription": "Kortet följer med till alla dina hem.",
+					"homeDescription": "Kortet syns bara i det här hemmet, och bara för dig.",
+					"sharedDescription": "Kortet syns för alla i hemmet."
 				},
-				"hiddenBadge": "Dold"
+				"hiddenBadge": "Dold",
+				"mode": {
+					"open": "Ej klara",
+					"done": "Färdiga",
+					"openDescription": "Kort som ingen har bockat av än.",
+					"doneDescription": "Kort som är avbockade, senast först."
+				}
 			},
 			"menu": {
 				"edit": "Redigera",
@@ -327,7 +358,8 @@
 				"more": "Fler",
 				"fewer": "Färre",
 				"withinDays": "Dagar framåt",
-				"followsDefault": "Använder sitt standardnamn. Skriv för att ge den ett eget."
+				"followsDefault": "Använder sitt standardnamn. Skriv för att ge den ett eget.",
+				"daysBack": "Dagar bakåt"
 			},
 			"due": {
 				"comingUp": "Blir aktuellt",
@@ -373,8 +405,11 @@
 				"checklist": "Checklista",
 				"withChecklist": "Har en checklista",
 				"noChecklist": "Utan checklista",
-				"inLocation": "i {{location}}"
-			}
+				"inLocation": "i {{location}}",
+				"completedAt": "Klart inom"
+			},
+			"completedAtLine_one": "Klart inom {{count}} dag",
+			"completedAtLine_other": "Klart inom {{count}} dagar"
 		},
 		"more": "+{{count}} till",
 		"less": "Visa färre",

@@ -11,18 +11,37 @@ import {
 	Text,
 	TextInput,
 } from "react-native-paper";
+import {
+	BoardFilterRow,
+	type FilterContext,
+	fieldPickerItems,
+	pickerConditionFromIds,
+	pickerValueFor,
+} from "@/components/board/BoardFilterRow";
 import { AppDialog } from "@/components/ui/AppDialog";
+import { CheckListPicker } from "@/components/ui/CheckListPicker";
+import { useAuth } from "@/contexts/AuthContext";
 import { soonInDays } from "@/models/due-date";
+import {
+	type CardCondition,
+	type CardMode,
+	type CardSort,
+	conditionCarriedBy,
+	type SortField,
+	sortCarriedBy,
+} from "@/models/filter";
 import type { Member } from "@/models/home";
 import type { Location } from "@/models/locations";
 import { titleError } from "@/models/node";
-import { overviewLimit, rowsPerSection } from "@/models/overview";
+import {
+	doneWithinDays,
+	maxDoneWithinDays,
+	overviewLimit,
+	rowsPerSection,
+} from "@/models/overview";
 import {
 	type Card,
-	type CardCondition,
-	type CardSort,
 	conditionForField,
-	type SortField,
 	seedTitleKeys,
 	withCondition,
 } from "@/models/overview-cards";
@@ -45,10 +64,12 @@ import {
  * to be precise, and it is: the labels here name fields, which is exactly
  * what the read screen must never do.
  *
- * The scope choice is the one `SegmentedButtons` on the surface, per the
- * spec's own call — three plain words, not a query-builder control. A
- * `completed` card has no conditions and no sort — its rows are the done
- * pair's, not a filter — so those two groups stay hidden for it.
+ * The mode is the first and loudest choice, because it decides which fields
+ * exist below it: a done card has no *Status*, *Due* or *Waiting* group to
+ * offer, and an open card has no *Done within*. Under each segmented control
+ * a quiet sentence says what the choice means, so the two read as two
+ * decisions rather than one five-way one. A **blank** card moved to done
+ * becomes the Recently done card (#229) — one tap is the whole configuration.
  *
  * The field vocabulary is one list, `fieldSpecs`, and the import preview
  * reads its words from the same list: a condition says what the chips would
@@ -82,13 +103,18 @@ export interface FieldSpec {
  * render, with the words each of their values reads as. The one vocabulary:
  * the sheet's chips, the "Coming up" window and the import preview's
  * condition lines are all read from here.
+ *
+ * The mode filters the list — a question the card's mode cannot ask is no
+ * chip at all, which is what makes the mode decide which fields exist below
+ * it rather than which chips sit disabled among the rest.
  */
 export function fieldSpecs(
 	members: readonly Member[],
 	locations: readonly Location[],
 	t: Translate,
+	mode: CardMode,
 ): FieldSpec[] {
-	return [
+	const specs: FieldSpec[] = [
 		{
 			field: "status",
 			label: t("overview.cards.field.status"),
@@ -129,6 +155,14 @@ export function fieldSpecs(
 				value: due,
 				label: t(`overview.cards.due.${due}`),
 			})),
+		},
+		{
+			field: "completedAt",
+			label: t("overview.cards.field.completedAt"),
+			kind: "is",
+			// The window itself is the group's one value, rendered by
+			// `CompletedWithin` — a plain chip row has nothing to offer here.
+			values: [],
 		},
 		{
 			field: "isRoot",
@@ -241,6 +275,7 @@ export function fieldSpecs(
 			],
 		},
 	];
+	return specs.filter((spec) => conditionCarriedBy(mode, spec.field));
 }
 
 interface CardEditSheetProps {
@@ -259,7 +294,7 @@ interface CardEditSheetProps {
 
 const newCard = (): Card => ({
 	id: "",
-	kind: "filter",
+	kind: "open",
 	seedId: null,
 	title: "",
 	conditions: [],
@@ -270,6 +305,63 @@ const newCard = (): Card => ({
 	rank: "",
 });
 
+/**
+ * The draft after the mode selector moved. Conditions the mode cannot carry
+ * drop whole — a done card cannot ask about *Status*, *Due* or *Waiting*, and
+ * an open card has no completion to ask about.
+ *
+ * A **blank** card moved to done becomes the Recently done card (#229): one
+ * tap on *Färdiga* is the whole configuration, the same shape the seed
+ * carries. Moved back to open with nothing left on it, the card returns to a
+ * fresh one — the completion condition cannot follow, and the empty state
+ * goes back to the sentence a card with no configuration carries.
+ */
+function withMode(draft: Card, mode: CardMode): Card {
+	const conditions = draft.conditions.filter((condition) =>
+		conditionCarriedBy(mode, condition.field),
+	);
+
+	if (
+		mode === "done" &&
+		conditions.length === 0 &&
+		draft.sort === null &&
+		draft.empty.mode !== "hide"
+	) {
+		return {
+			...draft,
+			kind: mode,
+			conditions: [{ field: "completedAt", is: "within" }],
+			sort: { field: "completedAt", direction: "desc" },
+			empty: { mode: "hide" },
+		};
+	}
+	if (
+		mode === "open" &&
+		conditions.length === 0 &&
+		draft.empty.mode === "hide"
+	) {
+		return {
+			...draft,
+			kind: mode,
+			conditions,
+			sort: null,
+			empty: { mode: "say", key: "overview.cards.empty.generic" },
+		};
+	}
+
+	const carried =
+		draft.sort !== null && sortCarriedBy(mode, draft.sort.field)
+			? draft.sort
+			: null;
+	// Done mode offers no sort control, so a card that moves there without one
+	// cannot pick the order its own description promises — default it here.
+	const sort: CardSort | null =
+		mode === "done" && carried === null
+			? { field: "completedAt", direction: "desc" }
+			: carried;
+	return { ...draft, kind: mode, conditions, sort };
+}
+
 /** The sort a fresh card offers first, and the label each field reads as. */
 const SORT_FIELDS = ["dueDate", "priority", "effort", "status"] as const;
 
@@ -278,8 +370,9 @@ const SORT_LABELS: Record<SortField, string> = {
 	priority: "detail.priority",
 	effort: "detail.effort",
 	status: "overview.cards.field.status",
-	// The completed card sorts by completion, and its sheet hides the sort
-	// group — the label exists only so the map is honest about every field.
+	// The sort group is an open-card group — a done card's newest-first order
+	// rides on its `completedAt` condition — so this label exists only so the
+	// map is honest about every field.
 	completedAt: "overview.cards.sort.completedAt",
 };
 
@@ -294,6 +387,9 @@ export function CardEditSheet({
 }: CardEditSheetProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
+	// Read above the dialog's portal, which renders outside `AuthProvider`
+	// — the same shape `BoardFilterSheet` uses for the same reason.
+	const { user } = useAuth();
 
 	const [draft, setDraft] = useState<Card>(() => card ?? newCard());
 	const [scope, setScope] = useState(initialScope);
@@ -316,10 +412,9 @@ export function CardEditSheet({
 		}
 	}
 
-	const setConditions = (next: CardCondition | null) =>
-		setDraft({ ...draft, conditions: withCondition(draft.conditions, next) });
+	const setMode = (mode: CardMode) => setDraft(withMode(draft, mode));
 
-	const fields = fieldSpecs(members, locations, t);
+	const fields = fieldSpecs(members, locations, t, draft.kind);
 
 	// The clamp lives on the way out rather than in the stepper, so a held
 	// count can be raised above the shown one without the shown one chasing it
@@ -383,15 +478,29 @@ export function CardEditSheet({
 			]}
 		>
 			<SheetBody
+				uid={user?.uid ?? ""}
 				draft={draft}
 				scope={scope}
 				fields={fields}
+				members={members}
+				locations={locations}
 				field={field}
 				sortOpen={sortOpen}
 				titleProblem={titleProblem}
+				onMode={setMode}
 				onScope={setScope}
 				onField={setField}
-				onConditions={setConditions}
+				onFieldCondition={(target, next) =>
+					setDraft({
+						...draft,
+						conditions:
+							next === null
+								? draft.conditions.filter(
+										(condition) => condition.field !== target,
+									)
+								: withCondition(draft.conditions, next),
+					})
+				}
 				onSortOpen={setSortOpen}
 				onSort={(sort) => setDraft({ ...draft, sort })}
 				onTitle={(title) => {
@@ -406,15 +515,29 @@ export function CardEditSheet({
 }
 
 interface SheetBodyProps {
+	/** The reader's uid, read above the portal — the rows' own "me" value. */
+	uid: string;
 	draft: Card;
 	scope: "global" | "home" | "shared";
 	fields: FieldSpec[];
+	/** The home's members and places, for the rows' avatars and word values. */
+	members: readonly Member[];
+	locations: readonly Location[];
 	field: CardCondition["field"] | null;
 	sortOpen: boolean;
 	titleProblem: string | null;
+	onMode: (mode: CardMode) => void;
 	onScope: (scope: "global" | "home" | "shared") => void;
 	onField: (field: CardCondition["field"] | null) => void;
-	onConditions: (next: CardCondition | null) => void;
+	/**
+	 * Writes one field's condition, clearing that field whole with `null` —
+	 * the rows' ✕ and the pickers' empty selections are per-field, where
+	 * `withCondition(conditions, null)` would empty every field at once.
+	 */
+	onFieldCondition: (
+		target: CardCondition["field"],
+		next: CardCondition | null,
+	) => void;
 	onSortOpen: (open: boolean) => void;
 	onSort: (sort: Card["sort"]) => void;
 	onTitle: (title: string) => void;
@@ -424,19 +547,23 @@ interface SheetBodyProps {
 
 /**
  * The form itself, inside the dialog's scrolling content. One group per row:
- * the title, the scope, the conditions and their one open field, the sort,
- * and the two row budgets.
+ * the mode and its sentence, the scope and its sentence, the title, the
+ * conditions and their one open field, the sort, and the two row budgets.
  */
 function SheetBody({
+	uid,
 	draft,
 	scope,
 	fields,
+	members,
+	locations,
 	field,
 	sortOpen,
 	titleProblem,
+	onMode,
 	onScope,
 	onField,
-	onConditions,
+	onFieldCondition,
 	onSortOpen,
 	onSort,
 	onTitle,
@@ -447,164 +574,210 @@ function SheetBody({
 	const theme = useAppTheme();
 	const { height } = useWindowDimensions();
 
+	const fieldsCtx: FilterContext = {
+		uid,
+		members,
+		labels: [],
+		locationTitles: new Map(locations.map((l) => [l.id, l.title])),
+		surface: theme.colors.surface,
+	};
+	const locationIds = new Set(locations.map((l) => l.id));
+
 	return (
 		<ScrollView style={{ maxHeight: height - space.xxl * 4 }}>
 			<View style={{ gap: space.lg, paddingBottom: space.sm }}>
 				<View>
-					<TextInput
-						mode="outlined"
-						label={t("board.titleLabel")}
-						value={draft.title ?? ""}
-						onChangeText={onTitle}
-						onSubmitEditing={() => onTitle(draft.title ?? "")}
-						selectTextOnFocus
-						error={titleProblem !== null}
-						// An untouched seed has no title of its own; the box shows
-						// the name it currently travels under, in grey, rather
-						// than an empty field that reads as lost data.
-						placeholder={
-							draft.seedId === null ? undefined : t(seedTitleKeys[draft.seedId])
-						}
+					<SegmentedButtons
+						value={draft.kind}
+						onValueChange={(value) => onMode(value as CardMode)}
+						buttons={[
+							{
+								value: "open",
+								label: t("overview.cards.editor.mode.open"),
+								labelStyle: { lineHeight: segmentedLabelLineHeight },
+							},
+							{
+								value: "done",
+								label: t("overview.cards.editor.mode.done"),
+								labelStyle: { lineHeight: segmentedLabelLineHeight },
+							},
+						]}
 					/>
-					<HelperText type="error" visible={titleProblem !== null}>
-						{titleProblem === null ? "" : t(titleProblem)}
-					</HelperText>
-					{draft.seedId !== null && (draft.title ?? "") === "" ? (
-						<HelperText type="info" visible>
-							{t("overview.cards.edit.followsDefault")}
-						</HelperText>
-					) : null}
+					{/* The sentence is what keeps the two segmented controls from
+					    reading as one five-way choice: each says what its own
+					    choice means, and the pair stays two decisions. */}
+					<Text
+						variant="bodySmall"
+						style={{ color: theme.colors.onSurfaceVariant }}
+					>
+						{draft.kind === "done"
+							? t("overview.cards.editor.mode.doneDescription")
+							: t("overview.cards.editor.mode.openDescription")}
+					</Text>
 				</View>
 
-				<SegmentedButtons
-					value={scope}
-					onValueChange={(value) => onScope(value as typeof scope)}
-					buttons={[
-						{
-							value: "global",
-							label: t("overview.cards.editor.scope.global"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-						{
-							value: "home",
-							label: t("overview.cards.editor.scope.home"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-						{
-							value: "shared",
-							label: t("overview.cards.editor.scope.shared"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-					]}
+				<View>
+					<SegmentedButtons
+						value={scope}
+						onValueChange={(value) => onScope(value as typeof scope)}
+						buttons={[
+							{
+								value: "global",
+								label: t("overview.cards.editor.scope.global"),
+								labelStyle: { lineHeight: segmentedLabelLineHeight },
+							},
+							{
+								value: "home",
+								label: t("overview.cards.editor.scope.home"),
+								labelStyle: { lineHeight: segmentedLabelLineHeight },
+							},
+							{
+								value: "shared",
+								label: t("overview.cards.editor.scope.shared"),
+								labelStyle: { lineHeight: segmentedLabelLineHeight },
+							},
+						]}
+					/>
+					<Text
+						variant="bodySmall"
+						style={{ color: theme.colors.onSurfaceVariant }}
+					>
+						{t(`overview.cards.editor.scope.${scope}Description`)}
+					</Text>
+				</View>
+
+				<TextInput
+					mode="outlined"
+					testID="overview-card-edit-title"
+					label={t("board.titleLabel")}
+					value={draft.title ?? ""}
+					onChangeText={onTitle}
+					onSubmitEditing={() => onTitle(draft.title ?? "")}
+					selectTextOnFocus
+					error={titleProblem !== null}
+					// An untouched seed has no title of its own; the box shows
+					// the name it currently travels under, in grey, rather
+					// than an empty field that reads as lost data.
+					placeholder={
+						draft.seedId === null ? undefined : t(seedTitleKeys[draft.seedId])
+					}
 				/>
+				<HelperText type="error" visible={titleProblem !== null}>
+					{titleProblem === null ? "" : t(titleProblem)}
+				</HelperText>
+				{draft.seedId !== null && (draft.title ?? "") === "" ? (
+					<HelperText type="info" visible>
+						{t("overview.cards.edit.followsDefault")}
+					</HelperText>
+				) : null}
 
-				{draft.kind === "filter" ? (
-					<>
-						<View style={{ gap: space.sm }}>
-							<Text
-								variant="labelLarge"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								{t("overview.cards.field.conditions")}
-							</Text>
-							<View
-								style={{
-									flexDirection: "row",
-									flexWrap: "wrap",
-									gap: space.sm,
+				{/* One field, one row — the board filter sheet's own pattern, so
+				    the two sheets read as one product. The row names the field and
+				    previews its value; opening it offers the values as check rows. */}
+				<View style={{ gap: space.sm }}>
+					<Text
+						variant="labelLarge"
+						style={{ color: theme.colors.onSurfaceVariant }}
+					>
+						{t("overview.cards.field.conditions")}
+					</Text>
+					<View>
+						{fields.map((spec) => {
+							const applied = conditionForField(draft.conditions, spec.field);
+
+							return (
+								<BoardFilterRow
+									key={spec.field}
+									field={spec.field}
+									condition={applied}
+									specs={fields}
+									ctx={fieldsCtx}
+									testID={`overview-card-edit-field-${spec.field}`}
+									onPress={() =>
+										onField(field === spec.field ? null : spec.field)
+									}
+									onClear={
+										applied === null
+											? undefined
+											: () => onFieldCondition(spec.field, null)
+									}
+									clearLabel={t("board.filter.removeFilter", {
+										what: spec.label,
+									})}
+								/>
+							);
+						})}
+					</View>
+				</View>
+
+				{field === null ? null : field === "completedAt" ? (
+					<CompletedWithinPicker
+						condition={conditionForField(draft.conditions, "completedAt")}
+						onField={onField}
+						onWrite={(next) => onFieldCondition("completedAt", next)}
+					/>
+				) : (
+					<FieldValuePicker
+						spec={fields.find((each) => each.field === field) as FieldSpec}
+						condition={conditionForField(draft.conditions, field)}
+						onField={onField}
+						onWrite={(next) => onFieldCondition(field, next)}
+						members={members}
+						locationIds={locationIds}
+						uid={uid}
+					/>
+				)}
+
+				{draft.kind === "open" ? (
+					<View style={{ gap: space.sm }}>
+						<Text
+							variant="labelLarge"
+							style={{ color: theme.colors.onSurfaceVariant }}
+						>
+							{t("overview.cards.sort.label")}
+						</Text>
+						<Menu
+							visible={sortOpen}
+							onDismiss={() => onSortOpen(false)}
+							anchor={
+								<Button
+									mode="outlined"
+									icon="sort"
+									onPress={() => onSortOpen(true)}
+									contentStyle={{ minHeight: touchTarget }}
+									style={{ alignSelf: "flex-start" }}
+								>
+									{draft.sort === null
+										? t("overview.cards.sort.boardOrder")
+										: t(SORT_LABELS[draft.sort.field])}
+								</Button>
+							}
+						>
+							<Menu.Item
+								title={t("overview.cards.sort.boardOrder")}
+								onPress={() => {
+									onSortOpen(false);
+									onSort(null);
 								}}
-							>
-								{fields.map((spec) => {
-									const applied =
-										conditionForField(draft.conditions, spec.field) !== null;
-
-									return (
-										<Chip
-											key={spec.field}
-											mode={applied ? "flat" : "outlined"}
-											selected={applied}
-											showSelectedCheck={false}
-											aria-pressed={applied}
-											onPress={() =>
-												onField(field === spec.field ? null : spec.field)
-											}
-											style={{
-												minHeight: outlinedTouchTarget,
-												flexGrow: 1,
-											}}
-										>
-											{spec.label}
-										</Chip>
-									);
-								})}
-							</View>
-						</View>
-
-						{field === null ? null : (
-							<ConditionValues
-								spec={fields.find((each) => each.field === field) as FieldSpec}
-								conditions={draft.conditions}
-								onChange={onConditions}
 							/>
-						)}
-
-						{field === "dueDate" ? (
-							<ComingUpWindow
-								condition={conditionForField(draft.conditions, "dueDate")}
-								onChange={onConditions}
-							/>
-						) : null}
-
-						<View style={{ gap: space.sm }}>
-							<Text
-								variant="labelLarge"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								{t("overview.cards.sort.label")}
-							</Text>
-							<Menu
-								visible={sortOpen}
-								onDismiss={() => onSortOpen(false)}
-								anchor={
-									<Button
-										mode="outlined"
-										icon="sort"
-										onPress={() => onSortOpen(true)}
-										contentStyle={{ minHeight: touchTarget }}
-										style={{ alignSelf: "flex-start" }}
-									>
-										{draft.sort === null
-											? t("overview.cards.sort.boardOrder")
-											: t(SORT_LABELS[draft.sort.field])}
-									</Button>
-								}
-							>
+							{SORT_FIELDS.map((sortField) => (
 								<Menu.Item
-									title={t("overview.cards.sort.boardOrder")}
+									key={sortField}
+									title={t(SORT_LABELS[sortField])}
 									onPress={() => {
 										onSortOpen(false);
-										onSort(null);
+										onSort({
+											field: sortField,
+											direction: draft.sort?.direction ?? "asc",
+										});
 									}}
 								/>
-								{SORT_FIELDS.map((sortField) => (
-									<Menu.Item
-										key={sortField}
-										title={t(SORT_LABELS[sortField])}
-										onPress={() => {
-											onSortOpen(false);
-											onSort({
-												field: sortField,
-												direction: draft.sort?.direction ?? "asc",
-											});
-										}}
-									/>
-								))}
-							</Menu>
-							{draft.sort === null ? null : (
-								<DirectionChips sort={draft.sort} onSort={onSort} />
-							)}
-						</View>
-					</>
+							))}
+						</Menu>
+						{draft.sort === null ? null : (
+							<DirectionChips sort={draft.sort} onSort={onSort} />
+						)}
+					</View>
 				) : null}
 
 				<Stepper
@@ -709,128 +882,134 @@ function ComingUpWindow({
 	);
 }
 
-/** One value group for the field being edited. */
-function ConditionValues({
-	spec,
-	conditions,
+/**
+ * The *Done within* window: the done card's one editable number. The chip is
+ * the condition itself — tapping it removes the window, and a done card with
+ * no window reaches the ceiling — and the stepper writes `n`, dropping it
+ * again at the seed's own window, the way `ComingUpWindow` does.
+ */
+function CompletedWithin({
+	condition,
 	onChange,
 }: {
-	spec: FieldSpec;
-	conditions: readonly CardCondition[];
+	condition: CardCondition | null;
 	onChange: (next: CardCondition | null) => void;
 }) {
-	const current = conditionForField(conditions, spec.field);
+	const { t } = useTranslation();
 
-	const select = (value: string | boolean) => {
-		if (spec.kind === "anyOf") {
-			const anyOf = (current as { anyOf: string[] } | null)?.anyOf ?? [];
-			const next = anyOf.includes(String(value))
-				? anyOf.filter((each) => each !== String(value))
-				: [...anyOf, String(value)];
-			// `FieldSpec` carries the model's own field literals and the values
-			// they were built from; `toCondition` re-checks both on the way back
-			// out of storage.
-			onChange(
-				next.length === 0
-					? null
-					: ({ field: spec.field, anyOf: next } as CardCondition),
-			);
-			return;
-		}
+	if (condition === null || condition.field !== "completedAt") {
+		return null;
+	}
 
-		const same = (current as { is: string | boolean } | null)?.is === value;
-		onChange(same ? null : ({ field: spec.field, is: value } as CardCondition));
-	};
+	const n = condition.n ?? doneWithinDays;
+	const write = (next: number) =>
+		onChange(
+			next === doneWithinDays
+				? { field: "completedAt", is: "within" }
+				: { field: "completedAt", is: "within", n: next },
+		);
 
+	// The picker's own row carries the sentence; the stepper is the window's
+	// one editable number, in the picker's note slot.
 	return (
-		<View style={{ gap: space.sm }}>
-			<Text variant="bodyMedium">{spec.label}</Text>
-			<View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
-				{spec.values.map((chip) => {
-					const selected =
-						spec.kind === "anyOf"
-							? ((current as { anyOf: string[] } | null)?.anyOf ?? []).includes(
-									String(chip.value),
-								)
-							: (current as { is: string | boolean } | null)?.is === chip.value;
-
-					return (
-						<Chip
-							key={String(chip.value)}
-							mode={selected ? "flat" : "outlined"}
-							selected={selected}
-							showSelectedCheck={false}
-							aria-pressed={selected}
-							onPress={() => select(chip.value)}
-							style={{
-								minHeight: outlinedTouchTarget,
-								flexGrow: 1,
-							}}
-						>
-							{chip.label}
-						</Chip>
-					);
-				})}
-			</View>
-
-			<PickerChips spec={spec} current={current} onChange={onChange} />
-		</View>
+		<Stepper
+			label={t("overview.cards.edit.daysBack")}
+			value={n}
+			min={1}
+			max={maxDoneWithinDays}
+			onChange={write}
+		/>
 	);
 }
 
 /**
- * The location picker: one chip per location, multi-select, riding beside
- * the any/none pair in the same field group. Selecting writes the anyOf
- * form; unticking the last one removes the condition — a location filter
- * with nothing picked says nothing, like every other any-of.
+ * One field's values as the shared picker's check rows — the same component
+ * the board's filter opens, driven by the same spec-to-items mapping and the
+ * same ids-to-condition mapping. A due-date condition widens in the picker's
+ * note slot, where its one editable number lives.
  */
-function PickerChips({
+function FieldValuePicker({
 	spec,
-	current,
-	onChange,
+	condition,
+	onField,
+	onWrite,
+	members,
+	locationIds,
+	uid,
 }: {
 	spec: FieldSpec;
-	current: CardCondition | null;
-	onChange: (next: CardCondition | null) => void;
+	condition: CardCondition | null;
+	onField: (field: CardCondition["field"] | null) => void;
+	onWrite: (next: CardCondition | null) => void;
+	members: readonly Member[];
+	locationIds: ReadonlySet<string>;
+	uid: string;
 }) {
-	const picker = spec.extraValues ?? [];
-	if (picker.length === 0) return null;
-
-	const currentAnyOf =
-		(current as { anyOf: readonly string[] } | null)?.anyOf ?? [];
+	const { t } = useTranslation();
 
 	return (
-		<View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
-			{picker.map((chip) => {
-				const selected = currentAnyOf.includes(String(chip.value));
+		<CheckListPicker
+			onDismiss={() => onField(null)}
+			testID={`overview-card-edit-${spec.field}`}
+			title={spec.label}
+			searchLabel={t("board.filter.search")}
+			items={fieldPickerItems(spec, { uid, members })}
+			value={pickerValueFor(condition)}
+			onChange={(ids) =>
+				onWrite(pickerConditionFromIds(spec, ids, locationIds))
+			}
+			note={
+				spec.field === "dueDate" ? (
+					<ComingUpWindow condition={condition} onChange={onWrite} />
+				) : undefined
+			}
+		/>
+	);
+}
 
-				return (
-					<Chip
-						key={String(chip.value)}
-						mode={selected ? "flat" : "outlined"}
-						selected={selected}
-						showSelectedCheck={false}
-						aria-pressed={selected}
-						onPress={() => {
-							const anyOf = selected
-								? currentAnyOf.filter((each) => each !== String(chip.value))
-								: [...currentAnyOf, String(chip.value)];
-							onChange(
-								anyOf.length === 0
-									? null
-									: ({ field: spec.field, anyOf } as CardCondition),
-							);
-						}}
-						style={{
-							minHeight: outlinedTouchTarget,
-							flexGrow: 1,
-						}}
-					>
-						{chip.label}
-					</Chip>
-				);
-			})}
-		</View>
+/**
+ * The done card's completion window as a picker: the one row *is* the
+ * condition — tapping it on writes the default window, tapping it off clears
+ * the field — and the stepper in the note slot widens or narrows it, the way
+ * `ComingUpWindow` does for a due date.
+ */
+function CompletedWithinPicker({
+	condition,
+	onField,
+	onWrite,
+}: {
+	condition: CardCondition | null;
+	onField: (field: CardCondition["field"] | null) => void;
+	onWrite: (next: CardCondition | null) => void;
+}) {
+	const { t } = useTranslation();
+	const within =
+		condition !== null && condition.field === "completedAt"
+			? (condition.n ?? doneWithinDays)
+			: doneWithinDays;
+
+	return (
+		<CheckListPicker
+			onDismiss={() => onField(null)}
+			testID="overview-card-edit-completedAt"
+			title={t("overview.cards.field.completedAt")}
+			searchLabel={t("board.filter.search")}
+			items={[
+				{
+					id: "within",
+					title: t("overview.cards.completedAtLine", { count: within }),
+				},
+			]}
+			value={condition === null ? [] : ["within"]}
+			onChange={(ids) =>
+				onWrite(
+					ids.length === 0
+						? null
+						: ({ field: "completedAt", is: "within" } as CardCondition),
+				)
+			}
+			note={<CompletedWithin condition={condition} onChange={onWrite} />}
+		/>
 	);
 }
 

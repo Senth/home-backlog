@@ -1,10 +1,10 @@
-import type { Timestamp } from "firebase/firestore";
 import { defaultColumns, type Node } from "@/models/node";
 import {
 	doneSince,
+	doneWindow,
 	doneWithinDays,
 	hiddenByRoot,
-	recentlyDone,
+	maxDoneWithinDays,
 } from "@/models/overview";
 
 /**
@@ -27,15 +27,6 @@ function at(year: number, month: number, day: number, hour = 12): Date {
 
 const now = at(2026, 8, 15);
 const dayInMs = 24 * 60 * 60 * 1000;
-
-/**
- * A `Timestamp` stand-in, built rather than imported for the same reason
- * `live-query.test.ts` builds its own snapshots: the modular SDK does not load
- * as a *value* under jest-expo. These selectors ask a completion one question.
- */
-function stamp(ms: number): Timestamp {
-	return { toMillis: () => ms } as unknown as Timestamp;
-}
 
 function node(overrides: Partial<Node> = {}): Node {
 	return {
@@ -71,22 +62,6 @@ function node(overrides: Partial<Node> = {}): Node {
 	};
 }
 
-/** A node finished `daysAgo` before `now`. */
-function done(
-	id: string,
-	daysAgo: number,
-	overrides: Partial<Node> = {},
-): Node {
-	return node({
-		id,
-		status: "done",
-		completedAt: stamp(now.getTime() - daysAgo * dayInMs),
-		parentId: "mine",
-		ancestorIds: ["mine"],
-		...overrides,
-	});
-}
-
 const me = "uid-me";
 const you = "uid-you";
 
@@ -103,6 +78,26 @@ describe("doneSince", () => {
 		expect(now.getTime() - doneSince(now).getTime()).toBe(
 			doneWithinDays * dayInMs,
 		);
+	});
+
+	it("reaches back the window it is given", () => {
+		expect(now.getTime() - doneSince(now, 100).getTime()).toBe(100 * dayInMs);
+	});
+});
+
+describe("doneWindow", () => {
+	it("is the widest window any card asks for", () => {
+		expect(doneWindow([30, 90])).toBe(90);
+	});
+
+	/** The ceiling the plan pins: a card asking for 500 gets 365. */
+	it("clamps a card asking for 500 days at the 365-day ceiling", () => {
+		expect(maxDoneWithinDays).toBe(365);
+		expect(doneWindow([500])).toBe(maxDoneWithinDays);
+	});
+
+	it("floors at the seed window when no done card asks for anything", () => {
+		expect(doneWindow([])).toBe(doneWithinDays);
 	});
 });
 
@@ -148,46 +143,5 @@ describe("hiddenByRoot", () => {
 		});
 
 		expect(hiddenByRoot(orphan, roots, me)).toBe(true);
-	});
-});
-
-describe("recentlyDone", () => {
-	it("is newest first", () => {
-		const nodes = [done("older", 10), done("newest", 1), done("middle", 4)];
-
-		expect(recentlyDone(nodes, roots, me, now).map((each) => each.id)).toEqual([
-			"newest",
-			"middle",
-			"older",
-		]);
-	});
-
-	/** Both sides of the window, to the millisecond. */
-	it("holds a completion exactly the window ago, and not one a moment older", () => {
-		const edge = done("edge", 0, {
-			completedAt: stamp(doneSince(now).getTime()),
-		});
-		const past = done("past", 0, {
-			completedAt: stamp(doneSince(now).getTime() - 1),
-		});
-
-		expect(
-			recentlyDone([edge, past], roots, me, now).map((each) => each.id),
-		).toEqual(["edge"]);
-	});
-
-	it("leaves out a node that was never completed", () => {
-		const open = node({ id: "open", parentId: "mine", ancestorIds: ["mine"] });
-
-		expect(recentlyDone([open], roots, me, now)).toEqual([]);
-	});
-
-	it("drops a finished step of somebody else's project", () => {
-		const step = done("theirs", 2, {
-			parentId: "yours",
-			ancestorIds: ["yours"],
-		});
-
-		expect(recentlyDone([step], roots, me, now)).toEqual([]);
 	});
 });
