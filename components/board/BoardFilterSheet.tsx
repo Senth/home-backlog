@@ -271,9 +271,7 @@ export function BoardFilterSheet({
 									testID={`board-filter-row-${field}`}
 									onPress={() => setOpenField(field)}
 									onClear={
-										condition === undefined
-											? undefined
-											: () => clearField(field)
+										condition === null ? undefined : () => clearField(field)
 									}
 									clearLabel={clearLabel(name)}
 								/>

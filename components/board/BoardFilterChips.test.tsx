@@ -1,9 +1,4 @@
-import {
-	fireEvent,
-	render,
-	screen,
-	within,
-} from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import { ScrollView } from "react-native";
 import { BoardFilterChips } from "@/components/board/BoardFilterChips";
 import {
@@ -141,14 +136,37 @@ describe("BoardFilterChips", () => {
 		);
 
 		fireEvent.press(
-			within(
-				screen.getByLabelText(
-					'board.filter.removeFilter:{"what":"board.filter.labels"}',
-				),
-			).getByLabelText("Close"),
+			screen.getByLabelText(
+				'board.filter.removeFilter:{"what":"board.filter.labels"}',
+			),
 		);
 
 		expect(onChange).toHaveBeenCalledWith(null);
+	});
+
+	it("a pill's press opens the sheet, and its ✕ is the only remove control", () => {
+		const onChange = jest.fn();
+		const onOpen = jest.fn();
+		renderChips(
+			filter({ conditions: [{ field: "priority", anyOf: ["urgent"] }] }),
+			onChange,
+			onOpen,
+		);
+
+		// An icon-only pill has no words to speak, so the chip carries its
+		// field's name — the thing a press on it opens — and the remove phrase
+		// lives on the ✕ alone, whose press clears and never opens.
+		fireEvent.press(screen.getByLabelText("detail.priority"));
+		expect(onOpen).toHaveBeenCalledTimes(1);
+		expect(onChange).not.toHaveBeenCalled();
+
+		fireEvent.press(
+			screen.getByLabelText(
+				'board.filter.removeFilter:{"what":"detail.priority"}',
+			),
+		);
+		expect(onChange).toHaveBeenCalledWith(null);
+		expect(onOpen).toHaveBeenCalledTimes(1);
 	});
 
 	it("the reach pill is last, and its clear drops back to this board", () => {
@@ -163,11 +181,9 @@ describe("BoardFilterChips", () => {
 
 		expect(screen.getByText("board.filter.everythingBelow")).toBeOnTheScreen();
 		fireEvent.press(
-			within(
-				screen.getByLabelText(
-					`board.filter.removeFilter:${JSON.stringify({ what: "board.filter.reach" })}`,
-				),
-			).getByLabelText("Close"),
+			screen.getByLabelText(
+				`board.filter.removeFilter:${JSON.stringify({ what: "board.filter.reach" })}`,
+			),
 		);
 
 		expect(onChange).toHaveBeenCalledWith(
@@ -235,11 +251,9 @@ describe("BoardFilterChips", () => {
 		);
 
 		fireEvent.press(
-			within(
-				screen.getByLabelText(
-					'board.filter.removeFilter:{"what":"detail.priority"}',
-				),
-			).getByLabelText("Close"),
+			screen.getByLabelText(
+				'board.filter.removeFilter:{"what":"detail.priority"}',
+			),
 		);
 
 		expect(onChange).toHaveBeenCalledWith(

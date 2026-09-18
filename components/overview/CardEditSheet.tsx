@@ -387,6 +387,9 @@ export function CardEditSheet({
 }: CardEditSheetProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
+	// Read above the dialog's portal, which renders outside `AuthProvider`
+	// — the same shape `BoardFilterSheet` uses for the same reason.
+	const { user } = useAuth();
 
 	const [draft, setDraft] = useState<Card>(() => card ?? newCard());
 	const [scope, setScope] = useState(initialScope);
@@ -475,6 +478,7 @@ export function CardEditSheet({
 			]}
 		>
 			<SheetBody
+				uid={user?.uid ?? ""}
 				draft={draft}
 				scope={scope}
 				fields={fields}
@@ -511,6 +515,8 @@ export function CardEditSheet({
 }
 
 interface SheetBodyProps {
+	/** The reader's uid, read above the portal — the rows' own "me" value. */
+	uid: string;
 	draft: Card;
 	scope: "global" | "home" | "shared";
 	fields: FieldSpec[];
@@ -545,6 +551,7 @@ interface SheetBodyProps {
  * conditions and their one open field, the sort, and the two row budgets.
  */
 function SheetBody({
+	uid,
 	draft,
 	scope,
 	fields,
@@ -566,10 +573,9 @@ function SheetBody({
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const { height } = useWindowDimensions();
-	const { user } = useAuth();
 
 	const fieldsCtx: FilterContext = {
-		uid: user?.uid ?? "",
+		uid,
 		members,
 		labels: [],
 		locationTitles: new Map(locations.map((l) => [l.id, l.title])),
@@ -718,6 +724,7 @@ function SheetBody({
 						onWrite={(next) => onFieldCondition(field, next)}
 						members={members}
 						locationIds={locationIds}
+						uid={uid}
 					/>
 				)}
 
@@ -928,6 +935,7 @@ function FieldValuePicker({
 	onWrite,
 	members,
 	locationIds,
+	uid,
 }: {
 	spec: FieldSpec;
 	condition: CardCondition | null;
@@ -935,9 +943,9 @@ function FieldValuePicker({
 	onWrite: (next: CardCondition | null) => void;
 	members: readonly Member[];
 	locationIds: ReadonlySet<string>;
+	uid: string;
 }) {
 	const { t } = useTranslation();
-	const { user } = useAuth();
 
 	return (
 		<CheckListPicker
@@ -945,7 +953,7 @@ function FieldValuePicker({
 			testID={`overview-card-edit-${spec.field}`}
 			title={spec.label}
 			searchLabel={t("board.filter.search")}
-			items={fieldPickerItems(spec, { uid: user?.uid ?? "", members })}
+			items={fieldPickerItems(spec, { uid, members })}
 			value={pickerValueFor(condition)}
 			onChange={(ids) =>
 				onWrite(pickerConditionFromIds(spec, ids, locationIds))

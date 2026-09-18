@@ -1,16 +1,42 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
+import type { ReactNode } from "react";
 // `Provider`, not `ThemeProvider`: the dialog mounts a Portal host.
 import { Provider } from "react-native-paper";
 // Paper's dialog reads the safe-area insets its provider carries.
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { CardEditSheet } from "@/components/overview/CardEditSheet";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { lightTheme } from "@/theme";
 import { space } from "@/theme/tokens";
 
-jest.mock("@/contexts/AuthContext", () => ({
-	// firebase/auth does not parse under jest; the sheet reads only the uid.
-	useAuth: () => ({ user: { uid: "uid-me" } }),
-}));
+/**
+ * The real tree: `app/_layout.tsx` mounts `AuthProvider` inside
+ * `PaperProvider`, so the dialog's portal children render *outside* it. The
+ * mock must throw the way the real hook does — a canned user here is the
+ * false green that once hid the `useAuth` crash inside the portal.
+ */
+jest.mock("@/contexts/AuthContext", () => {
+	const { createContext, createElement, useContext } =
+		require("react") as typeof import("react");
+
+	const AuthContext = createContext<{ user: { uid: string } } | null>(null);
+
+	return {
+		AuthProvider: ({ children }: { children: ReactNode }) =>
+			createElement(
+				AuthContext.Provider,
+				{ value: { user: { uid: "uid-me" } } },
+				children,
+			),
+		useAuth: () => {
+			const auth = useContext(AuthContext);
+			if (auth === null) {
+				throw new Error("useAuth must be used within an AuthProvider");
+			}
+			return auth;
+		},
+	};
+});
 
 jest.mock("react-i18next", () => ({
 	// Keys asserted, not sentences — the sheet is translated elsewhere, and
@@ -31,15 +57,19 @@ const renderSheet = (onSave = jest.fn()) =>
 			}}
 		>
 			<Provider theme={lightTheme}>
-				<CardEditSheet
-					visible
-					card={null}
-					scope="home"
-					members={[]}
-					locations={[]}
-					onDismiss={() => {}}
-					onSave={onSave}
-				/>
+				{/* The real order: `AuthProvider` inside `PaperProvider`, so the
+				    portal escapes it — `CardEditSheet` reads the uid above. */}
+				<AuthProvider>
+					<CardEditSheet
+						visible
+						card={null}
+						scope="home"
+						members={[]}
+						locations={[]}
+						onDismiss={() => {}}
+						onSave={onSave}
+					/>
+				</AuthProvider>
 			</Provider>
 		</SafeAreaProvider>,
 	);

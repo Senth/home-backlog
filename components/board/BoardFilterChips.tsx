@@ -78,16 +78,7 @@ export function BoardFilterChips({
 				: (specs.find((spec) => spec.field === field)?.label ?? field);
 
 		return [
-			<View
-				key={field}
-				testID={`board-filter-pill-${field}`}
-				// The pill's name and its one action in a single spoken phrase:
-				// an icon-only pill's glyphs are hidden from the tree on purpose
-				// (PaperIcon), so without this the pill has no name at all.
-				accessible
-				accessibilityRole="button"
-				accessibilityLabel={t("board.filter.removeFilter", { what: name })}
-			>
+			<View key={field} testID={`board-filter-pill-${field}`}>
 				<Chip
 					mode="flat"
 					showSelectedCheck={false}
@@ -95,7 +86,16 @@ export function BoardFilterChips({
 					// whole pill `aria-disabled`, and a screen reader announces the
 					// filter as broken.
 					onPress={onOpen}
+					// The pill speaks for what it is; the ✕ speaks for removal.
+					// They cannot share a name: the wrapper that once carried the
+					// remove phrase compiled to a `<button>` around the chip's own
+					// two buttons, had no handler of its own, and promised a
+					// removal its press never did.
+					accessibilityLabel={icons ? name : undefined}
 					onClose={() => clearField(field)}
+					closeIconAccessibilityLabel={t("board.filter.removeFilter", {
+						what: name,
+					})}
 					style={{ minHeight: outlinedTouchTarget }}
 				>
 					{icons ?? word}
@@ -108,15 +108,7 @@ export function BoardFilterChips({
 		filter.reach === "board"
 			? []
 			: [
-					<View
-						key="reach"
-						testID="board-filter-pill-reach"
-						accessible
-						accessibilityRole="button"
-						accessibilityLabel={t("board.filter.removeFilter", {
-							what: t("board.filter.reach"),
-						})}
-					>
+					<View key="reach" testID="board-filter-pill-reach">
 						<Chip
 							mode="flat"
 							showSelectedCheck={false}
@@ -128,6 +120,9 @@ export function BoardFilterChips({
 										: { ...filter, reach: "board" },
 								)
 							}
+							closeIconAccessibilityLabel={t("board.filter.removeFilter", {
+								what: t("board.filter.reach"),
+							})}
 							style={{ minHeight: outlinedTouchTarget }}
 						>
 							{t("board.filter.everythingBelow")}

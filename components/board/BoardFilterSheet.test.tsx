@@ -117,6 +117,40 @@ describe("BoardFilterSheet", () => {
 		expect(screen.getAllByText("overview.cards.field.notSet")).toHaveLength(6);
 	});
 
+	it("only a set row carries its ✕; an unset row has no dead control", () => {
+		renderSheet({
+			filter: filter({
+				conditions: [
+					{ field: "priority", anyOf: ["urgent"] },
+					{ field: "notes", is: true },
+				],
+			}),
+		});
+
+		expect(
+			screen.getByLabelText(
+				'board.filter.removeFilter:{"what":"detail.priority"}',
+			),
+		).toBeOnTheScreen();
+		expect(
+			screen.getByLabelText(
+				'board.filter.removeFilter:{"what":"detail.notes"}',
+			),
+		).toBeOnTheScreen();
+		// `conditionFor` answers null, never undefined — a row with nothing
+		// set must not render a ✕ that clears nothing.
+		expect(
+			screen.queryByLabelText(
+				'board.filter.removeFilter:{"what":"detail.dueDate"}',
+			),
+		).toBeNull();
+		expect(
+			screen.queryByLabelText(
+				'board.filter.removeFilter:{"what":"detail.effort"}',
+			),
+		).toBeNull();
+	});
+
 	it("a row's ✕ clears that field without opening anything", () => {
 		const onChange = jest.fn();
 		renderSheet({
