@@ -173,7 +173,15 @@ export function BoardFilterChips({
 						count,
 					})}
 				>
-					<Chip mode="flat" showSelectedCheck={false} onPress={onOpen}>
+					<Chip
+						mode="flat"
+						showSelectedCheck={false}
+						// The same control its siblings are: a press under the 48dp
+						// floor would hide behind the pills it counts for.
+						onPress={onOpen}
+						style={{ minHeight: outlinedTouchTarget }}
+						textStyle={pillText}
+					>
 						{count}
 					</Chip>
 				</View>
