@@ -246,6 +246,16 @@ const FAB_SELECTOR = '[data-testid="fab-container"]';
  * `measuredFABHeight + space.md * 2` (`Board.tsx`'s `fabBottom = space.md`
  * plus one `space.md` of daylight), which the caller folds into `allowed`.
  */
+/**
+ * Expo's dev fast-refresh bubble is bundler chrome: it slides into the page
+ * on its own schedule, so `stripDevToast` can run before it has arrived and
+ * a sweep that starts right after still catches its dark fill and border.
+ * None of the sweeps is allowed to report the dev server's UI, so each one
+ * skips the bubble's subtree outright. A literal here, not a module constant:
+ * the sweeps are serialized into the page by `page.evaluate`, which carries
+ * the function body and nothing around it.
+ */
+
 function spacingSweep(args: {
 	allowed: number[];
 	paper: { value: number; css: string | null }[];
@@ -269,6 +279,7 @@ function spacingSweep(args: {
 		});
 
 	for (const element of Array.from(document.querySelectorAll("*"))) {
+		if (element.closest(".__expo_fast_refresh")) continue;
 		const style = window.getComputedStyle(element);
 		// Read as properties, not `getPropertyValue("paddingTop")`: the camel-
 		// case spelling returns "" from Chrome's computed style, and a sweep
@@ -339,6 +350,7 @@ function paletteSweep(args: { palette: string[] }): string[] {
 	};
 
 	for (const element of Array.from(document.querySelectorAll("*"))) {
+		if (element.closest(".__expo_fast_refresh")) continue;
 		const style = window.getComputedStyle(element);
 		const paintsText = Array.from(element.childNodes).some(
 			(node) =>
@@ -432,6 +444,7 @@ function alignmentSweep(args: { xs: number }): string[] {
 
 	const boxes: { rect: DOMRect; name: string; element: Element }[] = [];
 	for (const element of Array.from(document.querySelectorAll("*"))) {
+		if (element.closest(".__expo_fast_refresh")) continue;
 		if (!painted(element)) continue;
 		const rect = element.getBoundingClientRect();
 		if (rect.width === 0 || rect.height === 0) continue;
@@ -989,4 +1002,87 @@ test("31: the FAB spans no more than 60% of a 195px viewport, in this locale", a
 		failures,
 		`FAB width share at 195px (${testInfo.project.name})`,
 	).toEqual([]);
+});
+
+test("32: the board's filter pills center glyph, word and ✕ on one line", async ({
+	page,
+}, testInfo) => {
+	// The pill row renders only while a filter holds something back, so no
+	// per-route sweep above ever sees one — this sets one the way a person
+	// does, through the sheet. What it pins is the shape a browser-review
+	// round caught by eye: the chip's `minHeight` grows the box while Paper's
+	// content row keeps its natural ~32dp and sits at the top of it, which is
+	// how the glyphs once rode ~7dp above the absolutely-centered ✕. The
+	// label's line box (`pillText` in `BoardFilterChips`) is what carries the
+	// row's height now, on the icon pill and the word pill both — the two
+	// shapes the labels pill and the reach pill stand for.
+	const strings = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
+
+	await gotoAndSettle(page, BOARD);
+
+	await page.getByRole("button", { name: strings.board.filter.title }).click();
+	await page
+		.getByRole("button", { name: new RegExp(strings.board.filter.labels) })
+		.click();
+	await page.getByRole("checkbox").first().click();
+	// The labels row opened its picker over the sheet's root page, whose
+	// backdrop eats every press until it is gone — the picker's own footer
+	// *Done* (the later of the two footers) is what returns to the root.
+	await page.getByRole("button", { name: strings.common.done }).last().click();
+	// The reach pill is the word pill: no glyph, so the label's line box is
+	// the only thing centering it. The sheet edits the live filter — Done
+	// only dismisses — so the pills are already on the board when it closes.
+	await page
+		.getByRole("button", { name: strings.board.filter.everythingBelow })
+		.click();
+	await page.keyboard.press("Escape");
+
+	const offenders = await page.evaluate(
+		({ containerFloor, pressableFloor }) => {
+			const bad: string[] = [];
+			const center = (node: Element) => {
+				const box = node.getBoundingClientRect();
+				return box.top + box.height / 2;
+			};
+			for (const pill of Array.from(
+				document.querySelectorAll('[data-testid^="board-filter-pill-"]'),
+			)) {
+				const name = pill.getAttribute("data-testid") ?? "pill";
+				const container = pill.querySelector('[data-testid="chip-container"]');
+				const chip = container?.querySelector('[data-testid="chip"]');
+				const content = chip?.firstElementChild;
+				const close = container?.querySelector("button[aria-label]");
+				if (container === null || !chip || !content || !close) {
+					bad.push(`${name}: chip, content row or ✕ missing`);
+					continue;
+				}
+				const chipBox = container.getBoundingClientRect();
+				const drift = Math.abs(center(content) - center(close));
+				if (drift > 1.5)
+					bad.push(
+						`${name}: content sits ${drift.toFixed(1)}px off the ✕'s center`,
+					);
+				if (chipBox.height < containerFloor)
+					bad.push(
+						`${name}: the chip is ${chipBox.height}px, under the ${containerFloor}px target`,
+					);
+				const pressable = chip.getBoundingClientRect();
+				if (pressable.height < pressableFloor)
+					bad.push(
+						`${name}: the pressable is ${pressable.height}px, under the ${pressableFloor}px target`,
+					);
+			}
+			return bad;
+		},
+		{
+			// A float step of slack on each floor: the original bug sat 7px off
+			// a 32dp content row, whole pixels away from both.
+			containerFloor: outlinedTouchTarget - 1,
+			pressableFloor: touchTarget - 1,
+		},
+	);
+
+	expect(offenders, `filter pill centering (${testInfo.project.name})`).toEqual(
+		[],
+	);
 });

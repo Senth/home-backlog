@@ -12,7 +12,22 @@ import {
 import type { FieldSpec } from "@/components/overview/CardEditSheet";
 import type { BoardFilter } from "@/models/board-filter";
 import type { CardCondition } from "@/models/filter";
-import { outlinedTouchTarget, space } from "@/theme/tokens";
+import { outlinedTouchTarget, space, touchTarget } from "@/theme/tokens";
+
+/**
+ * Why the pills' label carries the row's height: the chip's `minHeight` grows
+ * the box, but Paper's content row inside it keeps its natural ~32dp and sits
+ * at the top of what grew (on web the ripple stretches, the content does not),
+ * leaving the glyphs ~7dp above the absolutely-centered ✕. A line box as tall
+ * as `touchTarget` — with Paper's own label margins gone — is the one prop
+ * that reaches inside the chip: it grows the pressable itself to the 48dp
+ * floor, the chip's two hairlines land the box exactly on
+ * `outlinedTouchTarget`, and glyph, icons and ✕ share one center line.
+ */
+const pillText = {
+	marginVertical: space.none,
+	lineHeight: touchTarget,
+} as const;
 
 interface BoardFilterChipsProps {
 	filter: BoardFilter;
@@ -97,6 +112,7 @@ export function BoardFilterChips({
 						what: name,
 					})}
 					style={{ minHeight: outlinedTouchTarget }}
+					textStyle={pillText}
 				>
 					{icons ?? word}
 				</Chip>
@@ -124,6 +140,7 @@ export function BoardFilterChips({
 								what: t("board.filter.reach"),
 							})}
 							style={{ minHeight: outlinedTouchTarget }}
+							textStyle={pillText}
 						>
 							{t("board.filter.everythingBelow")}
 						</Chip>
