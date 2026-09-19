@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
+	cardSelector,
 	clickMenuItem,
 	columnSelector,
 	gotoAndSettle,
@@ -36,7 +37,7 @@ import enUS from "@/i18n/locales/en-US.json";
  */
 
 const BOARD = ROUTES[1];
-const CARD = '[data-testid="card-container"]';
+const CARD = cardSelector();
 
 /** What every node this file creates is titled, so cleanup can find it. */
 const PREFIX = "E2E nesting ";

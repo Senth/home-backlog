@@ -1,6 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
+	cardSelector,
 	clickMenuItem,
 	gotoAndSettle,
 	ROUTES,
@@ -37,7 +38,7 @@ import { touchTarget } from "@/theme/tokens";
  */
 
 const BOARD = ROUTES[1];
-const CARD = '[data-testid="card-container"]';
+const CARD = cardSelector();
 
 /** What every node this file creates is titled, so cleanup can find it. */
 const PREFIX = "E2E details ";

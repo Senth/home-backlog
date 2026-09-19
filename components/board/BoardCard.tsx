@@ -226,7 +226,7 @@ export function BoardCard({
 	const stepMark =
 		steps === false ? null : (
 			<View
-				testID="card-steps"
+				testID={cardStepsTestID}
 				style={{
 					flexDirection: "row",
 					// Never wraps: the glyph and its count are one mark, and half of
@@ -261,6 +261,7 @@ export function BoardCard({
 	return (
 		<Card
 			mode="outlined"
+			testID={cardTestID}
 			onPress={onOpen}
 			accessibilityHint={
 				// A face without a press has nothing to hint about.
@@ -455,3 +456,7 @@ export function BoardCard({
 		</Card>
 	);
 }
+
+/** The card's box and its steps mark, for the selectors in `e2e/`. */
+export const cardTestID = "board-card";
+export const cardStepsTestID = "card-steps";
