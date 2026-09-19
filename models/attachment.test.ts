@@ -235,8 +235,18 @@ describe("the quota and the inventory", () => {
 		const nodes = [
 			aNode([
 				anEntry({ size: bytesTiny, uploadedAt: at(1000) }),
-				anEntry({ id: "b", path: "p/b", size: bytesLarge, uploadedAt: at(2000) }),
-				anEntry({ id: "c", path: "p/c", size: bytesMedium, uploadedAt: at(3000) }),
+				anEntry({
+					id: "b",
+					path: "p/b",
+					size: bytesLarge,
+					uploadedAt: at(2000),
+				}),
+				anEntry({
+					id: "c",
+					path: "p/c",
+					size: bytesMedium,
+					uploadedAt: at(3000),
+				}),
 			]),
 		];
 		expect(
@@ -251,7 +261,12 @@ describe("the quota and the inventory", () => {
 		const nodes = [
 			aNode([
 				anEntry({ size: bytesTiny, uploadedAt: null }),
-				anEntry({ id: "b", path: "p/b", size: bytesTiny, uploadedAt: at(1000) }),
+				anEntry({
+					id: "b",
+					path: "p/b",
+					size: bytesTiny,
+					uploadedAt: at(1000),
+				}),
 			]),
 		];
 		const rows = inventoryRows(nodes, "newest");
