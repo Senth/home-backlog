@@ -2,11 +2,14 @@ import {
 	attachmentErrorKey,
 	attachmentPath,
 	attachmentRefusal,
+	cardFace,
 	formatBytes,
 	isImageType,
 	maxAttachmentBytes,
 	thumbnailPathFor,
 } from "@/models/attachment";
+import type { Attachment, Node } from "@/models/node";
+import { newNodeData } from "@/models/node";
 
 // A byte count lives in a data field, but the style-prop invariant greps the
 // literal — so the sizes these tests speak in get names, like everywhere else.
@@ -80,5 +83,98 @@ describe("paths", () => {
 		expect(thumbnailPathFor(path)).toBe(
 			"homes/home/nodes/node/att-1_thumb.jpg",
 		);
+	});
+});
+
+function anEntry(over: Partial<Attachment> = {}): Attachment {
+	return {
+		id: "att-1",
+		path: "homes/home/nodes/node/att-1",
+		name: "badrum.jpg",
+		contentType: "image/jpeg",
+		size: oneKb,
+		uploadedAt: null,
+		uploadedBy: "me",
+		...over,
+	};
+}
+
+function aNode(
+	attachments: Attachment[],
+	display: Node["attachmentDisplay"] = "count",
+	heroAttachmentId: string | null = null,
+): Node {
+	return {
+		...newNodeData({ title: "Kort", rank: "a0", participantIds: ["me"] }),
+		id: "card",
+		completedAt: null,
+		createdAt: null,
+		createdBy: "me",
+		updatedAt: null,
+		attachments,
+		attachmentDisplay: display,
+		heroAttachmentId,
+	};
+}
+
+describe("cardFace", () => {
+	it("a card with nothing attached draws the count, and nothing else", () => {
+		const face = cardFace(aNode([]));
+		expect(face.mode).toBe("count");
+		expect(face.images).toEqual([]);
+		expect(face.hero).toBeNull();
+		expect(face.total).toBe(0);
+	});
+
+	it("the count is the default face: images are there, the fact carries them", () => {
+		const images = [anEntry(), anEntry({ id: "att-2", path: "p/att-2" })];
+		const face = cardFace(aNode(images));
+		expect(face.mode).toBe("count");
+		expect(face.images).toHaveLength(2);
+		expect(face.total).toBe(2);
+	});
+
+	it("hero draws the chosen image", () => {
+		const images = [
+			anEntry(),
+			anEntry({ id: "att-2", path: "p/att-2", name: "vald.jpg" }),
+		];
+		const face = cardFace(aNode(images, "hero", "att-2"));
+		expect(face.mode).toBe("hero");
+		expect(face.hero?.name).toBe("vald.jpg");
+	});
+
+	it("hero with the hero deleted falls back to the first remaining, without a write", () => {
+		const images = [
+			anEntry({ name: "forst.jpg" }),
+			anEntry({ id: "att-2", path: "p/att-2" }),
+		];
+		const face = cardFace(aNode(images, "hero", "gone"));
+		expect(face.mode).toBe("hero");
+		expect(face.hero?.name).toBe("forst.jpg");
+	});
+
+	it("hero with no image left degrades to the count", () => {
+		const documents = [
+			anEntry({ contentType: "application/pdf", name: "kalkyl.pdf" }),
+		];
+		const face = cardFace(aNode(documents, "hero", "att-1"));
+		expect(face.mode).toBe("count");
+		expect(face.hero).toBeNull();
+	});
+
+	it("thumbnails draws the images in stored order", () => {
+		const images = [anEntry(), anEntry({ id: "att-2", path: "p/att-2" })];
+		const face = cardFace(aNode(images, "thumbnails"));
+		expect(face.mode).toBe("thumbnails");
+		expect(face.images).toHaveLength(2);
+	});
+
+	it("thumbnails with every image gone but a PDF left degrades to the count", () => {
+		const documents = [
+			anEntry({ contentType: "application/pdf", name: "kalkyl.pdf" }),
+		];
+		const face = cardFace(aNode(documents, "thumbnails"));
+		expect(face.mode).toBe("count");
 	});
 });

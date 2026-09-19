@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { ActivityIndicator, Button, Icon, Text } from "react-native-paper";
 import { AttachmentMenu } from "@/components/node/AttachmentMenu";
+import { AttachmentModeChip } from "@/components/node/AttachmentModeChip";
 import { AttachmentViewer } from "@/components/node/AttachmentViewer";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { Row } from "@/components/ui/Row";
@@ -291,12 +292,22 @@ export function AttachmentsSection({
 					borderColor: dragging ? theme.colors.outline : "transparent",
 				}}
 			>
-				<Text
-					variant="labelLarge"
-					style={{ color: theme.colors.onSurfaceVariant }}
+				<View
+					style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
 				>
-					{t("detail.attachments")}
-				</Text>
+					<Text
+						variant="labelLarge"
+						style={{
+							color: theme.colors.onSurfaceVariant,
+							flex: 1,
+						}}
+					>
+						{t("detail.attachments")}
+					</Text>
+					{/* What the card's face shows, beside what it governs — it exists
+					    only while the card has a picture for a face to show. */}
+					<AttachmentModeChip node={node} onSave={onSave} />
+				</View>
 
 				{/* The one the eye lands on — the first image, which the hero mode on
 			    the board would draw too. A tap opens it properly; the gestures

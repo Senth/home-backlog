@@ -1,10 +1,11 @@
 /**
  * The pure parts of an attachment (#298): what the client refuses before it
- * touches the network, the paths the objects live at, and what a row reads.
- * Everything here mirrors `storage.rules` — the rules are the law; this file
- * exists so the refusal is a sentence on the screen instead of a red console
- * line from the SDK.
+ * touches the network, the paths the objects live at, what a row reads, and
+ * what a card's face draws. Everything here mirrors `storage.rules` — the
+ * rules are the law; this file exists so the refusal is a sentence on the
+ * screen instead of a red console line from the SDK.
  */
+import type { Attachment, AttachmentDisplay, Node } from "@/models/node";
 
 /** Per object, mirrored from `storage.rules`' `request.resource.size` bound. */
 export const maxAttachmentBytes = 20 * 1024 * 1024;
@@ -95,4 +96,41 @@ export function attachmentPath(
 /** The thumbnail of an object at `path`, named by `storage.rules`' shape. */
 export function thumbnailPathFor(objectPath: string): string {
 	return `${objectPath}_thumb.jpg`;
+}
+
+/** What a card's face draws, after degradation. See `cardFace`. */
+export interface CardFace {
+	/**
+	 * The mode the face draws — the stored preference, except that a card
+	 * holding no image draws the count whatever it says.
+	 */
+	mode: AttachmentDisplay;
+	/** The card's images, in stored order; empty when the face is the count. */
+	images: Attachment[];
+	/** Hero mode's image: the chosen one, else the first remaining. */
+	hero: Attachment | null;
+	/** Every attachment, the images and the documents together. */
+	total: number;
+}
+
+/**
+ * The three faces a card can draw (#298), resolved at render time.
+ *
+ * **Degrade on render, never rewrite on read** — the same way a deleted label
+ * definition leaves its id in place. Hero mode with the hero deleted renders
+ * the first remaining image; thumbnails with every image gone but a PDF left
+ * renders the count. Nothing here writes, and a later upload brings the
+ * stored preference back to life on its own.
+ */
+export function cardFace(node: Node): CardFace {
+	const images = node.attachments.filter((entry) =>
+		isImageType(entry.contentType),
+	);
+	const mode: AttachmentDisplay =
+		images.length === 0 ? "count" : node.attachmentDisplay;
+	const hero =
+		images.find((entry) => entry.id === node.heroAttachmentId) ??
+		images[0] ??
+		null;
+	return { mode, images, hero, total: node.attachments.length };
 }

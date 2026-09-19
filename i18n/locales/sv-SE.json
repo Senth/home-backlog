@@ -257,6 +257,8 @@
 		"offlineHint": "Kräver anslutning",
 		"details": "Detaljer…",
 		"steps": "{{done}}/{{total}}",
+		"attachedCount_one": "1 bifogad",
+		"attachedCount_other": "{{count}} bifogade",
 		"dueLate": "{{elapsed}} sen",
 		"dueSoon": "{{elapsed}}",
 		"gone": "Kortet finns inte längre.",
@@ -507,7 +509,12 @@
 		"attachmentsDelete": "Ta bort filen",
 		"attachmentsDeleteTitle": "Ta bort {{name}}?",
 		"attachmentsDeleteBody": "Filen försvinner för alla i hemmet. Det går inte att ångra.",
-		"attachmentsDeleteFailed": "Kunde inte ta bort filen. Försök igen."
+		"attachmentsDeleteFailed": "Kunde inte ta bort filen. Försök igen.",
+		"attachmentsModeCount": "Antal",
+		"attachmentsModeThumbnails": "Miniatyrer",
+		"attachmentsModeHero": "Huvudbild",
+		"attachmentsModeChange": "Ändra hur kortet visar sina bilder",
+		"attachmentsModeSheet": "Hur kortet visar sina bilder"
 	},
 	"labels": {
 		"capReached": "Ett kort kan ha som mest {{count}} etiketter.",

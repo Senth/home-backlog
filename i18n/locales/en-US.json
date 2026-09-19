@@ -257,6 +257,8 @@
 		"offlineHint": "Needs a connection",
 		"details": "Details…",
 		"steps": "{{done}}/{{total}}",
+		"attachedCount_one": "1 attached",
+		"attachedCount_other": "{{count}} attached",
 		"dueLate": "{{elapsed}} late",
 		"dueSoon": "{{elapsed}}",
 		"gone": "That card is gone.",
@@ -507,7 +509,12 @@
 		"attachmentsDelete": "Delete file",
 		"attachmentsDeleteTitle": "Delete {{name}}?",
 		"attachmentsDeleteBody": "The file disappears for everyone in the home. This cannot be undone.",
-		"attachmentsDeleteFailed": "Could not delete the file. Try again."
+		"attachmentsDeleteFailed": "Could not delete the file. Try again.",
+		"attachmentsModeCount": "Count",
+		"attachmentsModeThumbnails": "Thumbnails",
+		"attachmentsModeHero": "Hero",
+		"attachmentsModeChange": "Change how the card shows its pictures",
+		"attachmentsModeSheet": "How the card shows its pictures"
 	},
 	"labels": {
 		"capReached": "A card can carry at most {{count}} labels.",
