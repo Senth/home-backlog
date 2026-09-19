@@ -111,9 +111,13 @@ function CardHero({ attachment }: { attachment: Attachment }) {
 
 	useEffect(() => {
 		let cancelled = false;
-		void urlOf(attachment.path).then((resolved) => {
-			if (!cancelled) setUrl(resolved);
-		});
+		void urlOf(attachment.path)
+			.then((resolved) => {
+				if (!cancelled) setUrl(resolved);
+			})
+			// A raced delete takes the object with it; the tile simply never
+			// arrives, and the console stays clean.
+			.catch(() => {});
 		return () => {
 			cancelled = true;
 		};

@@ -1,11 +1,11 @@
 import type { DocumentData, Query } from "firebase/firestore";
 import {
-	arrayRemove,
 	arrayUnion,
 	doc,
 	getDoc,
 	increment,
 	query,
+	runTransaction,
 	serverTimestamp,
 	Timestamp,
 	updateDoc,
@@ -24,6 +24,7 @@ import {
 	thumbnailPathFor,
 } from "@/models/attachment";
 import type { Attachment } from "@/models/node";
+import { toNode } from "@/models/node";
 import { downscaleImage } from "@/utils/downscale";
 
 /**
@@ -84,15 +85,31 @@ export async function uploadAttachment(
 	let blob = file.blob;
 	let contentType = file.contentType;
 	const image = isImageType(contentType);
+	// Whether the canvas re-encoded it — a decode the browser cannot do leaves
+	// the original bytes on the card, and no thumbnail beside them.
+	let encoded = false;
 	if (image) {
-		blob = await downscaleImage(file.blob, maxImageEdge);
-		contentType = "image/jpeg";
+		try {
+			blob = await downscaleImage(file.blob, maxImageEdge);
+			contentType = "image/jpeg";
+			encoded = true;
+		} catch (reason) {
+			// A desktop browser handed an iPhone's HEIC cannot decode it to
+			// re-encode — refusing the upload would lose the photo outright,
+			// where keeping the original keeps it for every browser that can.
+			if ((reason as { code?: string } | null)?.code !== "image-decode") {
+				throw reason;
+			}
+		}
 	}
 
+	const objects: string[] = [path];
 	await uploadBytes(ref(storage, path), blob, { ...metadata, contentType });
-	if (image) {
+	if (encoded) {
 		const thumbnail = await downscaleImage(file.blob, thumbnailEdge);
-		await uploadBytes(ref(storage, thumbnailPathFor(path)), thumbnail, {
+		const thumbPath = thumbnailPathFor(path);
+		objects.push(thumbPath);
+		await uploadBytes(ref(storage, thumbPath), thumbnail, {
 			...metadata,
 			contentType,
 		});
@@ -109,31 +126,57 @@ export async function uploadAttachment(
 		uploadedAt: Timestamp.fromDate(new Date()),
 		uploadedBy: uid,
 	};
-	await updateDoc(nodeRef(homeId, nodeId), {
-		attachments: arrayUnion(entry),
-		attachmentCount: increment(1),
-		updatedAt: serverTimestamp(),
-	});
+	try {
+		await updateDoc(nodeRef(homeId, nodeId), {
+			attachments: arrayUnion(entry),
+			attachmentCount: increment(1),
+			updatedAt: serverTimestamp(),
+		});
+	} catch (reason) {
+		// The bytes landed but the entry did not — a card deleted under the
+		// upload, most likely. Left alone they are counted bytes nothing can
+		// ever list, which is the orphan the path shape exists to prevent, so
+		// the upload puts them back off the counter. Best effort: the original
+		// refusal is what the caller hears either way.
+		await Promise.allSettled(
+			objects.map((objectPath) => deleteObject(ref(storage, objectPath))),
+		);
+		throw reason;
+	}
 	return entry;
 }
 
 /**
  * One attachment, out: the node entry first — the count and the list are what
- * every other surface reads — then both objects. An object already gone (the
- * card was deleted mid-flight, or this is a retry) is not an error; the
- * not-found is the outcome it wanted. Any other Storage failure is rethrown,
- * because an entry removed but bytes left behind is a quota leak the next
- * reader should hear about.
+ * every other surface reads — then both objects. The entry write is a
+ * transaction that recomputes `attachmentCount` from the array it just read,
+ * so deleting the same attachment twice, or from two devices, decrements
+ * nothing — a counter that had drifted is repaired to the array's truth
+ * rather than marched one further from it, and the `attachmentCount > 0`
+ * inventory queries cannot lose a card to that drift. A card already gone
+ * counts nothing to remove; its bytes still drop, and the not-found is the
+ * outcome wanted. Any other Storage failure is rethrown, because an entry
+ * removed but bytes left behind is a quota leak the next reader should hear
+ * about.
  */
 export async function deleteAttachment(
 	homeId: string,
 	nodeId: string,
 	attachment: Attachment,
 ): Promise<void> {
-	await updateDoc(nodeRef(homeId, nodeId), {
-		attachments: arrayRemove(attachment),
-		attachmentCount: increment(-1),
-		updatedAt: serverTimestamp(),
+	await runTransaction(db, async (transaction) => {
+		const snapshot = await transaction.get(nodeRef(homeId, nodeId));
+		if (!snapshot.exists()) return;
+		const node = toNode(snapshot);
+		const remaining = node.attachments.filter(
+			(entry) => entry.id !== attachment.id,
+		);
+		if (remaining.length === node.attachments.length) return;
+		transaction.update(nodeRef(homeId, nodeId), {
+			attachments: remaining,
+			attachmentCount: remaining.length,
+			updatedAt: serverTimestamp(),
+		});
 	});
 
 	const drop = (path: string) =>

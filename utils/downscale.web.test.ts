@@ -86,6 +86,21 @@ describe("downscaleImage (web)", () => {
 		);
 	});
 
+	it("refuses with image-decode when the browser cannot decode the photo", async () => {
+		(globalThis as Record<string, unknown>).createImageBitmap = jest.fn(
+			async () => {
+				throw new Error("no such codec");
+			},
+		);
+		globalThis.document = {
+			createElement: jest.fn(),
+		} as unknown as typeof document;
+
+		await expect(downscaleImage(new Blob([]))).rejects.toMatchObject({
+			code: "image-decode",
+		});
+	});
+
 	it("says so when no canvas can be had, and when the re-encode fails", async () => {
 		installCanvas({
 			bitmap: { width: smallWide, height: smallWide, close: () => {} },

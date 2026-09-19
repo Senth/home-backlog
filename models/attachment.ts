@@ -73,11 +73,26 @@ export function attachmentErrorKey(reason: unknown): AttachmentErrorKey {
 /**
  * A size as the row reads it, through `Intl` so the units and the decimal
  * comma are the locale's own. One decimal below ten of a unit, none above.
+ * Climbs to gigabytes, because the ceiling itself is one and "1,024 MB" is a
+ * number that makes a reader do arithmetic the screen should have done.
  */
 export function formatBytes(bytes: number, locale: string): string {
-	const step = bytes < 1024 ? 1 : bytes < 1024 * 1024 ? 1024 : 1024 * 1024;
+	const step =
+		bytes < 1024
+			? 1
+			: bytes < 1024 * 1024
+				? 1024
+				: bytes < 1024 * 1024 * 1024
+					? 1024 * 1024
+					: 1024 * 1024 * 1024;
 	const unit =
-		bytes < 1024 ? "byte" : bytes < 1024 * 1024 ? "kilobyte" : "megabyte";
+		bytes < 1024
+			? "byte"
+			: bytes < 1024 * 1024
+				? "kilobyte"
+				: bytes < 1024 * 1024 * 1024
+					? "megabyte"
+					: "gigabyte";
 	const value = bytes / step;
 	return new Intl.NumberFormat(locale, {
 		style: "unit",

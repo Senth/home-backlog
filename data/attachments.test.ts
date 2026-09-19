@@ -1,4 +1,5 @@
-import type { Attachment } from "@/models/node";
+import type { Attachment, Node } from "@/models/node";
+import { newNodeData } from "@/models/node";
 
 jest.mock("@/config/firebase", () => ({ db: {}, storage: {} }));
 
@@ -10,6 +11,7 @@ jest.mock("firebase/firestore", () => ({
 	getDoc: jest.fn(async () => ({ get: () => 0 })),
 	increment: jest.fn((by: number) => ({ __op: "increment", by })),
 	query: jest.fn((value: unknown) => value),
+	runTransaction: jest.fn(),
 	serverTimestamp: jest.fn(() => "server-timestamp"),
 	Timestamp: { fromDate: jest.fn(() => "timestamp") },
 	updateDoc: jest.fn(),
@@ -161,18 +163,109 @@ describe("uploadAttachment, not an image", () => {
 	});
 });
 
+const heicBytes = 2 * oneMb;
+
+describe("uploadAttachment, a browser that cannot decode the photo", () => {
+	it("keeps the original HEIC bytes rather than losing the photo", async () => {
+		const { downscaleImage } = jest.requireMock("@/utils/downscale") as {
+			downscaleImage: jest.Mock;
+		};
+		downscaleImage.mockRejectedValueOnce(
+			Object.assign(new Error("no such codec"), { code: "image-decode" }),
+		);
+
+		const original = { size: heicBytes } as unknown as Blob;
+		await uploadAttachment(
+			"home",
+			"node",
+			"me",
+			aFile({ name: "badrum.heic", contentType: "image/heic", blob: original }),
+		);
+
+		expect(uploadBytes).toHaveBeenCalledTimes(1);
+		const [reference, blob, meta] = uploadBytes.mock.calls[0];
+		expect((reference as { path: string }).path).toMatch(
+			/^homes\/home\/nodes\/node\/[0-9a-f-]{36}$/,
+		);
+		expect(meta).toMatchObject({ contentType: "image/heic" });
+		const entry = arrayUnion.mock.calls[0][0] as Attachment;
+		expect(entry.size).toBe(heicBytes);
+		expect(blob).toBe(original);
+	});
+});
+
+describe("uploadAttachment, the entry write failing", () => {
+	it("rolls the bytes back off the counter, then rethrows", async () => {
+		updateDoc.mockRejectedValueOnce({ code: "permission-denied" });
+
+		await expect(
+			uploadAttachment("home", "node", "me", aFile()),
+		).rejects.toMatchObject({ code: "permission-denied" });
+
+		const paths = deleteObject.mock.calls.map(
+			([reference]) => (reference as { path: string }).path,
+		);
+		expect(paths).toHaveLength(2);
+		expect(paths[0]).not.toMatch(/_thumb\.jpg$/);
+		expect(paths[1]).toMatch(/_thumb\.jpg$/);
+	});
+});
+
 describe("deleteAttachment", () => {
-	it("removes the entry, then both objects of an image", async () => {
+	function aNodeWith(attachments: Attachment[]): Node {
+		return {
+			...newNodeData({ title: "Kort", rank: "a0", participantIds: ["me"] }),
+			id: "node",
+			completedAt: null,
+			createdAt: null,
+			createdBy: "me",
+			updatedAt: null,
+			attachments,
+			attachmentCount: attachments.length,
+		};
+	}
+
+	/** A transaction over one stored node; returns the update it was asked to write. */
+	function txFor(node: Node | null): jest.Mock {
+		const update = jest.fn();
+		(
+			jest.requireMock("firebase/firestore") as { runTransaction: jest.Mock }
+		).runTransaction.mockImplementation(
+			async (_db: unknown, fn: (transaction: unknown) => Promise<void>) =>
+				fn({
+					get: jest.fn(
+						async (): Promise<{
+							exists: () => boolean;
+							id?: string;
+							data?: () => Record<string, unknown>;
+						}> =>
+							node === null
+								? { exists: () => false }
+								: {
+										exists: () => true,
+										id: node.id,
+										data: () => ({ ...node }),
+									},
+					),
+					update,
+				}),
+		);
+		return update;
+	}
+
+	it("removes the entry and recomputes the count from the array", async () => {
+		const other = anAttachment({
+			id: "att-2",
+			path: "homes/home/nodes/node/att-2",
+		});
+		const update = txFor(aNodeWith([anAttachment(), other]));
 		await deleteAttachment("home", "node", anAttachment());
 
-		const removed = (updateDoc.mock.calls[0][1] as Record<string, unknown>)
-			.attachments as { __op: string; value: Attachment };
-		expect(removed.__op).toBe("arrayRemove");
-		expect(removed.value.id).toBe("att-1");
-		expect(updateDoc).toHaveBeenCalledWith(
+		expect(update).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.objectContaining({
-				attachmentCount: { __op: "increment", by: -1 },
+				attachments: [other],
+				attachmentCount: 1,
 			}),
 		);
 
@@ -185,7 +278,28 @@ describe("deleteAttachment", () => {
 		]);
 	});
 
+	it("a second delete of the same entry writes nothing", async () => {
+		const update = txFor(aNodeWith([]));
+		await deleteAttachment("home", "node", anAttachment());
+
+		expect(update).not.toHaveBeenCalled();
+		expect(deleteObject).toHaveBeenCalledTimes(2);
+	});
+
+	it("a card already gone counts nothing to remove, and its bytes still drop", async () => {
+		const update = txFor(null);
+		await deleteAttachment("home", "node", anAttachment());
+
+		expect(update).not.toHaveBeenCalled();
+		expect(deleteObject).toHaveBeenCalledTimes(2);
+	});
+
 	it("takes a document's bytes in one delete", async () => {
+		txFor(
+			aNodeWith([
+				anAttachment({ name: "pannor.txt", contentType: "text/plain" }),
+			]),
+		);
 		await deleteAttachment(
 			"home",
 			"node",

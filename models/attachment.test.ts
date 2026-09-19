@@ -73,6 +73,10 @@ describe("formatBytes", () => {
 		expect(formatBytes(1536, "sv-SE")).toBe("1,5 kB");
 		expect(formatBytes(4 * oneKb * oneKb, "sv-SE")).toBe("4 MB");
 		expect(formatBytes(12 * oneKb * oneKb, "en-US")).toBe("12 MB");
+		expect(formatBytes(homeAttachmentCeiling, "en-US")).toBe("1 GB");
+		expect(
+			formatBytes(oneKb * oneKb * oneKb + 512 * oneKb * oneKb, "sv-SE"),
+		).toBe("1,5 GB");
 	});
 });
 

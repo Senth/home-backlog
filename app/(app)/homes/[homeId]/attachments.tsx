@@ -311,9 +311,13 @@ function Thumb({ entry }: { entry: Attachment }) {
 	useEffect(() => {
 		if (!image) return;
 		let cancelled = false;
-		void urlOf(thumbnailPathFor(entry.path)).then((resolved) => {
-			if (!cancelled) setUrl(resolved);
-		});
+		void urlOf(thumbnailPathFor(entry.path))
+			.then((resolved) => {
+				if (!cancelled) setUrl(resolved);
+			})
+			// A raced delete takes the object with it; the row keeps its glyph,
+			// and the console stays clean.
+			.catch(() => {});
 		return () => {
 			cancelled = true;
 		};

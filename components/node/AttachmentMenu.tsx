@@ -80,11 +80,16 @@ export async function downloadAttachment(
 		anchor.href = href;
 		anchor.download = attachment.name;
 		anchor.click();
-		URL.revokeObjectURL(href);
+		// Revoked after a beat rather than at once: Safari has been known to
+		// abort a download whose object URL died before the reader got to it.
+		setTimeout(() => URL.revokeObjectURL(href), revokeDelayMs);
 	} catch {
 		window.open(url, "_blank");
 	}
 }
+
+/** How long a download may take to pick up its object URL before it is revoked. */
+const revokeDelayMs = 10000;
 
 interface AttachmentMenuProps {
 	/** Where the gesture happened, in viewport coordinates; `null` is closed. */

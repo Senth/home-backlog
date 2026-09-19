@@ -21,16 +21,34 @@ function canvasOf(width: number, height: number): HTMLCanvasElement {
 	return canvas;
 }
 
+/** Why the resize gave up: the browser cannot decode this image at all. */
+function undecodable(reason: Error): Error {
+	const error = new Error(reason.message);
+	(error as { code?: string }).code = "image-decode";
+	return error;
+}
+
 /**
  * `file` decoded, drawn onto a canvas sized to `maxEdge` on the long edge
  * (never upscaled), and re-encoded as JPEG. The aspect ratio is kept exactly;
- * edges round to whole pixels.
+ * edges round to whole pixels. A photo the browser cannot decode — desktop
+ * Chrome handed an iPhone's HEIC — refuses with `image-decode`, which the
+ * upload answers by keeping the original bytes rather than losing the photo.
  */
 export async function downscaleImage(
 	file: Blob,
 	maxEdge: number = maxImageEdge,
 ): Promise<Blob> {
-	const source = await createImageBitmap(file);
+	let source: ImageBitmap;
+	try {
+		source = await createImageBitmap(file);
+	} catch (reason) {
+		throw undecodable(
+			reason instanceof Error
+				? reason
+				: new Error("Could not decode the image."),
+		);
+	}
 	const scale = Math.min(1, maxEdge / Math.max(source.width, source.height));
 	const width = Math.round(source.width * scale);
 	const height = Math.round(source.height * scale);
