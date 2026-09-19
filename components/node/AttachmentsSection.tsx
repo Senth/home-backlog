@@ -1,12 +1,23 @@
 import { getDownloadURL, ref } from "firebase/storage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Image, Platform, View } from "react-native";
+import type { GestureResponderEvent } from "react-native";
+import {
+	Image,
+	Platform,
+	Pressable,
+	useWindowDimensions,
+	View,
+} from "react-native";
 import { ActivityIndicator, Button, Icon, Text } from "react-native-paper";
+import { AttachmentMenu } from "@/components/node/AttachmentMenu";
+import { AttachmentViewer } from "@/components/node/AttachmentViewer";
+import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { Row } from "@/components/ui/Row";
 import { storage } from "@/config/firebase";
 import { useAuth } from "@/contexts/AuthContext";
-import { uploadAttachment } from "@/data/attachments";
+import { deleteAttachment, uploadAttachment } from "@/data/attachments";
+import type { NodeChanges } from "@/data/nodes";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import {
 	type AttachmentErrorKey,
@@ -17,7 +28,7 @@ import {
 	maxAttachmentBytes,
 	thumbnailPathFor,
 } from "@/models/attachment";
-import type { Node } from "@/models/node";
+import type { Attachment, Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { border, icon, radius, space, touchTarget } from "@/theme/tokens";
 
@@ -25,7 +36,15 @@ interface AttachmentsSectionProps {
 	homeId: string;
 	/** The card these belong to — its own listener is the truth of the list. */
 	node: Node;
+	/** The ordinary node write, so *Set as hero* is one field on the card. */
+	onSave: (changes: NodeChanges) => void;
 }
+
+/** Why the section is currently saying something under the Add control. */
+type SectionMessage = AttachmentErrorKey | "detail.attachmentsDeleteFailed";
+
+/** Where a long-press or right-click happened, in viewport coordinates. */
+type MenuAnchor = { x: number; y: number };
 
 /** Across on the content column; a row of fewer keeps the same tile size. */
 const gridColumns = 3;
@@ -45,6 +64,21 @@ function fileGlyph(contentType: string): string {
 }
 
 /**
+ * One row of the grid, padded to `per` cells with named placeholders — the
+ * empty cells keep a filled row's tile size instead of stretching, and a
+ * placeholder's stable name is what the cell is keyed by.
+ */
+type GridCell = Attachment | { placeholder: string };
+
+function paddedRow(row: readonly Attachment[], per: number): GridCell[] {
+	const cells: GridCell[] = [...row];
+	for (let at = row.length; at < per; at++) {
+		cells.push({ placeholder: `cell-${at}` });
+	}
+	return cells;
+}
+
+/**
  * The pictures and the documents a card carries (#298), directly after Notes —
  * an attachment is something a person put on the card exactly as a note is.
  *
@@ -57,7 +91,11 @@ function fileGlyph(contentType: string): string {
  * **Offline the control is disabled and says why**: Storage has no queue, and
  * a photo that dies in a stalled request is worse than one never accepted.
  */
-export function AttachmentsSection({ homeId, node }: AttachmentsSectionProps) {
+export function AttachmentsSection({
+	homeId,
+	node,
+	onSave,
+}: AttachmentsSectionProps) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
 	const { user } = useAuth();
@@ -66,7 +104,13 @@ export function AttachmentsSection({ homeId, node }: AttachmentsSectionProps) {
 	const [urls, setUrls] = useState<Record<string, string>>({});
 	const [uploading, setUploading] = useState(false);
 	const [dragging, setDragging] = useState(false);
-	const [message, setMessage] = useState<AttachmentErrorKey | null>(null);
+	const [message, setMessage] = useState<SectionMessage | null>(null);
+	const [viewing, setViewing] = useState<Attachment | null>(null);
+	const [menu, setMenu] = useState<{
+		anchor: MenuAnchor;
+		attachment: Attachment;
+	} | null>(null);
+	const [confirming, setConfirming] = useState<Attachment | null>(null);
 
 	const images = node.attachments.filter((entry) =>
 		isImageType(entry.contentType),
@@ -197,52 +241,108 @@ export function AttachmentsSection({ homeId, node }: AttachmentsSectionProps) {
 		return () => document.removeEventListener("paste", paste);
 	}, [addFiles]);
 
+	// Tap is the route that always exists — the viewer and its bar — and the
+	// gestures are the shortcut on top: long-press on a phone, right-click on
+	// the desktop, both opening the same action list where the gesture
+	// happened. Nothing is reachable only by gesture.
+	const { width, height } = useWindowDimensions();
+	const pressProps = (attachment: Attachment) => ({
+		onPress: () => setViewing(attachment),
+		onLongPress: (event: GestureResponderEvent) => {
+			const at = event.nativeEvent as unknown as {
+				clientX?: number;
+				clientY?: number;
+			};
+			setMenu({
+				attachment,
+				anchor: { x: at.clientX ?? width / 2, y: at.clientY ?? height / 2 },
+			});
+		},
+		...(Platform.OS === "web"
+			? {
+					onContextMenu: (event: MouseEvent) => {
+						event.preventDefault();
+						setMenu({
+							attachment,
+							anchor: { x: event.clientX, y: event.clientY },
+						});
+					},
+				}
+			: {}),
+	});
+
+	const remove = async (attachment: Attachment) => {
+		setConfirming(null);
+		try {
+			await deleteAttachment(homeId, node.id, attachment);
+		} catch {
+			setMessage("detail.attachmentsDeleteFailed");
+		}
+	};
+
 	return (
-		<View
-			ref={section}
-			style={{
-				gap: space.md,
-				borderRadius: radius.sm,
-				borderWidth: border.hairline,
-				borderColor: dragging ? theme.colors.outline : "transparent",
-			}}
-		>
-			<Text
-				variant="labelLarge"
-				style={{ color: theme.colors.onSurfaceVariant }}
+		<>
+			<View
+				ref={section}
+				style={{
+					gap: space.md,
+					borderRadius: radius.sm,
+					borderWidth: border.hairline,
+					borderColor: dragging ? theme.colors.outline : "transparent",
+				}}
 			>
-				{t("detail.attachments")}
-			</Text>
+				<Text
+					variant="labelLarge"
+					style={{ color: theme.colors.onSurfaceVariant }}
+				>
+					{t("detail.attachments")}
+				</Text>
 
-			{/* The one the eye lands on — the first image, which the hero mode on
-			    the board would draw too. */}
-			{lead !== undefined && urls[lead.path] !== undefined ? (
-				<Image
-					source={{ uri: urls[lead.path] }}
-					style={{
-						width: "100%",
-						aspectRatio: 4 / 3,
-						borderRadius: radius.sm,
-					}}
-					resizeMode="cover"
-					accessibilityLabel={lead.name}
-				/>
-			) : null}
+				{/* The one the eye lands on — the first image, which the hero mode on
+			    the board would draw too. A tap opens it properly; the gestures
+			    offer the actions where the finger already is. */}
+				{lead !== undefined && urls[lead.path] !== undefined ? (
+					<Pressable {...pressProps(lead)}>
+						<Image
+							source={{ uri: urls[lead.path] }}
+							style={{
+								width: "100%",
+								aspectRatio: 4 / 3,
+								borderRadius: radius.sm,
+							}}
+							resizeMode="cover"
+							accessibilityLabel={lead.name}
+						/>
+					</Pressable>
+				) : null}
 
-			{chunks(rest, gridColumns).map((row) => (
-				<View key={row[0]?.id} style={{ flexDirection: "row", gap: space.sm }}>
-					{Array.from({ length: gridColumns }, (_, column) => {
-						const entry = row[column];
-						const uri =
-							entry === undefined
-								? undefined
-								: urls[thumbnailPathFor(entry.path)];
-						return (
-							<View
-								key={entry?.id ?? `empty-${column}`}
-								style={{ flex: 1, aspectRatio: 1 }}
-							>
-								{entry === undefined || uri === undefined ? null : (
+				{chunks(rest, gridColumns).map((row) => (
+					<View
+						key={row[0]?.id}
+						style={{ flexDirection: "row", gap: space.sm }}
+					>
+						{paddedRow(row, gridColumns).map((cell) => {
+							if ("placeholder" in cell) {
+								return (
+									<View
+										key={cell.placeholder}
+										style={{ flex: 1, aspectRatio: 1 }}
+									/>
+								);
+							}
+							const entry = cell;
+							const uri = urls[thumbnailPathFor(entry.path)];
+							if (uri === undefined) {
+								return (
+									<View key={entry.id} style={{ flex: 1, aspectRatio: 1 }} />
+								);
+							}
+							return (
+								<Pressable
+									key={entry.id}
+									style={{ flex: 1, aspectRatio: 1 }}
+									{...pressProps(entry)}
+								>
 									<Image
 										source={{ uri }}
 										style={{
@@ -253,64 +353,104 @@ export function AttachmentsSection({ homeId, node }: AttachmentsSectionProps) {
 										resizeMode="cover"
 										accessibilityLabel={entry.name}
 									/>
-								)}
-							</View>
-						);
-					})}
-				</View>
-			))}
+								</Pressable>
+							);
+						})}
+					</View>
+				))}
 
-			{files.map((entry) => (
-				<Row
-					key={entry.id}
-					left={<Icon source={fileGlyph(entry.contentType)} size={icon.md} />}
-					title={entry.name}
-					right={
-						<Text
-							variant="bodyMedium"
-							style={{ color: theme.colors.onSurfaceVariant }}
-						>
-							{formatBytes(entry.size, i18n.language)}
-						</Text>
-					}
-				/>
-			))}
+				{files.map((entry) => (
+					<Pressable key={entry.id} {...pressProps(entry)}>
+						<Row
+							left={
+								<Icon source={fileGlyph(entry.contentType)} size={icon.md} />
+							}
+							title={entry.name}
+							right={
+								<Text
+									variant="bodyMedium"
+									style={{ color: theme.colors.onSurfaceVariant }}
+								>
+									{formatBytes(entry.size, i18n.language)}
+								</Text>
+							}
+						/>
+					</Pressable>
+				))}
 
-			<View
-				style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
-			>
-				<Button
-					mode="outlined"
-					icon="plus"
-					onPress={openPicker}
-					disabled={!online || uploading}
-					contentStyle={{ minHeight: touchTarget }}
+				<View
+					style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
 				>
-					{t("detail.attachmentsAdd")}
-				</Button>
-				{uploading ? (
-					<ActivityIndicator
-						accessibilityLabel={t("detail.attachmentsUploading")}
-					/>
+					<Button
+						mode="outlined"
+						icon="plus"
+						onPress={openPicker}
+						disabled={!online || uploading}
+						contentStyle={{ minHeight: touchTarget }}
+					>
+						{t("detail.attachmentsAdd")}
+					</Button>
+					{uploading ? (
+						<ActivityIndicator
+							accessibilityLabel={t("detail.attachmentsUploading")}
+						/>
+					) : null}
+				</View>
+
+				{!online ? (
+					<Text
+						variant="bodySmall"
+						style={{ color: theme.colors.onSurfaceVariant }}
+					>
+						{t("detail.attachmentsOffline")}
+					</Text>
 				) : null}
+
+				{message === null ? null : (
+					<Text variant="bodyMedium" style={{ color: theme.colors.error }}>
+						{t(message, {
+							limit: formatBytes(maxAttachmentBytes, i18n.language),
+						})}
+					</Text>
+				)}
 			</View>
 
-			{!online ? (
-				<Text
-					variant="bodySmall"
-					style={{ color: theme.colors.onSurfaceVariant }}
-				>
-					{t("detail.attachmentsOffline")}
-				</Text>
-			) : null}
-
-			{message === null ? null : (
-				<Text variant="bodyMedium" style={{ color: theme.colors.error }}>
-					{t(message, {
-						limit: formatBytes(maxAttachmentBytes, i18n.language),
-					})}
-				</Text>
+			{/* The viewer and the gesture menu, mounted only while open — the way
+		    every dialog on this screen is. The confirm is the grid route's own;
+		    the viewer carries its own. */}
+			{viewing === null ? null : (
+				<AttachmentViewer
+					homeId={homeId}
+					node={node}
+					attachment={viewing}
+					onDismiss={() => setViewing(null)}
+					onSave={onSave}
+				/>
 			)}
-		</View>
+
+			{menu === null ? null : (
+				<AttachmentMenu
+					anchor={menu.anchor}
+					node={node}
+					attachment={menu.attachment}
+					onDismiss={() => setMenu(null)}
+					onHero={() => onSave({ heroAttachmentId: menu.attachment.id })}
+					onDelete={() => setConfirming(menu.attachment)}
+				/>
+			)}
+
+			{confirming === null ? null : (
+				<ConfirmDialog
+					visible
+					onDismiss={() => setConfirming(null)}
+					onConfirm={() => void remove(confirming)}
+					title={t("detail.attachmentsDeleteTitle", { name: confirming.name })}
+					body={t("detail.attachmentsDeleteBody")}
+					confirmLabel={t("detail.attachmentsDelete")}
+					destructive
+					testID={`delete-attachment-${confirming.id}`}
+				/>
+			)}
+		</>
 	);
 }

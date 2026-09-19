@@ -500,7 +500,14 @@
 		"attachmentsOffline": "Bilagor behöver uppkoppling — de laddas upp direkt och kan inte vänta.",
 		"attachmentsTooLarge": "Filen är för stor — gränsen är {{limit}} per fil.",
 		"attachmentsWrongType": "Den filtypen går inte att bifoga — bilder, PDF-filer och textfiler är tillåtna.",
-		"attachmentsFailed": "Kunde inte ladda upp filen. Försök igen."
+		"attachmentsFailed": "Kunde inte ladda upp filen. Försök igen.",
+		"attachmentsClose": "Stäng",
+		"attachmentsHero": "Använd som huvudbild",
+		"attachmentsDownload": "Ladda ner",
+		"attachmentsDelete": "Ta bort filen",
+		"attachmentsDeleteTitle": "Ta bort {{name}}?",
+		"attachmentsDeleteBody": "Filen försvinner för alla i hemmet. Det går inte att ångra.",
+		"attachmentsDeleteFailed": "Kunde inte ta bort filen. Försök igen."
 	},
 	"labels": {
 		"capReached": "Ett kort kan ha som mest {{count}} etiketter.",

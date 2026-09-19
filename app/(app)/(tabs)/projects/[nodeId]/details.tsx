@@ -533,7 +533,7 @@ export default function NodeDetails() {
 					{/* The pictures and documents the card carries (#298), as much
 					    a part of what someone put on it as the note above. */}
 					{homeId === null ? null : (
-						<AttachmentsSection homeId={homeId} node={node} />
+						<AttachmentsSection homeId={homeId} node={node} onSave={save} />
 					)}
 
 					{/* One plain line, and only for a card an agent wrote.

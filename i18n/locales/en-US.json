@@ -500,7 +500,14 @@
 		"attachmentsOffline": "Attachments need a connection — they upload straight away and cannot wait for one.",
 		"attachmentsTooLarge": "That file is too large — the limit is {{limit}} per file.",
 		"attachmentsWrongType": "That file type cannot be attached — images, PDF files and text files are allowed.",
-		"attachmentsFailed": "Could not upload the file. Try again."
+		"attachmentsFailed": "Could not upload the file. Try again.",
+		"attachmentsClose": "Close",
+		"attachmentsHero": "Set as hero",
+		"attachmentsDownload": "Download",
+		"attachmentsDelete": "Delete file",
+		"attachmentsDeleteTitle": "Delete {{name}}?",
+		"attachmentsDeleteBody": "The file disappears for everyone in the home. This cannot be undone.",
+		"attachmentsDeleteFailed": "Could not delete the file. Try again."
 	},
 	"labels": {
 		"capReached": "A card can carry at most {{count}} labels.",

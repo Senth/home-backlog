@@ -1,4 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react-native";
+import {
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react-native";
 import { Provider } from "react-native-paper";
 import { AttachmentsSection } from "@/components/node/AttachmentsSection";
 import enUS from "@/i18n/locales/en-US.json";
@@ -29,7 +34,10 @@ jest.mock("@/contexts/AuthContext", () => ({
 
 jest.mock("@/data/attachments", () => ({
 	uploadAttachment: jest.fn(),
+	deleteAttachment: jest.fn(async () => undefined),
 }));
+
+import { deleteAttachment } from "@/data/attachments";
 
 jest.mock("@/config/firebase", () => ({ db: {}, storage: {} }));
 
@@ -59,7 +67,7 @@ function anAttachment(over: Partial<Attachment> = {}): Attachment {
 	};
 }
 
-function aNode(attachments: Attachment[]): Node {
+function aNode(attachments: Attachment[], over: Partial<Node> = {}): Node {
 	return {
 		...newNodeData({ title: "Badrummet", rank: "a0", participantIds: ["me"] }),
 		id: "card",
@@ -69,13 +77,14 @@ function aNode(attachments: Attachment[]): Node {
 		updatedAt: null,
 		attachments,
 		attachmentCount: attachments.length,
+		...over,
 	};
 }
 
 function renderSection(node: Node) {
 	return render(
 		<Provider theme={lightTheme}>
-			<AttachmentsSection homeId="home" node={node} />
+			<AttachmentsSection homeId="home" node={node} onSave={() => {}} />
 		</Provider>,
 	);
 }
@@ -137,5 +146,60 @@ describe("AttachmentsSection", () => {
 		expect(svSE.detail.attachments.length).toBeGreaterThan(0);
 		expect(enUS.detail.attachmentsOffline.length).toBeGreaterThan(0);
 		expect(svSE.detail.attachmentsOffline.length).toBeGreaterThan(0);
+	});
+
+	it("opens the viewer from a tap, with every action in its bar", async () => {
+		const images = [anAttachment({ id: "bild", name: "badrum.jpg" })];
+		renderSection(aNode(images));
+
+		await waitFor(() => {
+			expect(screen.getByLabelText("badrum.jpg")).toBeOnTheScreen();
+		});
+		fireEvent.press(screen.getByLabelText("badrum.jpg"));
+
+		// The bar is where the actions live — the gesture menu is only the
+		// shortcut, so the tap route carries all of it, plus the way out.
+		expect(
+			screen.getByLabelText("detail.attachmentsDownload"),
+		).toBeOnTheScreen();
+		expect(screen.getByLabelText("detail.attachmentsHero")).toBeOnTheScreen();
+		expect(screen.getByLabelText("detail.attachmentsDelete")).toBeOnTheScreen();
+		expect(screen.getByLabelText("detail.attachmentsClose")).toBeOnTheScreen();
+
+		fireEvent.press(screen.getByLabelText("detail.attachmentsClose"));
+		expect(screen.queryByLabelText("detail.attachmentsDelete")).toBeNull();
+	});
+
+	it("offers no hero action for the image that is already the hero", async () => {
+		const images = [anAttachment({ id: "bild", name: "badrum.jpg" })];
+		renderSection(aNode(images, { heroAttachmentId: "bild" }));
+
+		await waitFor(() => {
+			expect(screen.getByLabelText("badrum.jpg")).toBeOnTheScreen();
+		});
+		fireEvent.press(screen.getByLabelText("badrum.jpg"));
+
+		expect(screen.queryByLabelText("detail.attachmentsHero")).toBeNull();
+		expect(
+			screen.getByLabelText("detail.attachmentsDownload"),
+		).toBeOnTheScreen();
+	});
+
+	it("asks before deleting, naming the file, then deletes", async () => {
+		const entry = anAttachment({ id: "bild", name: "badrum.jpg" });
+		renderSection(aNode([entry]));
+
+		await waitFor(() => {
+			expect(screen.getByLabelText("badrum.jpg")).toBeOnTheScreen();
+		});
+		fireEvent.press(screen.getByLabelText("badrum.jpg"));
+		fireEvent.press(screen.getByLabelText("detail.attachmentsDelete"));
+
+		expect(
+			screen.getByText('detail.attachmentsDeleteTitle:{"name":"badrum.jpg"}'),
+		).toBeOnTheScreen();
+
+		fireEvent.press(screen.getByText("detail.attachmentsDelete"));
+		expect(deleteAttachment).toHaveBeenCalledWith("home", "card", entry);
 	});
 });
