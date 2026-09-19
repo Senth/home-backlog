@@ -456,6 +456,7 @@
 		"labelsChange": "Change",
 		"priority": "Priority",
 		"effort": "Time needed",
+		"clearField": "Clear {{what}}",
 		"notes": "Notes",
 		"notesEdit": "Edit the note",
 		"saved": "Saved {{time}}",

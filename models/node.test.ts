@@ -24,6 +24,8 @@ import {
 	nextStatus,
 	pickerCandidates,
 	previousStatus,
+	priorities,
+	prioritiesHighFirst,
 	rankAtEnd,
 	rankBetween,
 	rankSequence,
@@ -216,6 +218,18 @@ describe("defaultColumns", () => {
 	 */
 	it("is the whole status vocabulary, in enum order", () => {
 		expect(defaultColumns).toEqual(["backlog", "next_up", "execution", "done"]);
+	});
+});
+
+describe("prioritiesHighFirst", () => {
+	/**
+	 * The picker reads highest-first (#247), but the scale itself does not move:
+	 * `priorityOrder` and every sort stay low-first, so this may only ever be
+	 * the reverse, and nothing may sort or validate through it.
+	 */
+	it("is `priorities` reversed, urgent-first", () => {
+		expect(priorities).toEqual(["low", "normal", "high", "urgent"]);
+		expect(prioritiesHighFirst).toEqual([...priorities].reverse());
 	});
 });
 
