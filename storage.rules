@@ -1,21 +1,68 @@
 rules_version = '2';
 
-// Photos live under homes/{homeId}/... and are gated on the same `members` map
-// as Firestore, read across services with firestore.get().
+// Attachment objects (#298) live under the card they belong to, and nowhere
+// else:
+//
+//   homes/{homeId}/nodes/{nodeId}/{attachmentId}
+//   homes/{homeId}/nodes/{nodeId}/{attachmentId}_thumb.jpg
+//
+// The path shape is not tidiness. The byte counter (on-object-written.ts in
+// functions/) sums everything under homes/{homeId}/, so a write to an
+// unexpected path would inflate the quota with an object the inventory can
+// never list and the cleanup trigger can never find. The old {allPaths=**}
+// wildcard became a hole the moment that counter existed, and is now exactly
+// the shape above: anything else matches no rule and is denied.
+//
+// Membership is the same `members` map Firestore reads, reached across
+// services with firestore.get(); the per-home byte ceiling is read from the
+// home document the same way, and only the Storage-triggered function writes
+// it — firestore.rules refuses it to every client.
 service firebase.storage {
   match /b/{bucket}/o {
-    match /homes/{homeId}/{allPaths=**} {
+    match /homes/{homeId}/nodes/{nodeId}/{attachmentId} {
       function isMember() {
         return request.auth != null
           && firestore.get(/databases/(default)/documents/homes/$(homeId))
               .data.members.get(request.auth.uid, null) != null;
       }
 
-      allow read: if isMember();
-      allow write: if isMember()
+      // What a household attaches: photos, documents, plain text. Nothing an
+      // operating system can be talked into executing, and nothing the
+      // downscaler cannot re-encode.
+      function allowedType() {
+        return request.resource.contentType in
+          ['image/jpeg', 'image/png', 'image/webp', 'image/heic',
+           'application/pdf', 'text/plain'];
+      }
+
+      // The ceiling, read from the number the counter maintains. The counter
+      // lags finalize by about a second, so simultaneous uploads at the
+      // ceiling can overshoot by a few objects — bounded by upload
+      // concurrency, and the accepted cost of not writing a signed-URL
+      // handshake.
+      function underQuota() {
+        return firestore.get(/databases/(default)/documents/homes/$(homeId))
+            .data.get('attachmentBytes', 0) < 1024 * 1024 * 1024;
+      }
+
+      // Any member may read and delete what the household can already see on
+      // the card — ownership is a concept this app does not have.
+      allow read, delete: if isMember();
+
+      // Attribution is not a client's word for it where the counter is
+      // concerned: customMetadata.uploadedBy must name the caller, because
+      // the per-person breakdown is written from exactly that field.
+      //
+      // Objects are written once, under an id the client mints, and never
+      // overwritten — an overwrite would count the whole object again,
+      // since nothing deleted the first bytes. Hence create and nothing else.
+      allow create: if isMember()
         && request.resource.size < 20 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
-      allow delete: if isMember();
+        && allowedType()
+        && request.resource.metadata.uploadedBy == request.auth.uid
+        && underQuota();
+
+      allow update: if false;
     }
   }
 }
