@@ -15,17 +15,14 @@ import {
 	TouchableRipple,
 } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
-import { TitleDialog } from "@/components/board/TitleDialog";
+import { LocationDialog } from "@/components/location/LocationDialog";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { BackAction } from "@/components/ui/BackAction";
-import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import {
-	createLocation,
 	deleteLocation,
 	locationErrorKey,
 	moveLocation,
-	renameLocation,
 	reorderLocation,
 } from "@/data/locations";
 import { useLocations } from "@/hooks/use-locations";
@@ -53,8 +50,8 @@ type AddTarget = { parent: Location | null } | null;
  *
  * One row per location, indented by depth, one listener for the whole
  * collection behind it. The FAB creates a root place; a row's overflow menu
- * reorders, nests, renames, moves and deletes. Create and rename queue
- * offline; move and delete read the subtree from the server first, so they
+ * reorders, nests, edits, moves and deletes. Create and edit queue offline;
+ * move and delete read the subtree from the server first, so they
  * are disabled offline with the hint the card menu shows, rather than failing
  * after the tap.
  *
@@ -65,7 +62,6 @@ export default function Locations() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const router = useRouter();
-	const { user } = useAuth();
 	const { activeHome } = useHome();
 	const { width } = useWindowDimensions();
 	const online = useOnlineStatus();
@@ -91,23 +87,6 @@ export default function Locations() {
 				next.add(id);
 			}
 			return next;
-		});
-	};
-
-	/**
-	 * A root place from the FAB or the empty state, a nested one from a row.
-	 * Queued, never awaited — it is in the tree the moment Firestore applies
-	 * it locally, and lands when the connection does.
-	 */
-	const add = (title: string) => {
-		if (user === null || homeId === null || adding === null) return;
-
-		const parent = adding.parent;
-		const siblings = childrenOf(locations, parent?.id ?? null);
-		createLocation(homeId, user.uid, {
-			title,
-			parent,
-			rank: rankAtEnd(siblings.at(-1)?.rank ?? null),
 		});
 	};
 
@@ -249,13 +228,12 @@ export default function Locations() {
 			) : null}
 
 			{adding !== null ? (
-				<TitleDialog
-					visible
+				<LocationDialog
+					homeId={homeId ?? ""}
+					location={null}
+					parent={adding.parent}
+					siblings={childrenOf(locations, adding.parent?.id ?? null)}
 					onDismiss={() => setAdding(null)}
-					heading={t("locations.add")}
-					confirmLabel={t("board.add")}
-					label={t("locations.nameLabel")}
-					onSubmit={add}
 					testID={newLocationDialogTestID}
 					returnFocusTo={openerRef}
 				/>
@@ -331,7 +309,7 @@ function LocationRow({
 	const anchor = useRef<View | null>(null);
 	const [open, setOpen] = useState(false);
 	const [page, setPage] = useState<RowPage>("root");
-	const [renaming, setRenaming] = useState(false);
+	const [editing, setEditing] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const [rootPageHeight, setRootPageHeight] = useState<number | undefined>(
 		undefined,
@@ -467,10 +445,10 @@ function LocationRow({
 						/>
 						<Menu.Item
 							leadingIcon="pencil-outline"
-							title={t("locations.rename")}
+							title={t("locations.edit")}
 							onPress={() => {
 								close();
-								setRenaming(true);
+								setEditing(true);
 							}}
 						/>
 						<Menu.Item
@@ -530,16 +508,14 @@ function LocationRow({
 
 			{/* Mounted only while open — each dialog carries a `Portal`, and a
 			    tree grows without bound. */}
-			{renaming ? (
-				<TitleDialog
-					visible
-					onDismiss={() => setRenaming(false)}
-					heading={t("locations.renameTitle")}
-					confirmLabel={t("locations.rename")}
-					initialTitle={location.title}
-					label={t("locations.nameLabel")}
-					onSubmit={(title) => renameLocation(homeId, location.id, title)}
-					testID={`rename-location-${location.id}`}
+			{editing ? (
+				<LocationDialog
+					homeId={homeId}
+					location={location}
+					parent={null}
+					siblings={siblings}
+					onDismiss={() => setEditing(false)}
+					testID={`edit-location-${location.id}`}
 					returnFocusTo={anchor}
 				/>
 			) : null}

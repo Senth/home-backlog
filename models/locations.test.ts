@@ -2,6 +2,7 @@ import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import {
 	inSubtree,
 	type Location,
+	locationTitleError,
 	newLocationData,
 	toLocation,
 } from "@/models/locations";
@@ -71,11 +72,28 @@ describe("newLocationData", () => {
 	});
 });
 
+describe("locationTitleError", () => {
+	it("refuses an empty name", () => {
+		expect(locationTitleError("   ")).toBe("locations.titleRequired");
+	});
+
+	it("refuses a name over 200 characters", () => {
+		expect(locationTitleError("x".repeat(201))).toBe("locations.titleTooLong");
+	});
+
+	it("accepts a name the rules would", () => {
+		expect(locationTitleError("  The garden  ")).toBeNull();
+	});
+
+	it("accepts a name another place already has — places are not unique", () => {
+		expect(locationTitleError("Hallway")).toBeNull();
+	});
+});
+
 describe("inSubtree", () => {
 	it("is the location itself", () => {
 		expect(inSubtree(location({ id: "garden" }), "garden")).toBe(true);
 	});
-
 	it("is everything under it, at any depth", () => {
 		const child = location({ id: "bed", ancestorIds: ["garden"] });
 		const grandchild = location({

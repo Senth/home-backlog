@@ -1,7 +1,7 @@
-import type { ReactNode, RefObject } from "react";
+import type { RefObject } from "react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import {
 	Button,
 	Card,
@@ -13,9 +13,9 @@ import {
 	ThemeProvider,
 } from "react-native-paper";
 import { CardGutter } from "@/components/board/CardGutter";
+import { ColorSwatches } from "@/components/label/ColorSwatches";
 import { IconPicker } from "@/components/label/IconPicker";
 import { AppDialog, ConfirmDialog } from "@/components/ui/AppDialog";
-import { ColorField } from "@/components/ui/ColorField";
 import { useHome } from "@/contexts/HomeContext";
 import {
 	createLabel,
@@ -24,22 +24,14 @@ import {
 	reiconLabel,
 	renameLabel,
 } from "@/data/homes";
-import { useLabelColors } from "@/hooks/use-label-colors";
 import {
 	type LabelTitleError,
 	type LabelWithId,
 	labelError,
 } from "@/models/label";
 import { type Node, rankAtEnd } from "@/models/node";
-import {
-	darkTheme,
-	defaultLabelHue,
-	type LabelHueName,
-	labelHues,
-	lightTheme,
-	useAppTheme,
-} from "@/theme";
-import { border, icon, radius, size, space, touchTarget } from "@/theme/tokens";
+import { darkTheme, defaultLabelHue, lightTheme, useAppTheme } from "@/theme";
+import { icon, space, touchTarget } from "@/theme/tokens";
 
 interface LabelDialogProps {
 	homeId: string;
@@ -54,8 +46,6 @@ interface LabelDialogProps {
 
 /** The gutter's sample card: a priority is all the gutter reads off a node. */
 const previewNode: Pick<Node, "priority"> = { priority: "normal" };
-
-const hueNames = Object.keys(labelHues) as LabelHueName[];
 
 /**
  * Creating and editing one label (#100), in one shape — nothing moves between
@@ -94,11 +84,6 @@ export function LabelDialog({
 	);
 	const [pickingIcon, setPickingIcon] = useState(false);
 	const [deleting, setDeleting] = useState(false);
-	// Open from the start when the stored color is already a custom one —
-	// the field is where its value is visible.
-	const [customOpen, setCustomOpen] = useState(
-		label !== null && !(label.color in labelHues),
-	);
 	const deleteAnchor = useRef<View | null>(null);
 
 	const labels = homes.find((home) => home.id === homeId)?.labels ?? [];
@@ -273,34 +258,7 @@ export function LabelDialog({
 							>
 								{t("labels.colorLabel")}
 							</Text>
-							<View
-								style={{
-									flexDirection: "row",
-									flexWrap: "wrap",
-									gap: space.xs,
-								}}
-							>
-								{hueNames.map((hue) => (
-									<HueSwatch
-										key={hue}
-										hue={hue}
-										selected={color === hue}
-										onSelect={() => setColor(hue)}
-									/>
-								))}
-								<CustomSwatch
-									color={color}
-									selected={!(color in labelHues)}
-									onOpen={() => setCustomOpen(true)}
-								/>
-							</View>
-							{customOpen ? (
-								<ColorField
-									label={t("labels.customColor")}
-									value={color}
-									onChange={setColor}
-								/>
-							) : null}
+							<ColorSwatches value={color} onChange={setColor} />
 						</View>
 					</View>
 				</AppDialog>
@@ -326,9 +284,7 @@ export function LabelDialog({
 interface SchemePreviewProps {
 	scheme: "light" | "dark";
 	label: LabelWithId;
-}
-
-/**
+} /**
  * One half of the preview: the settled card face, forced to a scheme. The
  * crumbs, the title and the gutter are the real components, so the preview
  * cannot drift from the board — a change to the card face is a change here.
@@ -386,128 +342,5 @@ function SchemePreview({ scheme, label }: SchemePreviewProps) {
 				</Card>
 			</ThemeProvider>
 		</View>
-	);
-}
-
-interface SwatchProps {
-	/** The accessible name — the swatch is a shape, and a shape says nothing. */
-	accessibilityLabel: string;
-	selected: boolean;
-	onSelect: () => void;
-}
-
-/**
- * One color swatch: the dot inside a full `touchTarget` pressable, with a
- * hairline ring on the chosen one and a check in the dot's own on-color —
- * the same mark the icon picker's list rows make. The dot is `avatarSm`, so
- * the ring reads around the color, not over it.
- */
-function Swatch({
-	accessibilityLabel,
-	selected,
-	onSelect,
-	children,
-}: SwatchProps & { children: ReactNode }) {
-	const theme = useAppTheme();
-
-	return (
-		<Pressable
-			accessible
-			accessibilityRole="button"
-			accessibilityLabel={accessibilityLabel}
-			accessibilityState={{ selected }}
-			onPress={onSelect}
-			style={{
-				width: touchTarget,
-				height: touchTarget,
-				borderRadius: radius.full,
-				alignItems: "center",
-				justifyContent: "center",
-				// The ring is a conditional spread: `border` has no zero width,
-				// and a 0 belongs to no scale this repo keeps.
-				...(selected
-					? {
-							borderWidth: border.hairline,
-							borderColor: theme.colors.onSurface,
-						}
-					: {}),
-			}}
-		>
-			{children}
-		</Pressable>
-	);
-}
-
-function HueSwatch({
-	hue,
-	selected,
-	onSelect,
-}: {
-	hue: LabelHueName;
-	selected: boolean;
-	onSelect: () => void;
-}) {
-	const { t } = useTranslation();
-	const { fill, on } = useLabelColors(hue);
-
-	return (
-		<Swatch
-			accessibilityLabel={t(`labels.hue.${hue}`)}
-			selected={selected}
-			onSelect={onSelect}
-		>
-			<View
-				style={{
-					width: size.avatarSm,
-					height: size.avatarSm,
-					borderRadius: radius.full,
-					backgroundColor: fill,
-					alignItems: "center",
-					justifyContent: "center",
-				}}
-			>
-				{selected ? <Icon source="check" size={icon.sm} color={on} /> : null}
-			</View>
-		</Swatch>
-	);
-}
-
-function CustomSwatch({
-	color,
-	selected,
-	onOpen,
-}: {
-	color: string;
-	selected: boolean;
-	onOpen: () => void;
-}) {
-	const { t } = useTranslation();
-	const theme = useAppTheme();
-	const isCustom = !(color in labelHues);
-	const { fill, on } = useLabelColors(color);
-
-	return (
-		<Swatch
-			accessibilityLabel={t("labels.customColor")}
-			selected={selected}
-			onSelect={onOpen}
-		>
-			<View
-				style={{
-					width: size.avatarSm,
-					height: size.avatarSm,
-					borderRadius: radius.full,
-					backgroundColor: isCustom ? fill : theme.colors.surfaceVariant,
-					alignItems: "center",
-					justifyContent: "center",
-				}}
-			>
-				<Icon
-					source="pencil"
-					size={icon.sm}
-					color={isCustom ? on : theme.colors.onSurfaceVariant}
-				/>
-			</View>
-		</Swatch>
 	);
 }

@@ -123,24 +123,28 @@ export function createLocation(
 }
 
 /**
- * A rename, queued optimistically like any edit.
+ * An edit, queued optimistically like any write (#205).
  *
- * Same acknowledged-promise shape as `createLocation`: the tree row shows the
- * new name from the local cache at once, the promise resolves when the server
- * has it, and a rejection is logged here rather than left unhandled.
+ * One `updateDoc` with only the fields that changed, so two members editing
+ * different facts about the same place merge at the field path. Same
+ * acknowledged-promise shape as `createLocation`: the tree row shows the edit
+ * from the local cache at once, the promise resolves when the server has it,
+ * and a rejection is logged here rather than left unhandled.
  */
-export function renameLocation(
+export function editLocation(
 	homeId: string,
 	locationId: string,
-	title: string,
+	changes: { title?: string; icon?: string; color?: string },
 ): Promise<void> {
 	const written = updateDoc(locationRef(homeId, locationId), {
-		title: title.trim(),
+		...(changes.title !== undefined ? { title: changes.title.trim() } : {}),
+		...(changes.icon !== undefined ? { icon: changes.icon } : {}),
+		...(changes.color !== undefined ? { color: changes.color } : {}),
 		updatedAt: serverTimestamp(),
 	});
 
 	written.catch((reason) => {
-		console.error("Could not rename the location:", reason);
+		console.error("Could not save the location:", reason);
 	});
 
 	return written;

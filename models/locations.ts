@@ -3,7 +3,7 @@ import type {
 	QueryDocumentSnapshot,
 	Timestamp,
 } from "firebase/firestore";
-import { childAncestorIds } from "@/models/node";
+import { childAncestorIds, maxTitleLength } from "@/models/node";
 
 /**
  * One place in the location tree (#50) — the second hierarchy, of rooms,
@@ -102,6 +102,24 @@ export function newLocationData(input: NewLocationInput): LocationData {
  */
 export function inSubtree(location: Location, id: string): boolean {
 	return location.id === id || location.ancestorIds.includes(id);
+}
+
+/** Why a typed place name cannot be saved, as the key that says so (#205). */
+export type LocationTitleError =
+	| "locations.titleRequired"
+	| "locations.titleTooLong";
+
+/**
+ * The one validation a place name has, checked here rather than in the dialog
+ * so the rules are not the first thing to say no — the shape `titleError`
+ * makes for nodes. Unlike a label's name, a place's need not be unique: two
+ * rooms can honestly share one.
+ */
+export function locationTitleError(title: string): LocationTitleError | null {
+	const trimmed = title.trim();
+	if (trimmed.length === 0) return "locations.titleRequired";
+	if (trimmed.length > maxTitleLength) return "locations.titleTooLong";
+	return null;
 }
 
 /**
