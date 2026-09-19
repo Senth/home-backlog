@@ -13,25 +13,19 @@ import {
 } from "react-native-paper";
 import { DragArea } from "@/components/board/DragArea";
 import { CardActionsMenu } from "@/components/overview/CardActionsMenu";
-import { CardEditSheet } from "@/components/overview/CardEditSheet";
 import { ImportCardDialog } from "@/components/overview/ImportCardDialog";
 import {
 	listKey,
 	rowKey,
 	useCardListDrag,
 } from "@/components/overview/use-card-list-drag";
+import { useCardWrites } from "@/components/overview/use-card-writes";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { BackAction } from "@/components/ui/BackAction";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
 import { useHome } from "@/contexts/HomeContext";
-import {
-	deleteScopeCard,
-	moveScopeCard,
-	newCardId,
-	saveHiddenShared,
-	saveScopeCards,
-} from "@/data/cards";
+import { saveHiddenShared } from "@/data/cards";
 import { useLocations } from "@/hooks/use-locations";
 import { membersOf } from "@/models/home";
 import { rankAtEnd, rankBetween } from "@/models/node";
@@ -87,10 +81,6 @@ export default function OverviewEditor() {
 	// listener table notes it.
 	const { locations } = useLocations(homeId);
 
-	const [editing, setEditing] = useState<{
-		card: Card | null;
-		scope: CardScope;
-	} | null>(null);
 	const [removing, setRemoving] = useState<EditorCard | null>(null);
 	const [importing, setImporting] = useState(false);
 	const [notice, setNotice] = useState<string | null>(null);
@@ -108,95 +98,7 @@ export default function OverviewEditor() {
 	const couldNotSave = (reason: unknown) =>
 		console.error("Could not save the cards:", reason);
 
-	/** Every card stored on one surface, in the editor's order. */
-	const surfaceCards = (scope: CardScope): Card[] =>
-		editorCards
-			.filter((entry) => entry.scope === scope)
-			.map((entry) => entry.card);
-
-	/**
-	 * The ids a write on this surface needs, or `null` when there is nothing
-	 * to write to: no uid, or no active home for a scope that lives in one.
-	 * `homes//dashboards/{uid}` is not a path Firestore declines politely —
-	 * it is a synchronous crash — so the guard runs before any reference is
-	 * built, which is what a deep link to a homeless editor needs.
-	 */
-	const idsFor = (scope: CardScope): { homeId: string; uid: string } | null => {
-		if (uid === null) return null;
-		if (scope !== "global" && homeId === null) return null;
-		return { homeId: homeId ?? "", uid };
-	};
-
-	const addTo = (scope: CardScope, card: Card) => {
-		const ids = idsFor(scope);
-		if (ids === null) return;
-		saveScopeCards(scope, ids.homeId, ids.uid, [
-			...surfaceCards(scope),
-			card,
-		]).catch(couldNotSave);
-	};
-
-	const removeFrom = (scope: CardScope, id: string) => {
-		const ids = idsFor(scope);
-		if (ids === null) return;
-		deleteScopeCard(scope, ids.homeId, ids.uid, id, surfaceCards(scope)).catch(
-			couldNotSave,
-		);
-	};
-
-	/** An edit or a reorder that stays on its own surface. */
-	const replaceIn = (scope: CardScope, card: Card) => {
-		const ids = idsFor(scope);
-		if (ids === null) return;
-		saveScopeCards(
-			scope,
-			ids.homeId,
-			ids.uid,
-			surfaceCards(scope).map((each) => (each.id === card.id ? card : each)),
-		).catch(couldNotSave);
-	};
-
-	/** Scope is where the card is stored, so changing scope moves the card. */
-	const moveScope = (card: Card, from: CardScope, to: CardScope) => {
-		const fromIds = idsFor(from);
-		const toIds = idsFor(to);
-		if (fromIds === null || toIds === null) return;
-		moveScopeCard(
-			card,
-			from,
-			to,
-			toIds.homeId,
-			toIds.uid,
-			surfaceCards(from).filter((each) => each.id !== card.id),
-			surfaceCards(to),
-		).catch(couldNotSave);
-	};
-
-	/**
-	 * A card the editor just composed or imported: minted here so a later
-	 * scope move keeps it, and it takes the last place on the screen.
-	 */
-	const createIn = (scope: CardScope, draft: Omit<Card, "id" | "rank">) => {
-		const ids = idsFor(scope);
-		if (ids === null) return;
-		addTo(scope, {
-			...draft,
-			id: newCardId(scope, ids.homeId, ids.uid),
-			rank: rankAtEnd(editorCards.at(-1)?.card.rank ?? null),
-		});
-	};
-
-	const save = (draft: Card, scope: CardScope) => {
-		if (editing === null) return;
-
-		if (editing.card === null) {
-			createIn(scope, draft);
-			return;
-		}
-
-		if (editing.scope === scope) replaceIn(scope, draft);
-		else moveScope(draft, editing.scope, scope);
-	};
+	const { addTo, removeFrom, replaceIn, createIn } = useCardWrites();
 
 	const restore = (seed: Card) => {
 		addTo("global", {
@@ -314,7 +216,7 @@ export default function OverviewEditor() {
 					icon="plus"
 					accessibilityLabel={t("overview.cards.editor.add")}
 					style={{ width: touchTarget, height: touchTarget }}
-					onPress={() => setEditing({ card: null, scope: "global" })}
+					onPress={() => router.push("/overview-card-edit")}
 				/>
 			</Appbar.Header>
 
@@ -362,7 +264,7 @@ export default function OverviewEditor() {
 									handlers={drag.handlers(entry.card.id)}
 									register={drag.register}
 									onEdit={(target) =>
-										setEditing({ card: target.card, scope: target.scope })
+										router.push(`/overview-card-edit?cardId=${target.card.id}`)
 									}
 									onMoveUp={moveUp}
 									onMoveDown={moveDown}
@@ -463,19 +365,6 @@ export default function OverviewEditor() {
 						/>
 					</Surface>
 				</Animated.View>
-			) : null}
-
-			{editing !== null ? (
-				<CardEditSheet
-					visible
-					card={editing.card}
-					scope={editing.scope}
-					members={members}
-					locations={locations}
-					labels={activeHome?.labels ?? []}
-					onDismiss={() => setEditing(null)}
-					onSave={save}
-				/>
 			) : null}
 
 			{importing ? (

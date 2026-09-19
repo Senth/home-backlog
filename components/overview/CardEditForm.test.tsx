@@ -1,20 +1,17 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import type { ReactNode } from "react";
-// `Provider`, not `ThemeProvider`: the dialog mounts a Portal host.
+// Paper's inputs read the theme its provider carries.
 import { Provider } from "react-native-paper";
-// Paper's dialog reads the safe-area insets its provider carries.
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import { CardEditSheet } from "@/components/overview/CardEditSheet";
+import { CardEditForm } from "@/components/overview/CardEditForm";
 import { AuthProvider } from "@/contexts/AuthContext";
 import type { LabelWithId } from "@/models/label";
 import { lightTheme } from "@/theme";
-import { space } from "@/theme/tokens";
 
 /**
  * The real tree: `app/_layout.tsx` mounts `AuthProvider` inside
- * `PaperProvider`, so the dialog's portal children render *outside* it. The
- * mock must throw the way the real hook does — a canned user here is the
- * false green that once hid the `useAuth` crash inside the portal.
+ * `PaperProvider`, and the form reads the uid through `useAuth`. The
+ * mock must throw the way the real hook does — a canned user in the mock
+ * provider is the false green that once hid the `useAuth` crash.
  */
 jest.mock("@/contexts/AuthContext", () => {
 	const { createContext, createElement, useContext } =
@@ -40,7 +37,7 @@ jest.mock("@/contexts/AuthContext", () => {
 });
 
 jest.mock("react-i18next", () => ({
-	// Keys asserted, not sentences — the sheet is translated elsewhere, and
+	// Keys asserted, not sentences — the form is translated elsewhere, and
 	// `Board.test.tsx` carries the reasoning.
 	useTranslation: () => ({
 		t: (key: string, values?: Record<string, unknown>) =>
@@ -53,34 +50,24 @@ const labels: LabelWithId[] = [
 	{ id: "lb1", title: "Målning", icon: "brush", color: "red", rank: "a0" },
 ];
 
-const renderSheet = (onSave = jest.fn()) =>
+const renderForm = (onSave = jest.fn()) =>
 	render(
-		<SafeAreaProvider
-			initialMetrics={{
-				insets: { top: 0, bottom: 0, left: 0, right: 0 },
-				frame: { x: 0, y: 0, width: space.none, height: space.none },
-			}}
-		>
-			<Provider theme={lightTheme}>
-				{/* The real order: `AuthProvider` inside `PaperProvider`, so the
-				    portal escapes it — `CardEditSheet` reads the uid above. */}
-				<AuthProvider>
-					<CardEditSheet
-						visible
-						card={null}
-						scope="home"
-						members={[]}
-						locations={[]}
-						labels={labels}
-						onDismiss={() => {}}
-						onSave={onSave}
-					/>
-				</AuthProvider>
-			</Provider>
-		</SafeAreaProvider>,
+		<Provider theme={lightTheme}>
+			{/* The real order: `AuthProvider` inside `PaperProvider`. */}
+			<AuthProvider>
+				<CardEditForm
+					card={null}
+					scope="home"
+					members={[]}
+					locations={[]}
+					labels={labels}
+					onSave={onSave}
+				/>
+			</AuthProvider>
+		</Provider>,
 	);
 
-describe("CardEditSheet", () => {
+describe("CardEditForm", () => {
 	/**
 	 * #229 closed: a blank card plus one tap on *Färdiga* is the whole
 	 * Recently done card — the mode selector seeds the window, the order and
@@ -88,7 +75,7 @@ describe("CardEditSheet", () => {
 	 */
 	it("turns a blank card into Recently done with one tap on Färdiga", () => {
 		const onSave = jest.fn();
-		renderSheet(onSave);
+		renderForm(onSave);
 
 		fireEvent.press(screen.getByText("overview.cards.editor.mode.done"));
 		fireEvent.changeText(
@@ -109,7 +96,7 @@ describe("CardEditSheet", () => {
 	});
 
 	it("offers the done card no status, due or waiting group, and open no completed window", () => {
-		renderSheet();
+		renderForm();
 
 		expect(screen.queryByText("overview.cards.field.status")).toBeTruthy();
 		expect(screen.queryByText("detail.dueDate")).toBeTruthy();
@@ -131,7 +118,7 @@ describe("CardEditSheet", () => {
 
 	it("a field row opens the values as check rows, and a pick writes the condition", () => {
 		const onSave = jest.fn();
-		renderSheet(onSave);
+		renderForm(onSave);
 
 		fireEvent.press(screen.getByTestId("overview-card-edit-field-priority"));
 		fireEvent.press(screen.getByRole("checkbox", { name: "priority.high" }));
@@ -155,7 +142,7 @@ describe("CardEditSheet", () => {
 	 */
 	it("offers the home's labels as a condition and stores the picked ids", () => {
 		const onSave = jest.fn();
-		renderSheet(onSave);
+		renderForm(onSave);
 
 		fireEvent.press(screen.getByTestId("overview-card-edit-field-labelIds"));
 		fireEvent.press(screen.getByRole("checkbox", { name: "Målning" }));
@@ -175,7 +162,7 @@ describe("CardEditSheet", () => {
 
 	it("a row's clear takes that field off and leaves the rest standing", () => {
 		const onSave = jest.fn();
-		renderSheet(onSave);
+		renderForm(onSave);
 
 		fireEvent.press(screen.getByTestId("overview-card-edit-field-priority"));
 		fireEvent.press(screen.getByRole("checkbox", { name: "priority.high" }));
@@ -202,7 +189,7 @@ describe("CardEditSheet", () => {
 
 	it("a card that already had a condition still lands on done's newest-first sort", () => {
 		const onSave = jest.fn();
-		renderSheet(onSave);
+		renderForm(onSave);
 
 		// A card with a condition takes none of withMode's seed branches: the
 		// mode moves and the conditions ride along — but done has no sort
@@ -227,7 +214,7 @@ describe("CardEditSheet", () => {
 	});
 
 	it("says what each mode collects", () => {
-		renderSheet();
+		renderForm();
 
 		expect(
 			screen.getByText("overview.cards.editor.mode.openDescription"),
@@ -239,7 +226,7 @@ describe("CardEditSheet", () => {
 	});
 
 	it("says where each scope stores the card, all three of them", () => {
-		renderSheet();
+		renderForm();
 
 		expect(
 			screen.getByText("overview.cards.editor.scope.homeDescription"),

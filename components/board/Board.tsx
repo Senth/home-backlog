@@ -24,7 +24,7 @@ import {
 	type ColumnDrag,
 	useBoardDrag,
 } from "@/components/board/use-board-drag";
-import { fieldSpecs } from "@/components/overview/CardEditSheet";
+import { fieldSpecs } from "@/components/overview/CardEditForm";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { createNode } from "@/data/nodes";

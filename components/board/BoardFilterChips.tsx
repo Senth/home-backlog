@@ -9,7 +9,7 @@ import {
 	filterIcons,
 	filterWord,
 } from "@/components/board/BoardFilterRow";
-import type { FieldSpec } from "@/components/overview/CardEditSheet";
+import type { FieldSpec } from "@/components/overview/CardEditForm";
 import type { BoardFilter } from "@/models/board-filter";
 import type { CardCondition } from "@/models/filter";
 import { outlinedTouchTarget, space, touchTarget } from "@/theme/tokens";

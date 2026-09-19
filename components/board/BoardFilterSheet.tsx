@@ -17,7 +17,8 @@ import {
 	pickerConditionFromIds,
 	pickerValueFor,
 } from "@/components/board/BoardFilterRow";
-import { fieldSpecs } from "@/components/overview/CardEditSheet";
+import { LabelGlyph } from "@/components/label/LabelGlyph";
+import { fieldSpecs } from "@/components/overview/CardEditForm";
 import { AppSheet } from "@/components/ui/AppSheet";
 import {
 	type CheckItem,
@@ -88,7 +89,7 @@ export function BoardFilterSheet({
 	const { user } = useAuth();
 	const [openField, setOpenField] = useState<string | null>(null);
 
-	// Reset when the sheet *opens*, during render, the way `CardEditSheet`
+	// Reset when the sheet *opens*, during render, the way `CardEditForm`
 	// does: no field left open from the last visit, and nothing torn down
 	// mid-edit while a listener refresh re-renders the open sheet.
 	const [opened, setOpened] = useState(visible);

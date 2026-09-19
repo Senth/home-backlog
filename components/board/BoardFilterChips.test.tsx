@@ -1,10 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { ScrollView } from "react-native";
 import { BoardFilterChips } from "@/components/board/BoardFilterChips";
-import {
-	fieldSpecs,
-	type Translate,
-} from "@/components/overview/CardEditSheet";
+import { fieldSpecs, type Translate } from "@/components/overview/CardEditForm";
 import type { BoardFilter } from "@/models/board-filter";
 import type { Member } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
@@ -12,7 +9,7 @@ import type { Location } from "@/models/locations";
 import { lightTheme } from "@/theme";
 
 jest.mock("@/contexts/AuthContext", () => ({
-	// CardEditSheet now reads the uid, and its module pulls firebase/auth.
+	// CardEditForm now reads the uid, and its module pulls firebase/auth.
 	useAuth: () => ({ user: { uid: "uid-me" } }),
 }));
 

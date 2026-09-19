@@ -5,7 +5,7 @@ import { Text } from "react-native-paper";
 import { PriorityDot } from "@/components/board/PriorityDot";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
 import { DetailRow } from "@/components/node/DetailRow";
-import type { FieldSpec } from "@/components/overview/CardEditSheet";
+import type { FieldSpec } from "@/components/overview/CardEditForm";
 import type { CheckItem } from "@/components/ui/CheckListPicker";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import type { CardCondition } from "@/models/filter";

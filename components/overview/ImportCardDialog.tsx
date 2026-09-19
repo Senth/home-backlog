@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, useWindowDimensions, View } from "react-native";
 import { Button, HelperText, Text, TextInput } from "react-native-paper";
-import { fieldSpecs } from "@/components/overview/CardEditSheet";
+import { fieldSpecs } from "@/components/overview/CardEditForm";
 import { AppDialog } from "@/components/ui/AppDialog";
 import type { CardCondition, CardMode } from "@/models/filter";
 import type { Member } from "@/models/home";
@@ -52,7 +52,7 @@ export function ImportCardDialog({
 
 	const [pasted, setPasted] = useState("");
 
-	// Reset when the dialog *opens*, during render, the way CardEditSheet does.
+	// Reset when the dialog *opens*, during render, the way CardEditForm does.
 	const [opened, setOpened] = useState(visible);
 	if (opened !== visible) {
 		setOpened(visible);
