@@ -125,6 +125,13 @@
 	},
 	"homes": {
 		"title": "Mina hem",
+		"attachmentsUsage": "{{used}} av {{total}} använt",
+		"attachmentsAlmostFull": "Utrymmet för bilagor är {{percent}} procent använt.",
+		"attachmentsByPerson": "Per person",
+		"sortLargest": "Störst",
+		"sortNewest": "Senaste",
+		"attachmentsHidden": "{{size}} ligger på kort du inte kan se.",
+		"attachmentsEmpty": "Inget är bifogat till något kort än. Bilder och dokument på kort samlas här.",
 		"empty": "Du är inte med i något hem än.",
 		"loadFailed": "Kunde inte ladda dina hem. Kontrollera din anslutning.",
 		"create": "Skapa ett nytt hem",
@@ -514,7 +521,9 @@
 		"attachmentsModeThumbnails": "Miniatyrer",
 		"attachmentsModeHero": "Huvudbild",
 		"attachmentsModeChange": "Ändra hur kortet visar sina bilder",
-		"attachmentsModeSheet": "Hur kortet visar sina bilder"
+		"attachmentsModeSheet": "Hur kortet visar sina bilder",
+		"attachmentsQuota": "Hemmet har slut på utrymme för bilagor.",
+		"attachmentsInventoryOpen": "Öppna översikten"
 	},
 	"labels": {
 		"capReached": "Ett kort kan ha som mest {{count}} etiketter.",

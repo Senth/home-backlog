@@ -59,12 +59,14 @@ export function isImageType(contentType: string): boolean {
 export type AttachmentErrorKey =
 	| "detail.attachmentsTooLarge"
 	| "detail.attachmentsWrongType"
+	| "detail.attachmentsQuota"
 	| "detail.attachmentsFailed";
 
 export function attachmentErrorKey(reason: unknown): AttachmentErrorKey {
 	const code = (reason as { code?: string } | null)?.code;
 	if (code === "attachment-too-large") return "detail.attachmentsTooLarge";
 	if (code === "attachment-type") return "detail.attachmentsWrongType";
+	if (code === "attachment-quota") return "detail.attachmentsQuota";
 	return "detail.attachmentsFailed";
 }
 
@@ -96,6 +98,80 @@ export function attachmentPath(
 /** The thumbnail of an object at `path`, named by `storage.rules`' shape. */
 export function thumbnailPathFor(objectPath: string): string {
 	return `${objectPath}_thumb.jpg`;
+}
+
+/** Per home, mirrored from `storage.rules`' `underQuota()`. */
+export const homeAttachmentCeiling = 1024 * 1024 * 1024;
+
+/** Silent below this share; the line appears on Manage home and the inventory. */
+export const quotaWarningShare = 0.9;
+
+/** The counter's share of the ceiling — the number the inventory leads with. */
+export function quotaShare(attachmentBytes: number): number {
+	return attachmentBytes / homeAttachmentCeiling;
+}
+
+/** The warning line's trigger: at nine tenths of the ceiling, never below. */
+export function quotaWarning(attachmentBytes: number): boolean {
+	return quotaShare(attachmentBytes) >= quotaWarningShare;
+}
+
+/** Why the home refused an upload: the ceiling is reached. */
+export type AttachmentQuotaCode = "attachment-quota";
+
+/** One attachment in the inventory, with the card it lives on. */
+export interface InventoryRow {
+	attachment: Attachment;
+	nodeId: string;
+	nodeTitle: string;
+}
+
+/** How the inventory orders itself; largest first, because that is the win. */
+export type InventoryOrder = "largest" | "newest";
+
+/**
+ * Every attachment the reader can see, one row each, in the chosen order.
+ * Largest first by default — the screen exists to reclaim space, so the first
+ * row is the biggest win. An attachment whose upload time never arrived (a
+ * listener still catching up) sorts last as the newest.
+ */
+export function inventoryRows(
+	nodes: readonly Node[],
+	order: InventoryOrder,
+): InventoryRow[] {
+	const rows = nodes.flatMap((node) =>
+		node.attachments.map((attachment) => ({
+			attachment,
+			nodeId: node.id,
+			nodeTitle: node.title,
+		})),
+	);
+	const timeOf = (row: InventoryRow) =>
+		row.attachment.uploadedAt?.toMillis() ?? 0;
+	return rows.sort((a, b) =>
+		order === "largest"
+			? b.attachment.size - a.attachment.size || timeOf(b) - timeOf(a)
+			: timeOf(b) - timeOf(a),
+	);
+}
+
+/** What the visible rows hold, which is what this reader can delete. */
+export function visibleBytes(rows: readonly InventoryRow[]): number {
+	return rows.reduce((sum, row) => sum + row.attachment.size, 0);
+}
+
+/**
+ * The part of the home's true total that this reader cannot see — private
+ * cards they are not on. The counter lags the Storage triggers by about a
+ * second, so the visible side can briefly overtake it; a negative gap would
+ * be a number claiming bytes exist that the list disproves, so it clamps to
+ * none.
+ */
+export function unseenBytes(
+	attachmentBytes: number,
+	rows: readonly InventoryRow[],
+): number {
+	return Math.max(0, attachmentBytes - visibleBytes(rows));
 }
 
 /** What a card's face draws, after degradation. See `cardFace`. */

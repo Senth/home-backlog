@@ -1,17 +1,23 @@
+import type { DocumentData, Query } from "firebase/firestore";
 import {
 	arrayRemove,
 	arrayUnion,
+	doc,
+	getDoc,
 	increment,
+	query,
 	serverTimestamp,
 	Timestamp,
 	updateDoc,
+	where,
 } from "firebase/firestore";
 import { deleteObject, ref, uploadBytes } from "firebase/storage";
-import { storage } from "@/config/firebase";
-import { nodeRef } from "@/data/nodes";
+import { db, storage } from "@/config/firebase";
+import { nodeRef, nodesRef } from "@/data/nodes";
 import {
 	attachmentPath,
 	attachmentRefusal,
+	homeAttachmentCeiling,
 	isImageType,
 	maxImageEdge,
 	thumbnailEdge,
@@ -43,13 +49,15 @@ function refused(code: string): Error {
 }
 
 /**
- * One file, in: refused on type and size before anything is sent, images
- * downscaled and re-encoded (which is what makes an iPhone's HEIC viewable by
- * everyone), the stored object uploaded before its thumbnail — a failure
- * halfway leaves at most a missing preview, never an orphan the counter counts
- * — under an id the client mints, and only then the node entry written with
- * the count bumped, so a card never shows a picture whose bytes are not there
- * yet.
+ * One file, in: refused on type and size before anything is sent, then on the
+ * home's byte ceiling — read from the home document, the number only the
+ * Storage counter writes, so a refusal is a sentence before the rules become
+ * a bare `unauthorized`. Images are downscaled and re-encoded (which is what
+ * makes an iPhone's HEIC viewable by everyone), the stored object uploaded
+ * before its thumbnail — a failure halfway leaves at most a missing preview,
+ * never an orphan the counter counts — under an id the client mints, and only
+ * then the node entry written with the count bumped, so a card never shows a
+ * picture whose bytes are not there yet.
  *
  * Returns the entry as written; the node's own listener delivers it to the
  * screen.
@@ -62,6 +70,12 @@ export async function uploadAttachment(
 ): Promise<Attachment> {
 	const reason = attachmentRefusal(file.contentType, file.size);
 	if (reason !== null) throw refused(reason);
+
+	const home = await getDoc(doc(db, "homes", homeId));
+	const bytes = home.get("attachmentBytes");
+	if (typeof bytes === "number" && bytes >= homeAttachmentCeiling) {
+		throw refused("attachment-quota");
+	}
 
 	const id = crypto.randomUUID();
 	const path = attachmentPath(homeId, nodeId, id);
@@ -135,4 +149,43 @@ export async function deleteAttachment(
 	if (isImageType(attachment.contentType)) {
 		await drop(thumbnailPathFor(attachment.path));
 	}
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * The inventory's query pair (#298)
+ * ---------------------------------------------------------------------------
+ *
+ * One question, two listeners, the same shape every board is read with: the
+ * read rule's two disjuncts, one query each. `attachmentCount > 0` is the
+ * only way to ask for cards that carry attachments — Firestore cannot ask
+ * whether an array is non-empty — and it is what keeps a household of a few
+ * thousand cards from being read whole to find its handful of attached ones.
+ *
+ * No `orderBy`: the screen sorts client-side (largest, or newest), which
+ * keeps the composite indexes to the two the pair needs. The home's true
+ * total is the counter on the home document, which includes the private
+ * cards neither query can see — the gap is stated on the screen rather than
+ * hidden.
+ */
+
+/** Q-1 — every shared card that carries attachments. */
+export function sharedInventoryQuery(homeId: string): Query<DocumentData> {
+	return query(
+		nodesRef(homeId),
+		where("attachmentCount", ">", 0),
+		where("visibility", "==", "shared"),
+	);
+}
+
+/** Q-2 — the same, through the read rule's second disjunct. */
+export function participatingInventoryQuery(
+	homeId: string,
+	uid: string,
+): Query<DocumentData> {
+	return query(
+		nodesRef(homeId),
+		where("attachmentCount", ">", 0),
+		where("participantIds", "array-contains", uid),
+	);
 }

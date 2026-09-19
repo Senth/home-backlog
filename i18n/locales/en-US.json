@@ -125,6 +125,13 @@
 	},
 	"homes": {
 		"title": "My homes",
+		"attachmentsUsage": "{{used}} of {{total}} used",
+		"attachmentsAlmostFull": "The home's attachment space is {{percent}} percent used.",
+		"attachmentsByPerson": "By person",
+		"sortLargest": "Largest",
+		"sortNewest": "Newest",
+		"attachmentsHidden": "{{size}} is on cards you cannot see.",
+		"attachmentsEmpty": "Nothing is attached to any card yet. Pictures and documents put on cards land here.",
 		"empty": "You are not in any home yet.",
 		"loadFailed": "Could not load your homes. Check your connection.",
 		"create": "Create a new home",
@@ -514,7 +521,9 @@
 		"attachmentsModeThumbnails": "Thumbnails",
 		"attachmentsModeHero": "Hero",
 		"attachmentsModeChange": "Change how the card shows its pictures",
-		"attachmentsModeSheet": "How the card shows its pictures"
+		"attachmentsModeSheet": "How the card shows its pictures",
+		"attachmentsQuota": "The home is out of attachment space.",
+		"attachmentsInventoryOpen": "Open the inventory"
 	},
 	"labels": {
 		"capReached": "A card can carry at most {{count}} labels.",

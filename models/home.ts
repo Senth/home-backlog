@@ -44,6 +44,14 @@ export interface Home {
 	 * home document at all.
 	 */
 	labels: LabelWithId[];
+	/**
+	 * The home's attachment bytes and who put them there (#298), written only
+	 * by the Storage-triggered counter — `firestore.rules` refuses them to
+	 * every client. Absent on a home written before any attachment existed;
+	 * read defensively, like everything else here.
+	 */
+	attachmentBytes: number;
+	attachmentBytesByUid: Record<string, number>;
 	createdAt: Timestamp | null;
 	createdBy: string;
 }

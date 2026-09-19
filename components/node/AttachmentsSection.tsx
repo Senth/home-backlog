@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import { getDownloadURL, ref } from "firebase/storage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -99,6 +100,7 @@ export function AttachmentsSection({
 }: AttachmentsSectionProps) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
+	const router = useRouter();
 	const { user } = useAuth();
 	const online = useOnlineStatus();
 
@@ -418,11 +420,26 @@ export function AttachmentsSection({
 				) : null}
 
 				{message === null ? null : (
-					<Text variant="bodyMedium" style={{ color: theme.colors.error }}>
-						{t(message, {
-							limit: formatBytes(maxAttachmentBytes, i18n.language),
-						})}
-					</Text>
+					<View style={{ gap: space.xs }}>
+						<Text variant="bodyMedium" style={{ color: theme.colors.error }}>
+							{t(message, {
+								limit: formatBytes(maxAttachmentBytes, i18n.language),
+							})}
+						</Text>
+						{/* The one refusal with a remedy: at the ceiling, the way to
+						    do something about it is the inventory, and the refusal
+						    names it instead of leaving a failure with nothing behind
+						    it. */}
+						{message === "detail.attachmentsQuota" ? (
+							<Button
+								mode="text"
+								icon="clipboard-list-outline"
+								onPress={() => router.push(`/homes/${homeId}/attachments`)}
+							>
+								{t("detail.attachmentsInventoryOpen")}
+							</Button>
+						) : null}
+					</View>
 				)}
 			</View>
 

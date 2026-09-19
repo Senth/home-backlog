@@ -23,6 +23,8 @@ function home(overrides: Partial<Home> = {}): Home {
 		},
 		memberEmailHashes: {},
 		labels: [],
+		attachmentBytes: 0,
+		attachmentBytesByUid: {},
 		createdAt: null,
 		createdBy: "uid-a",
 		...overrides,

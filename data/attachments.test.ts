@@ -7,10 +7,13 @@ jest.mock("firebase/firestore", () => ({
 	arrayUnion: jest.fn((value: unknown) => ({ __op: "arrayUnion", value })),
 	collection: jest.fn(() => ({})),
 	doc: jest.fn(() => ({ id: "ref" })),
+	getDoc: jest.fn(async () => ({ get: () => 0 })),
 	increment: jest.fn((by: number) => ({ __op: "increment", by })),
+	query: jest.fn((value: unknown) => value),
 	serverTimestamp: jest.fn(() => "server-timestamp"),
 	Timestamp: { fromDate: jest.fn(() => "timestamp") },
 	updateDoc: jest.fn(),
+	where: jest.fn(),
 }));
 
 jest.mock("firebase/storage", () => ({
@@ -24,6 +27,7 @@ jest.mock("@/utils/downscale", () => ({
 }));
 
 import { deleteAttachment, uploadAttachment } from "@/data/attachments";
+import { homeAttachmentCeiling } from "@/models/attachment";
 
 const { arrayUnion, updateDoc } = jest.requireMock("firebase/firestore") as {
 	arrayUnion: jest.Mock;
@@ -84,6 +88,24 @@ describe("uploadAttachment refusals", () => {
 		await expect(
 			uploadAttachment("home", "node", "me", aFile({ size: ceiling })),
 		).rejects.toMatchObject({ code: "attachment-too-large" });
+		expect(uploadBytes).not.toHaveBeenCalled();
+		expect(updateDoc).not.toHaveBeenCalled();
+	});
+
+	it("refuses at the home's byte ceiling before anything is sent", async () => {
+		// The counter is the number the Storage triggers own; the client reads
+		// it only to refuse with a sentence instead of a bare `unauthorized`.
+		const { getDoc } = jest.requireMock("firebase/firestore") as {
+			getDoc: jest.Mock;
+		};
+		getDoc.mockResolvedValueOnce({
+			get: (field: string) =>
+				field === "attachmentBytes" ? homeAttachmentCeiling : 0,
+		});
+
+		await expect(
+			uploadAttachment("home", "node", "me", aFile()),
+		).rejects.toMatchObject({ code: "attachment-quota" });
 		expect(uploadBytes).not.toHaveBeenCalled();
 		expect(updateDoc).not.toHaveBeenCalled();
 	});

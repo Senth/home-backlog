@@ -69,6 +69,12 @@ export function toHome(snapshot: QueryDocumentSnapshot<DocumentData>): Home {
 		// The #100 label definitions, read defensively: a malformed entry is
 		// dropped rather than crashing every screen that draws a card.
 		labels: toLabels(data),
+		attachmentBytes:
+			typeof data.attachmentBytes === "number" ? data.attachmentBytes : 0,
+		attachmentBytesByUid: (data.attachmentBytesByUid ?? {}) as Record<
+			string,
+			number
+		>,
 		createdAt: data.createdAt ?? null,
 		createdBy: typeof data.createdBy === "string" ? data.createdBy : "",
 	};

@@ -4,101 +4,234 @@
 			"collectionGroup": "nodes",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{ "fieldPath": "archived", "order": "ASCENDING" },
-				{ "fieldPath": "parentId", "order": "ASCENDING" },
-				{ "fieldPath": "rank", "order": "ASCENDING" }
+				{
+					"fieldPath": "archived",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "parentId",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "rank",
+					"order": "ASCENDING"
+				}
 			]
 		},
 		{
 			"collectionGroup": "nodes",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{ "fieldPath": "archived", "order": "ASCENDING" },
-				{ "fieldPath": "parentId", "order": "ASCENDING" },
-				{ "fieldPath": "visibility", "order": "ASCENDING" },
-				{ "fieldPath": "rank", "order": "ASCENDING" }
+				{
+					"fieldPath": "archived",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "parentId",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "visibility",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "rank",
+					"order": "ASCENDING"
+				}
 			]
 		},
 		{
 			"collectionGroup": "nodes",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{ "fieldPath": "archived", "order": "ASCENDING" },
-				{ "fieldPath": "parentId", "order": "ASCENDING" },
-				{ "fieldPath": "participantIds", "arrayConfig": "CONTAINS" },
-				{ "fieldPath": "rank", "order": "ASCENDING" }
+				{
+					"fieldPath": "archived",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "parentId",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "participantIds",
+					"arrayConfig": "CONTAINS"
+				},
+				{
+					"fieldPath": "rank",
+					"order": "ASCENDING"
+				}
 			]
 		},
 		{
 			"collectionGroup": "nodes",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{ "fieldPath": "archived", "order": "ASCENDING" },
-				{ "fieldPath": "completedAt", "order": "ASCENDING" },
-				{ "fieldPath": "visibility", "order": "ASCENDING" }
+				{
+					"fieldPath": "archived",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "completedAt",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "visibility",
+					"order": "ASCENDING"
+				}
 			]
 		},
 		{
 			"collectionGroup": "nodes",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{ "fieldPath": "archived", "order": "ASCENDING" },
-				{ "fieldPath": "completedAt", "order": "ASCENDING" },
-				{ "fieldPath": "participantIds", "arrayConfig": "CONTAINS" }
+				{
+					"fieldPath": "archived",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "completedAt",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "participantIds",
+					"arrayConfig": "CONTAINS"
+				}
 			]
 		},
 		{
 			"collectionGroup": "nodes",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{ "fieldPath": "archived", "order": "ASCENDING" },
-				{ "fieldPath": "completedAt", "order": "ASCENDING" },
-				{ "fieldPath": "visibility", "order": "ASCENDING" },
-				{ "fieldPath": "updatedAt", "order": "DESCENDING" }
+				{
+					"fieldPath": "archived",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "completedAt",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "visibility",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "updatedAt",
+					"order": "DESCENDING"
+				}
 			]
 		},
 		{
 			"collectionGroup": "nodes",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{ "fieldPath": "archived", "order": "ASCENDING" },
-				{ "fieldPath": "completedAt", "order": "ASCENDING" },
-				{ "fieldPath": "participantIds", "arrayConfig": "CONTAINS" },
-				{ "fieldPath": "updatedAt", "order": "DESCENDING" }
+				{
+					"fieldPath": "archived",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "completedAt",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "participantIds",
+					"arrayConfig": "CONTAINS"
+				},
+				{
+					"fieldPath": "updatedAt",
+					"order": "DESCENDING"
+				}
 			]
 		},
 		{
 			"collectionGroup": "nodes",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{ "fieldPath": "archived", "order": "ASCENDING" },
-				{ "fieldPath": "visibility", "order": "ASCENDING" },
-				{ "fieldPath": "completedAt", "order": "DESCENDING" }
+				{
+					"fieldPath": "archived",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "visibility",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "completedAt",
+					"order": "DESCENDING"
+				}
 			]
 		},
 		{
 			"collectionGroup": "nodes",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{ "fieldPath": "archived", "order": "ASCENDING" },
-				{ "fieldPath": "participantIds", "arrayConfig": "CONTAINS" },
-				{ "fieldPath": "completedAt", "order": "DESCENDING" }
+				{
+					"fieldPath": "archived",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "participantIds",
+					"arrayConfig": "CONTAINS"
+				},
+				{
+					"fieldPath": "completedAt",
+					"order": "DESCENDING"
+				}
 			]
 		},
 		{
 			"collectionGroup": "nodes",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{ "fieldPath": "visibility", "order": "ASCENDING" },
-				{ "fieldPath": "ancestorIds", "arrayConfig": "CONTAINS" }
+				{
+					"fieldPath": "visibility",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "ancestorIds",
+					"arrayConfig": "CONTAINS"
+				}
 			]
 		},
 		{
 			"collectionGroup": "nodes",
 			"queryScope": "COLLECTION",
 			"fields": [
-				{ "fieldPath": "visibility", "order": "ASCENDING" },
-				{ "fieldPath": "participantIds", "arrayConfig": "CONTAINS" }
+				{
+					"fieldPath": "visibility",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "participantIds",
+					"arrayConfig": "CONTAINS"
+				}
+			]
+		},
+		{
+			"collectionGroup": "nodes",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{
+					"fieldPath": "visibility",
+					"order": "ASCENDING"
+				},
+				{
+					"fieldPath": "attachmentCount",
+					"order": "ASCENDING"
+				}
+			]
+		},
+		{
+			"collectionGroup": "nodes",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{
+					"fieldPath": "participantIds",
+					"arrayConfig": "CONTAINS"
+				},
+				{
+					"fieldPath": "attachmentCount",
+					"order": "ASCENDING"
+				}
 			]
 		}
 	],
@@ -107,42 +240,132 @@
 			"collectionGroup": "invites",
 			"fieldPath": "emailHash",
 			"indexes": [
-				{ "order": "ASCENDING", "queryScope": "COLLECTION" },
-				{ "order": "DESCENDING", "queryScope": "COLLECTION" },
-				{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+				{
+					"order": "ASCENDING",
+					"queryScope": "COLLECTION"
+				},
+				{
+					"order": "DESCENDING",
+					"queryScope": "COLLECTION"
+				},
+				{
+					"order": "ASCENDING",
+					"queryScope": "COLLECTION_GROUP"
+				}
 			]
 		},
 		{
 			"collectionGroup": "apiClients",
 			"fieldPath": "keyId",
 			"indexes": [
-				{ "order": "ASCENDING", "queryScope": "COLLECTION" },
-				{ "order": "DESCENDING", "queryScope": "COLLECTION" },
-				{ "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+				{
+					"order": "ASCENDING",
+					"queryScope": "COLLECTION"
+				},
+				{
+					"order": "DESCENDING",
+					"queryScope": "COLLECTION"
+				},
+				{
+					"order": "ASCENDING",
+					"queryScope": "COLLECTION_GROUP"
+				}
 			]
 		},
-		{ "collectionGroup": "apiClients", "fieldPath": "name", "indexes": [] },
+		{
+			"collectionGroup": "apiClients",
+			"fieldPath": "name",
+			"indexes": []
+		},
 		{
 			"collectionGroup": "apiClients",
 			"fieldPath": "ownerName",
 			"indexes": []
 		},
-		{ "collectionGroup": "apiKeys", "fieldPath": "name", "indexes": [] },
-		{ "collectionGroup": "apiKeys", "fieldPath": "secretHash", "indexes": [] },
-		{ "collectionGroup": "apiKeys", "fieldPath": "tail", "indexes": [] },
-		{ "collectionGroup": "nodes", "fieldPath": "createdVia", "indexes": [] },
-		{ "collectionGroup": "nodes", "fieldPath": "title", "indexes": [] },
-		{ "collectionGroup": "nodes", "fieldPath": "columns", "indexes": [] },
-		{ "collectionGroup": "nodes", "fieldPath": "notes", "indexes": [] },
-		{ "collectionGroup": "nodes", "fieldPath": "checklist", "indexes": [] },
-		{ "collectionGroup": "nodes", "fieldPath": "photos", "indexes": [] },
-		{ "collectionGroup": "nodes", "fieldPath": "childCount", "indexes": [] },
-		{ "collectionGroup": "nodes", "fieldPath": "doneCount", "indexes": [] },
-		{ "collectionGroup": "nodes", "fieldPath": "effort", "indexes": [] },
-		{ "collectionGroup": "nodes", "fieldPath": "priority", "indexes": [] },
-		{ "collectionGroup": "nodes", "fieldPath": "rank", "indexes": [] },
-		{ "collectionGroup": "nodes", "fieldPath": "archived", "indexes": [] },
-		{ "collectionGroup": "nodes", "fieldPath": "createdBy", "indexes": [] },
-		{ "collectionGroup": "nodes", "fieldPath": "updatedAt", "indexes": [] }
+		{
+			"collectionGroup": "apiKeys",
+			"fieldPath": "name",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "apiKeys",
+			"fieldPath": "secretHash",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "apiKeys",
+			"fieldPath": "tail",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "nodes",
+			"fieldPath": "createdVia",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "nodes",
+			"fieldPath": "title",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "nodes",
+			"fieldPath": "columns",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "nodes",
+			"fieldPath": "notes",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "nodes",
+			"fieldPath": "checklist",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "nodes",
+			"fieldPath": "photos",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "nodes",
+			"fieldPath": "childCount",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "nodes",
+			"fieldPath": "doneCount",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "nodes",
+			"fieldPath": "effort",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "nodes",
+			"fieldPath": "priority",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "nodes",
+			"fieldPath": "rank",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "nodes",
+			"fieldPath": "archived",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "nodes",
+			"fieldPath": "createdBy",
+			"indexes": []
+		},
+		{
+			"collectionGroup": "nodes",
+			"fieldPath": "updatedAt",
+			"indexes": []
+		}
 	]
 }

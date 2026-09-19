@@ -68,7 +68,8 @@ import { doneFetchLimit, doneSince, doneWithinDays } from "@/models/overview";
 const homesCollection = "homes";
 const nodesCollection = "nodes";
 
-function nodesRef(homeId: string) {
+/** Every node document of one home — the collection the inventory queries too. */
+export function nodesRef(homeId: string) {
 	return collection(db, homesCollection, homeId, nodesCollection);
 }
 

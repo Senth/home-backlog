@@ -178,3 +178,84 @@ describe("cardFace", () => {
 		expect(face.mode).toBe("count");
 	});
 });
+
+import {
+	homeAttachmentCeiling,
+	inventoryRows,
+	quotaWarning,
+	unseenBytes,
+	visibleBytes,
+} from "@/models/attachment";
+
+// Row sizes named, like every byte count in these fixtures.
+const bytesTiny = 100;
+const bytesSmall = 200;
+const bytesMedium = 300;
+const bytesLarge = 900;
+
+/** A stand-in timestamp — the sort reads `toMillis()`, nothing else. */
+function at(millis: number): Attachment["uploadedAt"] {
+	return { toMillis: () => millis } as unknown as Attachment["uploadedAt"];
+}
+
+describe("the quota and the inventory", () => {
+	const giga = homeAttachmentCeiling;
+
+	it("warns only from nine tenths of the ceiling", () => {
+		expect(quotaWarning(0)).toBe(false);
+		expect(quotaWarning(Math.floor(giga * 0.9) - oneKb)).toBe(false);
+		expect(quotaWarning(Math.ceil(giga * 0.9))).toBe(true);
+		expect(quotaWarning(giga - oneKb)).toBe(true);
+	});
+
+	it("the gap is what the counter holds that the list cannot show", () => {
+		const nodes = [
+			aNode([
+				anEntry({ size: bytesMedium }),
+				anEntry({ id: "b", path: "p/b", size: bytesSmall }),
+			]),
+		];
+		const rows = inventoryRows(nodes, "largest");
+		expect(visibleBytes(rows)).toBe(500);
+		expect(unseenBytes(800, rows)).toBe(300);
+	});
+
+	it("a counter that briefly lags claims no negative bytes", () => {
+		const nodes = [
+			aNode([
+				anEntry({ size: bytesMedium }),
+				anEntry({ id: "b", path: "p/b", size: bytesSmall }),
+			]),
+		];
+		const rows = inventoryRows(nodes, "largest");
+		expect(unseenBytes(400, rows)).toBe(0);
+	});
+
+	it("largest first, and the toggle turns to newest", () => {
+		const nodes = [
+			aNode([
+				anEntry({ size: bytesTiny, uploadedAt: at(1000) }),
+				anEntry({ id: "b", path: "p/b", size: bytesLarge, uploadedAt: at(2000) }),
+				anEntry({ id: "c", path: "p/c", size: bytesMedium, uploadedAt: at(3000) }),
+			]),
+		];
+		expect(
+			inventoryRows(nodes, "largest").map((row) => row.attachment.size),
+		).toEqual([900, 300, 100]);
+		expect(
+			inventoryRows(nodes, "newest").map((row) => row.attachment.size),
+		).toEqual([300, 900, 100]);
+	});
+
+	it("an entry without a time sorts last, behind everything dated", () => {
+		const nodes = [
+			aNode([
+				anEntry({ size: bytesTiny, uploadedAt: null }),
+				anEntry({ id: "b", path: "p/b", size: bytesTiny, uploadedAt: at(1000) }),
+			]),
+		];
+		const rows = inventoryRows(nodes, "newest");
+		expect(rows[0]?.attachment.id).toBe("b");
+		expect(rows[1]?.attachment.id).toBe("att-1");
+	});
+});
