@@ -55,6 +55,13 @@ export const contentWidth = {
 	/** Material 3's maximum snackbar width, which Paper does not clamp either —
 	 *  on a wide monitor the message and its action end up two metres apart. */
 	snackbar: 600,
+	/**
+	 * The location tree's content (#205). The old 400 (`form`) put a four-deep
+	 * tree in a single narrow column adrift on a 1280px monitor; 800 carries
+	 * the widest row — name, count and menu — at a measure the eye can walk,
+	 * and stops there for the same reason a form does.
+	 */
+	tree: 800,
 } as const;
 
 /**

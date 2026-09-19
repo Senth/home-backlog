@@ -104,6 +104,14 @@ export function inSubtree(location: Location, id: string): boolean {
 	return location.id === id || location.ancestorIds.includes(id);
 }
 
+/** The children of one place, in no order — the tree sort orders the level. */
+export function childLocations(
+	locations: Location[],
+	parentId: string | null,
+): Location[] {
+	return locations.filter((location) => location.parentId === parentId);
+}
+
 /** Why a typed place name cannot be saved, as the key that says so (#205). */
 export type LocationTitleError =
 	| "locations.titleRequired"
