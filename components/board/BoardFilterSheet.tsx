@@ -17,7 +17,6 @@ import {
 	pickerConditionFromIds,
 	pickerValueFor,
 } from "@/components/board/BoardFilterRow";
-import { LabelGlyph } from "@/components/label/LabelGlyph";
 import { fieldSpecs } from "@/components/overview/CardEditForm";
 import { AppSheet } from "@/components/ui/AppSheet";
 import {
