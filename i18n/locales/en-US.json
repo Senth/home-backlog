@@ -124,7 +124,7 @@
 		"expandAll": "Expand all",
 		"showCards": "Show cards",
 		"hideCards": "Hide cards",
-		"moreCards": "{{count}} more at {{name}}",
+		"moreCards": "+{{count}} more in {{name}}",
 		"toggle": "Show or hide what is under {{name}}",
 		"open": "Show the work at {{name}}",
 		"delete": "Delete",

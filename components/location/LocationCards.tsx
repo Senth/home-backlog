@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View } from "react-native";
-import { Button, Text } from "react-native-paper";
+import { Button, Icon, Text } from "react-native-paper";
 import { BoardCard } from "@/components/board/BoardCard";
 import { boardHref, detailsHref } from "@/components/board/board-href";
 import { cardsAtPlace } from "@/models/location-cards";
@@ -13,6 +13,7 @@ import {
 	cardGutterBreakpoint,
 	compactBreakpoint,
 	contentWidth,
+	icon,
 	indent,
 	space,
 	touchTarget,
@@ -84,7 +85,7 @@ export function LocationCards({
 				{selection.cards.map((node) => (
 					<View
 						key={node.id}
-						style={column === null ? { flex: 1 } : { width: column }}
+						style={column === null ? { width: "100%" } : { width: column }}
 					>
 						<BoardCard
 							node={node}
@@ -111,10 +112,25 @@ export function LocationCards({
 					onPress={() => onMore(location)}
 					contentStyle={{ minHeight: touchTarget }}
 				>
-					{t("locations.moreCards", {
-						count: selection.more,
-						name: location.title,
-					})}
+					<View
+						style={{
+							flexDirection: "row",
+							alignItems: "center",
+							gap: space.xs,
+						}}
+					>
+						<Text variant="labelLarge" style={{ color: theme.colors.primary }}>
+							{t("locations.moreCards", {
+								count: selection.more,
+								name: location.title,
+							})}
+						</Text>
+						<Icon
+							source="chevron-right"
+							size={icon.sm}
+							color={theme.colors.primary}
+						/>
+					</View>
 				</Button>
 			) : null}
 		</View>

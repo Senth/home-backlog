@@ -1,31 +1,33 @@
-import { moveUpdate, pathChanged, unfiledNode } from "./on-location-written.js";
+import {
+	filedUpdate,
+	moveUpdate,
+	pathChanged,
+	unfiledNode,
+} from "./on-location-written.js";
 
 /**
  * The per-node decisions behind the location trigger.
  *
- * The trigger's wiring — the query, the batching, the timestamps — is not the
- * suite's business (see `jest.config.js`); these are the decisions it exists to
- * make. A node's `locationAncestorIds` ends with its own `locationId`, and the
- * rewrite has to keep it that way: that ending is what lets the board's shared
- * query roll a location up through one `array-contains`.
+ * The trigger's wiring — the queries, the batching, the timestamps — is not
+ * the suite's business (see `jest.config.js`); these are the decisions it
+ * exists to make. A node's `locationAncestorIds` is exclusive of its own
+ * `locationId` — filed at `Shed`, the crumb holds `Garden` and nothing of the
+ * Shed — so a move reaches its nodes through two arms: the crumb for the ones
+ * filed *under* the location, `locationId` for the ones filed *at* it. The
+ * ending-is-own-location shape would be the inclusive one, and no writer
+ * produces it.
  */
 
-describe("the move rewrite", () => {
-	it("rewrites a node filed directly at the moved location", () => {
-		expect(moveUpdate(["garden", "shed"], "shed", ["basement"])).toEqual({
-			locationAncestorIds: ["basement", "shed"],
-		});
-	});
-
-	it("keeps the tail of a node filed under a descendant of it", () => {
+describe("the move rewrite of a node filed under the location", () => {
+	it("splices the prefix of a descendant's crumb", () => {
 		expect(
 			moveUpdate(["garden", "shed", "bench"], "shed", ["basement"]),
 		).toEqual({ locationAncestorIds: ["basement", "shed", "bench"] });
 	});
 
 	it("takes a location back to the top", () => {
-		expect(moveUpdate(["garden", "shed"], "shed", [])).toEqual({
-			locationAncestorIds: ["shed"],
+		expect(moveUpdate(["garden", "shed", "bench"], "shed", [])).toEqual({
+			locationAncestorIds: ["shed", "bench"],
 		});
 	});
 
@@ -43,6 +45,35 @@ describe("the move rewrite", () => {
 		expect(moveUpdate(first.locationAncestorIds, "shed", ["new"])).toEqual(
 			first,
 		);
+	});
+});
+
+describe("the move rewrite of a node filed at the location (#205)", () => {
+	/**
+	 * The crumb excludes the location itself, so a node filed at the moved
+	 * place holds only the place's ancestors and the crumb query never sees
+	 * it. The `locationId` arm is what repairs it — miss this arm and the
+	 * place's own cards keep the old path, and the count and the tap-filter
+	 * lie after every re-org.
+	 */
+	it("repairs a card filed at the moved location", () => {
+		expect(filedUpdate("shed", "shed", ["basement"])).toEqual({
+			locationAncestorIds: ["basement"],
+		});
+	});
+
+	it("takes a filed-at card back to the top", () => {
+		expect(filedUpdate("shed", "shed", [])).toEqual({
+			locationAncestorIds: [],
+		});
+	});
+
+	it("leaves a card filed somewhere else alone", () => {
+		expect(filedUpdate("garden", "shed", ["basement"])).toBeNull();
+	});
+
+	it("leaves an unfiled card alone", () => {
+		expect(filedUpdate(null, "shed", ["basement"])).toBeNull();
 	});
 });
 

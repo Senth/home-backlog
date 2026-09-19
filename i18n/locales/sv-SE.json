@@ -124,7 +124,7 @@
 		"expandAll": "Fäll ut alla",
 		"showCards": "Visa kort",
 		"hideCards": "Dölj kort",
-		"moreCards": "{{count}} fler på {{name}}",
+		"moreCards": "+{{count}} fler i {{name}}",
 		"toggle": "Visa eller dölj det som ligger under {{name}}",
 		"open": "Visa det som ska göras på {{name}}",
 		"delete": "Ta bort",
