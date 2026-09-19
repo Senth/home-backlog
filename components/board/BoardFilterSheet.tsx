@@ -17,7 +17,6 @@ import {
 	pickerConditionFromIds,
 	pickerValueFor,
 } from "@/components/board/BoardFilterRow";
-import { LabelGlyph } from "@/components/label/LabelGlyph";
 import { fieldSpecs } from "@/components/overview/CardEditSheet";
 import { AppSheet } from "@/components/ui/AppSheet";
 import {
@@ -102,7 +101,7 @@ export function BoardFilterSheet({
 	const conditionFor = (field: CardCondition["field"]) =>
 		conditions.find((condition) => condition.field === field) ?? null;
 
-	const specs = fieldSpecs(members, locations, t, "open");
+	const specs = fieldSpecs(members, locations, labels, t, "open");
 	const locationIds = new Set(locations.map((location) => location.id));
 
 	const ctx: FilterContext = {
@@ -154,21 +153,16 @@ export function BoardFilterSheet({
 	/**
 	 * The picker for the field being edited: the shared row vocabulary renders
 	 * the items, and its mapping turns the checked ids back into a condition.
-	 * `labelIds` is the board sheet's own field — the card editor has no
-	 * labels group to share a spec with — so its rows are built here.
 	 */
 	const pickerItems = (): CheckItem[] => {
-		if (openField === "labelIds") {
-			return labels.map((label) => ({
-				id: label.id,
-				title: label.title,
-				left: <LabelGlyph color={label.color} icon={label.icon} />,
-			}));
-		}
 		const spec = specs.find((each) => each.field === openField);
 		return spec === undefined
 			? []
-			: fieldPickerItems(spec, { uid: user?.uid ?? "", members });
+			: fieldPickerItems(spec, {
+					uid: user?.uid ?? "",
+					members,
+					labels,
+				});
 	};
 
 	const pickerValue = (): readonly string[] =>
@@ -176,15 +170,6 @@ export function BoardFilterSheet({
 
 	const pickerChange = (ids: string[]) => {
 		if (open === null) return;
-		if (open === "labelIds") {
-			setCondition(
-				open,
-				ids.length === 0
-					? null
-					: ({ field: open, anyOf: ids } as CardCondition),
-			);
-			return;
-		}
 		const spec = specs.find((each) => each.field === open);
 		if (spec === undefined) return;
 		setCondition(open, pickerConditionFromIds(spec, ids, locationIds));
@@ -311,11 +296,7 @@ export function BoardFilterSheet({
 				<CheckListPicker
 					onDismiss={closePicker}
 					testID={`board-filter-${open}`}
-					title={
-						open === "labelIds"
-							? t("board.filter.labels")
-							: (specs.find((spec) => spec.field === open)?.label ?? open)
-					}
+					title={specs.find((spec) => spec.field === open)?.label ?? open}
 					searchLabel={t("board.filter.search")}
 					items={pickerItems()}
 					value={pickerValue()}

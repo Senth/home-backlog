@@ -528,7 +528,7 @@ export function Board({
 					filter={filter}
 					onChange={onChangeFilter}
 					onOpen={() => onOpenFilter?.()}
-					specs={fieldSpecs(members, noLocations, t, "open")}
+					specs={fieldSpecs(members, noLocations, homeLabels, t, "open")}
 					ctx={{
 						uid: user?.uid ?? "",
 						members,

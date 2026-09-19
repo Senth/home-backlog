@@ -9,6 +9,7 @@ import {
 	type Translate,
 } from "@/components/overview/CardEditSheet";
 import type { Member } from "@/models/home";
+import type { LabelWithId } from "@/models/label";
 import type { Location } from "@/models/locations";
 import { doneWithinDays } from "@/models/overview";
 import { lightTheme } from "@/theme";
@@ -43,12 +44,19 @@ const locations: Location[] = [
 	},
 ];
 
+const labels: LabelWithId[] = [
+	{ id: "lb1", title: "Målning", icon: "brush", color: "red", rank: "a0" },
+];
+
 const locationIds = new Set(locations.map((l) => l.id));
 const members = [me];
 
 describe("pickerConditionFromIds", () => {
-	const priority = fieldSpecs(members, locations, t, "open").find(
+	const priority = fieldSpecs(members, locations, labels, t, "open").find(
 		(spec) => spec.field === "priority",
+	) as Parameters<typeof pickerConditionFromIds>[0];
+	const label = fieldSpecs(members, locations, labels, t, "open").find(
+		(spec) => spec.field === "labelIds",
 	) as Parameters<typeof pickerConditionFromIds>[0];
 
 	it("an any-of writes the picked ids, and nothing picked says nothing", () => {
@@ -57,10 +65,16 @@ describe("pickerConditionFromIds", () => {
 			anyOf: ["high"],
 		});
 		expect(pickerConditionFromIds(priority, [], locationIds)).toBeNull();
+		// #306: the labels group rides the same any-of mapping as the rest.
+		expect(pickerConditionFromIds(label, ["lb1"], locationIds)).toEqual({
+			field: "labelIds",
+			anyOf: ["lb1"],
+		});
+		expect(pickerConditionFromIds(label, [], locationIds)).toBeNull();
 	});
 
 	it("an is-field takes the answer the last tap chose", () => {
-		const notes = fieldSpecs(members, locations, t, "open").find(
+		const notes = fieldSpecs(members, locations, labels, t, "open").find(
 			(spec) => spec.field === "notes",
 		) as Parameters<typeof pickerConditionFromIds>[0];
 
@@ -77,7 +91,7 @@ describe("pickerConditionFromIds", () => {
 	});
 
 	it("the location field carries both forms, each replacing the other", () => {
-		const location = fieldSpecs(members, locations, t, "open").find(
+		const location = fieldSpecs(members, locations, labels, t, "open").find(
 			(spec) => spec.field === "locationId",
 		) as Parameters<typeof pickerConditionFromIds>[0];
 
@@ -108,7 +122,7 @@ describe("pickerValueFor", () => {
 
 describe("fieldPickerItems", () => {
 	it("carries an avatar on the people rows, and the places after any/none", () => {
-		const specs = fieldSpecs(members, locations, t, "open");
+		const specs = fieldSpecs(members, locations, labels, t, "open");
 
 		const assignees = fieldPickerItems(
 			specs.find((spec) => spec.field === "assigneeIds") as Parameters<
@@ -126,12 +140,23 @@ describe("fieldPickerItems", () => {
 			{ uid: "uid-me", members },
 		);
 		expect(location.map((item) => item.id)).toEqual(["any", "none", "loc1"]);
+
+		// #306: the labels rows read the home's definitions, glyphs and all.
+		const label = fieldPickerItems(
+			specs.find((spec) => spec.field === "labelIds") as Parameters<
+				typeof fieldPickerItems
+			>[0],
+			{ uid: "uid-me", members, labels },
+		);
+		expect(label.map((item) => item.id)).toEqual(["lb1"]);
+		expect(label[0].title).toBe("Målning");
+		expect(label[0].left).toBeDefined();
 	});
 });
 
 describe("filterWord", () => {
 	it("reads a done window as its sentence, and a widened due window as its own", () => {
-		const specs = fieldSpecs(members, locations, t, "open");
+		const specs = fieldSpecs(members, locations, labels, t, "open");
 		const ctx = {
 			uid: "uid-me",
 			members,
@@ -149,5 +174,9 @@ describe("filterWord", () => {
 		expect(
 			filterWord({ field: "locationId", anyOf: ["loc1"] }, specs, ctx, t),
 		).toBe("Källaren");
+		// #306: a label condition reads as the definitions' titles.
+		expect(
+			filterWord({ field: "labelIds", anyOf: ["lb1", "gone"] }, specs, ctx, t),
+		).toBe("Målning, gone");
 	});
 });

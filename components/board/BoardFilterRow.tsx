@@ -20,9 +20,7 @@ import { border, radius, size, space } from "@/theme/tokens";
  * The board filter's nine fields, in the order the sheet renders them — the
  * card editor's vocabulary (`fieldSpecs`) minus the questions a board cannot
  * ask: no `status` (Q10 — on a board the status is the column), and none of
- * the fields that never describe work worth finding here. `labelIds` has no
- * spec in the editor — the card editor offers no labels group — so its row
- * names itself.
+ * the fields that never describe work worth finding here.
  */
 export const filterFields = [
 	"assigneeIds",
@@ -243,7 +241,7 @@ export function BoardFilterRow({
 	const theme = useAppTheme();
 
 	const spec = specs.find((each) => each.field === field);
-	const name = field === "labelIds" ? t("board.filter.labels") : spec?.label;
+	const name = spec?.label;
 
 	let value: ReactNode = null;
 	if (condition !== undefined && condition !== null) {
@@ -287,7 +285,11 @@ export function BoardFilterRow({
  */
 export function fieldPickerItems(
 	spec: FieldSpec,
-	opts: { uid: string; members: readonly Member[] },
+	opts: {
+		uid: string;
+		members: readonly Member[];
+		labels?: readonly LabelWithId[];
+	},
 ): CheckItem[] {
 	const items = spec.values.map((value) => ({
 		id: String(value.value),
@@ -310,6 +312,19 @@ export function fieldPickerItems(
 							photoURL={member.photoURL}
 							px={size.avatarXs}
 						/>
+					),
+			};
+		});
+	}
+
+	if (spec.field === "labelIds") {
+		return items.map((item) => {
+			const label = opts.labels?.find((each) => each.id === item.id);
+			return {
+				...item,
+				left:
+					label === undefined ? undefined : (
+						<LabelGlyph color={label.color} icon={label.icon} />
 					),
 			};
 		});
