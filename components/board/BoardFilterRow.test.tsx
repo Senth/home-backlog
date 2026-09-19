@@ -121,6 +121,21 @@ describe("fieldPickerItems", () => {
 	it("carries an avatar on the people rows, and the places after any/none", () => {
 		const specs = fieldSpecs(members, locations, labels, t, "open");
 
+		// #247: the picker's priority rows read urgent-first, from the spec.
+		const priority = fieldPickerItems(
+			specs.find((spec) => spec.field === "priority") as Parameters<
+				typeof fieldPickerItems
+			>[0],
+			{ uid: "uid-me", members },
+		);
+		expect(priority.map((item) => item.id)).toEqual([
+			"urgent",
+			"high",
+			"normal",
+			"low",
+			"none",
+		]);
+
 		const assignees = fieldPickerItems(
 			specs.find((spec) => spec.field === "assigneeIds") as Parameters<
 				typeof fieldPickerItems

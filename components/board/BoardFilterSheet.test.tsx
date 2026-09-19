@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { Provider } from "react-native-paper";
 import { BoardFilterSheet } from "@/components/board/BoardFilterSheet";
+import { PriorityDot } from "@/components/board/PriorityDot";
 import type { BoardFilter } from "@/models/board-filter";
 import type { Member } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
@@ -206,6 +207,65 @@ describe("BoardFilterSheet", () => {
 
 		expect(onChange).toHaveBeenCalledWith(
 			filter({ conditions: [{ field: "labelIds", anyOf: ["l1"] }] }),
+		);
+	});
+
+	it("the label picker keeps its checkbox rows", () => {
+		renderSheet({});
+
+		fireEvent.press(screen.getByTestId("board-filter-row-labelIds"));
+
+		expect(
+			screen.UNSAFE_getAllByProps({ source: "checkbox-blank-outline" }),
+		).toHaveLength(2);
+	});
+
+	it("the priority picker reads as fill rows: ramp dot on every row, a ring on Not set", () => {
+		renderSheet({});
+
+		fireEvent.press(screen.getByTestId("board-filter-row-priority"));
+
+		expect(screen.UNSAFE_getAllByType(PriorityDot)).toHaveLength(4);
+		expect(screen.getByTestId("priority-not-set-dot")).toBeOnTheScreen();
+	});
+
+	it("the priority picker's rows stay checkboxes to the tree, and pick multi-select", () => {
+		const onChange = jest.fn();
+		renderSheet({ onChange });
+
+		fireEvent.press(screen.getByTestId("board-filter-row-priority"));
+
+		const names = [
+			"priority.urgent",
+			"priority.high",
+			"priority.normal",
+			"priority.low",
+			"overview.cards.field.notSet",
+		];
+		for (const name of names) {
+			expect(
+				screen.getByRole("checkbox", { name }).props.accessibilityState,
+			).toMatchObject({ checked: false });
+		}
+
+		// The fill presentation draws no tick on any row.
+		expect(
+			screen.UNSAFE_queryAllByProps({ source: "checkbox-marked" }),
+		).toHaveLength(0);
+		expect(
+			screen.UNSAFE_queryAllByProps({ source: "checkbox-blank-outline" }),
+		).toHaveLength(0);
+
+		// Multi-select is untouched: each tap offers its own value, and the
+		// one condition carries both — the accumulation itself is
+		// `CheckListPicker`'s, proven there.
+		fireEvent.press(screen.getByText("priority.urgent"));
+		expect(onChange).toHaveBeenCalledWith(
+			filter({ conditions: [{ field: "priority", anyOf: ["urgent"] }] }),
+		);
+		fireEvent.press(screen.getByText("priority.normal"));
+		expect(onChange).toHaveBeenLastCalledWith(
+			filter({ conditions: [{ field: "priority", anyOf: ["normal"] }] }),
 		);
 	});
 

@@ -441,6 +441,15 @@ export const priorities: readonly Priority[] = [
 ];
 
 /**
+ * The same scale, urgent-first — for *rendering* only. Validation and sorting
+ * keep reading `priorities` / `priorityOrder`, so nothing here may sort or
+ * validate through this list.
+ */
+export const prioritiesHighFirst: readonly Priority[] = [
+	...priorities,
+].reverse();
+
+/**
  * Sorting and scoring go through the ordinal, never through the id's spelling,
  * so a new value in the middle of the scale needs no migration and no rename.
  */

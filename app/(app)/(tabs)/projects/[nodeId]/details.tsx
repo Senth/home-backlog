@@ -54,7 +54,7 @@ import {
 	defaultColumns,
 	effectiveLocation,
 	efforts,
-	priorities,
+	prioritiesHighFirst,
 	rootIdOf,
 } from "@/models/node";
 import { useAppTheme } from "@/theme";
@@ -242,6 +242,12 @@ export default function NodeDetails() {
 				name={t("detail.priority")}
 				testID={`field-priority-${current.id}`}
 				onPress={() => setEditor("priority")}
+				// The ✕ clears where the value sits, without the trip through
+				// the sheet; it only exists while there is something to clear.
+				onClear={
+					current.priority === null ? undefined : () => save({ priority: null })
+				}
+				clearLabel={t("detail.clearField", { what: t("detail.priority") })}
 				value={
 					current.priority === null ? (
 						<Text variant="bodyMedium">{t("detail.notSet")}</Text>
@@ -584,9 +590,10 @@ export default function NodeDetails() {
 					<ChoiceField
 						label={t("detail.priority")}
 						value={node.priority}
-						values={priorities}
+						values={prioritiesHighFirst}
 						labelFor={(value) => t(`priority.${value}`)}
 						onChange={(priority) => save({ priority })}
+						adornment={(value) => <PriorityDot priority={value} />}
 					/>
 				</AppSheet>
 			) : null}
