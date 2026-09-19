@@ -152,6 +152,29 @@ reads as one unit with what it names.
   A label passed down by the project is as much the card's identity as one put on it
   directly.
 
+### The card face and its pictures (#298)
+
+A card can choose what its attachments do to the face, and the choice is a preference
+stored on the card. Rendering degrades when the data moves under it — a deleted hero
+falls back to the first remaining image, a card left with no image draws the count
+whatever its stored mode says — and nothing is ever rewritten on read.
+
+- **Count** (the default) — a `paperclip N` fact in the footer's first pair, beside
+  where and how long. It is also the fallback for a card holding only documents, so
+  the counter and the thumbnails are the document case and the image case of one
+  design rather than rival designs.
+- **Thumbnails** — one row under the footer, inside the content column: three tiles,
+  each a third of the column, a `+N` badge on the third when there are more. The
+  gutters are untouched.
+- **Hero** — the chosen image full-bleed across the whole card, above both gutters,
+  its top corners rounded to the card's radius. **This breaks the left gutter's
+  continuous rail deliberately.** It is per card and chosen, never automatic, so a
+  board only ever looks like this where somebody decided it should. With exactly one
+  image there is nothing to choose and it is the hero.
+
+The choice lives in a chip in the gallery's header on the details screen, beside what
+it governs, and appears only while the card holds at least one image.
+
 ## Surfaces and elevation
 
 **Exactly one separation technique: fill.** Paper renders elevation as opaque color on web,

@@ -356,7 +356,7 @@ const conditionFields = new Set([
 	"visibility",
 	"createdVia",
 	"notes",
-	"photos",
+	"attachments",
 	"checklist",
 ]);
 
@@ -460,7 +460,7 @@ export function toCondition(
 				: null;
 		default:
 			// `isRoot`, `hasChildren`, `assigneeIds`, `participantIds`, `notes`,
-			// `photos`, `checklist` — the boolean and people shapes.
+			// `attachments`, `checklist` — the boolean and people shapes.
 			return typeof data.is === "boolean"
 				? { field: data.field as "isRoot", is: data.is }
 				: "anyOf" in data

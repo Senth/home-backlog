@@ -24,6 +24,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { renameHome } from "@/data/homes";
 import { useHomeInvites } from "@/hooks/use-home-invites";
+import {
+	formatBytes,
+	homeAttachmentCeiling,
+	quotaShare,
+	quotaWarning,
+} from "@/models/attachment";
 import { type HomeNameError, homeNameError } from "@/models/home";
 import { useAppTheme } from "@/theme";
 import { contentWidth, icon, space, touchTarget } from "@/theme/tokens";
@@ -40,7 +46,7 @@ import { contentWidth, icon, space, touchTarget } from "@/theme/tokens";
  * query-safe for an owner, and firing it as a member fails the whole query.
  */
 export default function ManageHome() {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
 	const router = useRouter();
 	const { homeId } = useLocalSearchParams<{ homeId: string }>();
@@ -197,6 +203,49 @@ export default function ManageHome() {
 								/>
 							)}
 							onPress={() => router.push(`/homes/${home.id}/labels`)}
+						/>
+
+						{/* The way in to the attachment inventory (#298). It lives
+						    beside the labels row: same kind of row, same kind of
+						    thing-a-home-owns. The warning rides here too, and only
+						    here and on the inventory — a meter that nags below nine
+						    tenths is a meter people stop reading. */}
+						<Divider />
+						<List.Item
+							title={t("detail.attachments")}
+							description={
+								<View style={{ gap: space.xs }}>
+									<Text
+										variant="bodyMedium"
+										style={{ color: theme.colors.onSurfaceVariant }}
+									>
+										{t("homes.attachmentsUsage", {
+											used: formatBytes(home.attachmentBytes, i18n.language),
+											total: formatBytes(homeAttachmentCeiling, i18n.language),
+										})}
+									</Text>
+									{quotaWarning(home.attachmentBytes) ? (
+										<Text
+											variant="bodyMedium"
+											style={{ color: theme.colors.warning }}
+										>
+											{t("homes.attachmentsAlmostFull", {
+												percent: Math.round(
+													quotaShare(home.attachmentBytes) * 100,
+												),
+											})}
+										</Text>
+									) : null}
+								</View>
+							}
+							right={() => (
+								<Icon
+									source="chevron-right"
+									size={icon.md}
+									color={theme.colors.onSurfaceVariant}
+								/>
+							)}
+							onPress={() => router.push(`/homes/${home.id}/attachments`)}
 						/>
 
 						{isOwner && user ? (

@@ -1,19 +1,29 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { Image, View } from "react-native";
 import { Card, Icon, Text } from "react-native-paper";
 import { CardTrail } from "@/components/board/Breadcrumbs";
 import { CardFooter } from "@/components/board/CardFooter";
 import { CardGutter } from "@/components/board/CardGutter";
+import { CardThumbnails, urlOf } from "@/components/board/CardThumbnails";
 import { useWaitingMark } from "@/components/board/waiting-mark";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useHome } from "@/contexts/HomeContext";
 import type { Crumb } from "@/hooks/use-ancestors";
 import { formatList } from "@/i18n/format-list";
+import { cardFace } from "@/models/attachment";
 import { effectiveLabels } from "@/models/label";
+import type { Attachment } from "@/models/node";
 import { hasSteps, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { elevation, icon, size, space, touchTarget } from "@/theme/tokens";
+import {
+	elevation,
+	icon,
+	radius,
+	size,
+	space,
+	touchTarget,
+} from "@/theme/tokens";
 
 interface BoardCardProps {
 	node: Node;
@@ -90,6 +100,51 @@ interface BoardCardProps {
 	ancestorLocationId?: string | null;
 }
 
+/**
+ * The hero face's image, full-bleed above the gutters. The chosen one, or —
+ * after it was deleted, with nothing rewritten — the first remaining. An empty
+ * placeholder holds the aspect while the URL resolves, so the face does not
+ * jump once it arrives.
+ */
+function CardHero({ attachment }: { attachment: Attachment }) {
+	const [url, setUrl] = useState<string | null>(null);
+
+	useEffect(() => {
+		let cancelled = false;
+		void urlOf(attachment.path)
+			.then((resolved) => {
+				if (!cancelled) setUrl(resolved);
+			})
+			// A raced delete takes the object with it; the tile simply never
+			// arrives, and the console stays clean.
+			.catch(() => {});
+		return () => {
+			cancelled = true;
+		};
+	}, [attachment.path]);
+
+	return (
+		<View
+			style={{
+				overflow: "hidden",
+				borderTopLeftRadius: radius.md,
+				borderTopRightRadius: radius.md,
+			}}
+		>
+			{url === null ? (
+				<View style={{ width: "100%", aspectRatio: 4 / 3 }} />
+			) : (
+				<Image
+					source={{ uri: url }}
+					style={{ width: "100%", aspectRatio: 4 / 3 }}
+					resizeMode="cover"
+					accessibilityLabel={attachment.name}
+				/>
+			)}
+		</View>
+	);
+}
+
 /** What a card resolves its waiting against before its board has said anything. */
 const noBlockers: ReadonlyMap<string, Node | null> = new Map();
 
@@ -153,6 +208,10 @@ export function BoardCard({
 
 	const steps = hasSteps(node);
 	const isDone = node.status === "done";
+
+	// The face (#298): what the card draws after degradation — the count fact
+	// in the footer, a thumbnails row under it, or the hero above everything.
+	const face = cardFace(node);
 
 	// The card's own place wins; otherwise the trail's nearest (#290) — the
 	// same rule the location picker and the details row resolve by.
@@ -281,6 +340,14 @@ export function BoardCard({
 				borderColor: theme.colors.boardCardBorder,
 			}}
 		>
+			{/* The hero is the one face that breaks the gutters' rail — full-bleed
+			    above both of them, its top corners the card's own. Chosen per
+			    card, never automatic: a board looks like this only where somebody
+			    decided it should (docs/DESIGN.md, #298). */}
+			{face.mode === "hero" && face.hero !== null ? (
+				<CardHero attachment={face.hero} />
+			) : null}
+
 			<View style={{ flexDirection: "row", minHeight: touchTarget }}>
 				<CardGutter node={node} labels={labels} narrow={narrow} />
 
@@ -388,6 +455,15 @@ export function BoardCard({
 						// should end on.
 						style={{ marginTop: space.sm }}
 					/>
+
+					{/* The thumbnails face: one row under the footer, inside the
+					    content column — the gutters are untouched, and the pictures
+					    answer for the count the footer would otherwise carry. */}
+					{face.mode === "thumbnails" && face.images.length > 0 ? (
+						<View style={{ marginTop: space.sm }}>
+							<CardThumbnails images={face.images} />
+						</View>
+					) : null}
 
 					{/* Below `cardGutterBreakpoint` the right gutter is gone, so the
 					    people and the count travel with the content instead — a

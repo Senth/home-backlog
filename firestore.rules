@@ -60,6 +60,18 @@ service cloud.firestore {
         && labels.size() <= 300;
     }
 
+    // The attachment quota counters (#298) are the server's: a Storage-triggered
+    // function writes them from real object metadata, and the storage rules gate
+    // the next upload on the number it left behind. A count a client could
+    // increment is decoration — so no client may write either field, on create
+    // or on update, and a member's ordinary edit cannot smuggle the quota
+    // upward.
+    function quotaUntouched(next, current) {
+      return next.get('attachmentBytes', 0) == current.get('attachmentBytes', 0)
+        && next.get('attachmentBytesByUid', {})
+           == current.get('attachmentBytesByUid', {});
+    }
+
     function validHome(data) {
       return data.name is string
         && data.name.size() > 0
@@ -153,6 +165,7 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.members.get(request.auth.uid, null) == 'owner'
         && validHome(request.resource.data)
+        && quotaUntouched(request.resource.data, {})
         && hasEmail()
         && hashes(request.resource.data).get(request.auth.uid, null) == emailHash();
       // Members may edit the home itself and maintain their own profile entry;
@@ -160,6 +173,7 @@ service cloud.firestore {
       // anyone's entries, because removing a member removes theirs too — except
       // for an invitee accepting their own invite.
       allow update: if validHome(request.resource.data)
+        && quotaUntouched(request.resource.data, resource.data)
         && ownHashIsOwn(request.resource.data)
         && (
           ownerOfThis()
@@ -311,8 +325,19 @@ service cloud.firestore {
             && data.notes.size() <= 10000
             && data.checklist is list
             && data.checklist.size() <= 200
-            && data.photos is list
-            && data.photos.size() <= 50
+            // Attachments (#298). Read through get() with a default rather than
+            // required outright, on purpose: every node written before the
+            // rename lacked the key, and request.resource.data is the full
+            // post-update document — requiring these would deny every update
+            // to them, including the childCount bump that adding a step
+            // performs, until the migration has reached them. Lenient here is
+            // what keeps the deploy order irrelevant; the migration is about
+            // cleaning up, not about unblocking writes.
+            && data.get('attachments', []).size() <= 50
+            && data.get('attachmentCount', 0) is int
+            && data.get('attachmentDisplay', 'count') in ['count', 'thumbnails', 'hero']
+            && (data.get('heroAttachmentId', null) == null
+                || data.get('heroAttachmentId', null) is string)
             && data.archived is bool
             && (data.completedAt == null || data.completedAt is timestamp)
             // A completion date is not reconstructible after the fact, and

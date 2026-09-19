@@ -270,12 +270,12 @@ export function fieldSpecs(
 			],
 		},
 		{
-			field: "photos",
-			label: t("overview.cards.field.photos"),
+			field: "attachments",
+			label: t("overview.cards.field.attachments"),
 			kind: "is",
 			values: [
-				{ value: true, label: t("overview.cards.field.withPhotos") },
-				{ value: false, label: t("overview.cards.field.noPhotos") },
+				{ value: true, label: t("overview.cards.field.withAttachments") },
+				{ value: false, label: t("overview.cards.field.noAttachments") },
 			],
 		},
 		{

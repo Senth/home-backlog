@@ -1,7 +1,7 @@
 ---
 name: home-backlog-api
 description: Read and write a Home Backlog board over REST — nested kanban nodes where a project, a task and a subtask are the same thing at different depths. Use when asked to research, break down, file or re-prioritise home-improvement work for a household, or when a prompt mentions Home Backlog, hb.senth.org, or an API key beginning hb_. Covers bearer auth, the node verbs, the atomic bulk create that writes a whole subtree in one undoable call, and the Overview dashboard card config.
-api-version: 1.4.0
+api-version: 2.0.0
 ---
 
 # Home Backlog API
@@ -333,6 +333,11 @@ cards the household composes. Each card is a filter over the nodes — `conditio
 together, and within one condition the values are ORs — with a `sort`, a `shown`/`max`
 slice, and a fractional `rank` that orders the merged list.
 
+A condition names one `field`: `status`, `priority`, `effort`, `dueDate`, `labelIds`,
+`completedAt`, `isRoot`, `hasChildren`, `assigneeIds`, `participantIds`, `blockedBy`,
+`locationId`, `visibility`, `createdVia`, and the boolean questions `notes`,
+`attachments` and `checklist`.
+
 Cards live on three surfaces, and `scope` names which one:
 
 - `global` — the owner's own cross-home config. What you write here follows them into
@@ -435,7 +440,7 @@ filed work you did not file.
 | `archived` | ❌ | Hides a card from every board. Nothing in the app can bring one back yet, so nothing here may hide one. |
 | `rank`, `columns`, `ancestorIds`, `childCount`, `doneCount`, `completedAt` | ❌ | Computed. |
 | `createdAt`, `createdBy`, `updatedAt`, `createdVia` | ❌ | Computed. |
-| `photos` | ❌ | Uploaded by a person, from a device. |
+| `attachments` | ❌ | Uploaded by a person, from a device. As a card condition, `attachments: true` matches cards holding at least one. |
 
 Everything marked **stored, no screen yet** accepts writes and renders nowhere. Populate it if
 it helps you, but do not expect a person to see it.

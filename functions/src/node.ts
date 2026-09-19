@@ -84,7 +84,7 @@ export const defaultColumns: readonly Status[] = statuses;
 export const maxTitleLength = 200;
 export const maxNotesLength = 10000;
 export const maxChecklistItems = 200;
-export const maxPhotos = 50;
+export const maxAttachments = 50;
 
 /**
  * How many labels one card may carry, mirrored from `models/label.ts`'s

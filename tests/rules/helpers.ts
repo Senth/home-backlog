@@ -160,7 +160,10 @@ export function nodeDoc(
 		notes: "",
 		checklist: [],
 		effort: null,
-		photos: [],
+		attachments: [],
+		attachmentCount: 0,
+		attachmentDisplay: "count",
+		heroAttachmentId: null,
 		archived: false,
 		// Written by the client on every create since #7. A node from before it
 		// has none, which is what `createdVia: undefined` in an override covers.

@@ -55,7 +55,7 @@ export type CardCondition =
 	| { field: "locationId"; anyOf: string[] }
 	| { field: "visibility"; is: Visibility }
 	| { field: "createdVia"; is: CreatedVia }
-	| { field: "notes" | "photos" | "checklist"; is: boolean };
+	| { field: "notes" | "attachments" | "checklist"; is: boolean };
 
 export interface Card {
 	id: string;
@@ -120,7 +120,7 @@ const conditionFields = new Set([
 	"visibility",
 	"createdVia",
 	"notes",
-	"photos",
+	"attachments",
 	"checklist",
 ]);
 
@@ -202,8 +202,8 @@ function toCondition(value: unknown): CardCondition | null {
 				: null;
 		default:
 			// `isRoot`, `hasChildren`, `assigneeIds`, `participantIds`, `notes`,
-			// `photos`, `checklist` — the boolean and people shapes, in the same
-			// order the app reads them.
+			// `attachments`, `checklist` — the boolean and people shapes, in the
+			// same order the app reads them.
 			return typeof data.is === "boolean"
 				? ({ field: data.field, is: data.is } as CardCondition)
 				: "anyOf" in data
@@ -368,7 +368,7 @@ function conditionIssues(condition: unknown): ValidationIssue[] {
 		case "isRoot":
 		case "hasChildren":
 		case "notes":
-		case "photos":
+		case "attachments":
 		case "checklist":
 			return typeof data.is === "boolean"
 				? []

@@ -61,7 +61,7 @@ export type CardCondition =
 	| { field: "locationId"; anyOf: readonly string[] }
 	| { field: "visibility"; is: Visibility }
 	| { field: "createdVia"; is: CreatedVia }
-	| { field: "notes" | "photos" | "checklist"; is: boolean };
+	| { field: "notes" | "attachments" | "checklist"; is: boolean };
 
 export type SortField =
 	| "dueDate"
@@ -223,8 +223,8 @@ function matches(node: Node, condition: CardCondition, ctx: MatchContext) {
 			return node.createdVia === condition.is;
 		case "notes":
 			return node.notes.length > 0 === condition.is;
-		case "photos":
-			return node.photos.length > 0 === condition.is;
+		case "attachments":
+			return node.attachments.length > 0 === condition.is;
 		case "checklist":
 			return node.checklist.length > 0 === condition.is;
 	}

@@ -50,7 +50,10 @@ function nodeDoc(
 		notes: "",
 		checklist: [],
 		effort: null,
-		photos: [],
+		attachments: [],
+		attachmentCount: 0,
+		attachmentDisplay: "count",
+		heroAttachmentId: null,
 		archived: false,
 		completedAt: null,
 		createdAt: new Date("2026-01-01T00:00:00Z"),
@@ -171,13 +174,13 @@ describe("the field set", () => {
 		expect(codes(nodeDoc({ checklist }))).toContain("too_many_checklist_items");
 	});
 
-	it("refuses more than 50 photos", () => {
-		const photos = Array.from({ length: 51 }, (_value, index) => ({
+	it("refuses more than 50 attachments", () => {
+		const attachments = Array.from({ length: 51 }, (_value, index) => ({
 			id: `p${index}`,
 			path: `p${index}.jpg`,
 		}));
 
-		expect(codes(nodeDoc({ photos }))).toContain("too_many_photos");
+		expect(codes(nodeDoc({ attachments }))).toContain("too_many_attachments");
 	});
 
 	it("keeps status and completedAt in agreement, both ways", () => {
