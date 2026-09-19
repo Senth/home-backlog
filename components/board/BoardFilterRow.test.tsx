@@ -4,10 +4,7 @@ import {
 	pickerConditionFromIds,
 	pickerValueFor,
 } from "@/components/board/BoardFilterRow";
-import {
-	fieldSpecs,
-	type Translate,
-} from "@/components/overview/CardEditSheet";
+import { fieldSpecs, type Translate } from "@/components/overview/CardEditForm";
 import type { Member } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
 import type { Location } from "@/models/locations";
@@ -15,7 +12,7 @@ import { doneWithinDays } from "@/models/overview";
 import { lightTheme } from "@/theme";
 
 jest.mock("@/contexts/AuthContext", () => ({
-	// CardEditSheet's module pulls firebase/auth; these tests read only specs.
+	// CardEditForm's module pulls firebase/auth; these tests read only specs.
 	useAuth: () => ({ user: { uid: "uid-me" } }),
 }));
 

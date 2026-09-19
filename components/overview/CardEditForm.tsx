@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, useWindowDimensions, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import {
 	Button,
 	Chip,
@@ -18,7 +18,6 @@ import {
 	pickerConditionFromIds,
 	pickerValueFor,
 } from "@/components/board/BoardFilterRow";
-import { AppDialog } from "@/components/ui/AppDialog";
 import { CheckListPicker } from "@/components/ui/CheckListPicker";
 import { useAuth } from "@/contexts/AuthContext";
 import { soonInDays } from "@/models/due-date";
@@ -48,6 +47,7 @@ import {
 } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
 import {
+	contentWidth,
 	outlinedTouchTarget,
 	segmentedLabelLineHeight,
 	space,
@@ -55,8 +55,7 @@ import {
 } from "@/theme/tokens";
 
 /**
- * One card, edited. A sheet over the editor, because the form is six short
- * groups rather than a screen of its own.
+ * One overview card, edited — the body of the add/edit page (`/overview-card-edit`).
  *
  * Everything edits a **draft**; nothing is written until Save, so tapping
  * through the condition chips on the way to somewhere else never writes a
@@ -73,8 +72,8 @@ import {
  * becomes the Recently done card (#229) — one tap is the whole configuration.
  *
  * The field vocabulary is one list, `fieldSpecs`, and the import preview
- * reads its words from the same list: a condition says what the chips would
- * have said, or the two surfaces drift.
+ * reads its words from the same list: a condition says what the form's chips
+ * would have said, or the two surfaces drift.
  */
 
 /** `t` as this module's helpers see it — the hook's own return. */
@@ -289,8 +288,7 @@ export function fieldSpecs(
 	return specs.filter((spec) => conditionCarriedBy(mode, spec.field));
 }
 
-interface CardEditSheetProps {
-	visible: boolean;
+interface CardEditFormProps {
 	/** The card to edit, or `null` for a new one. */
 	card: Card | null;
 	/** The card's scope, which is where it is stored rather than a field. */
@@ -301,7 +299,6 @@ interface CardEditSheetProps {
 	locations: readonly Location[];
 	/** The home's label definitions, for the labels condition. */
 	labels: readonly LabelWithId[];
-	onDismiss: () => void;
 	onSave: (draft: Card, scope: "global" | "home" | "shared") => void;
 }
 
@@ -389,20 +386,15 @@ const SORT_LABELS: Record<SortField, string> = {
 	completedAt: "overview.cards.sort.completedAt",
 };
 
-export function CardEditSheet({
-	visible,
+export function CardEditForm({
 	card,
 	scope: initialScope,
 	members,
 	locations,
 	labels,
-	onDismiss,
 	onSave,
-}: CardEditSheetProps) {
+}: CardEditFormProps) {
 	const { t } = useTranslation();
-	const theme = useAppTheme();
-	// Read above the dialog's portal, which renders outside `AuthProvider`
-	// — the same shape `BoardFilterSheet` uses for the same reason.
 	const { user } = useAuth();
 
 	const [draft, setDraft] = useState<Card>(() => card ?? newCard());
@@ -410,21 +402,6 @@ export function CardEditSheet({
 	const [field, setField] = useState<CardCondition["field"] | null>(null);
 	const [sortOpen, setSortOpen] = useState(false);
 	const [titleProblem, setTitleProblem] = useState<string | null>(null);
-
-	// Reset when the sheet *opens*, during render, the way `TitleDialog` does.
-	// Not in an effect: a listener refresh mid-edit re-renders the sheet, and
-	// the draft must survive that — only opening it again starts a new one.
-	const [opened, setOpened] = useState(visible);
-	if (opened !== visible) {
-		setOpened(visible);
-		if (visible) {
-			setDraft(card ?? newCard());
-			setScope(initialScope);
-			setField(null);
-			setSortOpen(false);
-			setTitleProblem(null);
-		}
-	}
 
 	const setMode = (mode: CardMode) => setDraft(withMode(draft, mode));
 
@@ -459,78 +436,69 @@ export function CardEditSheet({
 			},
 			scope,
 		);
-		onDismiss();
 	};
 
 	return (
-		<AppDialog
-			visible={visible}
-			onDismiss={onDismiss}
-			title={
-				card === null
-					? t("overview.cards.editor.add")
-					: t("overview.cards.edit.title")
-			}
-			testID="overview-card-edit"
-			actions={[
+		// The form clamp a dialog carried for free: contentWidth.form, the
+		// page-level shape `details` and the manage-home screens take.
+		<ScrollView
+			contentContainerStyle={{
+				padding: space.md,
+				paddingBottom: space.xl,
+				alignSelf: "center",
+				width: "100%",
+				maxWidth: contentWidth.form,
+			}}
+		>
+			<View style={{ gap: space.lg }}>
+				<SheetBody
+					uid={user?.uid ?? ""}
+					draft={draft}
+					scope={scope}
+					fields={fields}
+					members={members}
+					locations={locations}
+					labels={labels}
+					field={field}
+					sortOpen={sortOpen}
+					titleProblem={titleProblem}
+					onMode={setMode}
+					onScope={setScope}
+					onField={setField}
+					onFieldCondition={(target, next) =>
+						setDraft({
+							...draft,
+							conditions:
+								next === null
+									? draft.conditions.filter(
+											(condition) => condition.field !== target,
+										)
+									: withCondition(draft.conditions, next),
+						})
+					}
+					onSortOpen={setSortOpen}
+					onSort={(sort) => setDraft({ ...draft, sort })}
+					onTitle={(title) => {
+						setDraft({ ...draft, title });
+						setTitleProblem(null);
+					}}
+					onShown={(shown) => setDraft({ ...draft, shown })}
+					onMax={(max) => setDraft({ ...draft, max })}
+				/>
 				<Button
-					key="cancel"
-					onPress={onDismiss}
-					textColor={theme.colors.onSurfaceVariant}
-					contentStyle={{ minHeight: touchTarget }}
-				>
-					{t("common.cancel")}
-				</Button>,
-				<Button
-					key="save"
-					onPress={save}
 					mode="contained"
+					onPress={save}
 					contentStyle={{ minHeight: touchTarget }}
 				>
 					{t("manageHome.save")}
-				</Button>,
-			]}
-		>
-			<SheetBody
-				uid={user?.uid ?? ""}
-				draft={draft}
-				scope={scope}
-				fields={fields}
-				members={members}
-				locations={locations}
-				labels={labels}
-				field={field}
-				sortOpen={sortOpen}
-				titleProblem={titleProblem}
-				onMode={setMode}
-				onScope={setScope}
-				onField={setField}
-				onFieldCondition={(target, next) =>
-					setDraft({
-						...draft,
-						conditions:
-							next === null
-								? draft.conditions.filter(
-										(condition) => condition.field !== target,
-									)
-								: withCondition(draft.conditions, next),
-					})
-				}
-				onSortOpen={setSortOpen}
-				onSort={(sort) => setDraft({ ...draft, sort })}
-				onTitle={(title) => {
-					setDraft({ ...draft, title });
-					setTitleProblem(null);
-				}}
-				onShown={(shown) => setDraft({ ...draft, shown })}
-				onMax={(max) => setDraft({ ...draft, max })}
-			/>
-		</AppDialog>
+				</Button>
+			</View>
+		</ScrollView>
 	);
 }
 
 interface SheetBodyProps {
-	/** The reader's uid, read above the portal — the rows' own "me" value. */
+	/** The reader's uid — the rows' own "me" value. */
 	uid: string;
 	draft: Card;
 	scope: "global" | "home" | "shared";
@@ -562,9 +530,9 @@ interface SheetBodyProps {
 }
 
 /**
- * The form itself, inside the dialog's scrolling content. One group per row:
- * the mode and its sentence, the scope and its sentence, the title, the
- * conditions and their one open field, the sort, and the two row budgets.
+ * The form groups. One group per row: the mode and its sentence, the scope
+ * and its sentence, the title, the conditions and their one open field, the
+ * sort, and the two row budgets.
  */
 function SheetBody({
 	uid,
@@ -589,7 +557,6 @@ function SheetBody({
 }: SheetBodyProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
-	const { height } = useWindowDimensions();
 
 	const fieldsCtx: FilterContext = {
 		uid,
@@ -601,219 +568,217 @@ function SheetBody({
 	const locationIds = new Set(locations.map((l) => l.id));
 
 	return (
-		<ScrollView style={{ maxHeight: height - space.xxl * 4 }}>
-			<View style={{ gap: space.lg, paddingBottom: space.sm }}>
-				<View>
-					<SegmentedButtons
-						value={draft.kind}
-						onValueChange={(value) => onMode(value as CardMode)}
-						buttons={[
-							{
-								value: "open",
-								label: t("overview.cards.editor.mode.open"),
-								labelStyle: { lineHeight: segmentedLabelLineHeight },
-							},
-							{
-								value: "done",
-								label: t("overview.cards.editor.mode.done"),
-								labelStyle: { lineHeight: segmentedLabelLineHeight },
-							},
-						]}
-					/>
-					{/* The sentence is what keeps the two segmented controls from
+		<View style={{ gap: space.lg }}>
+			<View>
+				<SegmentedButtons
+					value={draft.kind}
+					onValueChange={(value) => onMode(value as CardMode)}
+					buttons={[
+						{
+							value: "open",
+							label: t("overview.cards.editor.mode.open"),
+							labelStyle: { lineHeight: segmentedLabelLineHeight },
+						},
+						{
+							value: "done",
+							label: t("overview.cards.editor.mode.done"),
+							labelStyle: { lineHeight: segmentedLabelLineHeight },
+						},
+					]}
+				/>
+				{/* The sentence is what keeps the two segmented controls from
 					    reading as one five-way choice: each says what its own
 					    choice means, and the pair stays two decisions. */}
-					<Text
-						variant="bodySmall"
-						style={{ color: theme.colors.onSurfaceVariant }}
-					>
-						{draft.kind === "done"
-							? t("overview.cards.editor.mode.doneDescription")
-							: t("overview.cards.editor.mode.openDescription")}
-					</Text>
-				</View>
+				<Text
+					variant="bodySmall"
+					style={{ color: theme.colors.onSurfaceVariant }}
+				>
+					{draft.kind === "done"
+						? t("overview.cards.editor.mode.doneDescription")
+						: t("overview.cards.editor.mode.openDescription")}
+				</Text>
+			</View>
 
-				<View>
-					<SegmentedButtons
-						value={scope}
-						onValueChange={(value) => onScope(value as typeof scope)}
-						buttons={[
-							{
-								value: "global",
-								label: t("overview.cards.editor.scope.global"),
-								labelStyle: { lineHeight: segmentedLabelLineHeight },
-							},
-							{
-								value: "home",
-								label: t("overview.cards.editor.scope.home"),
-								labelStyle: { lineHeight: segmentedLabelLineHeight },
-							},
-							{
-								value: "shared",
-								label: t("overview.cards.editor.scope.shared"),
-								labelStyle: { lineHeight: segmentedLabelLineHeight },
-							},
-						]}
-					/>
-					<Text
-						variant="bodySmall"
-						style={{ color: theme.colors.onSurfaceVariant }}
-					>
-						{t(`overview.cards.editor.scope.${scope}Description`)}
-					</Text>
-				</View>
-
-				<TextInput
-					mode="outlined"
-					testID="overview-card-edit-title"
-					label={t("board.titleLabel")}
-					value={draft.title ?? ""}
-					onChangeText={onTitle}
-					onSubmitEditing={() => onTitle(draft.title ?? "")}
-					selectTextOnFocus
-					error={titleProblem !== null}
-					// An untouched seed has no title of its own; the box shows
-					// the name it currently travels under, in grey, rather
-					// than an empty field that reads as lost data.
-					placeholder={
-						draft.seedId === null ? undefined : t(seedTitleKeys[draft.seedId])
-					}
+			<View>
+				<SegmentedButtons
+					value={scope}
+					onValueChange={(value) => onScope(value as typeof scope)}
+					buttons={[
+						{
+							value: "global",
+							label: t("overview.cards.editor.scope.global"),
+							labelStyle: { lineHeight: segmentedLabelLineHeight },
+						},
+						{
+							value: "home",
+							label: t("overview.cards.editor.scope.home"),
+							labelStyle: { lineHeight: segmentedLabelLineHeight },
+						},
+						{
+							value: "shared",
+							label: t("overview.cards.editor.scope.shared"),
+							labelStyle: { lineHeight: segmentedLabelLineHeight },
+						},
+					]}
 				/>
-				<HelperText type="error" visible={titleProblem !== null}>
-					{titleProblem === null ? "" : t(titleProblem)}
-				</HelperText>
-				{draft.seedId !== null && (draft.title ?? "") === "" ? (
-					<HelperText type="info" visible>
-						{t("overview.cards.edit.followsDefault")}
-					</HelperText>
-				) : null}
+				<Text
+					variant="bodySmall"
+					style={{ color: theme.colors.onSurfaceVariant }}
+				>
+					{t(`overview.cards.editor.scope.${scope}Description`)}
+				</Text>
+			</View>
 
-				{/* One field, one row — the board filter sheet's own pattern, so
-				    the two sheets read as one product. The row names the field and
+			<TextInput
+				mode="outlined"
+				testID="overview-card-edit-title"
+				label={t("board.titleLabel")}
+				value={draft.title ?? ""}
+				onChangeText={onTitle}
+				onSubmitEditing={() => onTitle(draft.title ?? "")}
+				selectTextOnFocus
+				error={titleProblem !== null}
+				// An untouched seed has no title of its own; the box shows
+				// the name it currently travels under, in grey, rather
+				// than an empty field that reads as lost data.
+				placeholder={
+					draft.seedId === null ? undefined : t(seedTitleKeys[draft.seedId])
+				}
+			/>
+			<HelperText type="error" visible={titleProblem !== null}>
+				{titleProblem === null ? "" : t(titleProblem)}
+			</HelperText>
+			{draft.seedId !== null && (draft.title ?? "") === "" ? (
+				<HelperText type="info" visible>
+					{t("overview.cards.edit.followsDefault")}
+				</HelperText>
+			) : null}
+
+			{/* One field, one row — the board filter sheet's own pattern, so
+				    the two read as one product. The row names the field and
 				    previews its value; opening it offers the values as check rows. */}
+			<View style={{ gap: space.sm }}>
+				<Text
+					variant="labelLarge"
+					style={{ color: theme.colors.onSurfaceVariant }}
+				>
+					{t("overview.cards.field.conditions")}
+				</Text>
+				<View>
+					{fields.map((spec) => {
+						const applied = conditionForField(draft.conditions, spec.field);
+
+						return (
+							<BoardFilterRow
+								key={spec.field}
+								field={spec.field}
+								condition={applied}
+								specs={fields}
+								ctx={fieldsCtx}
+								testID={`overview-card-edit-field-${spec.field}`}
+								onPress={() =>
+									onField(field === spec.field ? null : spec.field)
+								}
+								onClear={
+									applied === null
+										? undefined
+										: () => onFieldCondition(spec.field, null)
+								}
+								clearLabel={t("board.filter.removeFilter", {
+									what: spec.label,
+								})}
+							/>
+						);
+					})}
+				</View>
+			</View>
+
+			{field === null ? null : field === "completedAt" ? (
+				<CompletedWithinPicker
+					condition={conditionForField(draft.conditions, "completedAt")}
+					onField={onField}
+					onWrite={(next) => onFieldCondition("completedAt", next)}
+				/>
+			) : (
+				<FieldValuePicker
+					spec={fields.find((each) => each.field === field) as FieldSpec}
+					condition={conditionForField(draft.conditions, field)}
+					onField={onField}
+					onWrite={(next) => onFieldCondition(field, next)}
+					members={members}
+					labels={labels}
+					locationIds={locationIds}
+					uid={uid}
+				/>
+			)}
+
+			{draft.kind === "open" ? (
 				<View style={{ gap: space.sm }}>
 					<Text
 						variant="labelLarge"
 						style={{ color: theme.colors.onSurfaceVariant }}
 					>
-						{t("overview.cards.field.conditions")}
+						{t("overview.cards.sort.label")}
 					</Text>
-					<View>
-						{fields.map((spec) => {
-							const applied = conditionForField(draft.conditions, spec.field);
-
-							return (
-								<BoardFilterRow
-									key={spec.field}
-									field={spec.field}
-									condition={applied}
-									specs={fields}
-									ctx={fieldsCtx}
-									testID={`overview-card-edit-field-${spec.field}`}
-									onPress={() =>
-										onField(field === spec.field ? null : spec.field)
-									}
-									onClear={
-										applied === null
-											? undefined
-											: () => onFieldCondition(spec.field, null)
-									}
-									clearLabel={t("board.filter.removeFilter", {
-										what: spec.label,
-									})}
-								/>
-							);
-						})}
-					</View>
-				</View>
-
-				{field === null ? null : field === "completedAt" ? (
-					<CompletedWithinPicker
-						condition={conditionForField(draft.conditions, "completedAt")}
-						onField={onField}
-						onWrite={(next) => onFieldCondition("completedAt", next)}
-					/>
-				) : (
-					<FieldValuePicker
-						spec={fields.find((each) => each.field === field) as FieldSpec}
-						condition={conditionForField(draft.conditions, field)}
-						onField={onField}
-						onWrite={(next) => onFieldCondition(field, next)}
-						members={members}
-						labels={labels}
-						locationIds={locationIds}
-						uid={uid}
-					/>
-				)}
-
-				{draft.kind === "open" ? (
-					<View style={{ gap: space.sm }}>
-						<Text
-							variant="labelLarge"
-							style={{ color: theme.colors.onSurfaceVariant }}
-						>
-							{t("overview.cards.sort.label")}
-						</Text>
-						<Menu
-							visible={sortOpen}
-							onDismiss={() => onSortOpen(false)}
-							anchor={
-								<Button
-									mode="outlined"
-									icon="sort"
-									onPress={() => onSortOpen(true)}
-									contentStyle={{ minHeight: touchTarget }}
-									style={{ alignSelf: "flex-start" }}
-								>
-									{draft.sort === null
-										? t("overview.cards.sort.boardOrder")
-										: t(SORT_LABELS[draft.sort.field])}
-								</Button>
-							}
-						>
+					<Menu
+						visible={sortOpen}
+						onDismiss={() => onSortOpen(false)}
+						anchor={
+							<Button
+								mode="outlined"
+								icon="sort"
+								onPress={() => onSortOpen(true)}
+								contentStyle={{ minHeight: touchTarget }}
+								style={{ alignSelf: "flex-start" }}
+							>
+								{draft.sort === null
+									? t("overview.cards.sort.boardOrder")
+									: t(SORT_LABELS[draft.sort.field])}
+							</Button>
+						}
+					>
+						<Menu.Item
+							title={t("overview.cards.sort.boardOrder")}
+							onPress={() => {
+								onSortOpen(false);
+								onSort(null);
+							}}
+						/>
+						{SORT_FIELDS.map((sortField) => (
 							<Menu.Item
-								title={t("overview.cards.sort.boardOrder")}
+								key={sortField}
+								title={t(SORT_LABELS[sortField])}
 								onPress={() => {
 									onSortOpen(false);
-									onSort(null);
+									onSort({
+										field: sortField,
+										direction: draft.sort?.direction ?? "asc",
+									});
 								}}
 							/>
-							{SORT_FIELDS.map((sortField) => (
-								<Menu.Item
-									key={sortField}
-									title={t(SORT_LABELS[sortField])}
-									onPress={() => {
-										onSortOpen(false);
-										onSort({
-											field: sortField,
-											direction: draft.sort?.direction ?? "asc",
-										});
-									}}
-								/>
-							))}
-						</Menu>
-						{draft.sort === null ? null : (
-							<DirectionChips sort={draft.sort} onSort={onSort} />
-						)}
-					</View>
-				) : null}
+						))}
+					</Menu>
+					{draft.sort === null ? null : (
+						<DirectionChips sort={draft.sort} onSort={onSort} />
+					)}
+				</View>
+			) : null}
 
-				<Stepper
-					label={t("overview.cards.edit.shown")}
-					value={draft.shown}
-					min={1}
-					max={draft.max}
-					onChange={onShown}
-				/>
-				<Stepper
-					label={t("overview.cards.edit.held")}
-					value={draft.max}
-					min={draft.shown}
-					max={overviewLimit}
-					onChange={onMax}
-				/>
-			</View>
-		</ScrollView>
+			<Stepper
+				label={t("overview.cards.edit.shown")}
+				value={draft.shown}
+				min={1}
+				max={draft.max}
+				onChange={onShown}
+			/>
+			<Stepper
+				label={t("overview.cards.edit.held")}
+				value={draft.max}
+				min={draft.shown}
+				max={overviewLimit}
+				onChange={onMax}
+			/>
+		</View>
 	);
 }
 
