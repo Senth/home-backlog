@@ -199,8 +199,8 @@ async function anchoredNodes(
 		nodes.where("locationId", "==", movedId).get(),
 		nodes.where("locationAncestorIds", "array-contains", movedId).get(),
 	]);
-	const byId = new Map(direct.docs.map((doc) => [doc.id, doc]));
-	for (const doc of under.docs) byId.set(doc.id, doc);
+	const byId = new Map(under.docs.map((doc) => [doc.id, doc]));
+	for (const doc of direct.docs) byId.set(doc.id, doc);
 	return [...byId.values()];
 }
 

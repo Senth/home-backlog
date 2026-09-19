@@ -69,9 +69,19 @@ ready = "Huset"
 # labels: "Renovera badrummet" has a priority and **all six** — the
 # full-gutter shape the card face is built around — and "Beställ en tystare
 # fläkt" carries one; no label is a custom color, so the palette sweep can
-# enumerate everything a labelled card paints. There are **no `recurring` and
-# no `locations` documents at all**: the maintenance screen and the location
-# tree are empty by construction, which is the cold-start shape. Two accounts
+# enumerate everything a labelled card paints. There are **no `recurring`
+# documents at all**: the maintenance screen is empty by construction, which is
+# the cold-start shape. The **location tree is seeded** (#205): Huset holds
+# seventeen places three levels deep — Bottenvåning, Övervåning, Källaren and
+# Utomhus, with Uteplatsen under Trädgården and Verkstaden under Garaget, each
+# with its own icon and hue — and Stugan holds Boden and Bryggan. Ten cards
+# carry a `locationId`, chosen to cover the selection rules rather than to look
+# plausible: "Byt badrumsfläkten" and "Renovera badrummet" sit at Badrummet so
+# their whole subtrees inherit the place, "Hyr container" and "Köp färg"
+# override their parent's, and "Bergvärme eller luft-vatten?" sits at Källaren,
+# a non-leaf place, so the roll-up count has something `cardsAtPlace`
+# deliberately will not draw. Inheritance means more documents carry a
+# `locationId` than there are named cards. Two accounts
 # — Marcus / marcus@example.com and Anna Maria Berg / anna@example.com — one
 # pending invite, two API keys, no attachments. Whether an empty state
 # explains itself is still fair game; reporting the emptiness as data loss is
