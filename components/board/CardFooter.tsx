@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { type StyleProp, View, type ViewStyle } from "react-native";
 import { Icon, Text } from "react-native-paper";
 import { DueChip } from "@/components/board/DueChip";
+import { cardFace } from "@/models/attachment";
 import { showsDue } from "@/models/due-date";
 import type { Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
@@ -105,16 +106,23 @@ export function CardFooter({
 	// warning color on it, are `DueChip`'s.
 	const showDue = showsDue(node, new Date());
 
+	// The count face (#298): what the card carries, as a bare fact. It is the
+	// default face and the fallback — in thumbnails or hero mode the pictures
+	// say it themselves, and a card with no image draws this whatever its
+	// stored mode claims.
+	const face = cardFace(node);
+	const carries = face.mode === "count" && face.total > 0;
+
 	const locationTitle =
 		locationId === null ? undefined : locations?.get(locationId);
 	const where = locationTitle !== undefined || node.effort !== null;
 	const when = showDue || waiting !== null;
 
-	if (!where && !when) return null;
+	if (!where && !when && !carries) return null;
 
 	return (
 		<View style={[{ rowGap: border.hairline }, style]}>
-			{where ? (
+			{where || carries ? (
 				<Pair>
 					{locationTitle === undefined ? null : (
 						<Fact source="crosshairs-gps">{locationTitle}</Fact>
@@ -122,6 +130,11 @@ export function CardFooter({
 					{node.effort === null ? null : (
 						<Fact source="clock-outline">{t(`effort.${node.effort}`)}</Fact>
 					)}
+					{carries ? (
+						<Fact source="paperclip">
+							{t("board.attachedCount", { count: face.total })}
+						</Fact>
+					) : null}
 				</Pair>
 			) : null}
 			{when ? (

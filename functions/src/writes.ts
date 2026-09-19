@@ -367,7 +367,10 @@ async function createNode(request: Request, response: Response): Promise<void> {
 		notes: body.notes ?? "",
 		checklist: body.checklist ?? [],
 		effort: body.effort ?? null,
-		photos: [],
+		attachments: [],
+		attachmentCount: 0,
+		attachmentDisplay: "count",
+		heroAttachmentId: null,
 		archived: false,
 		// The mark a household reads on the node detail screen. Written here and
 		// never again, and unwritable by any client — the rules see to that.

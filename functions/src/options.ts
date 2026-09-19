@@ -16,3 +16,11 @@
  * region, and the two have to agree.
  */
 export const region = "europe-west1";
+
+/**
+ * The default Storage bucket, named explicitly because a v2 storage trigger
+ * refuses to register without one — unlike the deploy, which could infer it,
+ * and unlike a test, which has no project to infer from. The same bucket
+ * firebase.json and the app's own `config/firebase.ts` name.
+ */
+export const bucket = "home-backlog.firebasestorage.app";

@@ -125,6 +125,13 @@
 	},
 	"homes": {
 		"title": "Mina hem",
+		"attachmentsUsage": "{{used}} av {{total}} använt",
+		"attachmentsAlmostFull": "Utrymmet för bilagor är {{percent}} procent använt.",
+		"attachmentsByPerson": "Per person",
+		"sortLargest": "Störst",
+		"sortNewest": "Senaste",
+		"attachmentsHidden": "{{size}} ligger utanför listan: kort du inte kan se och miniatyrbilder.",
+		"attachmentsEmpty": "Inget är bifogat till något kort än. Bilder och dokument på kort samlas här.",
 		"empty": "Du är inte med i något hem än.",
 		"loadFailed": "Kunde inte ladda dina hem. Kontrollera din anslutning.",
 		"create": "Skapa ett nytt hem",
@@ -257,6 +264,8 @@
 		"offlineHint": "Kräver anslutning",
 		"details": "Detaljer…",
 		"steps": "{{done}}/{{total}}",
+		"attachedCount_one": "1 bifogad",
+		"attachedCount_other": "{{count}} bifogade",
 		"dueLate": "{{elapsed}} sen",
 		"dueSoon": "{{elapsed}}",
 		"gone": "Kortet finns inte längre.",
@@ -300,7 +309,7 @@
 			"empty": "Inget på gång."
 		},
 		"done": {
-			"title": "Senast Utförda"
+			"title": "Senast utförda"
 		},
 		"cards": {
 			"title": {
@@ -399,9 +408,9 @@
 				"inApp": "I appen",
 				"withNotes": "Har anteckningar",
 				"noNotes": "Utan anteckningar",
-				"photos": "Foton",
-				"withPhotos": "Har foton",
-				"noPhotos": "Utan foton",
+				"attachments": "Foton",
+				"withAttachments": "Har foton",
+				"noAttachments": "Utan foton",
 				"checklist": "Checklista",
 				"withChecklist": "Har en checklista",
 				"noChecklist": "Utan checklista",
@@ -493,7 +502,28 @@
 		"locationNone": "Hemmet har inga platser än.",
 		"locationSearchPlaceholder": "Sök platser",
 		"locationSearchEmpty": "Inga platser matchar",
-		"locationInherited": "Ärvd"
+		"locationInherited": "Ärvd",
+		"attachments": "Bilder och filer",
+		"attachmentsAdd": "Lägg till en fil",
+		"attachmentsUploading": "Laddar upp…",
+		"attachmentsOffline": "Bilagor behöver uppkoppling — de laddas upp direkt och kan inte vänta.",
+		"attachmentsTooLarge": "Filen är för stor — gränsen är {{limit}} per fil.",
+		"attachmentsWrongType": "Den filtypen går inte att bifoga — bilder, PDF-filer och textfiler är tillåtna.",
+		"attachmentsFailed": "Kunde inte ladda upp filen. Försök igen.",
+		"attachmentsClose": "Stäng",
+		"attachmentsHero": "Använd som huvudbild",
+		"attachmentsDownload": "Ladda ner",
+		"attachmentsDelete": "Ta bort filen",
+		"attachmentsDeleteTitle": "Ta bort {{name}}?",
+		"attachmentsDeleteBody": "Filen försvinner för alla i hemmet. Det går inte att ångra.",
+		"attachmentsDeleteFailed": "Kunde inte ta bort filen. Försök igen.",
+		"attachmentsModeCount": "Antal",
+		"attachmentsModeThumbnails": "Miniatyrer",
+		"attachmentsModeHero": "Huvudbild",
+		"attachmentsModeChange": "Ändra hur kortet visar sina bilder",
+		"attachmentsModeSheet": "Hur kortet visar sina bilder",
+		"attachmentsQuota": "Hemmet har slut på utrymme för bilagor.",
+		"attachmentsInventoryOpen": "Öppna översikten"
 	},
 	"labels": {
 		"capReached": "Ett kort kan ha som mest {{count}} etiketter.",

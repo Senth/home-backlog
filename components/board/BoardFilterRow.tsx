@@ -53,7 +53,7 @@ const fieldGlyphs: Record<FilterField, string> = {
 	visibility: "eye-outline",
 	createdVia: "source-branch",
 	notes: "pencil-outline",
-	photos: "image-outline",
+	attachments: "image-outline",
 	checklist: "format-list-checks",
 	status: "list-status",
 };
@@ -360,7 +360,7 @@ function castIs(field: FilterField, value: string): unknown {
 	switch (field) {
 		case "isRoot":
 		case "notes":
-		case "photos":
+		case "attachments":
 		case "checklist":
 		case "hasChildren":
 			return value === "true";

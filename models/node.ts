@@ -507,16 +507,32 @@ export interface ChecklistItem {
 	done: boolean;
 }
 
-export interface Photo {
+export interface Attachment {
 	id: string;
 	/**
 	 * A Cloud Storage path, never a download URL — URLs carry tokens that
 	 * rotate, so a stored one stops working without anything having changed.
 	 */
 	path: string;
+	name: string;
+	contentType: string;
+	size: number;
 	uploadedAt: Timestamp | null;
 	uploadedBy: string;
 }
+
+/**
+ * How a card shows its attachments on the board face. A preference, and
+ * rendering degrades when the data moves under it — nothing is ever rewritten
+ * on read.
+ */
+export type AttachmentDisplay = "count" | "thumbnails" | "hero";
+
+export const attachmentDisplays: readonly AttachmentDisplay[] = [
+	"count",
+	"thumbnails",
+	"hero",
+];
 
 export interface Node {
 	id: string;
@@ -576,7 +592,17 @@ export interface Node {
 	notes: string;
 	checklist: ChecklistItem[];
 	effort: Effort | null;
-	photos: Photo[];
+	attachments: Attachment[];
+	/**
+	 * Denormalized from `attachments.length` so the inventory query has
+	 * something to filter on — Firestore cannot ask whether an array is
+	 * non-empty.
+	 */
+	attachmentCount: number;
+	/** How the card face shows its images. See `AttachmentDisplay`. */
+	attachmentDisplay: AttachmentDisplay;
+	/** The image the `hero` mode draws; `null` when none is chosen. */
+	heroAttachmentId: string | null;
 	/** Constrains every board query, so it is written from the first document. */
 	archived: boolean;
 	/** Written at creation and never again. See `CreatedVia`. */
@@ -608,7 +634,7 @@ export function titleError(title: string): TitleError | null {
 /** Matched by `validNode()`. Notes absorb cost and budget until #57. */
 export const maxNotesLength = 10000;
 export const maxChecklistItems = 200;
-export const maxPhotos = 50;
+export const maxAttachments = 50;
 
 /*
  * ---------------------------------------------------------------------------
@@ -1154,7 +1180,10 @@ export function newNodeData(input: NewNodeInput): NodeData {
 		notes: input.notes ?? "",
 		checklist: [],
 		effort: input.effort ?? null,
-		photos: [],
+		attachments: [],
+		attachmentCount: 0,
+		attachmentDisplay: "count",
+		heroAttachmentId: null,
 		archived: false,
 		// The client is the only caller, and the rules refuse any other value from
 		// one. A node the API wrote is assembled in `functions/`, which is outside
@@ -1253,11 +1282,14 @@ function columnSet(value: unknown): Status[] {
 	return stored.length > 0 ? stored : [...defaultColumns];
 }
 
-function photoList(value: unknown): Photo[] {
+function attachmentList(value: unknown): Attachment[] {
 	if (!Array.isArray(value)) return [];
 	return value.map((item) => ({
 		id: stringOr(item?.id, ""),
 		path: stringOr(item?.path, ""),
+		name: stringOr(item?.name, ""),
+		contentType: stringOr(item?.contentType, ""),
+		size: counter(item?.size),
 		uploadedAt: item?.uploadedAt ?? null,
 		uploadedBy: stringOr(item?.uploadedBy, ""),
 	}));
@@ -1305,7 +1337,14 @@ export function toNode(snapshot: QueryDocumentSnapshot<DocumentData>): Node {
 		notes: stringOr(data.notes, ""),
 		checklist: checklistItems(data.checklist),
 		effort: oneOfOrNull(data.effort, efforts),
-		photos: photoList(data.photos),
+		attachments: attachmentList(data.attachments),
+		attachmentCount: counter(data.attachmentCount),
+		attachmentDisplay: oneOf(
+			data.attachmentDisplay,
+			attachmentDisplays,
+			"count",
+		),
+		heroAttachmentId: stringOrNull(data.heroAttachmentId),
 		archived: data.archived === true,
 		// Absent on every node written before the REST API, and absent is exactly
 		// what `'app'` means. No backfill: nothing queries this field.
