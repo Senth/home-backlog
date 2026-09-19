@@ -62,14 +62,19 @@ export default function Locations() {
 	const homeId = activeHome?.id ?? null;
 	const { locations, loading, failed, retry } = useLocations(homeId);
 	const { setFilter } = useBoardFilter(homeId);
-	const { counts } = useLocationCounts(homeId);
+	const { pool, counts } = useLocationCounts(homeId);
 
 	/** Collapsed, not expanded: the tree opens expanded, and session-only. */
 	const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+	/** Cards hidden by default (#205); the toggle is the control row's. */
+	const [cardsOpen, setCardsOpen] = useState(false);
 	const [adding, setAdding] = useState<AddTarget>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [fabHeight, setFabHeight] = useState(0);
 	const openerRef = useRef<View | null>(null);
+
+	/** The card face's location facts: id → title, from the one tree listener. */
+	const locationTitles = new Map(locations.map((l) => [l.id, l.title]));
 
 	const fabInset = fabHeight > 0 ? fabHeight + space.md + space.md : space.xxl;
 
@@ -200,13 +205,13 @@ export default function Locations() {
 				) : null}
 
 				{/* The control row: the tree's two disclosures in one place, so
-				    a deep tree never needs a walk to tidy. Session-only, like the
-				    collapsed set itself — the cards toggle lands beside these in
-				    the same slot (#205). */}
+				    a deep tree never needs a walk to tidy; the cards toggle rides
+				    beside them. Session-only, like the collapsed set itself. */}
 				{showTree ? (
 					<View
 						style={{
 							flexDirection: "row",
+							flexWrap: "wrap",
 							gap: space.sm,
 							marginBottom: space.md,
 						}}
@@ -227,6 +232,16 @@ export default function Locations() {
 						>
 							{t("locations.expandAll")}
 						</Button>
+						<Button
+							mode="outlined"
+							icon={cardsOpen ? "eye-off-outline" : "eye-outline"}
+							onPress={() => setCardsOpen((open) => !open)}
+							accessibilityRole="button"
+							aria-expanded={cardsOpen}
+							contentStyle={{ minHeight: touchTarget }}
+						>
+							{t(cardsOpen ? "locations.hideCards" : "locations.showCards")}
+						</Button>
 					</View>
 				) : null}
 
@@ -236,9 +251,13 @@ export default function Locations() {
 						parentId={null}
 						collapsed={collapsed}
 						counts={counts}
+						cardsOpen={cardsOpen}
+						pool={pool}
+						locationTitles={locationTitles}
 						onToggle={toggle}
 						onOpen={openPlace}
 						onAddUnder={(parent) => setAdding({ parent })}
+						onMoreCards={openPlace}
 						onError={setError}
 						homeId={homeId ?? ""}
 						online={online}

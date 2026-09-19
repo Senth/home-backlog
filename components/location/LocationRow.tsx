@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import { Icon, IconButton, Menu, Text } from "react-native-paper";
+import { LocationCards } from "@/components/location/LocationCards";
 import { LocationDialog } from "@/components/location/LocationDialog";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import {
@@ -12,7 +13,7 @@ import {
 } from "@/data/locations";
 import { useLocationColor } from "@/hooks/use-location-color";
 import { childLocations, inSubtree, type Location } from "@/models/locations";
-import { movedRank, rankAtEnd } from "@/models/node";
+import { movedRank, type Node, rankAtEnd } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { border, icon, space, touchTarget } from "@/theme/tokens";
 
@@ -25,9 +26,16 @@ interface LocationTreeProps {
 	collapsed: ReadonlySet<string>;
 	/** The open count per place, rolled up — what the row draws. */
 	counts: ReadonlyMap<string, number>;
+	/** Whether the control row's cards toggle is on (#205) — session-only. */
+	cardsOpen: boolean;
+	/** The home's open cards, for a place's own card list. */
+	pool: readonly Node[];
+	/** Location id → title, as the card faces read. */
+	locationTitles: ReadonlyMap<string, string>;
 	onToggle: (id: string) => void;
 	onOpen: (location: Location) => void;
 	onAddUnder: (parent: Location) => void;
+	onMoreCards: (location: Location) => void;
 	onError: (message: string) => void;
 	homeId: string;
 	online: boolean;
@@ -49,9 +57,13 @@ export function LocationTree({
 	parentId,
 	collapsed,
 	counts,
+	cardsOpen,
+	pool,
+	locationTitles,
 	onToggle,
 	onOpen,
 	onAddUnder,
+	onMoreCards,
 	onError,
 	homeId,
 	online,
@@ -84,6 +96,14 @@ export function LocationTree({
 							onAddUnder={onAddUnder}
 							onError={onError}
 						/>
+						{cardsOpen ? (
+							<LocationCards
+								location={location}
+								pool={pool}
+								locationTitles={locationTitles}
+								onMore={onMoreCards}
+							/>
+						) : null}
 						{hasChildren && expanded ? (
 							<View style={rail}>
 								<LocationTree
@@ -91,9 +111,13 @@ export function LocationTree({
 									parentId={location.id}
 									collapsed={collapsed}
 									counts={counts}
+									cardsOpen={cardsOpen}
+									pool={pool}
+									locationTitles={locationTitles}
 									onToggle={onToggle}
 									onOpen={onOpen}
 									onAddUnder={onAddUnder}
+									onMoreCards={onMoreCards}
 									onError={onError}
 									homeId={homeId}
 									online={online}

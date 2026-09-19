@@ -28,6 +28,12 @@ jest.mock("@/data/locations", () => ({
 	locationErrorKey: () => "error.saveFailed",
 }));
 
+// `LocationRow` draws the real `BoardCard` inside its card list, and
+// `BoardCard` reads the home's labels off `activeHome`.
+jest.mock("@/contexts/HomeContext", () => ({
+	useHome: () => ({ activeHome: null }),
+}));
+
 const house: Location = {
 	id: "house",
 	title: "House",

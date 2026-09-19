@@ -62,6 +62,14 @@ export const contentWidth = {
 	 * and stops there for the same reason a form does.
 	 */
 	tree: 800,
+	/**
+	 * The cap on a place's own card list (#205). At and above it the list
+	 * splits into two columns, so each card is ~292px — inside the 300–400
+	 * band the card face is built for, and above `cardGutterBreakpoint` so
+	 * both gutters survive. Below it the list is one column at full width,
+	 * which is the width the face was designed for.
+	 */
+	cards: 600,
 } as const;
 
 /**
