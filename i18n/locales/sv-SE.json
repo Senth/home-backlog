@@ -493,7 +493,14 @@
 		"locationNone": "Hemmet har inga platser än.",
 		"locationSearchPlaceholder": "Sök platser",
 		"locationSearchEmpty": "Inga platser matchar",
-		"locationInherited": "Ärvd"
+		"locationInherited": "Ärvd",
+		"attachments": "Bilder och filer",
+		"attachmentsAdd": "Lägg till en fil",
+		"attachmentsUploading": "Laddar upp…",
+		"attachmentsOffline": "Bilagor behöver uppkoppling — de laddas upp direkt och kan inte vänta.",
+		"attachmentsTooLarge": "Filen är för stor — gränsen är {{limit}} per fil.",
+		"attachmentsWrongType": "Den filtypen går inte att bifoga — bilder, PDF-filer och textfiler är tillåtna.",
+		"attachmentsFailed": "Kunde inte ladda upp filen. Försök igen."
 	},
 	"labels": {
 		"capReached": "Ett kort kan ha som mest {{count}} etiketter.",

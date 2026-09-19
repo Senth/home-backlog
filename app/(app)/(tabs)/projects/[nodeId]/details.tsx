@@ -22,6 +22,7 @@ import { PriorityDot } from "@/components/board/PriorityDot";
 import { TitleDialog } from "@/components/board/TitleDialog";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
 import { LabelPicker } from "@/components/label/LabelPicker";
+import { AttachmentsSection } from "@/components/node/AttachmentsSection";
 import { ChoiceField } from "@/components/node/ChoiceField";
 import { ColumnBar } from "@/components/node/ColumnBar";
 import { DetailCard } from "@/components/node/DetailCard";
@@ -528,6 +529,12 @@ export default function NodeDetails() {
 						stored={node.notes}
 						onSave={(notes) => save({ notes })}
 					/>
+
+					{/* The pictures and documents the card carries (#298), as much
+					    a part of what someone put on it as the note above. */}
+					{homeId === null ? null : (
+						<AttachmentsSection homeId={homeId} node={node} />
+					)}
 
 					{/* One plain line, and only for a card an agent wrote.
 					    Marcus curates everything and needs to know which of forty

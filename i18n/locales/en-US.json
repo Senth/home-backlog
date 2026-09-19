@@ -493,7 +493,14 @@
 		"locationNone": "The home has no locations yet.",
 		"locationSearchPlaceholder": "Search locations",
 		"locationSearchEmpty": "No locations match",
-		"locationInherited": "Inherited"
+		"locationInherited": "Inherited",
+		"attachments": "Images & files",
+		"attachmentsAdd": "Add a file",
+		"attachmentsUploading": "Uploading…",
+		"attachmentsOffline": "Attachments need a connection — they upload straight away and cannot wait for one.",
+		"attachmentsTooLarge": "That file is too large — the limit is {{limit}} per file.",
+		"attachmentsWrongType": "That file type cannot be attached — images, PDF files and text files are allowed.",
+		"attachmentsFailed": "Could not upload the file. Try again."
 	},
 	"labels": {
 		"capReached": "A card can carry at most {{count}} labels.",
