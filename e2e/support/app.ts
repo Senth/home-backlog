@@ -59,7 +59,12 @@ export async function deleteThrowawayHome(
 export const ROUTES = [
 	{ path: "/homes", ready: { text: "Huset" } },
 	{ path: "/projects", ready: { text: "Renovera badrummet" } },
-	{ path: "/locations", ready: { key: "locations.emptyTitle" } },
+	{
+		path: "/locations",
+		ready: {
+			keys: ["locations.emptyTitle", "locations.collapseAll"],
+		},
+	},
 	{ path: "/maintenance", ready: { key: "screen.maintenance.empty" } },
 	{ path: "/automations", ready: { text: "research agent" } },
 	// Appended, never inserted: `ROUTES[0]` and `ROUTES[1]` are read as `/homes`
@@ -295,7 +300,18 @@ export async function stripDevToast(page: Page): Promise<void> {
 function readyLocator(page: Page, route: Route): Locator {
 	if ("text" in route.ready) return page.getByText(route.ready.text);
 
-	const key = route.ready.key;
+	if ("keys" in route.ready) {
+		// A route whose data can arrive in two shapes names both: the location
+		// tree waits for either the empty state or the tree's control row, so a
+		// seed with places in it and one without are both settled states.
+		const [first, second] = route.ready.keys;
+		return keyText(page, first).or(keyText(page, second));
+	}
+
+	return keyText(page, route.ready.key);
+}
+
+function keyText(page: Page, key: string): Locator {
 	return page
 		.getByText(String(translate(enUS, key)))
 		.or(page.getByText(String(translate(svSE, key))));

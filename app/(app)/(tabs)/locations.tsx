@@ -20,7 +20,6 @@ import {
 } from "@/components/location/LocationRow";
 import {
 	screenKey,
-	targetIdOf,
 	useLocationDrag,
 } from "@/components/location/use-location-drag";
 import { BackAction } from "@/components/ui/BackAction";
@@ -32,6 +31,7 @@ import { useLocationCounts } from "@/hooks/use-location-counts";
 import { useLocations } from "@/hooks/use-locations";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { locationFilter } from "@/models/board-filter";
+import { dropHint } from "@/models/location-drag";
 import {
 	beginMove,
 	cancelMove,
@@ -110,7 +110,10 @@ export default function Locations() {
 			setNotice(locationErrorKey(reason));
 		},
 	});
-	const overId = drag.over === null ? null : targetIdOf(drag.over);
+	// The drop indicator is what the model already decided, drawn: a highlight
+	// for a re-parent, a line between the blocks for a reorder or an outdent.
+	const hint = drag.over === null ? null : dropHint(drag.over, locations);
+	const gapHeight = drag.overlay?.height ?? space.none;
 
 	// The tab bar stays live, and leaving cancels silently: a blur ends the
 	// mode before another tab can act on a half-run one.
@@ -320,6 +323,11 @@ export default function Locations() {
 							mode="outlined"
 							icon="unfold-less-horizontal"
 							onPress={collapseAll}
+							// The row wraps below the phone's width, and a wrapped line
+							// starts at the same left edge as the one above it — buttons
+							// that stretch to the row's rhythm keep their edges exactly
+							// on each other's instead of a fraction of a pixel off.
+							style={{ flexGrow: 1 }}
 							contentStyle={{ minHeight: touchTarget }}
 						>
 							{t("locations.collapseAll")}
@@ -328,6 +336,7 @@ export default function Locations() {
 							mode="outlined"
 							icon="unfold-more-horizontal"
 							onPress={expandAll}
+							style={{ flexGrow: 1 }}
 							contentStyle={{ minHeight: touchTarget }}
 						>
 							{t("locations.expandAll")}
@@ -337,7 +346,7 @@ export default function Locations() {
 							icon={cardsOpen ? "eye-off-outline" : "eye-outline"}
 							onPress={() => setCardsOpen((open) => !open)}
 							accessibilityRole="button"
-							aria-expanded={cardsOpen}
+							style={{ flexGrow: 1 }}
 							contentStyle={{ minHeight: touchTarget }}
 						>
 							{t(cardsOpen ? "locations.hideCards" : "locations.showCards")}
@@ -423,7 +432,8 @@ export default function Locations() {
 						homeId={homeId ?? ""}
 						online={online}
 						drag={drag}
-						overId={overId}
+						hint={hint}
+						gapHeight={gapHeight}
 					/>
 				) : null}
 			</ScrollView>

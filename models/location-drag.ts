@@ -78,6 +78,39 @@ export function dropTargetAt(
 }
 
 /**
+ * What the tree draws while a place is carried — the drop indicator the model
+ * already decided, with no arithmetic of its own:
+ *
+ * - **re-parent** highlights the row the place drops into;
+ * - **reorder and outdent** draw the line between siblings — before the
+ *   sibling the place lands above, after the sibling — or after the target's
+ *   parent, which is where an outdent lands.
+ */
+export type LocationDropHint =
+	| { kind: "highlight"; id: string }
+	| { kind: "gap"; beforeId: string | null; afterId: string | null };
+
+export function dropHint(
+	over: LocationDropTarget,
+	locations: readonly Location[],
+): LocationDropHint | null {
+	if (over.kind === "reparent")
+		return { kind: "highlight", id: over.parent.id };
+	if (over.kind === "outdent") {
+		// The same refusal `moveFor` makes: an outdent whose destination would
+		// be the top level writes nothing, so nothing may promise it either.
+		const parent = locations.find(
+			(location) => location.id === over.target.parentId,
+		);
+		if (parent === undefined || parent.parentId === null) return null;
+		return { kind: "gap", beforeId: null, afterId: parent.id };
+	}
+	return over.after
+		? { kind: "gap", beforeId: null, afterId: over.sibling.id }
+		: { kind: "gap", beforeId: over.sibling.id, afterId: null };
+}
+
+/**
  * The `moveLocation` arguments a target computes to, or `null` for a no-op —
  * a refusal here writes nothing, and a snackbar for a move that did not
  * happen teaches people the screen lies.

@@ -1,4 +1,4 @@
-import { dropTargetAt, moveFor } from "@/models/location-drag";
+import { dropHint, dropTargetAt, moveFor } from "@/models/location-drag";
 import {
 	childLocations,
 	compareLocations,
@@ -95,6 +95,46 @@ describe("dropTargetAt", () => {
 
 	it("answers nothing off every row", () => {
 		expect(dropTargetAt(list, tree[5], { x: 200, y: 999 })).toBeNull();
+	});
+});
+
+describe("dropHint", () => {
+	it("highlights the row a re-parent drops into", () => {
+		expect(dropHint({ kind: "reparent", parent: garden }, tree)).toEqual({
+			kind: "highlight",
+			id: "garden",
+		});
+	});
+
+	it("draws the gap before the sibling a reorder lands above", () => {
+		expect(
+			dropHint({ kind: "reorder", sibling: house, after: false }, tree),
+		).toEqual({ kind: "gap", beforeId: "house", afterId: null });
+	});
+
+	it("draws the gap after the sibling a reorder lands below", () => {
+		expect(
+			dropHint({ kind: "reorder", sibling: house, after: true }, tree),
+		).toEqual({
+			kind: "gap",
+			beforeId: null,
+			afterId: "house",
+		});
+	});
+
+	it("draws an outdent after the target's parent, where it lands", () => {
+		// Shed outdents to after garden, among the house's children.
+		expect(dropHint({ kind: "outdent", target: shed }, tree)).toEqual({
+			kind: "gap",
+			beforeId: null,
+			afterId: "garden",
+		});
+	});
+
+	it("promises nothing for an outdent the plan would refuse", () => {
+		// Garden's parent is the root house — one step shallower is the top
+		// level, which `moveFor` refuses, so the tree must not draw a line.
+		expect(dropHint({ kind: "outdent", target: garden }, tree)).toBeNull();
 	});
 });
 

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Animated, Pressable, View } from "react-native";
 import { Icon, IconButton, Menu, Surface, Text } from "react-native-paper";
@@ -18,6 +18,7 @@ import {
 } from "@/data/locations";
 import { useLocationColor } from "@/hooks/use-location-color";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import type { LocationDropHint } from "@/models/location-drag";
 import { destinationRefused, type MoveMode } from "@/models/location-move";
 import { childLocations, type Location } from "@/models/locations";
 import { movedRank, type Node } from "@/models/node";
@@ -58,8 +59,10 @@ interface LocationTreeProps {
 	mode: MoveMode;
 	/** The tree's drag, carrying the gesture and the rows it measures. */
 	drag?: LocationDrag;
-	/** The row a carried place is over right now, if it is over one. */
-	overId?: string | null;
+	/** What the drop will do right now — the row highlight or the gap line. */
+	hint?: LocationDropHint | null;
+	/** How tall the gap line's holding space is: the carried row's own height. */
+	gapHeight?: number;
 	onToggle: (id: string) => void;
 	onOpen: (location: Location) => void;
 	onAddUnder: (parent: Location) => void;
@@ -91,7 +94,8 @@ export function LocationTree({
 	locationTitles,
 	mode,
 	drag,
-	overId,
+	hint,
+	gapHeight = space.none,
 	onToggle,
 	onOpen,
 	onAddUnder,
@@ -125,59 +129,90 @@ export function LocationTree({
 				const hasChildren = childLocations(locations, location.id).length > 0;
 				const expanded = !collapsed.has(location.id);
 				return (
-					<View key={location.id}>
-						<LocationRow
-							homeId={homeId}
-							location={location}
-							hasChildren={hasChildren}
-							expanded={expanded}
-							counts={counts}
-							move={move}
-							drag={drag}
-							overId={overId}
-							onToggle={onToggle}
-							onOpen={onOpen}
-							onAddUnder={onAddUnder}
-							onMoveUnder={onMoveUnder}
-							locations={locations}
-							online={online}
-							onError={onError}
-						/>
-						{cardsOpen && mode.phase === "idle" ? (
-							<LocationCards
-								location={location}
-								pool={pool}
-								locationTitles={locationTitles}
-								onMore={onOpen}
-							/>
+					<Fragment key={location.id}>
+						{hint?.kind === "gap" && hint.beforeId === location.id ? (
+							<DropLine height={gapHeight} />
 						) : null}
-						{hasChildren && expanded ? (
-							<View style={rail}>
-								<LocationTree
-									locations={locations}
-									parentId={location.id}
-									collapsed={collapsed}
-									counts={counts}
-									cardsOpen={cardsOpen}
+						<View>
+							<LocationRow
+								homeId={homeId}
+								location={location}
+								hasChildren={hasChildren}
+								expanded={expanded}
+								counts={counts}
+								move={move}
+								drag={drag}
+								hint={hint}
+								onToggle={onToggle}
+								onOpen={onOpen}
+								onAddUnder={onAddUnder}
+								onMoveUnder={onMoveUnder}
+								locations={locations}
+								online={online}
+								onError={onError}
+							/>
+							{cardsOpen && mode.phase === "idle" ? (
+								<LocationCards
+									location={location}
 									pool={pool}
 									locationTitles={locationTitles}
-									mode={mode}
-									drag={drag}
-									overId={overId}
-									onToggle={onToggle}
-									onOpen={onOpen}
-									onAddUnder={onAddUnder}
-									onMoveUnder={onMoveUnder}
-									onSelectDestination={onSelectDestination}
-									onError={onError}
-									homeId={homeId}
-									online={online}
+									onMore={onOpen}
 								/>
-							</View>
+							) : null}
+							{hasChildren && expanded ? (
+								<View style={rail}>
+									<LocationTree
+										locations={locations}
+										parentId={location.id}
+										collapsed={collapsed}
+										counts={counts}
+										cardsOpen={cardsOpen}
+										pool={pool}
+										locationTitles={locationTitles}
+										mode={mode}
+										drag={drag}
+										hint={hint}
+										gapHeight={gapHeight}
+										onToggle={onToggle}
+										onOpen={onOpen}
+										onAddUnder={onAddUnder}
+										onMoveUnder={onMoveUnder}
+										onSelectDestination={onSelectDestination}
+										onError={onError}
+										homeId={homeId}
+										online={online}
+									/>
+								</View>
+							) : null}
+						</View>
+						{hint?.kind === "gap" && hint.afterId === location.id ? (
+							<DropLine height={gapHeight} />
 						) : null}
-					</View>
+					</Fragment>
 				);
 			})}
+		</View>
+	);
+}
+
+/**
+ * The gap a reorder or an outdent opens between two blocks: the carried row's
+ * own height, holding a `primary` line at the point it would land — the board
+ * column's gap, given a line, because a tree's rows sit too close for bare
+ * space to read.
+ */
+function DropLine({ height }: { height: number }) {
+	const theme = useAppTheme();
+	return (
+		<View style={{ height, justifyContent: "center" }}>
+			<View
+				style={{
+					height: border.hairline * 2,
+					marginLeft: space.md,
+					borderRadius: radius.full,
+					backgroundColor: theme.colors.primary,
+				}}
+			/>
 		</View>
 	);
 }
@@ -193,8 +228,8 @@ interface LocationRowProps {
 	move?: MoveSelection;
 	/** The tree's drag, carrying the gesture and the rows it measures. */
 	drag?: LocationDrag;
-	/** The row a carried place is over right now, if it is over one. */
-	overId?: string | null;
+	/** What the drop will do right now — the row highlight or the gap line. */
+	hint?: LocationDropHint | null;
 	onToggle: (id: string) => void;
 	onOpen: (location: Location) => void;
 	onAddUnder: (parent: Location) => void;
@@ -222,9 +257,15 @@ interface LocationRowProps {
  *
  * The row is also what a drag picks up: the `DragArea` around it arms on a
  * long-press on touch and on pointer movement on the desktop, and the row's
- * frame is measured once, when the place lifts. Offline the area is disabled —
- * the write a drop makes reads the subtree from the server, so the control
- * row's hint says why nothing lifts before the gesture is tried.
+ * frame is measured once, when the place lifts. The area stays enabled while
+ * its own place is carried — disabling it mid-press runs the cleanup, which
+ * cancels the drag the moment it lifts. Offline the area is disabled — the
+ * write a drop makes reads the subtree from the server, so the control row's
+ * hint says why nothing lifts before the gesture is tried.
+ *
+ * A re-parenting drop highlights this row (`primaryContainer`, the board's
+ * momentary-feedback tone); the between-siblings cases draw their line around
+ * the block, at the tree level.
  */
 export function LocationRow({
 	homeId,
@@ -234,7 +275,7 @@ export function LocationRow({
 	counts,
 	move,
 	drag,
-	overId,
+	hint,
 	onToggle,
 	onOpen,
 	onAddUnder,
@@ -258,9 +299,7 @@ export function LocationRow({
 		move !== undefined && move.selectedId === location.id && !dimmed;
 	const gestures = drag?.handlers(location);
 	const held = drag?.dragged?.id === location.id;
-	// The check rides in the slot the move mode's confirmation uses, so a drag
-	// and a move-under say "here" with the same mark.
-	const aimed = overId === location.id && !held;
+	const aimed = hint?.kind === "highlight" && hint.id === location.id;
 
 	const close = () => setOpen(false);
 
@@ -293,9 +332,7 @@ export function LocationRow({
 			    the copy under the finger. */}
 			<View ref={drag?.register(rowKey(location.id))} collapsable={false}>
 				<DragArea
-					enabled={
-						gestures !== undefined && online && move === undefined && !held
-					}
+					enabled={gestures !== undefined && online && move === undefined}
 					{...(gestures ?? noGestures)}
 				>
 					<View
@@ -306,9 +343,15 @@ export function LocationRow({
 							gap: space.sm,
 							paddingVertical: space.xs,
 							paddingRight: space.sm,
+							borderRadius: radius.sm,
 							// Dim, never hide: the refused rows stay on the map, so what
 							// cannot be chosen is still legible as the tree it belongs to.
 							opacity: held ? 0 : dimmed ? 0.4 : 1,
+							// Where the place drops *into* (Q14's check rode here for a
+							// drag; the highlight says it without claiming the row).
+							backgroundColor: aimed
+								? theme.colors.primaryContainer
+								: undefined,
 						}}
 					>
 						{/* The chevron's own button, present only where there is something
@@ -325,7 +368,13 @@ export function LocationRow({
 								aria-expanded={expanded}
 								onPress={() => onToggle(location.id)}
 								style={{
-									width: icon.sm + space.xs,
+									// The band stays `icon.sm + space.xs` wide on the page —
+									// the rails are centred on it — and the touch box is the
+									// full `touchTarget`, pulled back so nothing after it
+									// moves. The overlap lands on the glyph, whose tap earns
+									// nothing.
+									width: touchTarget,
+									marginRight: icon.sm + space.xs - touchTarget,
 									height: touchTarget,
 									alignItems: "center",
 									justifyContent: "center",
@@ -379,10 +428,10 @@ export function LocationRow({
 							</Text>
 						) : null}
 
-						{/* The confirmed destination — or the row a carried place is
-					    over — carries its mark in its own row, so the bar's sentence
-					    and the tree agree at a glance. */}
-						{selected || aimed ? (
+						{/* The confirmed destination of a move-under carries its mark in
+						    its own row, so the bar's sentence and the tree agree at a
+						    glance. A drag's aim is said by the highlight or the gap line. */}
+						{selected ? (
 							<Icon
 								source="check"
 								size={icon.md}

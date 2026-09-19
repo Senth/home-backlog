@@ -58,7 +58,7 @@ export interface LocationDrag {
 export const screenKey = "screen";
 export const rowKey = (id: string) => `row:${id}`;
 
-export const targetIdOf = (target: LocationDropTarget): string =>
+const targetIdOf = (target: LocationDropTarget): string =>
 	target.kind === "reorder"
 		? target.sibling.id
 		: target.kind === "outdent"
