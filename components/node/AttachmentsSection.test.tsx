@@ -130,7 +130,7 @@ describe("AttachmentsSection", () => {
 
 		// A document is a row of its own, named and sized — not a tile.
 		expect(screen.getByText("kalkyl.pdf")).toBeOnTheScreen();
-		expect(screen.getByText("3 MB")).toBeOnTheScreen();
+		expect(screen.getByText("3 megabytes")).toBeOnTheScreen();
 	});
 
 	it("disables the way in offline, and says why", () => {

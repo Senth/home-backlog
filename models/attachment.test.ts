@@ -2,6 +2,7 @@ import {
 	attachmentErrorKey,
 	attachmentPath,
 	attachmentRefusal,
+	badgeAttachmentId,
 	cardFace,
 	formatBytes,
 	isImageType,
@@ -67,16 +68,16 @@ describe("attachmentErrorKey", () => {
 });
 
 describe("formatBytes", () => {
-	it("climbs the units and lets the locale write the number", () => {
-		expect(formatBytes(123, "en-US")).toBe("123 byte");
-		expect(formatBytes(2048, "en-US")).toBe("2 kB");
-		expect(formatBytes(1536, "sv-SE")).toBe("1,5 kB");
-		expect(formatBytes(4 * oneKb * oneKb, "sv-SE")).toBe("4 MB");
-		expect(formatBytes(12 * oneKb * oneKb, "en-US")).toBe("12 MB");
-		expect(formatBytes(homeAttachmentCeiling, "en-US")).toBe("1 GB");
+	it("climbs the units in long form and lets the locale write the number", () => {
+		expect(formatBytes(123, "en-US")).toBe("123 bytes");
+		expect(formatBytes(2048, "en-US")).toBe("2 kilobytes");
+		expect(formatBytes(1536, "sv-SE")).toBe("1,5 kilobyte");
+		expect(formatBytes(4 * oneKb * oneKb, "sv-SE")).toBe("4 megabyte");
+		expect(formatBytes(12 * oneKb * oneKb, "en-US")).toBe("12 megabytes");
+		expect(formatBytes(homeAttachmentCeiling, "en-US")).toBe("1 gigabyte");
 		expect(
 			formatBytes(oneKb * oneKb * oneKb + 512 * oneKb * oneKb, "sv-SE"),
-		).toBe("1,5 GB");
+		).toBe("1,5 gigabyte");
 	});
 });
 
@@ -180,6 +181,46 @@ describe("cardFace", () => {
 		];
 		const face = cardFace(aNode(documents, "thumbnails"));
 		expect(face.mode).toBe("count");
+	});
+});
+
+describe("badgeAttachmentId", () => {
+	// The board bug: with a tile whose thumbnail cannot resolve — a raced
+	// delete, or an upload that kept its undecodable original — the badge hung
+	// on the third *slot* and floated in an empty cell while the gallery
+	// visibly held fewer pictures than the face claimed.
+	it("sits on the last tile the face can actually draw", () => {
+		const tiles = [
+			anEntry(),
+			anEntry({ id: "att-2", path: "p/att-2" }),
+			anEntry({ id: "att-3", path: "p/att-3" }),
+		];
+		const urls = {
+			"att-1": "https://x/1",
+			"att-2": "https://x/2",
+			"att-3": "https://x/3",
+		};
+		expect(badgeAttachmentId(tiles, urls, 2)).toBe("att-3");
+	});
+
+	it("steps back over a tile whose thumbnail cannot resolve", () => {
+		const tiles = [
+			anEntry(),
+			anEntry({ id: "att-2", path: "p/att-2" }),
+			anEntry({ id: "att-3", path: "p/att-3" }),
+		];
+		const urls = { "att-1": "https://x/1", "att-2": "https://x/2" };
+		expect(badgeAttachmentId(tiles, urls, 2)).toBe("att-2");
+	});
+
+	it("is silent while no tile has resolved", () => {
+		const tiles = [anEntry(), anEntry({ id: "att-2", path: "p/att-2" })];
+		expect(badgeAttachmentId(tiles, {}, 1)).toBeNull();
+	});
+
+	it("speaks only when the row leaves images unshown", () => {
+		const tiles = [anEntry()];
+		expect(badgeAttachmentId(tiles, { "att-1": "https://x/1" }, 0)).toBeNull();
 	});
 });
 

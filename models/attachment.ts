@@ -97,6 +97,10 @@ export function formatBytes(bytes: number, locale: string): string {
 	return new Intl.NumberFormat(locale, {
 		style: "unit",
 		unit,
+		// Long form, so en-US reads "208 bytes" where the default would leave the
+		// ungrammatical "208 byte" beside a short-form "28 kB" — sv-SE spells
+		// every tier "byte", "kilobyte", … either way.
+		unitDisplay: "long",
 		maximumFractionDigits: value < 10 ? 1 : 0,
 	}).format(value);
 }
@@ -202,6 +206,28 @@ export interface CardFace {
 	hero: Attachment | null;
 	/** Every attachment, the images and the documents together. */
 	total: number;
+}
+
+/**
+ * The tile the `+N` badge belongs on: the **last image the face can actually
+ * draw**, or `null` while none of the row has resolved or when the row is
+ * whole. Anchoring the badge to the last *slot* instead hung it on a tile
+ * whose thumbnail cannot resolve — a raced delete, or an upload that kept its
+ * undecodable original and so has no thumbnail at all — which is how a "+N"
+ * came to float in an empty cell while the gallery visibly held fewer
+ * pictures than the badge spoke for.
+ */
+export function badgeAttachmentId(
+	tiles: readonly Attachment[],
+	urls: Readonly<Record<string, string>>,
+	more: number,
+): string | null {
+	if (more <= 0) return null;
+	for (let at = tiles.length - 1; at >= 0; at--) {
+		const tile = tiles[at];
+		if (tile !== undefined && urls[tile.id] !== undefined) return tile.id;
+	}
+	return null;
 }
 
 /**
