@@ -16,6 +16,7 @@ import { LocationTree } from "@/components/location/LocationRow";
 import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
 import { useBoardFilter } from "@/hooks/use-board-filter";
+import { useLocationCounts } from "@/hooks/use-location-counts";
 import { useLocations } from "@/hooks/use-locations";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { locationFilter } from "@/models/board-filter";
@@ -61,6 +62,7 @@ export default function Locations() {
 	const homeId = activeHome?.id ?? null;
 	const { locations, loading, failed, retry } = useLocations(homeId);
 	const { setFilter } = useBoardFilter(homeId);
+	const { counts } = useLocationCounts(homeId);
 
 	/** Collapsed, not expanded: the tree opens expanded, and session-only. */
 	const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -233,6 +235,7 @@ export default function Locations() {
 						locations={locations}
 						parentId={null}
 						collapsed={collapsed}
+						counts={counts}
 						onToggle={toggle}
 						onOpen={openPlace}
 						onAddUnder={(parent) => setAdding({ parent })}

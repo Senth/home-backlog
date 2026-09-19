@@ -23,6 +23,8 @@ interface LocationTreeProps {
 	locations: Location[];
 	parentId: string | null;
 	collapsed: ReadonlySet<string>;
+	/** The open count per place, rolled up — what the row draws. */
+	counts: ReadonlyMap<string, number>;
 	onToggle: (id: string) => void;
 	onOpen: (location: Location) => void;
 	onAddUnder: (parent: Location) => void;
@@ -46,6 +48,7 @@ export function LocationTree({
 	locations,
 	parentId,
 	collapsed,
+	counts,
 	onToggle,
 	onOpen,
 	onAddUnder,
@@ -73,6 +76,7 @@ export function LocationTree({
 							location={location}
 							hasChildren={hasChildren}
 							expanded={expanded}
+							counts={counts}
 							onToggle={onToggle}
 							onOpen={onOpen}
 							locations={locations}
@@ -86,6 +90,7 @@ export function LocationTree({
 									locations={locations}
 									parentId={location.id}
 									collapsed={collapsed}
+									counts={counts}
 									onToggle={onToggle}
 									onOpen={onOpen}
 									onAddUnder={onAddUnder}
@@ -107,6 +112,8 @@ interface LocationRowProps {
 	location: Location;
 	hasChildren: boolean;
 	expanded: boolean;
+	/** The open count per place, rolled up — what the row draws. */
+	counts: ReadonlyMap<string, number>;
 	onToggle: (id: string) => void;
 	onOpen: (location: Location) => void;
 	/** Every location in the home — the move picker's destinations. */
@@ -136,6 +143,7 @@ export function LocationRow({
 	location,
 	hasChildren,
 	expanded,
+	counts,
 	onToggle,
 	onOpen,
 	locations,
@@ -146,6 +154,7 @@ export function LocationRow({
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const locationColor = useLocationColor(location.color);
+	const count = counts.get(location.id) ?? 0;
 	const anchor = useRef<View | null>(null);
 	const [open, setOpen] = useState(false);
 	const [page, setPage] = useState<RowPage>("root");
@@ -259,6 +268,18 @@ export function LocationRow({
 				>
 					<Text variant="bodyLarge">{location.title}</Text>
 				</Pressable>
+
+				{/* The open count, rolled up through the subtree and right-aligned
+				    left of the menu, quiet. Nothing is drawn at zero — an empty
+				    place says nothing rather than saying 0 (#205). */}
+				{count > 0 ? (
+					<Text
+						variant="bodySmall"
+						style={{ color: theme.colors.onSurfaceVariant }}
+					>
+						{count}
+					</Text>
+				) : null}
 
 				<Menu
 					visible={open}

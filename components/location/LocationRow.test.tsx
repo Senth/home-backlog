@@ -60,6 +60,7 @@ function renderRow(overrides: Partial<Parameters<typeof LocationRow>[0]> = {}) {
 					location={house}
 					hasChildren
 					expanded
+					counts={new Map([["house", 2]])}
 					onToggle={onToggle}
 					onOpen={onOpen}
 					locations={[house]}
@@ -144,5 +145,39 @@ describe("LocationRow", () => {
 
 		expect(queryByLabelText(/locations.toggle/)).toBeNull();
 		expect(queryByLabelText(/locations.open/)).toBeTruthy();
+	});
+
+	it("draws the rolled-up count, and nothing at zero", () => {
+		const { getByText, queryByText, rerender } = renderRow();
+
+		// Two open cards at or under House — the number the row's tap delivers.
+		expect(getByText("2")).toBeTruthy();
+
+		rerender(
+			<SafeAreaProvider
+				initialMetrics={{
+					insets: { top: 0, bottom: 0, left: 0, right: 0 },
+					frame: { x: 0, y: 0, width: space.none, height: space.none },
+				}}
+			>
+				<ThemeProvider theme={lightTheme}>
+					<LocationRow
+						homeId="home-1"
+						location={house}
+						hasChildren
+						expanded
+						counts={new Map()}
+						onToggle={jest.fn()}
+						onOpen={jest.fn()}
+						locations={[house]}
+						online
+						onAddUnder={jest.fn()}
+						onError={jest.fn()}
+					/>
+				</ThemeProvider>
+			</SafeAreaProvider>,
+		);
+
+		expect(queryByText("0")).toBeNull();
 	});
 });
