@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { Text } from "react-native-paper";
+import { fillRowContainer, fillRowLabel } from "@/components/ui/fill-row";
 import { useAppTheme } from "@/theme";
-import { radius, space, touchTarget } from "@/theme/tokens";
+import { space } from "@/theme/tokens";
 
 interface ChoiceFieldProps<T extends string> {
 	label: string;
@@ -36,7 +37,9 @@ interface ChoiceFieldProps<T extends string> {
  * stacking the values is what lets the ordinal ones read top-to-bottom.
  *
  * **The selection is a full-width `secondaryContainer` fill with its words in
- * `onSecondaryContainer` at weight 500, not Paper's `selected` tint.** The tint
+ * `onSecondaryContainer` at weight 500, not Paper's `selected` tint.** The paint
+ * itself lives in `components/ui/fill-row.ts`, shared with `CheckRow`'s `fill`
+ * mode so the two readings of "selected" cannot drift. The tint
  * is a slightly different shade of the same green, which is the trap the column
  * strip already documents. Fill, words and weight — never color on its own: on
  * a curated board a priority is one member's judgement of another member's
@@ -80,15 +83,10 @@ export function ChoiceField<T extends string>({
 							// could not tell which priority was set.
 							aria-pressed={selected}
 							style={{
-								minHeight: touchTarget,
 								flexDirection: "row",
 								alignItems: "center",
 								gap: space.sm,
-								paddingHorizontal: space.md,
-								borderRadius: radius.sm,
-								backgroundColor: selected
-									? theme.colors.secondaryContainer
-									: undefined,
+								...fillRowContainer(selected, theme.colors.secondaryContainer),
 							}}
 						>
 							{adornment === undefined ? null : adornment(candidate)}
@@ -96,10 +94,7 @@ export function ChoiceField<T extends string>({
 								variant="labelLarge"
 								style={
 									selected
-										? {
-												color: theme.colors.onSecondaryContainer,
-												fontWeight: "500",
-											}
+										? fillRowLabel(theme.colors.onSecondaryContainer)
 										: undefined
 								}
 							>

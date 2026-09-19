@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { Icon, Text, TouchableRipple } from "react-native-paper";
+import { fillRowContainer, fillRowLabel } from "@/components/ui/fill-row";
 import { useAppTheme } from "@/theme";
-import { icon, radius, space, touchTarget } from "@/theme/tokens";
+import { icon, space, touchTarget } from "@/theme/tokens";
 
 interface CheckRowProps {
 	label: string;
@@ -17,9 +18,10 @@ interface CheckRowProps {
 	/** State behind the label — the *Done* chip on a picked blocker's row. */
 	right?: ReactNode;
 	/**
-	 * The selection drawn as `ChoiceField`'s full-width `secondaryContainer`
-	 * fill instead of a checkbox glyph — the filter's priority group, which
-	 * reads like the details screen's picker. The row keeps `checkbox` and
+	 * The selection drawn as the shared fill-row paint
+	 * (`components/ui/fill-row.ts`, the same paint `ChoiceField` rows get)
+	 * instead of a checkbox glyph — the filter's priority group, which reads
+	 * like the details screen's picker. The row keeps `checkbox` and
 	 * `aria-checked`: with no tick drawn, the fill and the checked state are
 	 * the only things saying "selected", so with the object form of
 	 * `accessibilityState` dead in React Native Web 0.21 the ARIA prop is the
@@ -59,14 +61,14 @@ export function CheckRow({
 			accessibilityRole="checkbox"
 			aria-checked={checked}
 			accessibilityLabel={label}
-			style={{
-				minHeight: touchTarget,
-				justifyContent: "center",
-				borderRadius: fill ? radius.sm : undefined,
-				paddingHorizontal: fill ? space.md : undefined,
-				backgroundColor:
-					fill && checked ? theme.colors.secondaryContainer : undefined,
-			}}
+			style={
+				fill
+					? {
+							justifyContent: "center",
+							...fillRowContainer(checked, theme.colors.secondaryContainer),
+						}
+					: { minHeight: touchTarget, justifyContent: "center" }
+			}
 		>
 			<View
 				style={{
@@ -94,12 +96,10 @@ export function CheckRow({
 					variant={fill ? "labelLarge" : "bodyLarge"}
 					style={{
 						flexShrink: 1,
-						color: disabled
-							? theme.colors.onSurfaceDisabled
-							: fill && checked
-								? theme.colors.onSecondaryContainer
-								: theme.colors.onSurface,
-						fontWeight: fill && checked ? "500" : undefined,
+						...(fill && checked
+							? fillRowLabel(theme.colors.onSecondaryContainer)
+							: { color: theme.colors.onSurface }),
+						...(disabled ? { color: theme.colors.onSurfaceDisabled } : null),
 					}}
 				>
 					{label}
