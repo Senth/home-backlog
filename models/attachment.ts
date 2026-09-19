@@ -174,17 +174,21 @@ export function inventoryRows(
 	);
 }
 
-/** What the visible rows hold, which is what this reader can delete. */
+/** What the visible rows hold — the originals only, which is what this reader
+ *  can delete. Every thumbnail is an object without a row, so its bytes are
+ *  the visible side's blind spot, not an unseen card's. */
 export function visibleBytes(rows: readonly InventoryRow[]): number {
 	return rows.reduce((sum, row) => sum + row.attachment.size, 0);
 }
 
 /**
- * The part of the home's true total that this reader cannot see — private
- * cards they are not on. The counter lags the Storage triggers by about a
- * second, so the visible side can briefly overtake it; a negative gap would
- * be a number claiming bytes exist that the list disproves, so it clamps to
- * none.
+ * The part of the home's true total that the list does not hold: the bytes of
+ * private cards this reader is not on, plus every thumbnail — the counter
+ * counts them, the rows list only originals, and a thumbnail's size is not
+ * known client-side, so the line names both rather than claiming unseen
+ * cards. The counter lags the Storage triggers by about a second, so the
+ * visible side can briefly overtake it; a negative gap would be a number
+ * claiming bytes exist that the list disproves, so it clamps to none.
  */
 export function unseenBytes(
 	attachmentBytes: number,

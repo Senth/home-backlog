@@ -37,6 +37,7 @@ jest.mock("@/data/attachments", () => ({
 	deleteAttachment: jest.fn(async () => undefined),
 }));
 
+import { getDownloadURL } from "firebase/storage";
 import { deleteAttachment } from "@/data/attachments";
 
 jest.mock("@/config/firebase", () => ({ db: {}, storage: {} }));
@@ -131,6 +132,68 @@ describe("AttachmentsSection", () => {
 		// A document is a row of its own, named and sized — not a tile.
 		expect(screen.getByText("kalkyl.pdf")).toBeOnTheScreen();
 		expect(screen.getByText("3 megabytes")).toBeOnTheScreen();
+	});
+
+	it("asks Storage for a missing thumbnail once, and leaves no slot for it", async () => {
+		// A unique path, because `urlOf`'s cache is module-level and outlives
+		// a test.
+		const missingThumb = "homes/home/nodes/node/trasig.jpg_thumb.jpg";
+		(getDownloadURL as jest.Mock).mockImplementation(
+			async (target: { path: string }) => {
+				if (target.path === missingThumb) {
+					throw Object.assign(new Error("No such object"), {
+						code: "storage/object-not-found",
+					});
+				}
+				return "https://files.test/object";
+			},
+		);
+		const images = [
+			anAttachment({
+				id: "ett",
+				path: "homes/home/nodes/node/ett.jpg",
+				name: "ett.jpg",
+			}),
+			anAttachment({
+				id: "trasig",
+				path: "homes/home/nodes/node/trasig.jpg",
+				name: "trasig.jpg",
+			}),
+		];
+		const view = renderSection(aNode(images));
+
+		await waitFor(() => {
+			expect(screen.getByLabelText("ett.jpg")).toBeOnTheScreen();
+		});
+		// The drawable one grids; the one whose thumbnail has no object takes
+		// no slot at all, the way the card face draws it.
+		expect(screen.queryByLabelText("trasig.jpg")).toBeNull();
+
+		const askedFor = () =>
+			(getDownloadURL as jest.Mock).mock.calls.filter(
+				([target]) => target.path === missingThumb,
+			).length;
+		expect(askedFor()).toBe(1);
+
+		// A node write re-runs the fetch, but the shared cache keeps the
+		// not-found rejection — one 404 per session, not one per write.
+		view.rerender(
+			<Provider theme={lightTheme}>
+				<AttachmentsSection
+					homeId="home"
+					node={aNode(images)}
+					onSave={() => {}}
+				/>
+			</Provider>,
+		);
+		await waitFor(() => {
+			expect(screen.getByLabelText("ett.jpg")).toBeOnTheScreen();
+		});
+		expect(askedFor()).toBe(1);
+
+		(getDownloadURL as jest.Mock).mockImplementation(
+			async () => "https://files.test/object",
+		);
 	});
 
 	it("disables the way in offline, and says why", () => {

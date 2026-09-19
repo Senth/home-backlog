@@ -182,7 +182,8 @@ export default function AttachmentsInventory() {
 				{/* The gap between the home's true total and what this member can
 				    see, stated rather than hidden — a reader without every private
 				    card would otherwise be told the home is fuller than their list
-				    shows. */}
+				    shows. The gap is the private cards' bytes plus every thumbnail,
+				    which has no row of its own, so the line names both. */}
 				{hidden > 0 ? (
 					<Text
 						variant="bodySmall"

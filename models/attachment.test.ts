@@ -265,6 +265,15 @@ describe("the quota and the inventory", () => {
 		expect(unseenBytes(800, rows)).toBe(300);
 	});
 
+	it("thumbnails keep a gap open on a home whose cards are all visible", () => {
+		const nodes = [aNode([anEntry({ size: bytesMedium })])];
+		const rows = inventoryRows(nodes, "largest");
+		// The counter counts the thumbnail objects and the rows list only the
+		// originals, so 300 here is 100 of thumbnails on a card the reader
+		// sees — the line stays, naming the gap rather than an unseen card.
+		expect(unseenBytes(400, rows)).toBe(100);
+	});
+
 	it("a counter that briefly lags claims no negative bytes", () => {
 		const nodes = [
 			aNode([

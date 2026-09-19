@@ -130,7 +130,7 @@
 		"attachmentsByPerson": "Per person",
 		"sortLargest": "Störst",
 		"sortNewest": "Senaste",
-		"attachmentsHidden": "{{size}} ligger på kort du inte kan se.",
+		"attachmentsHidden": "{{size}} ligger utanför listan: kort du inte kan se och miniatyrbilder.",
 		"attachmentsEmpty": "Inget är bifogat till något kort än. Bilder och dokument på kort samlas här.",
 		"empty": "Du är inte med i något hem än.",
 		"loadFailed": "Kunde inte ladda dina hem. Kontrollera din anslutning.",

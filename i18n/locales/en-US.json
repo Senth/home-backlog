@@ -130,7 +130,7 @@
 		"attachmentsByPerson": "By person",
 		"sortLargest": "Largest",
 		"sortNewest": "Newest",
-		"attachmentsHidden": "{{size}} is on cards you cannot see.",
+		"attachmentsHidden": "{{size}} is outside this list: cards you cannot see, and thumbnails.",
 		"attachmentsEmpty": "Nothing is attached to any card yet. Pictures and documents put on cards land here.",
 		"empty": "You are not in any home yet.",
 		"loadFailed": "Could not load your homes. Check your connection.",

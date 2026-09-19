@@ -7,14 +7,15 @@ import { useAppTheme } from "@/theme";
 import { radius, space } from "@/theme/tokens";
 
 /**
- * Download URLs, asked for once per object path and shared by every card that
- * draws the same attachment — a board of thumbnail cards is one fetch each,
- * not one per card per render. A URL carries a rotating token, which is why
- * none are stored (`models/node.ts`); the cache lives exactly as long as the
- * session does. A path Storage answers does not exist keeps its **rejection**
- * cached: asking again on a later render cannot succeed, and the fetch itself
- * is the 404 the console logs — only a transient failure (offline, a flap) is
- * allowed to retry.
+ * Download URLs, asked for once per object path and shared by every surface
+ * that draws the same attachment — the board's card faces, the details
+ * gallery and the inventory rows are one fetch each, not one per card per
+ * render. A URL carries a rotating token, which is why none are stored
+ * (`models/node.ts`); the cache lives exactly as long as the session does. A
+ * path Storage answers does not exist keeps its **rejection** cached: asking
+ * again on a later render cannot succeed, and the fetch itself is the 404
+ * the console logs — only a transient failure (offline, a flap) is allowed
+ * to retry.
  */
 const resolved = new Map<string, Promise<string>>();
 
@@ -22,11 +23,13 @@ export function urlOf(path: string): Promise<string> {
 	const cached = resolved.get(path);
 	if (cached !== undefined) return cached;
 	const url = (async () => {
-		// Imported lazily: a card face draws no bytes until it has images to
-		// draw, and no suite that renders a card should have to know Storage
-		// exists.
-		const { getDownloadURL, ref } = await import("firebase/storage");
-		const { storage } = await import("@/config/firebase");
+		// Required here, not at the top of the module, so evaluating a card
+		// face still touches no Storage — the modules are read only when the
+		// first URL is asked for. `import()` cannot be it: jest executes a
+		// dynamic import only under --experimental-vm-modules, and the tests
+		// of the surfaces that now share this cache must reach it.
+		const { getDownloadURL, ref } = require("firebase/storage");
+		const { storage } = require("@/config/firebase");
 		return getDownloadURL(ref(storage, path));
 	})();
 	resolved.set(path, url);

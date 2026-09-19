@@ -1,5 +1,4 @@
 import { useRouter } from "expo-router";
-import { getDownloadURL, ref } from "firebase/storage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { GestureResponderEvent } from "react-native";
@@ -11,12 +10,12 @@ import {
 	View,
 } from "react-native";
 import { ActivityIndicator, Button, Icon, Text } from "react-native-paper";
+import { urlOf } from "@/components/board/CardThumbnails";
 import { AttachmentMenu } from "@/components/node/AttachmentMenu";
 import { AttachmentModeChip } from "@/components/node/AttachmentModeChip";
 import { AttachmentViewer } from "@/components/node/AttachmentViewer";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { Row } from "@/components/ui/Row";
-import { storage } from "@/config/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { deleteAttachment, uploadAttachment } from "@/data/attachments";
 import type { NodeChanges } from "@/data/nodes";
@@ -122,6 +121,11 @@ export function AttachmentsSection({
 		(entry) => !isImageType(entry.contentType),
 	);
 	const [lead, ...rest] = images;
+	// The grid draws only what the face draws: an image whose thumbnail
+	// cannot resolve takes no slot at all, the way the lead above skips.
+	const drawn = rest.filter(
+		(entry) => urls[thumbnailPathFor(entry.path)] !== undefined,
+	);
 
 	const addFiles = useCallback(
 		(list: FileList | readonly File[]) => {
@@ -156,25 +160,30 @@ export function AttachmentsSection({
 
 	// A download URL carries a rotating token, so it is asked for at render
 	// time from the stored path (`models/node.ts` explains why none are stored)
-	// and remembered per path for as long as the screen lives.
-	const resolved = useRef(new Map<string, string>());
+	// through the shared `urlOf` cache — the one CardThumbnails' docblock
+	// owns, which keeps a not-found rejection cached so a thumbnail whose
+	// object never existed is one 404 per session, not one per node write.
 	useEffect(() => {
 		const wanted: string[] = [];
 		for (const entry of node.attachments) {
 			if (!isImageType(entry.contentType)) continue;
-			if (!resolved.current.has(entry.path)) wanted.push(entry.path);
-			const thumb = thumbnailPathFor(entry.path);
-			if (!resolved.current.has(thumb)) wanted.push(thumb);
+			wanted.push(entry.path, thumbnailPathFor(entry.path));
 		}
 		if (wanted.length === 0) return;
 
 		let cancelled = false;
 		void Promise.allSettled(
-			wanted.map(async (path) => {
-				resolved.current.set(path, await getDownloadURL(ref(storage, path)));
-			}),
-		).then(() => {
-			if (!cancelled) setUrls(Object.fromEntries(resolved.current));
+			wanted.map(async (path) => [path, await urlOf(path)] as const),
+		).then((results) => {
+			if (cancelled) return;
+			const next: Record<string, string> = {};
+			for (const result of results) {
+				if (result.status === "fulfilled") {
+					const [path, url] = result.value;
+					next[path] = url;
+				}
+			}
+			setUrls((prev) => ({ ...prev, ...next }));
 		});
 		return () => {
 			cancelled = true;
@@ -329,7 +338,7 @@ export function AttachmentsSection({
 					</Pressable>
 				) : null}
 
-				{chunks(rest, gridColumns).map((row) => (
+				{chunks(drawn, gridColumns).map((row) => (
 					<View
 						key={row[0]?.id}
 						style={{ flexDirection: "row", gap: space.sm }}
@@ -345,11 +354,7 @@ export function AttachmentsSection({
 							}
 							const entry = cell;
 							const uri = urls[thumbnailPathFor(entry.path)];
-							if (uri === undefined) {
-								return (
-									<View key={entry.id} style={{ flex: 1, aspectRatio: 1 }} />
-								);
-							}
+							if (uri === undefined) return null;
 							return (
 								<Pressable
 									key={entry.id}
