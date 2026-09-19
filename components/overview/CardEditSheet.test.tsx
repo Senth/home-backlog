@@ -6,6 +6,7 @@ import { Provider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { CardEditSheet } from "@/components/overview/CardEditSheet";
 import { AuthProvider } from "@/contexts/AuthContext";
+import type { LabelWithId } from "@/models/label";
 import { lightTheme } from "@/theme";
 import { space } from "@/theme/tokens";
 
@@ -48,6 +49,10 @@ jest.mock("react-i18next", () => ({
 	}),
 }));
 
+const labels: LabelWithId[] = [
+	{ id: "lb1", title: "Målning", icon: "brush", color: "red", rank: "a0" },
+];
+
 const renderSheet = (onSave = jest.fn()) =>
 	render(
 		<SafeAreaProvider
@@ -66,6 +71,7 @@ const renderSheet = (onSave = jest.fn()) =>
 						scope="home"
 						members={[]}
 						locations={[]}
+						labels={labels}
 						onDismiss={() => {}}
 						onSave={onSave}
 					/>
@@ -138,6 +144,30 @@ describe("CardEditSheet", () => {
 		expect(onSave).toHaveBeenCalledWith(
 			expect.objectContaining({
 				conditions: [{ field: "priority", anyOf: ["high"] }],
+			}),
+			"home",
+		);
+	});
+
+	/**
+	 * #306: the editor offers the home's labels as a condition, and a pick
+	 * stores the label ids — the read screen's pool already matches on them.
+	 */
+	it("offers the home's labels as a condition and stores the picked ids", () => {
+		const onSave = jest.fn();
+		renderSheet(onSave);
+
+		fireEvent.press(screen.getByTestId("overview-card-edit-field-labelIds"));
+		fireEvent.press(screen.getByRole("checkbox", { name: "Målning" }));
+		fireEvent.changeText(
+			screen.getByTestId("overview-card-edit-title"),
+			"Painting",
+		);
+		fireEvent.press(screen.getByText("manageHome.save"));
+
+		expect(onSave).toHaveBeenCalledWith(
+			expect.objectContaining({
+				conditions: [{ field: "labelIds", anyOf: ["lb1"] }],
 			}),
 			"home",
 		);

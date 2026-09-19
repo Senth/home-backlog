@@ -31,6 +31,7 @@ import {
 	sortCarriedBy,
 } from "@/models/filter";
 import type { Member } from "@/models/home";
+import type { LabelWithId } from "@/models/label";
 import type { Location } from "@/models/locations";
 import { titleError } from "@/models/node";
 import {
@@ -111,6 +112,7 @@ export interface FieldSpec {
 export function fieldSpecs(
 	members: readonly Member[],
 	locations: readonly Location[],
+	labels: readonly LabelWithId[],
 	t: Translate,
 	mode: CardMode,
 ): FieldSpec[] {
@@ -208,6 +210,15 @@ export function fieldSpecs(
 			],
 		},
 		{
+			field: "labelIds",
+			label: t("board.filter.labels"),
+			kind: "anyOf",
+			values: labels.map((label) => ({
+				value: label.id,
+				label: label.title,
+			})),
+		},
+		{
 			field: "blockedBy",
 			label: t("board.blocked"),
 			kind: "is",
@@ -288,6 +299,8 @@ interface CardEditSheetProps {
 	members: readonly Member[];
 	/** The home's locations, for the location picker. */
 	locations: readonly Location[];
+	/** The home's label definitions, for the labels condition. */
+	labels: readonly LabelWithId[];
 	onDismiss: () => void;
 	onSave: (draft: Card, scope: "global" | "home" | "shared") => void;
 }
@@ -382,6 +395,7 @@ export function CardEditSheet({
 	scope: initialScope,
 	members,
 	locations,
+	labels,
 	onDismiss,
 	onSave,
 }: CardEditSheetProps) {
@@ -414,7 +428,7 @@ export function CardEditSheet({
 
 	const setMode = (mode: CardMode) => setDraft(withMode(draft, mode));
 
-	const fields = fieldSpecs(members, locations, t, draft.kind);
+	const fields = fieldSpecs(members, locations, labels, t, draft.kind);
 
 	// The clamp lives on the way out rather than in the stepper, so a held
 	// count can be raised above the shown one without the shown one chasing it
@@ -484,6 +498,7 @@ export function CardEditSheet({
 				fields={fields}
 				members={members}
 				locations={locations}
+				labels={labels}
 				field={field}
 				sortOpen={sortOpen}
 				titleProblem={titleProblem}
@@ -520,9 +535,10 @@ interface SheetBodyProps {
 	draft: Card;
 	scope: "global" | "home" | "shared";
 	fields: FieldSpec[];
-	/** The home's members and places, for the rows' avatars and word values. */
+	/** The home's members, places and labels, for the rows' words and glyphs. */
 	members: readonly Member[];
 	locations: readonly Location[];
+	labels: readonly LabelWithId[];
 	field: CardCondition["field"] | null;
 	sortOpen: boolean;
 	titleProblem: string | null;
@@ -557,6 +573,7 @@ function SheetBody({
 	fields,
 	members,
 	locations,
+	labels,
 	field,
 	sortOpen,
 	titleProblem,
@@ -577,7 +594,7 @@ function SheetBody({
 	const fieldsCtx: FilterContext = {
 		uid,
 		members,
-		labels: [],
+		labels,
 		locationTitles: new Map(locations.map((l) => [l.id, l.title])),
 		surface: theme.colors.surface,
 	};
@@ -723,6 +740,7 @@ function SheetBody({
 						onField={onField}
 						onWrite={(next) => onFieldCondition(field, next)}
 						members={members}
+						labels={labels}
 						locationIds={locationIds}
 						uid={uid}
 					/>
@@ -934,6 +952,7 @@ function FieldValuePicker({
 	onField,
 	onWrite,
 	members,
+	labels,
 	locationIds,
 	uid,
 }: {
@@ -942,6 +961,7 @@ function FieldValuePicker({
 	onField: (field: CardCondition["field"] | null) => void;
 	onWrite: (next: CardCondition | null) => void;
 	members: readonly Member[];
+	labels: readonly LabelWithId[];
 	locationIds: ReadonlySet<string>;
 	uid: string;
 }) {
@@ -953,7 +973,7 @@ function FieldValuePicker({
 			testID={`overview-card-edit-${spec.field}`}
 			title={spec.label}
 			searchLabel={t("board.filter.search")}
-			items={fieldPickerItems(spec, { uid, members })}
+			items={fieldPickerItems(spec, { uid, members, labels })}
 			value={pickerValueFor(condition)}
 			onChange={(ids) =>
 				onWrite(pickerConditionFromIds(spec, ids, locationIds))

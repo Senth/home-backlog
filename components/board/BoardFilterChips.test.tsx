@@ -74,7 +74,7 @@ function renderChips(
 			filter={next}
 			onChange={onChange}
 			onOpen={onOpen}
-			specs={fieldSpecs([me], locations, t, "open")}
+			specs={fieldSpecs([me], locations, labels, t, "open")}
 			ctx={{
 				uid: "uid-me",
 				members: [me],
@@ -219,7 +219,7 @@ describe("BoardFilterChips", () => {
 				filter={five}
 				onChange={jest.fn()}
 				onOpen={jest.fn()}
-				specs={fieldSpecs([me], locations, t, "open")}
+				specs={fieldSpecs([me], locations, labels, t, "open")}
 				ctx={{
 					uid: "uid-me",
 					members: [me],

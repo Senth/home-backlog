@@ -472,6 +472,7 @@ export default function OverviewEditor() {
 					scope={editing.scope}
 					members={members}
 					locations={locations}
+					labels={activeHome?.labels ?? []}
 					onDismiss={() => setEditing(null)}
 					onSave={save}
 				/>
@@ -482,6 +483,7 @@ export default function OverviewEditor() {
 					visible
 					members={members}
 					locations={locations}
+					labels={activeHome?.labels ?? []}
 					onDismiss={() => setImporting(false)}
 					onAdd={importInto}
 				/>

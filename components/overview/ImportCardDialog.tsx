@@ -6,6 +6,7 @@ import { fieldSpecs } from "@/components/overview/CardEditSheet";
 import { AppDialog } from "@/components/ui/AppDialog";
 import type { CardCondition, CardMode } from "@/models/filter";
 import type { Member } from "@/models/home";
+import type { LabelWithId } from "@/models/label";
 import type { Location } from "@/models/locations";
 import { doneWithinDays } from "@/models/overview";
 import { type Card, type CardScope, importCard } from "@/models/overview-cards";
@@ -31,6 +32,8 @@ interface ImportCardDialogProps {
 	members: readonly Member[];
 	/** The home's locations, for naming the picked ones in the preview. */
 	locations: readonly Location[];
+	/** The home's labels, for naming the label condition in the preview. */
+	labels: readonly LabelWithId[];
 	onDismiss: () => void;
 	onAdd: (draft: Omit<Card, "id" | "rank">, scope: CardScope) => void;
 }
@@ -39,6 +42,7 @@ export function ImportCardDialog({
 	visible,
 	members,
 	locations,
+	labels,
 	onDismiss,
 	onAdd,
 }: ImportCardDialogProps) {
@@ -123,6 +127,7 @@ export function ImportCardDialog({
 										decoded.kind,
 										members,
 										locations,
+										labels,
 										t,
 									)}
 								</Text>
@@ -148,9 +153,10 @@ function conditionLine(
 	mode: CardMode,
 	members: readonly Member[],
 	locations: readonly Location[],
+	labels: readonly LabelWithId[],
 	t: ReturnType<typeof useTranslation>["t"],
 ): string {
-	const spec = fieldSpecs(members, locations, t, mode).find(
+	const spec = fieldSpecs(members, locations, labels, t, mode).find(
 		(each) => each.field === condition.field,
 	);
 	const label = spec?.label ?? condition.field;
