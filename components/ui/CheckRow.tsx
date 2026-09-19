@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { View } from "react-native";
 import { Icon, Text, TouchableRipple } from "react-native-paper";
 import { useAppTheme } from "@/theme";
-import { icon, space, touchTarget } from "@/theme/tokens";
+import { icon, radius, space, touchTarget } from "@/theme/tokens";
 
 interface CheckRowProps {
 	label: string;
@@ -16,6 +16,16 @@ interface CheckRowProps {
 	left?: ReactNode;
 	/** State behind the label — the *Done* chip on a picked blocker's row. */
 	right?: ReactNode;
+	/**
+	 * The selection drawn as `ChoiceField`'s full-width `secondaryContainer`
+	 * fill instead of a checkbox glyph — the filter's priority group, which
+	 * reads like the details screen's picker. The row keeps `checkbox` and
+	 * `aria-checked`: with no tick drawn, the fill and the checked state are
+	 * the only things saying "selected", so with the object form of
+	 * `accessibilityState` dead in React Native Web 0.21 the ARIA prop is the
+	 * one that must survive.
+	 */
+	fill?: boolean;
 }
 
 /**
@@ -38,6 +48,7 @@ export function CheckRow({
 	disabled,
 	left,
 	right,
+	fill,
 }: CheckRowProps) {
 	const theme = useAppTheme();
 
@@ -48,35 +59,47 @@ export function CheckRow({
 			accessibilityRole="checkbox"
 			aria-checked={checked}
 			accessibilityLabel={label}
-			style={{ minHeight: touchTarget, justifyContent: "center" }}
+			style={{
+				minHeight: touchTarget,
+				justifyContent: "center",
+				borderRadius: fill ? radius.sm : undefined,
+				paddingHorizontal: fill ? space.md : undefined,
+				backgroundColor:
+					fill && checked ? theme.colors.secondaryContainer : undefined,
+			}}
 		>
 			<View
 				style={{
 					flexDirection: "row",
 					alignItems: "center",
-					gap: space.md,
+					gap: fill ? space.sm : space.md,
 					paddingVertical: space.sm,
 				}}
 			>
 				{left}
-				<Icon
-					source={checked ? "checkbox-marked" : "checkbox-blank-outline"}
-					size={icon.md}
-					color={
-						disabled
-							? theme.colors.onSurfaceDisabled
-							: checked
-								? theme.colors.primary
-								: theme.colors.onSurfaceVariant
-					}
-				/>
+				{fill ? null : (
+					<Icon
+						source={checked ? "checkbox-marked" : "checkbox-blank-outline"}
+						size={icon.md}
+						color={
+							disabled
+								? theme.colors.onSurfaceDisabled
+								: checked
+									? theme.colors.primary
+									: theme.colors.onSurfaceVariant
+						}
+					/>
+				)}
 				<Text
-					variant="bodyLarge"
+					variant={fill ? "labelLarge" : "bodyLarge"}
 					style={{
 						flexShrink: 1,
 						color: disabled
 							? theme.colors.onSurfaceDisabled
-							: theme.colors.onSurface,
+							: fill && checked
+								? theme.colors.onSecondaryContainer
+								: theme.colors.onSurface,
+						fontWeight: fill && checked ? "500" : undefined,
 					}}
 				>
 					{label}

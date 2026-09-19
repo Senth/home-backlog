@@ -17,6 +17,7 @@ import {
 	pickerConditionFromIds,
 	pickerValueFor,
 } from "@/components/board/BoardFilterRow";
+import { PriorityDot } from "@/components/board/PriorityDot";
 import { fieldSpecs } from "@/components/overview/CardEditForm";
 import { AppSheet } from "@/components/ui/AppSheet";
 import {
@@ -30,8 +31,10 @@ import type { CardCondition } from "@/models/filter";
 import type { Member } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
 import type { Location } from "@/models/locations";
+import type { Priority } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import {
+	border,
 	radius,
 	segmentedLabelLineHeight,
 	size,
@@ -53,6 +56,30 @@ interface BoardFilterSheetProps {
 	showEveryone: boolean;
 	onShowEveryone: (value: boolean) => void;
 	returnFocusTo?: RefObject<View | null>;
+}
+
+/**
+ * The *Not set* row's mark, in the priority picker's left column: an empty
+ * ring at the `PriorityDot`'s exact size and shape, so the five rows read as
+ * one column. Filled, any hue from the theme would sit beside four ramp hues
+ * as a fifth dot; empty, it says what the row offers — the absence of a
+ * priority — in the same quiet tier as an unticked row's glyph.
+ */
+function NotSetDot() {
+	const theme = useAppTheme();
+
+	return (
+		<View
+			testID="priority-not-set-dot"
+			style={{
+				width: size.labelDot,
+				height: size.labelDot,
+				borderRadius: radius.full,
+				borderWidth: border.hairline,
+				borderColor: theme.colors.onSurfaceVariant,
+			}}
+		/>
+	);
 }
 
 /**
@@ -153,16 +180,29 @@ export function BoardFilterSheet({
 	/**
 	 * The picker for the field being edited: the shared row vocabulary renders
 	 * the items, and its mapping turns the checked ids back into a condition.
+	 * The priority group rides with the fill presentation and leads every row
+	 * with its mark — the ramp dot, and the empty ring for *Not set* — which
+	 * only this sheet asks for; the card editor's priority picker stays a
+	 * checkbox list.
 	 */
 	const pickerItems = (): CheckItem[] => {
 		const spec = specs.find((each) => each.field === openField);
-		return spec === undefined
-			? []
-			: fieldPickerItems(spec, {
-					uid: user?.uid ?? "",
-					members,
-					labels,
-				});
+		if (spec === undefined) return [];
+		const items = fieldPickerItems(spec, {
+			uid: user?.uid ?? "",
+			members,
+			labels,
+		});
+		if (openField !== "priority") return items;
+		return items.map((item) => ({
+			...item,
+			left:
+				item.id === "none" ? (
+					<NotSetDot />
+				) : (
+					<PriorityDot priority={item.id as Priority} />
+				),
+		}));
 	};
 
 	const pickerValue = (): readonly string[] =>
@@ -301,6 +341,7 @@ export function BoardFilterSheet({
 					items={pickerItems()}
 					value={pickerValue()}
 					onChange={pickerChange}
+					fill={open === "priority"}
 					emptySentence={
 						open === "labelIds" ? t("labels.empty") : t("board.filter.empty")
 					}

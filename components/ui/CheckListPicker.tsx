@@ -45,6 +45,12 @@ interface CheckListPickerProps {
 	 * already paid for — the label cap's, not a picker rule of its own.
 	 */
 	note?: ReactNode;
+	/**
+	 * Rows drawn as `CheckRow`'s fill presentation instead of checkboxes —
+	 * the filter's priority group, which reads like the details screen's
+	 * picker. Opt-in: every other caller keeps its checkbox rows.
+	 */
+	fill?: boolean;
 }
 
 /**
@@ -73,6 +79,7 @@ export function CheckListPicker({
 	emptySentence,
 	searchEmptySentence,
 	note,
+	fill,
 }: CheckListPickerProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
@@ -135,6 +142,7 @@ export function CheckListPicker({
 								label={item.title}
 								checked={checked}
 								disabled={disabled?.(item)}
+								fill={fill}
 								onPress={() => toggle(item, checked)}
 							/>
 						);

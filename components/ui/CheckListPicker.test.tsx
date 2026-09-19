@@ -5,6 +5,7 @@ import {
 	CheckListPicker,
 } from "@/components/ui/CheckListPicker";
 import { lightTheme } from "@/theme";
+import { radius } from "@/theme/tokens";
 
 jest.mock("react-i18next", () => ({
 	// Keys asserted, not sentences — `LabelPicker.test.tsx` for the reasoning.
@@ -146,5 +147,67 @@ describe("CheckListPicker", () => {
 
 		expect(screen.getByText("search-empty-sentence")).toBeOnTheScreen();
 		expect(screen.queryByText("empty-sentence")).toBeNull();
+	});
+
+	it("a picker without fill still draws its checkboxes", () => {
+		renderPicker([item("a"), item("b")], ["b"]);
+
+		expect(
+			screen.UNSAFE_getAllByProps({ source: "checkbox-marked" }),
+		).toHaveLength(1);
+		expect(
+			screen.UNSAFE_getAllByProps({ source: "checkbox-blank-outline" }),
+		).toHaveLength(1);
+	});
+
+	it("fill draws the selection as the fill, not a checkbox, and keeps the checkbox state", () => {
+		const onChange = jest.fn();
+		render(
+			<Provider theme={lightTheme}>
+				<CheckListPicker
+					onDismiss={() => {}}
+					testID="check-picker"
+					searchLabel="search"
+					items={[item("a"), item("b")]}
+					value={["a"]}
+					onChange={onChange}
+					fill
+				/>
+			</Provider>,
+		);
+
+		const selected = screen.getByRole("checkbox", { name: "Item a" });
+		expect(selected.props.accessibilityState).toMatchObject({ checked: true });
+		expect(selected.props.style).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					backgroundColor: lightTheme.colors.secondaryContainer,
+					borderRadius: radius.sm,
+				}),
+			]),
+		);
+		// Paper composes the label's style as nested arrays; flatten and look
+		// for the fill treatment the row's own style carries.
+		expect(
+			screen.getByText("Item a").props.style.flat(Infinity),
+		).toContainEqual(
+			expect.objectContaining({
+				color: lightTheme.colors.onSecondaryContainer,
+				fontWeight: "500",
+			}),
+		);
+
+		// No tick drawn on any row: the fill and the a11y state are the only
+		// selected signals, and both are asserted above.
+		expect(
+			screen.UNSAFE_queryAllByProps({ source: "checkbox-marked" }),
+		).toHaveLength(0);
+		expect(
+			screen.UNSAFE_queryAllByProps({ source: "checkbox-blank-outline" }),
+		).toHaveLength(0);
+
+		// Still a multi-select: the next pick joins the selection.
+		fireEvent.press(screen.getByLabelText("Item b"));
+		expect(onChange).toHaveBeenCalledWith(["a", "b"]);
 	});
 });
