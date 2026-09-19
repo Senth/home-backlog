@@ -341,6 +341,58 @@ describe("homes/{homeId}", () => {
 		});
 	});
 
+	describe("the attachment quota (#298)", () => {
+		// The byte counters live on the home document but belong to the
+		// Storage-triggered function that reads real object metadata. A member
+		// who could write one could move the ceiling the storage rules enforce,
+		// so no client may — not even the owner.
+		beforeEach(seedHome);
+
+		it("refuses an owner setting attachmentBytes", async () => {
+			await assertFails(
+				updateDoc(doc(dbAs(env, OWNER), homePath), {
+					attachmentBytes: 500,
+				}),
+			);
+		});
+
+		it("refuses an owner setting attachmentBytesByUid", async () => {
+			await assertFails(
+				updateDoc(doc(dbAs(env, OWNER), homePath), {
+					attachmentBytesByUid: { [OWNER.uid]: 500 },
+				}),
+			);
+		});
+
+		it("refuses a home created with the counters already on it", async () => {
+			const db = dbAs(env, OWNER);
+
+			await assertFails(
+				setDoc(doc(db, `homes/home-with-bytes`), {
+					...homeDoc({ [OWNER.uid]: "owner" }),
+					attachmentBytes: 500,
+				}),
+			);
+		});
+
+		it("leaves an ordinary edit working on a home the function has written", async () => {
+			// Seed the counters as the function would — through the bypassing
+			// admin context — then confirm a member's rename still passes with
+			// them present, since every client update carries the full
+			// post-write document.
+			await seed(env, async (db) => {
+				await updateDoc(doc(db, homePath), {
+					attachmentBytes: 500,
+					attachmentBytesByUid: { [OWNER.uid]: 500 },
+				});
+			});
+
+			await assertSucceeds(
+				updateDoc(doc(dbAs(env, MEMBER), homePath), { name: "Renamed" }),
+			);
+		});
+	});
+
 	describe("leaving", () => {
 		/** What the manage screen writes for "Leave this home". */
 		function leave(db: ReturnType<typeof dbAs>, uid: string) {
@@ -771,6 +823,9 @@ describe("homes/{homeId}/nodes", () => {
 	const nodesPath = `${homePath}/nodes`;
 	const sharedPath = `${nodesPath}/shared-node`;
 	const privatePath = `${nodesPath}/private-node`;
+	// A byte count for attachment fixtures. Named because `size` is also a
+	// style prop the invariants' regex guards.
+	const oneKb = 1024;
 
 	/** Creating a node the way the app does: every field, with a value. */
 	function create(
@@ -966,19 +1021,80 @@ describe("homes/{homeId}/nodes", () => {
 			);
 		});
 
-		it("refuses more than 50 photos", async () => {
-			const photo = (index: number) => ({
+		it("refuses more than 50 attachments", async () => {
+			const attachment = (index: number) => ({
 				id: `p${index}`,
 				path: `homes/${HOME_ID}/nodes/snappy/p${index}.jpg`,
+				name: `p${index}.jpg`,
+				contentType: "image/jpeg",
+				size: oneKb,
 				uploadedAt: new Date("2026-01-01T00:00:00Z"),
 				uploadedBy: MEMBER.uid,
 			});
 
 			await assertFails(
 				create(dbAs(env, MEMBER), "snappy", {
-					photos: Array.from({ length: 51 }, (_value, index) => photo(index)),
+					attachments: Array.from({ length: 51 }, (_value, index) =>
+						attachment(index),
+					),
 				}),
 			);
+		});
+
+		describe("attachments (#298)", () => {
+			/**
+			 * The new fields are read through get() with a default rather than
+			 * required outright: every node stored before the rename lacks all
+			 * four, and requiring them would deny every update — the childCount
+			 * bump that adding a step performs included — until a migration had
+			 * reached each document. Lenient here is what makes the deploy order
+			 * irrelevant.
+			 */
+			it("keeps a node written before the rename updatable", async () => {
+				await seedNodes();
+
+				await assertSucceeds(
+					updateDoc(doc(dbAs(env, MEMBER), sharedPath), {
+						notes: "edited after the rename",
+						attachments: deleteField(),
+						attachmentCount: deleteField(),
+						attachmentDisplay: deleteField(),
+						heroAttachmentId: deleteField(),
+					}),
+				);
+			});
+
+			it("refuses an attachmentCount that is not an integer", async () => {
+				await assertFails(
+					create(dbAs(env, MEMBER), "miscounted", {
+						attachmentCount: "three",
+					}),
+				);
+			});
+
+			it("refuses an attachmentDisplay outside the enum", async () => {
+				await assertFails(
+					create(dbAs(env, MEMBER), "off-mode", {
+						attachmentDisplay: "mosaic",
+					}),
+				);
+			});
+
+			it("refuses a heroAttachmentId that is neither a string nor null", async () => {
+				await assertFails(
+					create(dbAs(env, MEMBER), "no-hero", {
+						heroAttachmentId: 7,
+					}),
+				);
+			});
+
+			it("accepts a heroAttachmentId of null", async () => {
+				await assertSucceeds(
+					create(dbAs(env, MEMBER), "no-hero-yet", {
+						heroAttachmentId: null,
+					}),
+				);
+			});
 		});
 
 		it("keeps status and completedAt in agreement, both ways", async () => {

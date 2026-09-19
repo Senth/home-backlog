@@ -63,7 +63,10 @@ function node(overrides: Partial<Node> = {}): Node {
 		notes: "",
 		checklist: [],
 		effort: null,
-		photos: [],
+		attachments: [],
+		attachmentCount: 0,
+		attachmentDisplay: "count",
+		heroAttachmentId: null,
 		archived: false,
 		createdVia: "app",
 		completedAt: null,
@@ -428,7 +431,10 @@ describe("newNodeData", () => {
 			notes: "",
 			checklist: [],
 			effort: null,
-			photos: [],
+			attachments: [],
+			attachmentCount: 0,
+			attachmentDisplay: "count",
+			heroAttachmentId: null,
 			archived: false,
 			createdVia: "app",
 		});
@@ -1260,14 +1266,20 @@ describe("toNode", () => {
 				notes: "Ladder is in the shed",
 				checklist: [{ id: "c1", text: "Buy brackets", done: true }],
 				effort: "evening",
-				photos: [
+				attachments: [
 					{
 						id: "p1",
 						path: "homes/home-1/nodes/node-9/p1.jpg",
+						name: "p1.jpg",
+						contentType: "image/jpeg",
+						size: oneKb,
 						uploadedAt: null,
 						uploadedBy: "uid-a",
 					},
 				],
+				attachmentCount: 1,
+				attachmentDisplay: "hero",
+				heroAttachmentId: "p1",
 				archived: true,
 			}),
 		);
@@ -1294,18 +1306,72 @@ describe("toNode", () => {
 				notes: "Ladder is in the shed",
 				checklist: [{ id: "c1", text: "Buy brackets", done: true }],
 				effort: "evening",
-				photos: [
+				attachments: [
 					{
 						id: "p1",
 						path: "homes/home-1/nodes/node-9/p1.jpg",
+						name: "p1.jpg",
+						contentType: "image/jpeg",
+						size: oneKb,
 						uploadedAt: null,
 						uploadedBy: "uid-a",
 					},
 				],
+				attachmentCount: 1,
+				attachmentDisplay: "hero",
+				heroAttachmentId: "p1",
 				archived: true,
 				createdBy: "",
 			}),
 		);
+	});
+
+	/**
+	 * Every node stored before the rename lacks all four attachment fields —
+	 * the rules read them through get() with defaults for exactly this reason —
+	 * so a cached document from before the app updated has to render rather
+	 * than crash a board.
+	 */
+	/**
+	 * Byte counts for attachment fixtures. Named because `size` is also a style
+	 * prop the invariants' regex guards, and a bare number beside it reads as
+	 * one.
+	 */
+	const oneKb = 1024;
+	const noBytes = 0;
+
+	it("coerces a stored node that is missing every attachment field", () => {
+		const result = toNode(
+			snapshot("node-9", {
+				title: "Written before the rename",
+				photos: [],
+			}),
+		);
+
+		expect(result.attachments).toEqual([]);
+		expect(result.attachmentCount).toBe(0);
+		expect(result.attachmentDisplay).toBe("count");
+		expect(result.heroAttachmentId).toBeNull();
+	});
+
+	it("coerces an attachment entry that is missing the new fields", () => {
+		const result = toNode(
+			snapshot("node-9", {
+				attachments: [{ id: "p1", path: "homes/h/nodes/n/p1.jpg" }],
+			}),
+		);
+
+		expect(result.attachments).toEqual([
+			{
+				id: "p1",
+				path: "homes/h/nodes/n/p1.jpg",
+				name: "",
+				contentType: "",
+				size: noBytes,
+				uploadedAt: null,
+				uploadedBy: "",
+			},
+		]);
 	});
 
 	/**

@@ -97,7 +97,7 @@ describe("what the server owns", () => {
 		"updatedAt",
 		"createdVia",
 		"id",
-		"photos",
+		"attachments",
 	])("refuses %s", (field) => {
 		expect(refusal({ [field]: "anything" }, "create").code).toBe(
 			"unknown_field",

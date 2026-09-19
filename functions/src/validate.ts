@@ -6,10 +6,10 @@ import {
 	dueDatePattern,
 	type Effort,
 	efforts,
+	maxAttachments,
 	maxChecklistItems,
 	maxLabelsPerNode,
 	maxNotesLength,
-	maxPhotos,
 	maxTitleLength,
 	type Priority,
 	priorities,
@@ -289,13 +289,13 @@ function fieldIssues(data: Record<string, unknown>): ValidationIssue[] {
 		);
 	}
 
-	if (!isList(data.photos)) {
-		add("photos", "invalid_photos", "photos must be a list.");
-	} else if (data.photos.length > maxPhotos) {
+	if (!isList(data.attachments)) {
+		add("attachments", "invalid_attachments", "attachments must be a list.");
+	} else if (data.attachments.length > maxAttachments) {
 		add(
-			"photos",
-			"too_many_photos",
-			`A node holds at most ${maxPhotos} photos.`,
+			"attachments",
+			"too_many_attachments",
+			`A node holds at most ${maxAttachments} attachments.`,
 		);
 	}
 

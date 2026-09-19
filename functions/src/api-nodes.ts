@@ -129,7 +129,11 @@ export interface ApiNode {
 	labelIds: string[];
 	notes: string;
 	checklist: unknown[];
-	photos: unknown[];
+	attachments: unknown[];
+	/** Denormalized from `attachments.length`, for queries that cannot ask. */
+	attachmentCount: number;
+	attachmentDisplay: "count" | "thumbnails" | "hero";
+	heroAttachmentId: string | null;
 	archived: boolean;
 	createdVia: CreatedVia;
 	completedAt: string | null;
@@ -174,7 +178,14 @@ export function apiNode(id: string, data: Record<string, unknown>): ApiNode {
 		labelIds: strings(data.labelIds),
 		notes: stringOr(data.notes, ""),
 		checklist: Array.isArray(data.checklist) ? data.checklist : [],
-		photos: Array.isArray(data.photos) ? data.photos : [],
+		attachments: Array.isArray(data.attachments) ? data.attachments : [],
+		attachmentCount: counter(data.attachmentCount),
+		attachmentDisplay: oneOf(
+			data.attachmentDisplay,
+			["count", "thumbnails", "hero"],
+			"count",
+		),
+		heroAttachmentId: stringOrNull(data.heroAttachmentId),
 		archived: data.archived === true,
 		// Absent means `'app'`, which is true of every node written before the API
 		// existed. Nothing queries this field, so nothing needed backfilling.
