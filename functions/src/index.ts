@@ -14,5 +14,6 @@ export const api = onRequest({ region }, app);
 
 export { createApiKey } from "./create-api-key.js";
 export { onApiKeyDeleted } from "./on-api-key-deleted.js";
+export { onHomeDeleted, onNodeDeleted } from "./on-deleted.js";
 export { onLocationWritten } from "./on-location-written.js";
 export { onObjectDeleted, onObjectFinalized } from "./on-object-written.js";
