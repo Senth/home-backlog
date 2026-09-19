@@ -132,7 +132,9 @@
 		"deleteBody": "{{name}}, and everything under it, will be deleted. This cannot be undone.",
 		"emptyTitle": "Add the places around your home",
 		"emptyBody": "The garden, the basement, the cabin — build the tree now, file work in it later.",
-		"actions": "Location actions"
+		"actions": "Location actions",
+		"dragOffline": "Offline — dragging a place needs a connection.",
+		"putBack": "Put back where it was."
 	},
 	"homes": {
 		"title": "My homes",

@@ -14,7 +14,15 @@ import {
 } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { LocationDialog } from "@/components/location/LocationDialog";
-import { LocationTree } from "@/components/location/LocationRow";
+import {
+	LocationDragOverlay,
+	LocationTree,
+} from "@/components/location/LocationRow";
+import {
+	screenKey,
+	targetIdOf,
+	useLocationDrag,
+} from "@/components/location/use-location-drag";
 import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
 import { locationErrorKey, moveLocation } from "@/data/locations";
@@ -86,10 +94,23 @@ export default function Locations() {
 	/** The move-under mode (Q14) — idle means the tree browses. */
 	const [move, setMove] = useState<MoveMode>(idleMove);
 	const [adding, setAdding] = useState<AddTarget>(null);
-	const [error, setError] = useState<string | null>(null);
+	const [notice, setNotice] = useState<string | null>(null);
 	const [fabHeight, setFabHeight] = useState(0);
 	const openerRef = useRef<View | null>(null);
 	const navigation = useNavigation();
+
+	// The drag is the one move a gesture makes, and it writes the same
+	// `moveLocation` the move mode does — offline the hook never starts.
+	const drag = useLocationDrag({
+		homeId: homeId ?? "",
+		locations,
+		onPutBack: () => setNotice("locations.putBack"),
+		onError: (reason) => {
+			console.error("Could not move the location:", reason);
+			setNotice(locationErrorKey(reason));
+		},
+	});
+	const overId = drag.over === null ? null : targetIdOf(drag.over);
 
 	// The tab bar stays live, and leaving cancels silently: a blur ends the
 	// mode before another tab can act on a half-run one.
@@ -163,7 +184,7 @@ export default function Locations() {
 			rankAtEnd(siblings.at(-1)?.rank ?? null),
 		).catch((reason) => {
 			console.error("Could not move the location:", reason);
-			setError(locationErrorKey(reason));
+			setNotice(locationErrorKey(reason));
 		});
 	};
 
@@ -185,7 +206,11 @@ export default function Locations() {
 	};
 
 	return (
-		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+		<View
+			ref={drag.register(screenKey)}
+			collapsable={false}
+			style={{ flex: 1, backgroundColor: theme.colors.background }}
+		>
 			<Appbar.Header>
 				<BackAction
 					accessibilityLabel={
@@ -279,7 +304,9 @@ export default function Locations() {
 
 				{/* The control row: the tree's two disclosures in one place, so
 				    a deep tree never needs a walk to tidy; the cards toggle rides
-				    beside them. Session-only, like the collapsed set itself. */}
+				    beside them. Session-only, like the collapsed set itself. A
+				    drag starts nowhere offline, and the row is where the screen
+				    says why — before the gesture, not after a dead one. */}
 				{showTree ? (
 					<View
 						style={{
@@ -315,6 +342,17 @@ export default function Locations() {
 						>
 							{t(cardsOpen ? "locations.hideCards" : "locations.showCards")}
 						</Button>
+						{online ? null : (
+							<Text
+								variant="bodySmall"
+								style={{
+									color: theme.colors.onSurfaceVariant,
+									alignSelf: "center",
+								}}
+							>
+								{t("locations.dragOffline")}
+							</Text>
+						)}
 					</View>
 				) : null}
 
@@ -381,9 +419,11 @@ export default function Locations() {
 						onSelectDestination={(parent) =>
 							setMove(selectDestination(move, parent))
 						}
-						onError={setError}
+						onError={setNotice}
 						homeId={homeId ?? ""}
 						online={online}
+						drag={drag}
+						overId={overId}
 					/>
 				) : null}
 			</ScrollView>
@@ -459,16 +499,20 @@ export default function Locations() {
 				/>
 			) : null}
 
+			{/* The carried place, following the finger; the row it belongs to
+			    waits flattened where it was. */}
+			{drag.dragged !== null ? <LocationDragOverlay drag={drag} /> : null}
+
 			<Snackbar
-				visible={error !== null}
-				onDismiss={() => setError(null)}
+				visible={notice !== null}
+				onDismiss={() => setNotice(null)}
 				style={{
 					maxWidth: contentWidth.snackbar,
 					alignSelf: "center",
 					marginBottom: space.md,
 				}}
 			>
-				{error ? t(error) : ""}
+				{notice ? t(notice) : ""}
 			</Snackbar>
 		</View>
 	);

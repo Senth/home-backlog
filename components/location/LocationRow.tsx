@@ -1,9 +1,15 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, View } from "react-native";
-import { Icon, IconButton, Menu, Text } from "react-native-paper";
+import { Animated, Pressable, View } from "react-native";
+import { Icon, IconButton, Menu, Surface, Text } from "react-native-paper";
+import { DragArea } from "@/components/board/DragArea";
 import { LocationCards } from "@/components/location/LocationCards";
 import { LocationDialog } from "@/components/location/LocationDialog";
+import {
+	type LocationDrag,
+	type LocationDragHandlers,
+	rowKey,
+} from "@/components/location/use-location-drag";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import {
 	deleteLocation,
@@ -11,11 +17,20 @@ import {
 	reorderLocation,
 } from "@/data/locations";
 import { useLocationColor } from "@/hooks/use-location-color";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { destinationRefused, type MoveMode } from "@/models/location-move";
 import { childLocations, type Location } from "@/models/locations";
 import { movedRank, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { border, icon, space, touchTarget } from "@/theme/tokens";
+import {
+	border,
+	drag as dragTokens,
+	elevation,
+	icon,
+	radius,
+	space,
+	touchTarget,
+} from "@/theme/tokens";
 
 /** What a row needs while a move-under mode is running (#205). */
 export interface MoveSelection {
@@ -41,6 +56,10 @@ interface LocationTreeProps {
 	locationTitles: ReadonlyMap<string, string>;
 	/** The move-under mode, exactly as the screen holds it. */
 	mode: MoveMode;
+	/** The tree's drag, carrying the gesture and the rows it measures. */
+	drag?: LocationDrag;
+	/** The row a carried place is over right now, if it is over one. */
+	overId?: string | null;
 	onToggle: (id: string) => void;
 	onOpen: (location: Location) => void;
 	onAddUnder: (parent: Location) => void;
@@ -71,6 +90,8 @@ export function LocationTree({
 	pool,
 	locationTitles,
 	mode,
+	drag,
+	overId,
 	onToggle,
 	onOpen,
 	onAddUnder,
@@ -112,6 +133,8 @@ export function LocationTree({
 							expanded={expanded}
 							counts={counts}
 							move={move}
+							drag={drag}
+							overId={overId}
 							onToggle={onToggle}
 							onOpen={onOpen}
 							onAddUnder={onAddUnder}
@@ -139,6 +162,8 @@ export function LocationTree({
 									pool={pool}
 									locationTitles={locationTitles}
 									mode={mode}
+									drag={drag}
+									overId={overId}
 									onToggle={onToggle}
 									onOpen={onOpen}
 									onAddUnder={onAddUnder}
@@ -166,6 +191,10 @@ interface LocationRowProps {
 	counts: ReadonlyMap<string, number>;
 	/** Present only while the move-under mode is running. */
 	move?: MoveSelection;
+	/** The tree's drag, carrying the gesture and the rows it measures. */
+	drag?: LocationDrag;
+	/** The row a carried place is over right now, if it is over one. */
+	overId?: string | null;
 	onToggle: (id: string) => void;
 	onOpen: (location: Location) => void;
 	onAddUnder: (parent: Location) => void;
@@ -190,6 +219,12 @@ interface LocationRowProps {
  * While a move-under mode runs, the name selects a destination instead of
  * navigating, the menu stands down, and the moved place's own subtree is
  * dimmed and unpickable — the mode must be unmistakable (Q14).
+ *
+ * The row is also what a drag picks up: the `DragArea` around it arms on a
+ * long-press on touch and on pointer movement on the desktop, and the row's
+ * frame is measured once, when the place lifts. Offline the area is disabled —
+ * the write a drop makes reads the subtree from the server, so the control
+ * row's hint says why nothing lifts before the gesture is tried.
  */
 export function LocationRow({
 	homeId,
@@ -198,6 +233,8 @@ export function LocationRow({
 	expanded,
 	counts,
 	move,
+	drag,
+	overId,
 	onToggle,
 	onOpen,
 	onAddUnder,
@@ -219,6 +256,11 @@ export function LocationRow({
 		move !== undefined && destinationRefused(location, move.movingId);
 	const selected =
 		move !== undefined && move.selectedId === location.id && !dimmed;
+	const gestures = drag?.handlers(location);
+	const held = drag?.dragged?.id === location.id;
+	// The check rides in the slot the move mode's confirmation uses, so a drag
+	// and a move-under say "here" with the same mark.
+	const aimed = overId === location.id && !held;
 
 	const close = () => setOpen(false);
 
@@ -245,172 +287,190 @@ export function LocationRow({
 
 	return (
 		<View>
-			<View
-				style={{
-					flexDirection: "row",
-					alignItems: "center",
-					minHeight: touchTarget,
-					gap: space.sm,
-					paddingVertical: space.xs,
-					paddingRight: space.sm,
-					// Dim, never hide: the refused rows stay on the map, so what
-					// cannot be chosen is still legible as the tree it belongs to.
-					opacity: dimmed ? 0.4 : 1,
-				}}
-			>
-				{/* The chevron's own button, present only where there is something
+			{/* The frame a drop is measured against, and the gesture that picks
+			    the row up. The carried row stays mounted — unmounting it
+			    mid-drag takes the pointer capture with it — but gives way to
+			    the copy under the finger. */}
+			<View ref={drag?.register(rowKey(location.id))} collapsable={false}>
+				<DragArea
+					enabled={
+						gestures !== undefined && online && move === undefined && !held
+					}
+					{...(gestures ?? noGestures)}
+				>
+					<View
+						style={{
+							flexDirection: "row",
+							alignItems: "center",
+							minHeight: touchTarget,
+							gap: space.sm,
+							paddingVertical: space.xs,
+							paddingRight: space.sm,
+							// Dim, never hide: the refused rows stay on the map, so what
+							// cannot be chosen is still legible as the tree it belongs to.
+							opacity: held ? 0 : dimmed ? 0.4 : 1,
+						}}
+					>
+						{/* The chevron's own button, present only where there is something
 				    to disclose; a childless row keeps the band, so the names line
 				    up. Its box runs the full row height — the band is narrow, the
 				    height is what makes it hittable. */}
-				{hasChildren ? (
-					<Pressable
-						accessible
-						accessibilityRole="button"
-						accessibilityLabel={t("locations.toggle", {
-							name: location.title,
-						})}
-						aria-expanded={expanded}
-						onPress={() => onToggle(location.id)}
-						style={{
-							width: icon.sm + space.xs,
-							height: touchTarget,
-							alignItems: "center",
-							justifyContent: "center",
-						}}
-					>
-						<Icon
-							source={expanded ? "chevron-down" : "chevron-right"}
-							size={icon.sm}
-							color={theme.colors.onSurfaceVariant}
-						/>
-					</Pressable>
-				) : (
-					<View style={{ width: icon.sm + space.xs }} />
-				)}
+						{hasChildren ? (
+							<Pressable
+								accessible
+								accessibilityRole="button"
+								accessibilityLabel={t("locations.toggle", {
+									name: location.title,
+								})}
+								aria-expanded={expanded}
+								onPress={() => onToggle(location.id)}
+								style={{
+									width: icon.sm + space.xs,
+									height: touchTarget,
+									alignItems: "center",
+									justifyContent: "center",
+								}}
+							>
+								<Icon
+									source={expanded ? "chevron-down" : "chevron-right"}
+									size={icon.sm}
+									color={theme.colors.onSurfaceVariant}
+								/>
+							</Pressable>
+						) : (
+							<View style={{ width: icon.sm + space.xs }} />
+						)}
 
-				{/* The identity mark: the place's own glyph in its own color,
+						{/* The identity mark: the place's own glyph in its own color,
 				    resolved by scheme — a bare colored glyph, no fill behind it. */}
-				<Icon source={location.icon} size={icon.md} color={locationColor} />
+						<Icon source={location.icon} size={icon.md} color={locationColor} />
 
-				<Pressable
-					accessible
-					accessibilityRole="button"
-					accessibilityLabel={t("locations.open", { name: location.title })}
-					accessibilityState={{
-						disabled: dimmed,
-						selected,
-					}}
-					onPress={
-						dimmed
-							? undefined
-							: () => (move ? move.onSelect(location) : onOpen(location))
-					}
-					style={{
-						flex: 1,
-						minHeight: touchTarget,
-						justifyContent: "center",
-					}}
-				>
-					<Text variant="bodyLarge">{location.title}</Text>
-				</Pressable>
+						<Pressable
+							accessible
+							accessibilityRole="button"
+							accessibilityLabel={t("locations.open", { name: location.title })}
+							accessibilityState={{
+								disabled: dimmed,
+								selected,
+							}}
+							onPress={
+								dimmed
+									? undefined
+									: () => (move ? move.onSelect(location) : onOpen(location))
+							}
+							style={{
+								flex: 1,
+								minHeight: touchTarget,
+								justifyContent: "center",
+							}}
+						>
+							<Text variant="bodyLarge">{location.title}</Text>
+						</Pressable>
 
-				{/* The open count, rolled up through the subtree and right-aligned
+						{/* The open count, rolled up through the subtree and right-aligned
 				    left of the menu, quiet. Nothing is drawn at zero — an empty
 				    place says nothing rather than saying 0 (#205). */}
-				{count > 0 ? (
-					<Text
-						variant="bodySmall"
-						style={{ color: theme.colors.onSurfaceVariant }}
-					>
-						{count}
-					</Text>
-				) : null}
+						{count > 0 ? (
+							<Text
+								variant="bodySmall"
+								style={{ color: theme.colors.onSurfaceVariant }}
+							>
+								{count}
+							</Text>
+						) : null}
 
-				{/* The confirmed destination carries its mark in its own row, so
-				    the bar's sentence and the tree agree at a glance. */}
-				{selected ? (
-					<Icon source="check" size={icon.md} color={theme.colors.primary} />
-				) : null}
-
-				<Menu
-					visible={open}
-					onDismiss={close}
-					overlayAccessibilityLabel={t("common.closeMenu")}
-					anchor={
-						<View ref={anchor}>
-							<IconButton
-								icon="dots-vertical"
-								size={icon.sm}
-								accessibilityLabel={t("locations.actions")}
-								disabled={move !== undefined}
-								onPress={(event) => {
-									event.stopPropagation();
-									setOpen(true);
-								}}
-								style={{
-									width: touchTarget,
-									height: touchTarget,
-									margin: space.none,
-								}}
+						{/* The confirmed destination — or the row a carried place is
+					    over — carries its mark in its own row, so the bar's sentence
+					    and the tree agree at a glance. */}
+						{selected || aimed ? (
+							<Icon
+								source="check"
+								size={icon.md}
+								color={theme.colors.primary}
 							/>
-						</View>
-					}
-				>
-					<View>
-						<Menu.Item
-							leadingIcon="plus"
-							title={t("locations.addUnder")}
-							onPress={() => {
-								close();
-								onAddUnder(location);
-							}}
-						/>
-						<Menu.Item
-							leadingIcon="arrow-up"
-							title={t("locations.moveUp")}
-							disabled={siblingIndex === 0}
-							onPress={() => reorder(-1)}
-						/>
-						<Menu.Item
-							leadingIcon="arrow-down"
-							title={t("locations.moveDown")}
-							disabled={siblingIndex === siblings.length - 1}
-							onPress={() => reorder(1)}
-						/>
-						<Menu.Item
-							leadingIcon="file-tree-outline"
-							title={t("locations.moveUnder")}
-							onPress={() => {
-								close();
-								onMoveUnder(location);
-							}}
-							disabled={!online}
-						/>
-						<Menu.Item
-							leadingIcon="pencil-outline"
-							title={t("locations.edit")}
-							onPress={() => {
-								close();
-								setEditing(true);
-							}}
-						/>
-						<Menu.Item
-							leadingIcon="delete-outline"
-							title={t("locations.delete")}
-							onPress={() => {
-								close();
-								setDeleting(true);
-							}}
-							disabled={!online}
-						/>
-						{/* Both disabled ones read from the server on purpose, so the
+						) : null}
+
+						<Menu
+							visible={open}
+							onDismiss={close}
+							overlayAccessibilityLabel={t("common.closeMenu")}
+							anchor={
+								<View ref={anchor}>
+									<IconButton
+										icon="dots-vertical"
+										size={icon.sm}
+										accessibilityLabel={t("locations.actions")}
+										disabled={move !== undefined}
+										onPress={(event) => {
+											event.stopPropagation();
+											setOpen(true);
+										}}
+										style={{
+											width: touchTarget,
+											height: touchTarget,
+											margin: space.none,
+										}}
+									/>
+								</View>
+							}
+						>
+							<View>
+								<Menu.Item
+									leadingIcon="plus"
+									title={t("locations.addUnder")}
+									onPress={() => {
+										close();
+										onAddUnder(location);
+									}}
+								/>
+								<Menu.Item
+									leadingIcon="arrow-up"
+									title={t("locations.moveUp")}
+									disabled={siblingIndex === 0}
+									onPress={() => reorder(-1)}
+								/>
+								<Menu.Item
+									leadingIcon="arrow-down"
+									title={t("locations.moveDown")}
+									disabled={siblingIndex === siblings.length - 1}
+									onPress={() => reorder(1)}
+								/>
+								<Menu.Item
+									leadingIcon="file-tree-outline"
+									title={t("locations.moveUnder")}
+									onPress={() => {
+										close();
+										onMoveUnder(location);
+									}}
+									disabled={!online}
+								/>
+								<Menu.Item
+									leadingIcon="pencil-outline"
+									title={t("locations.edit")}
+									onPress={() => {
+										close();
+										setEditing(true);
+									}}
+								/>
+								<Menu.Item
+									leadingIcon="delete-outline"
+									title={t("locations.delete")}
+									onPress={() => {
+										close();
+										setDeleting(true);
+									}}
+									disabled={!online}
+								/>
+								{/* Both disabled ones read from the server on purpose, so the
 						    hint says what they need rather than letting the tap fail
 						    after the fact. */}
-						{online ? null : (
-							<Menu.Item disabled title={t("board.offlineHint")} />
-						)}
+								{online ? null : (
+									<Menu.Item disabled title={t("board.offlineHint")} />
+								)}
+							</View>
+						</Menu>
 					</View>
-				</Menu>
+				</DragArea>
 			</View>
 
 			{/* Mounted only while open — each dialog carries a `Portal`, and a
@@ -443,3 +503,61 @@ export function LocationRow({
 		</View>
 	);
 }
+
+/**
+ * The carried place, drawn at screen level and under the finger — the same
+ * picture the board's drag flies over the columns. The row it belongs to stays
+ * mounted where it was, so the gesture never loses its owner.
+ */
+export function LocationDragOverlay({ drag }: { drag: LocationDrag }) {
+	const theme = useAppTheme();
+	// Reduced motion keeps the copy at its own size, following the finger only.
+	const reduced = useReducedMotion();
+	const color = useLocationColor(drag.dragged?.color ?? "");
+	if (drag.dragged === null || drag.overlay === null) return null;
+
+	const { overlay } = drag;
+	return (
+		<Animated.View
+			style={{
+				position: "absolute",
+				// The copy is a picture under the hand: what it passes over stays
+				// reachable by the hit test underneath it.
+				pointerEvents: "none",
+				left: overlay.left,
+				top: overlay.top,
+				width: overlay.width,
+				transform: [
+					{ translateX: drag.offset.x },
+					{ translateY: drag.offset.y },
+					...(reduced ? [] : [{ scale: dragTokens.lift }]),
+				],
+			}}
+		>
+			<Surface
+				elevation={elevation.high}
+				style={{
+					flexDirection: "row",
+					alignItems: "center",
+					gap: space.sm,
+					padding: space.md,
+					borderRadius: radius.md,
+					backgroundColor: theme.colors.background,
+				}}
+			>
+				<Icon source={drag.dragged.icon} size={icon.md} color={color} />
+				<Text variant="bodyLarge" numberOfLines={1}>
+					{drag.dragged.title}
+				</Text>
+			</Surface>
+		</Animated.View>
+	);
+}
+
+/** Where a row's `DragArea` callbacks go while no drag owns the tree. */
+const noGestures: LocationDragHandlers = {
+	onGrab: () => undefined,
+	onMove: () => undefined,
+	onDrop: () => undefined,
+	onCancel: () => undefined,
+};

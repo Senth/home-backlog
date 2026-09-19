@@ -5,7 +5,6 @@ import type {
 	WriteBatch,
 } from "firebase/firestore";
 import {
-	compareLocations,
 	createLocation,
 	deleteLocation,
 	editLocation,
@@ -13,7 +12,7 @@ import {
 	moveLocation,
 	reorderLocation,
 } from "@/data/locations";
-import type { Location } from "@/models/locations";
+import { compareLocations, type Location } from "@/models/locations";
 
 jest.mock("@/config/firebase", () => ({ db: {} }));
 

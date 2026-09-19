@@ -2,9 +2,13 @@ import type { DocumentData, QuerySnapshot } from "firebase/firestore";
 import { onSnapshot } from "firebase/firestore";
 import { useCallback, useEffect, useState } from "react";
 import { isQueryAnswer, subscribeWithRetry } from "@/data/live-query";
-import { compareLocations, locationsQuery } from "@/data/locations";
+import { locationsQuery } from "@/data/locations";
 import { isOnline } from "@/hooks/use-online-status";
-import { type Location, toLocation } from "@/models/locations";
+import {
+	compareLocations,
+	type Location,
+	toLocation,
+} from "@/models/locations";
 
 /**
  * The whole location tree for the home, in one listener.

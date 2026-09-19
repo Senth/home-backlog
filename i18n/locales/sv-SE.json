@@ -132,7 +132,9 @@
 		"deleteBody": "{{name}} och allt under den tas bort. Det går inte att ångra.",
 		"emptyTitle": "Lägg till platserna runt ditt hem",
 		"emptyBody": "Trädgården, källaren, stugan — bygg trädet nu, lägg in arbetet i det senare.",
-		"actions": "Platsåtgärder"
+		"actions": "Platsåtgärder",
+		"dragOffline": "Offline — att dra en plats kräver en anslutning.",
+		"putBack": "Lade tillbaka den där den stod."
 	},
 	"homes": {
 		"title": "Mina hem",

@@ -106,10 +106,30 @@ export function inSubtree(location: Location, id: string): boolean {
 
 /** The children of one place, in no order — the tree sort orders the level. */
 export function childLocations(
-	locations: Location[],
+	locations: readonly Location[],
 	parentId: string | null,
 ): Location[] {
 	return locations.filter((location) => location.parentId === parentId);
+}
+
+/**
+ * The tree sort: by parent, then rank, then id.
+ *
+ * A location's document order is Firestore's, which is arrival order — the
+ * tree screen needs siblings together and in rank order, with the roots
+ * first so the tree reads top-down. The id breaks rank ties the way
+ * `compareNodes` does: two devices offline can produce the same rank between
+ * the same neighbours, and a tie that resolves by arrival order renders
+ * differently on every device.
+ */
+export function compareLocations(a: Location, b: Location): number {
+	if (a.parentId !== b.parentId) {
+		if (a.parentId === null) return -1;
+		if (b.parentId === null) return 1;
+		return a.parentId < b.parentId ? -1 : 1;
+	}
+	if (a.rank !== b.rank) return a.rank < b.rank ? -1 : 1;
+	return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
 /** Why a typed place name cannot be saved, as the key that says so (#205). */
