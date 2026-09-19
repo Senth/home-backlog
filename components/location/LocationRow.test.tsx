@@ -69,9 +69,10 @@ function renderRow(overrides: Partial<Parameters<typeof LocationRow>[0]> = {}) {
 					counts={new Map([["house", 2]])}
 					onToggle={onToggle}
 					onOpen={onOpen}
+					onAddUnder={jest.fn()}
+					onMoveUnder={jest.fn()}
 					locations={[house]}
 					online
-					onAddUnder={jest.fn()}
 					onError={jest.fn()}
 					{...overrides}
 				/>
@@ -175,9 +176,10 @@ describe("LocationRow", () => {
 						counts={new Map()}
 						onToggle={jest.fn()}
 						onOpen={jest.fn()}
+						onAddUnder={jest.fn()}
+						onMoveUnder={jest.fn()}
 						locations={[house]}
 						online
-						onAddUnder={jest.fn()}
 						onError={jest.fn()}
 					/>
 				</ThemeProvider>

@@ -1,12 +1,14 @@
+import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, useWindowDimensions, View } from "react-native";
+import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import {
 	ActivityIndicator,
 	Appbar,
 	Button,
 	FAB,
+	Icon,
 	Snackbar,
 	Text,
 } from "react-native-paper";
@@ -15,17 +17,30 @@ import { LocationDialog } from "@/components/location/LocationDialog";
 import { LocationTree } from "@/components/location/LocationRow";
 import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
+import { locationErrorKey, moveLocation } from "@/data/locations";
 import { useBoardFilter } from "@/hooks/use-board-filter";
+import { useEscapeCancel } from "@/hooks/use-escape-cancel";
 import { useLocationCounts } from "@/hooks/use-location-counts";
 import { useLocations } from "@/hooks/use-locations";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { locationFilter } from "@/models/board-filter";
+import {
+	beginMove,
+	cancelMove,
+	idleMove,
+	type MoveMode,
+	selectDestination,
+} from "@/models/location-move";
 import { childLocations, type Location } from "@/models/locations";
+import { rankAtEnd } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import {
+	border,
 	contentWidth,
 	denseBreakpoint,
 	fab as fabTokens,
+	icon,
+	radius,
 	space,
 	touchTarget,
 } from "@/theme/tokens";
@@ -68,10 +83,24 @@ export default function Locations() {
 	const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 	/** Cards hidden by default (#205); the toggle is the control row's. */
 	const [cardsOpen, setCardsOpen] = useState(false);
+	/** The move-under mode (Q14) — idle means the tree browses. */
+	const [move, setMove] = useState<MoveMode>(idleMove);
 	const [adding, setAdding] = useState<AddTarget>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [fabHeight, setFabHeight] = useState(0);
 	const openerRef = useRef<View | null>(null);
+	const navigation = useNavigation();
+
+	// The tab bar stays live, and leaving cancels silently: a blur ends the
+	// mode before another tab can act on a half-run one.
+	useEffect(
+		() => navigation.addListener("blur", () => setMove(idleMove)),
+		[navigation],
+	);
+
+	// Escape and the back gesture answer the same cancel — a mode is not a
+	// navigation push, so the back button must not leave the screen.
+	useEscapeCancel(move.phase !== "idle", () => setMove(cancelMove()));
 
 	/** The card face's location facts: id → title, from the one tree listener. */
 	const locationTitles = new Map(locations.map((l) => [l.id, l.title]));
@@ -116,15 +145,59 @@ export default function Locations() {
 		router.push("/projects");
 	};
 
+	/**
+	 * The move itself, written only from the confirm phase: one batch, the
+	 * moved place at the end of its new siblings. Offline the write reads the
+	 * subtree from the server and fails loudly, which is why the menu item
+	 * that starts the mode is disabled offline instead.
+	 */
+	const confirmMove = () => {
+		if (move.phase !== "confirm" || homeId === null) return;
+		const { moving, parent } = move;
+		setMove(idleMove);
+		const siblings = childLocations(locations, parent?.id ?? null);
+		moveLocation(
+			homeId,
+			moving,
+			parent,
+			rankAtEnd(siblings.at(-1)?.rank ?? null),
+		).catch((reason) => {
+			console.error("Could not move the location:", reason);
+			setError(locationErrorKey(reason));
+		});
+	};
+
 	const empty = !loading && !failed && locations.length === 0;
 	const showTree = !loading && !failed && locations.length > 0;
+	const moveActive = move.phase !== "idle";
+
+	const footBarStyle = {
+		position: "absolute" as const,
+		left: space.md,
+		right: space.md,
+		bottom: space.md,
+		flexDirection: "row" as const,
+		alignItems: "center" as const,
+		gap: space.sm,
+		padding: space.md,
+		borderRadius: radius.md,
+		backgroundColor: theme.colors.elevation.level2,
+	};
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
 			<Appbar.Header>
 				<BackAction
-					accessibilityLabel={t("homes.title")}
-					onPress={() => router.push("/homes")}
+					accessibilityLabel={
+						moveActive ? t("common.cancel") : t("homes.title")
+					}
+					onPress={() => {
+						if (moveActive) {
+							setMove(cancelMove());
+						} else {
+							router.push("/homes");
+						}
+					}}
 				/>
 				<Appbar.Content title={activeHome?.name ?? ""} />
 				<AccountMenu />
@@ -245,6 +318,52 @@ export default function Locations() {
 					</View>
 				) : null}
 
+				{/* The mode's synthetic row, pinned above the tree and visible only
+				    during a move (Q14): every destination, the top level included,
+				    is then one list. Refused is impossible here — the top level is
+				    no place's subtree. */}
+				{moveActive ? (
+					<Pressable
+						accessible
+						accessibilityRole="button"
+						accessibilityLabel={t("locations.moveUnderTop")}
+						accessibilityState={{
+							selected: move.phase === "confirm" && move.parent === null,
+						}}
+						onPress={() => setMove(selectDestination(move, null))}
+						style={{
+							flexDirection: "row",
+							alignItems: "center",
+							gap: space.sm,
+							minHeight: touchTarget,
+							marginBottom: space.sm,
+							paddingHorizontal: space.sm,
+							borderRadius: radius.md,
+							borderWidth: border.hairline,
+							borderColor:
+								move.phase === "confirm" && move.parent === null
+									? theme.colors.primary
+									: theme.colors.outlineVariant,
+						}}
+					>
+						<Icon
+							source="home-variant-outline"
+							size={icon.md}
+							color={theme.colors.onSurfaceVariant}
+						/>
+						<Text variant="bodyLarge" style={{ flex: 1 }}>
+							{t("locations.moveUnderTop")}
+						</Text>
+						{move.phase === "confirm" && move.parent === null ? (
+							<Icon
+								source="check"
+								size={icon.md}
+								color={theme.colors.primary}
+							/>
+						) : null}
+					</Pressable>
+				) : null}
+
 				{showTree ? (
 					<LocationTree
 						locations={locations}
@@ -254,10 +373,14 @@ export default function Locations() {
 						cardsOpen={cardsOpen}
 						pool={pool}
 						locationTitles={locationTitles}
+						mode={move}
 						onToggle={toggle}
 						onOpen={openPlace}
 						onAddUnder={(parent) => setAdding({ parent })}
-						onMoreCards={openPlace}
+						onMoveUnder={(location) => setMove(beginMove(location))}
+						onSelectDestination={(parent) =>
+							setMove(selectDestination(move, parent))
+						}
 						onError={setError}
 						homeId={homeId ?? ""}
 						online={online}
@@ -269,7 +392,9 @@ export default function Locations() {
 			    a share of the width it floats over, and the words over the glyph
 			    below `denseBreakpoint`. Stands down while the empty state is up —
 			    its button is then the one create control. */}
-			{showTree ? (
+			{/* The FAB stands down while a move runs — the foot bar below is then
+			    the loudest shape on the screen, and the mode is unmistakable. */}
+			{showTree && !moveActive ? (
 				<FAB
 					ref={openerRef}
 					icon={width < denseBreakpoint ? undefined : "plus"}
@@ -283,6 +408,43 @@ export default function Locations() {
 						maxWidth: width * fabTokens.widthShare,
 					}}
 				/>
+			) : null}
+
+			{/* The mode's foot bar: first it asks, then it confirms (Q14).
+			    Confirm is the one contained-tonal action — the affirmative — and
+			    Cancel and Escape and back all answer the same way: idle, with
+			    nothing written. */}
+			{move.phase === "choose" ? (
+				<View style={footBarStyle}>
+					<Text variant="bodyLarge">
+						{t("locations.moveBar", { name: move.moving.title })}
+					</Text>
+				</View>
+			) : null}
+			{move.phase === "confirm" ? (
+				<View style={footBarStyle}>
+					<Text variant="bodyLarge" style={{ flex: 1 }}>
+						{t("locations.moveConfirm", {
+							name: move.moving.title,
+							destination: move.parent?.title ?? t("locations.moveUnderTop"),
+						})}
+					</Text>
+					<Button
+						mode="text"
+						onPress={() => setMove(cancelMove())}
+						textColor={theme.colors.onSurfaceVariant}
+						contentStyle={{ minHeight: touchTarget }}
+					>
+						{t("common.cancel")}
+					</Button>
+					<Button
+						mode="contained-tonal"
+						onPress={confirmMove}
+						contentStyle={{ minHeight: touchTarget }}
+					>
+						{t("locations.moveHere")}
+					</Button>
+				</View>
 			) : null}
 
 			{adding !== null ? (

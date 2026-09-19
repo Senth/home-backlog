@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Icon, IconButton, Menu, Text } from "react-native-paper";
 import { LocationCards } from "@/components/location/LocationCards";
 import { LocationDialog } from "@/components/location/LocationDialog";
@@ -8,17 +8,24 @@ import { ConfirmDialog } from "@/components/ui/AppDialog";
 import {
 	deleteLocation,
 	locationErrorKey,
-	moveLocation,
 	reorderLocation,
 } from "@/data/locations";
 import { useLocationColor } from "@/hooks/use-location-color";
-import { childLocations, inSubtree, type Location } from "@/models/locations";
-import { movedRank, type Node, rankAtEnd } from "@/models/node";
+import { destinationRefused, type MoveMode } from "@/models/location-move";
+import { childLocations, type Location } from "@/models/locations";
+import { movedRank, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { border, icon, space, touchTarget } from "@/theme/tokens";
 
-/** `null` is the top level. */
-type RowPage = "root" | "under";
+/** What a row needs while a move-under mode is running (#205). */
+export interface MoveSelection {
+	/** The place being moved; its own subtree is refused, in place. */
+	movingId: string;
+	/** The confirmed destination, if one is; `null` selects the top level. */
+	selectedId: string | null;
+	/** A row tap that selects. */
+	onSelect: (location: Location) => void;
+}
 
 interface LocationTreeProps {
 	locations: Location[];
@@ -32,10 +39,13 @@ interface LocationTreeProps {
 	pool: readonly Node[];
 	/** Location id → title, as the card faces read. */
 	locationTitles: ReadonlyMap<string, string>;
+	/** The move-under mode, exactly as the screen holds it. */
+	mode: MoveMode;
 	onToggle: (id: string) => void;
 	onOpen: (location: Location) => void;
 	onAddUnder: (parent: Location) => void;
-	onMoreCards: (location: Location) => void;
+	onMoveUnder: (location: Location) => void;
+	onSelectDestination: (parent: Location | null) => void;
 	onError: (message: string) => void;
 	homeId: string;
 	online: boolean;
@@ -60,10 +70,12 @@ export function LocationTree({
 	cardsOpen,
 	pool,
 	locationTitles,
+	mode,
 	onToggle,
 	onOpen,
 	onAddUnder,
-	onMoreCards,
+	onMoveUnder,
+	onSelectDestination,
 	onError,
 	homeId,
 	online,
@@ -75,6 +87,16 @@ export function LocationTree({
 		borderLeftColor: theme.colors.outlineVariant,
 		paddingLeft: space.xs - border.hairline,
 	};
+
+	const move: MoveSelection | undefined =
+		mode.phase === "idle"
+			? undefined
+			: {
+					movingId: mode.moving.id,
+					selectedId:
+						mode.phase === "confirm" ? (mode.parent?.id ?? null) : null,
+					onSelect: onSelectDestination,
+				};
 
 	return (
 		<View>
@@ -89,19 +111,21 @@ export function LocationTree({
 							hasChildren={hasChildren}
 							expanded={expanded}
 							counts={counts}
+							move={move}
 							onToggle={onToggle}
 							onOpen={onOpen}
+							onAddUnder={onAddUnder}
+							onMoveUnder={onMoveUnder}
 							locations={locations}
 							online={online}
-							onAddUnder={onAddUnder}
 							onError={onError}
 						/>
-						{cardsOpen ? (
+						{cardsOpen && mode.phase === "idle" ? (
 							<LocationCards
 								location={location}
 								pool={pool}
 								locationTitles={locationTitles}
-								onMore={onMoreCards}
+								onMore={onOpen}
 							/>
 						) : null}
 						{hasChildren && expanded ? (
@@ -114,10 +138,12 @@ export function LocationTree({
 									cardsOpen={cardsOpen}
 									pool={pool}
 									locationTitles={locationTitles}
+									mode={mode}
 									onToggle={onToggle}
 									onOpen={onOpen}
 									onAddUnder={onAddUnder}
-									onMoreCards={onMoreCards}
+									onMoveUnder={onMoveUnder}
+									onSelectDestination={onSelectDestination}
 									onError={onError}
 									homeId={homeId}
 									online={online}
@@ -138,12 +164,15 @@ interface LocationRowProps {
 	expanded: boolean;
 	/** The open count per place, rolled up — what the row draws. */
 	counts: ReadonlyMap<string, number>;
+	/** Present only while the move-under mode is running. */
+	move?: MoveSelection;
 	onToggle: (id: string) => void;
 	onOpen: (location: Location) => void;
-	/** Every location in the home — the move picker's destinations. */
+	onAddUnder: (parent: Location) => void;
+	onMoveUnder: (location: Location) => void;
+	/** Every location in the home. */
 	locations: Location[];
 	online: boolean;
-	onAddUnder: (parent: Location) => void;
 	onError: (message: string) => void;
 }
 
@@ -158,9 +187,9 @@ interface LocationRowProps {
  * band), so a childless name lines up with a nested one at every depth and
  * text size.
  *
- * The menu changes *page* rather than opening a submenu, and the pages after
- * the first scroll inside the height Paper measured on the first one — the
- * same one-measurement shape `CardMenu` works around.
+ * While a move-under mode runs, the name selects a destination instead of
+ * navigating, the menu stands down, and the moved place's own subtree is
+ * dimmed and unpickable — the mode must be unmistakable (Q14).
  */
 export function LocationRow({
 	homeId,
@@ -168,11 +197,13 @@ export function LocationRow({
 	hasChildren,
 	expanded,
 	counts,
+	move,
 	onToggle,
 	onOpen,
+	onAddUnder,
+	onMoveUnder,
 	locations,
 	online,
-	onAddUnder,
 	onError,
 }: LocationRowProps) {
 	const { t } = useTranslation();
@@ -181,36 +212,15 @@ export function LocationRow({
 	const count = counts.get(location.id) ?? 0;
 	const anchor = useRef<View | null>(null);
 	const [open, setOpen] = useState(false);
-	const [page, setPage] = useState<RowPage>("root");
 	const [editing, setEditing] = useState(false);
 	const [deleting, setDeleting] = useState(false);
-	const [rootPageHeight, setRootPageHeight] = useState<number | undefined>(
-		undefined,
-	);
 
-	const close = () => {
-		setOpen(false);
-		setPage("root");
-	};
+	const dimmed =
+		move !== undefined && destinationRefused(location, move.movingId);
+	const selected =
+		move !== undefined && move.selectedId === location.id && !dimmed;
 
-	/**
-	 * Moving the place and everything under it. The moved place's own subtree
-	 * is disabled in the picker, so the throw in `moveLocation` should never
-	 * fire — it is the write-time backstop, not the refusal.
-	 */
-	const moveUnder = (parent: Location | null) => {
-		close();
-		const siblings = childLocations(locations, parent?.id ?? null);
-		moveLocation(
-			homeId,
-			location,
-			parent,
-			rankAtEnd(siblings.at(-1)?.rank ?? null),
-		).catch((reason) => {
-			console.error("Could not move the location:", reason);
-			onError(locationErrorKey(reason));
-		});
-	};
+	const close = () => setOpen(false);
 
 	const siblings = childLocations(locations, location.parentId);
 	const siblingIndex = siblings.findIndex((each) => each.id === location.id);
@@ -243,6 +253,9 @@ export function LocationRow({
 					gap: space.sm,
 					paddingVertical: space.xs,
 					paddingRight: space.sm,
+					// Dim, never hide: the refused rows stay on the map, so what
+					// cannot be chosen is still legible as the tree it belongs to.
+					opacity: dimmed ? 0.4 : 1,
 				}}
 			>
 				{/* The chevron's own button, present only where there is something
@@ -283,7 +296,15 @@ export function LocationRow({
 					accessible
 					accessibilityRole="button"
 					accessibilityLabel={t("locations.open", { name: location.title })}
-					onPress={() => onOpen(location)}
+					accessibilityState={{
+						disabled: dimmed,
+						selected,
+					}}
+					onPress={
+						dimmed
+							? undefined
+							: () => (move ? move.onSelect(location) : onOpen(location))
+					}
 					style={{
 						flex: 1,
 						minHeight: touchTarget,
@@ -305,6 +326,12 @@ export function LocationRow({
 					</Text>
 				) : null}
 
+				{/* The confirmed destination carries its mark in its own row, so
+				    the bar's sentence and the tree agree at a glance. */}
+				{selected ? (
+					<Icon source="check" size={icon.md} color={theme.colors.primary} />
+				) : null}
+
 				<Menu
 					visible={open}
 					onDismiss={close}
@@ -315,8 +342,7 @@ export function LocationRow({
 								icon="dots-vertical"
 								size={icon.sm}
 								accessibilityLabel={t("locations.actions")}
-								// Without this the row underneath takes the tap as well
-								// and the menu opens while the name navigates.
+								disabled={move !== undefined}
 								onPress={(event) => {
 									event.stopPropagation();
 									setOpen(true);
@@ -330,80 +356,60 @@ export function LocationRow({
 						</View>
 					}
 				>
-					{page === "root" ? (
-						<View
-							onLayout={(event) =>
-								setRootPageHeight(event.nativeEvent.layout.height)
-							}
-						>
-							<Menu.Item
-								leadingIcon="plus"
-								title={t("locations.addUnder")}
-								onPress={() => {
-									close();
-									onAddUnder(location);
-								}}
-							/>
-							<Menu.Item
-								leadingIcon="arrow-up"
-								title={t("locations.moveUp")}
-								disabled={siblingIndex === 0}
-								onPress={() => reorder(-1)}
-							/>
-							<Menu.Item
-								leadingIcon="arrow-down"
-								title={t("locations.moveDown")}
-								disabled={siblingIndex === siblings.length - 1}
-								onPress={() => reorder(1)}
-							/>
-							<Menu.Item
-								leadingIcon="file-tree-outline"
-								title={t("locations.moveUnder")}
-								onPress={() => setPage("under")}
-								disabled={!online}
-							/>
-							<Menu.Item
-								leadingIcon="pencil-outline"
-								title={t("locations.edit")}
-								onPress={() => {
-									close();
-									setEditing(true);
-								}}
-							/>
-							<Menu.Item
-								leadingIcon="delete-outline"
-								title={t("locations.delete")}
-								onPress={() => {
-									close();
-									setDeleting(true);
-								}}
-								disabled={!online}
-							/>
-							{/* Both disabled ones read from the server on purpose, so the
-							    hint says what they need rather than letting the tap fail
-							    after the fact. */}
-							{online ? null : (
-								<Menu.Item disabled title={t("board.offlineHint")} />
-							)}
-						</View>
-					) : (
-						<ScrollView style={{ maxHeight: rootPageHeight }}>
-							<Menu.Item
-								title={t("locations.moveUnderTop")}
-								onPress={() => moveUnder(null)}
-							/>
-							{locations.map((candidate) => (
-								<Menu.Item
-									key={candidate.id}
-									title={candidate.title}
-									onPress={() => moveUnder(candidate)}
-									// The moved place's own subtree, itself included: the
-									// refusal is visible before it is committed.
-									disabled={inSubtree(candidate, location.id)}
-								/>
-							))}
-						</ScrollView>
-					)}
+					<View>
+						<Menu.Item
+							leadingIcon="plus"
+							title={t("locations.addUnder")}
+							onPress={() => {
+								close();
+								onAddUnder(location);
+							}}
+						/>
+						<Menu.Item
+							leadingIcon="arrow-up"
+							title={t("locations.moveUp")}
+							disabled={siblingIndex === 0}
+							onPress={() => reorder(-1)}
+						/>
+						<Menu.Item
+							leadingIcon="arrow-down"
+							title={t("locations.moveDown")}
+							disabled={siblingIndex === siblings.length - 1}
+							onPress={() => reorder(1)}
+						/>
+						<Menu.Item
+							leadingIcon="file-tree-outline"
+							title={t("locations.moveUnder")}
+							onPress={() => {
+								close();
+								onMoveUnder(location);
+							}}
+							disabled={!online}
+						/>
+						<Menu.Item
+							leadingIcon="pencil-outline"
+							title={t("locations.edit")}
+							onPress={() => {
+								close();
+								setEditing(true);
+							}}
+						/>
+						<Menu.Item
+							leadingIcon="delete-outline"
+							title={t("locations.delete")}
+							onPress={() => {
+								close();
+								setDeleting(true);
+							}}
+							disabled={!online}
+						/>
+						{/* Both disabled ones read from the server on purpose, so the
+						    hint says what they need rather than letting the tap fail
+						    after the fact. */}
+						{online ? null : (
+							<Menu.Item disabled title={t("board.offlineHint")} />
+						)}
+					</View>
 				</Menu>
 			</View>
 
