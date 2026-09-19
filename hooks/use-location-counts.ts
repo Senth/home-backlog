@@ -18,9 +18,6 @@ export function useLocationCounts(homeId: string | null): {
 	pool: Node[];
 	/** The open count per place, rolled up through the subtree. */
 	counts: ReadonlyMap<string, number>;
-	loading: boolean;
-	failed: boolean;
-	retry: () => void;
 } {
 	const { user } = useAuth();
 	const uid = user?.uid ?? null;
@@ -40,8 +37,5 @@ export function useLocationCounts(homeId: string | null): {
 	return {
 		pool: pool.nodes,
 		counts,
-		loading: pool.loading,
-		failed: pool.failed,
-		retry: pool.retry,
 	};
 }

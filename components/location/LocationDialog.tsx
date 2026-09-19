@@ -71,7 +71,11 @@ export function LocationDialog({
 	const [pickingIcon, setPickingIcon] = useState(false);
 
 	const save = () => {
-		const problem = locationTitleError(title);
+		// Trimmed once, here, like the removed rename path did: the stored
+		// title has no leading or trailing spaces, and the change detection
+		// below compares like with like.
+		const trimmed = title.trim();
+		const problem = locationTitleError(trimmed);
 		if (problem !== null) {
 			setTitleProblem(problem);
 			return;
@@ -81,7 +85,7 @@ export function LocationDialog({
 		onDismiss();
 		if (location === null) {
 			createLocation(homeId, user.uid, {
-				title,
+				title: trimmed,
 				icon,
 				color,
 				parent,
@@ -93,7 +97,7 @@ export function LocationDialog({
 		// Only what changed — two members editing different facts merge at the
 		// field path, so untouched writes would queue for nothing.
 		const changes: { title?: string; icon?: string; color?: string } = {};
-		if (title.trim() !== location.title) changes.title = title;
+		if (trimmed !== location.title) changes.title = trimmed;
 		if (icon !== location.icon) changes.icon = icon;
 		if (color !== location.color) changes.color = color;
 		if (Object.keys(changes).length > 0)

@@ -58,8 +58,8 @@ export function LocationCards({
 
 	// Blockers resolve against the open pool — the same answer Overview gives,
 	// from the same listener. A blocker it cannot answer keeps the card
-	// waiting, the not-yet direction the board and details take.
-	const blockers = new Map(pool.map((node) => [node.id, node]));
+	// waiting, the not-yet direction the board and details take. The same map
+	// is also the ancestor walk's titles.
 	const byId = new Map(pool.map((node) => [node.id, node]));
 
 	return (
@@ -90,7 +90,7 @@ export function LocationCards({
 							node={node}
 							wide={width >= compactBreakpoint}
 							narrow={column !== null && column < cardGutterBreakpoint}
-							blockers={blockers}
+							blockers={byId}
 							path={node.ancestorIds.map((id) => byId.get(id)?.title ?? null)}
 							locations={locationTitles}
 							// The card sits inside the very place's row; the footer

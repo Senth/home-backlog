@@ -542,10 +542,13 @@ service cloud.firestore {
       // anything and no counters to keep in step. New collection, no legacy
       // documents — so unlike the node fields, nothing here is validated
       // present-only; every document carries every field from the first one.
-      // `icon` and `color` (#205) are required outright for the same reason —
-      // both are always written — and what the rules can hold them to is
-      // presence and type; the grammar (a MaterialCommunityIcons glyph name,
-      // one of the twelve hue names or a #rgb / #rrggbb hex) is the REST
+      // `icon` and `color` (#205) are required on create — both are always
+      // written — but not on update: documents written before they joined
+      // carry neither, and every edit of those must still land. `toLocation`
+      // defaults them on read and the client writes both on any edit, so they
+      // stay populated in practice. What the rules can hold them to on create
+      // is presence and type; the grammar (a MaterialCommunityIcons glyph
+      // name, one of the twelve hue names or a #rgb / #rrggbb hex) is the REST
       // mirror's, in `validateLocation`, which the rules cannot spell.
       //
       // No get() anywhere: a location carries no inheritance invariant beyond
@@ -560,13 +563,21 @@ service cloud.firestore {
             && data.ancestorIds is list
             && data.rank is string
             && data.rank.size() > 0
-            && data.icon is string
-            && data.icon.size() > 0
-            && data.color is string
-            && data.color.size() > 0
             && data.createdAt is timestamp
             && data.createdBy is string
             && data.updatedAt is timestamp;
+        }
+
+        // The two fields an update may not require: documents written before
+        // `icon` and `color` joined (#205) carry neither, and renaming or
+        // moving one of those must not die permission-denied. Create still
+        // requires both — see the collection comment above.
+        function validLocationCreate(data) {
+          return validLocation(data)
+            && data.icon is string
+            && data.icon.size() > 0
+            && data.color is string
+            && data.color.size() > 0;
         }
 
         // The same structural check nodes use, with no get(): a rule's get()
@@ -593,7 +604,7 @@ service cloud.firestore {
 
         allow get, list: if isMember(homeId);
         allow create: if isMember(homeId)
-          && validLocation(request.resource.data)
+          && validLocationCreate(request.resource.data)
           && structure(request.resource.data);
         allow update: if isMember(homeId)
           && validLocation(request.resource.data)

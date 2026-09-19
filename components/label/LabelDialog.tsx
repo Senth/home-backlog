@@ -284,7 +284,9 @@ export function LabelDialog({
 interface SchemePreviewProps {
 	scheme: "light" | "dark";
 	label: LabelWithId;
-} /**
+}
+
+/**
  * One half of the preview: the settled card face, forced to a scheme. The
  * crumbs, the title and the gutter are the real components, so the preview
  * cannot drift from the board — a change to the card face is a change here.

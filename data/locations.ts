@@ -30,7 +30,7 @@ import { childAncestorIds, movedAncestorIds } from "@/models/node";
  * so the whole-collection query is provably safe: every document it can match
  * is one the caller may read.
  *
- * **Offline.** `createLocation` and `renameLocation` queue optimistically, the
+ * **Offline.** `createLocation` and `editLocation` queue optimistically, the
  * acknowledged-promise pattern `createNode` uses — nothing user-facing awaits
  * the promise. `moveLocation` and `deleteLocation` read the subtree from the
  * server first, so offline they fail loudly: the cache holds only the locations
