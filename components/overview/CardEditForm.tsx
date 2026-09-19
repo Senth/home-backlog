@@ -32,7 +32,7 @@ import {
 import type { Member } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
 import type { Location } from "@/models/locations";
-import { titleError } from "@/models/node";
+import { prioritiesHighFirst, titleError } from "@/models/node";
 import {
 	doneWithinDays,
 	maxDoneWithinDays,
@@ -129,8 +129,11 @@ export function fieldSpecs(
 			field: "priority",
 			label: t("detail.priority"),
 			kind: "anyOf",
+			// Urgent-first, the picker's order (#247), so the three places the
+			// four values list agree. "Not set" stays last; filtering reads the
+			// values, not the listing, so the match is unchanged.
 			values: [
-				...(["low", "normal", "high", "urgent"] as const).map((priority) => ({
+				...prioritiesHighFirst.map((priority) => ({
 					value: priority,
 					label: t(`priority.${priority}`),
 				})),
