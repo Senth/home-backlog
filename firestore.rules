@@ -337,7 +337,7 @@ service cloud.firestore {
             && data.get('attachmentCount', 0) is int
             && data.get('attachmentDisplay', 'count') in ['count', 'thumbnails', 'hero']
             && (data.get('heroAttachmentId', null) == null
-                || data.get('heroAttachmentId') is string)
+                || data.get('heroAttachmentId', null) is string)
             && data.archived is bool
             && (data.completedAt == null || data.completedAt is timestamp)
             // A completion date is not reconstructible after the fact, and

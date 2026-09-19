@@ -74,7 +74,7 @@ export const onObjectFinalized = onObjectFinalizedTrigger(
 		if (homeId === null) return;
 		await applyBytes(
 			homeId,
-			event.data?.size ?? 0,
+			Number(event.data?.size ?? 0),
 			event.data?.metadata?.uploadedBy,
 		);
 	},
@@ -87,7 +87,7 @@ export const onObjectDeleted = onObjectDeletedTrigger(
 		if (homeId === null) return;
 		await applyBytes(
 			homeId,
-			-(event.data?.size ?? 0),
+			-Number(event.data?.size ?? 0),
 			event.data?.metadata?.uploadedBy,
 		);
 	},

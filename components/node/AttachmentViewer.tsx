@@ -108,12 +108,14 @@ export function AttachmentViewer({
 			>
 				{/* The way out, above everything — Ingrid's quit condition is
 				    hunting for it, so it is a full target in the corner and not a
-				    gesture. */}
+				    gesture. Stacked above the image, which would otherwise win
+				    the tap over its own corner. */}
 				<View
 					style={{
 						position: "absolute",
 						top: space.md,
 						right: space.md,
+						zIndex: 1,
 					}}
 				>
 					<IconButton

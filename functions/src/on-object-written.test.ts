@@ -83,7 +83,7 @@ function documentHome(fields: Record<string, unknown>): void {
 /** A minimal object event; only what the handlers read is filled in. */
 function event(data: {
 	name?: string;
-	size?: number;
+	size?: number | string;
 	metadata?: Record<string, string>;
 }): Parameters<typeof onObjectFinalized>[0] {
 	return {
@@ -144,8 +144,11 @@ describe("the finalize handler", () => {
 	it("moves both counters by the size the platform reported", async () => {
 		documentHome({ name: "Home" });
 
+		// Cloud Storage reports `size` as a decimal string in the real event —
+		// the shape that once fed FieldValue.increment a string and killed the
+		// function.
 		await onObjectFinalized(
-			event({ name: PATH, size: 1024, metadata: { uploadedBy: "uidA" } }),
+			event({ name: PATH, size: "1024", metadata: { uploadedBy: "uidA" } }),
 		);
 
 		expect(store.get(`homes/${HOME}`)).toEqual({
@@ -184,7 +187,7 @@ describe("the delete handler", () => {
 		});
 
 		await onObjectDeleted(
-			event({ name: PATH, size: 1024, metadata: { uploadedBy: "uidA" } }),
+			event({ name: PATH, size: "1024", metadata: { uploadedBy: "uidA" } }),
 		);
 
 		expect(store.get(`homes/${HOME}`)).toEqual({

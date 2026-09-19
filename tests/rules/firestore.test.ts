@@ -1095,6 +1095,24 @@ describe("homes/{homeId}/nodes", () => {
 					}),
 				);
 			});
+
+			it("accepts a heroAttachmentId that is a string", async () => {
+				await assertSucceeds(
+					create(dbAs(env, MEMBER), "hero-struck", {
+						heroAttachmentId: "p1",
+					}),
+				);
+			});
+
+			it("accepts an update that sets a heroAttachmentId", async () => {
+				await seedNodes();
+
+				await assertSucceeds(
+					updateDoc(doc(dbAs(env, MEMBER), sharedPath), {
+						heroAttachmentId: "p1",
+					}),
+				);
+			});
 		});
 
 		it("keeps status and completedAt in agreement, both ways", async () => {
