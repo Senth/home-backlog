@@ -21,6 +21,8 @@ service firebase.storage {
   match /b/{bucket}/o {
     match /homes/{homeId}/nodes/{nodeId}/{attachmentId} {
       function isMember() {
+        // Cross-service read: needs roles/firebaserules.firestoreServiceAgent on
+        // the Storage service agent, granted by scripts/project-iam.sh --apply.
         return request.auth != null
           && firestore.get(/databases/(default)/documents/homes/$(homeId))
               .data.members.get(request.auth.uid, null) != null;

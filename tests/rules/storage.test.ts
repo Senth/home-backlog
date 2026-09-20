@@ -1,3 +1,6 @@
+// Emulators do not model IAM, so isMember()'s firestore.get() cross-service call
+// always succeeds here even without roles/firebaserules.firestoreServiceAgent —
+// see scripts/project-iam.sh for the grant that makes it work in production.
 import {
 	assertFails,
 	assertSucceeds,
