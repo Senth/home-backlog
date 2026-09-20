@@ -65,6 +65,15 @@ describe("attachmentErrorKey", () => {
 		);
 		expect(attachmentErrorKey(null)).toBe("detail.attachmentsFailed");
 	});
+
+	it("maps a rules denial to the refused sentence, not the retry one", () => {
+		expect(attachmentErrorKey({ code: "storage/unauthorized" })).toBe(
+			"detail.attachmentsRefused",
+		);
+		expect(attachmentErrorKey({ code: "storage/unauthenticated" })).toBe(
+			"detail.attachmentsRefused",
+		);
+	});
 });
 
 describe("formatBytes", () => {

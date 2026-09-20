@@ -509,6 +509,7 @@
 		"attachmentsTooLarge": "That file is too large — the limit is {{limit}} per file.",
 		"attachmentsWrongType": "That file type cannot be attached — images, PDF files and text files are allowed.",
 		"attachmentsFailed": "Could not upload the file. Try again.",
+		"attachmentsRefused": "Uploads aren't working right now. That's on us, not your file.",
 		"attachmentsClose": "Close",
 		"attachmentsHero": "Set as hero",
 		"attachmentsDownload": "Download",

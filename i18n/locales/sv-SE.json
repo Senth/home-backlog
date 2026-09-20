@@ -509,6 +509,7 @@
 		"attachmentsTooLarge": "Filen är för stor — gränsen är {{limit}} per fil.",
 		"attachmentsWrongType": "Den filtypen går inte att bifoga — bilder, PDF-filer och textfiler är tillåtna.",
 		"attachmentsFailed": "Kunde inte ladda upp filen. Försök igen.",
+		"attachmentsRefused": "Uppladdningar fungerar inte just nu. Det är vårt fel, inte din fil.",
 		"attachmentsClose": "Stäng",
 		"attachmentsHero": "Använd som huvudbild",
 		"attachmentsDownload": "Ladda ner",

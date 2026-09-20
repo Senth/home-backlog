@@ -60,6 +60,7 @@ export type AttachmentErrorKey =
 	| "detail.attachmentsTooLarge"
 	| "detail.attachmentsWrongType"
 	| "detail.attachmentsQuota"
+	| "detail.attachmentsRefused"
 	| "detail.attachmentsFailed";
 
 export function attachmentErrorKey(reason: unknown): AttachmentErrorKey {
@@ -67,6 +68,8 @@ export function attachmentErrorKey(reason: unknown): AttachmentErrorKey {
 	if (code === "attachment-too-large") return "detail.attachmentsTooLarge";
 	if (code === "attachment-type") return "detail.attachmentsWrongType";
 	if (code === "attachment-quota") return "detail.attachmentsQuota";
+	if (code === "storage/unauthorized" || code === "storage/unauthenticated")
+		return "detail.attachmentsRefused";
 	return "detail.attachmentsFailed";
 }
 
