@@ -111,7 +111,8 @@ export default function Locations() {
 		},
 	});
 	// The drop indicator is what the model already decided, drawn: a highlight
-	// for a re-parent, a line between the blocks for a reorder or an outdent.
+	// for a re-parent, an empty recessed slot between the blocks for a reorder
+	// or an outdent.
 	const hint = drag.over === null ? null : dropHint(drag.over, locations);
 	const gapHeight = drag.overlay?.height ?? space.none;
 

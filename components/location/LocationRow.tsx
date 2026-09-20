@@ -59,9 +59,9 @@ interface LocationTreeProps {
 	mode: MoveMode;
 	/** The tree's drag, carrying the gesture and the rows it measures. */
 	drag?: LocationDrag;
-	/** What the drop will do right now — the row highlight or the gap line. */
+	/** What the drop will do right now — the row highlight or the gap slot. */
 	hint?: LocationDropHint | null;
-	/** How tall the gap line's holding space is: the carried row's own height. */
+	/** How tall the gap slot is: the carried row's own height. */
 	gapHeight?: number;
 	onToggle: (id: string) => void;
 	onOpen: (location: Location) => void;
@@ -131,7 +131,7 @@ export function LocationTree({
 				return (
 					<Fragment key={location.id}>
 						{hint?.kind === "gap" && hint.beforeId === location.id ? (
-							<DropLine height={gapHeight} />
+							<DropPlaceholder height={gapHeight} />
 						) : null}
 						<View>
 							<LocationRow
@@ -186,7 +186,7 @@ export function LocationTree({
 							) : null}
 						</View>
 						{hint?.kind === "gap" && hint.afterId === location.id ? (
-							<DropLine height={gapHeight} />
+							<DropPlaceholder height={gapHeight} />
 						) : null}
 					</Fragment>
 				);
@@ -197,23 +197,21 @@ export function LocationTree({
 
 /**
  * The gap a reorder or an outdent opens between two blocks: the carried row's
- * own height, holding a `primary` line at the point it would land — the board
- * column's gap, given a line, because a tree's rows sit too close for bare
- * space to read.
+ * own height, drawn as an empty recessed slot — the row's own shape, on the
+ * board column's recessed fill — at the point it would land. A tree's rows sit
+ * too close for bare space to read, and a bare line under the carried copy
+ * never shows at all, so the slot is the row the drop would make, hollow.
  */
-function DropLine({ height }: { height: number }) {
+function DropPlaceholder({ height }: { height: number }) {
 	const theme = useAppTheme();
 	return (
-		<View style={{ height, justifyContent: "center" }}>
-			<View
-				style={{
-					height: border.hairline * 2,
-					marginLeft: space.md,
-					borderRadius: radius.full,
-					backgroundColor: theme.colors.primary,
-				}}
-			/>
-		</View>
+		<View
+			style={{
+				height,
+				borderRadius: radius.sm,
+				backgroundColor: theme.colors.boardColumn,
+			}}
+		/>
 	);
 }
 
@@ -264,8 +262,8 @@ interface LocationRowProps {
  * hint says why nothing lifts before the gesture is tried.
  *
  * A re-parenting drop highlights this row (`primaryContainer`, the board's
- * momentary-feedback tone); the between-siblings cases draw their line around
- * the block, at the tree level.
+ * momentary-feedback tone); the between-siblings cases draw their empty slot
+ * around the block, at the tree level.
  */
 export function LocationRow({
 	homeId,
@@ -430,7 +428,7 @@ export function LocationRow({
 
 						{/* The confirmed destination of a move-under carries its mark in
 						    its own row, so the bar's sentence and the tree agree at a
-						    glance. A drag's aim is said by the highlight or the gap line. */}
+						    glance. A drag's aim is said by the highlight or the slot. */}
 						{selected ? (
 							<Icon
 								source="check"
