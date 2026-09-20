@@ -61,26 +61,41 @@ DECLARED+=("project|${PROJECT_ID}|serviceAccount:${STORAGE_AGENT}|roles/firebase
 DECLARED+=("sa|${DEPLOY_SA}|${WORKLOAD_PRINCIPAL}|roles/iam.workloadIdentityUser")
 DECLARED+=("sa|${DEPLOY_SA}|user:${OWNER_ACCOUNT}|roles/iam.serviceAccountTokenCreator")
 
-SERVICE_AGENT_PATTERNS=(
-  '*service-*@gcp-sa-*'
-  '*gcf-admin-robot*'
-  '*firebase-rules*'
-  '*containerregistry*'
-  '*serverless-robot-prod*'
-  '*@cloudbuild*'
-  '*@cloudservices*'
-  '*@appspot*'
-  '*-compute@developer*'
-  '*firebase-adminsdk-**'
-  '*gs-project-accounts*'
+# member|role pairs, not member alone: a service agent picking up a role beyond
+# what its own API auto-grants must still surface as undeclared, so the filter
+# only swallows the exact (member glob, role) pairs Google is known to grant.
+SERVICE_AGENT_ROLES=(
+  '*@cloudbuild.gserviceaccount.com|roles/cloudbuild.builds.builder'
+  '*@cloudservices.gserviceaccount.com|roles/editor'
+  '*-compute@developer.gserviceaccount.com|roles/editor'
+  '*-compute@developer.gserviceaccount.com|roles/eventarc.eventReceiver'
+  '*-compute@developer.gserviceaccount.com|roles/run.invoker'
+  '*firebase-adminsdk-*@*.iam.gserviceaccount.com|roles/firebase.sdkAdminServiceAgent'
+  '*firebase-adminsdk-*@*.iam.gserviceaccount.com|roles/iam.serviceAccountTokenCreator'
+  '*@appspot.gserviceaccount.com|roles/editor'
+  '*@containerregistry.iam.gserviceaccount.com|roles/containerregistry.ServiceAgent'
+  '*@firebase-rules.iam.gserviceaccount.com|roles/firebaserules.system'
+  '*@gcf-admin-robot.iam.gserviceaccount.com|roles/cloudfunctions.serviceAgent'
+  '*service-*@gcp-sa-artifactregistry.iam.gserviceaccount.com|roles/artifactregistry.serviceAgent'
+  '*service-*@gcp-sa-cloudbuild.iam.gserviceaccount.com|roles/cloudbuild.serviceAgent'
+  '*service-*@gcp-sa-eventarc.iam.gserviceaccount.com|roles/eventarc.serviceAgent'
+  '*service-*@gcp-sa-firebase.iam.gserviceaccount.com|roles/firebase.managementServiceAgent'
+  '*service-*@gcp-sa-firebasestorage.iam.gserviceaccount.com|roles/firebasestorage.serviceAgent'
+  '*service-*@gcp-sa-firestore.iam.gserviceaccount.com|roles/firestore.serviceAgent'
+  '*service-*@gcp-sa-pubsub.iam.gserviceaccount.com|roles/iam.serviceAccountTokenCreator'
+  '*service-*@gcp-sa-pubsub.iam.gserviceaccount.com|roles/pubsub.serviceAgent'
+  '*@gs-project-accounts.iam.gserviceaccount.com|roles/pubsub.publisher'
+  '*@serverless-robot-prod.iam.gserviceaccount.com|roles/run.serviceAgent'
 )
 
 is_service_agent() {
   local member="$1"
-  local pattern
-  for pattern in "${SERVICE_AGENT_PATTERNS[@]}"; do
+  local role="$2"
+  local entry pattern allowed_role
+  for entry in "${SERVICE_AGENT_ROLES[@]}"; do
+    IFS='|' read -r pattern allowed_role <<< "$entry"
     # shellcheck disable=SC2053
-    if [[ "$member" == $pattern ]]; then
+    if [[ "$member" == $pattern && "$role" == "$allowed_role" ]]; then
       return 0
     fi
   done
@@ -138,21 +153,31 @@ for entry in "${DECLARED[@]}"; do
 done
 
 undeclared=()
-while IFS='|' read -r member role; do
-  [[ -z "$member" ]] && continue
-  is_service_agent "$member" && continue
-  declared_hit=0
-  for entry in "${DECLARED[@]}"; do
-    IFS='|' read -r _ _ dmember drole <<< "$entry"
-    if [[ "$dmember" == "$member" && "$drole" == "$role" ]]; then
-      declared_hit=1
-      break
+scan_undeclared() {
+  local kind="$1"
+  local scope="$2"
+  shift 2
+  local live=("$@")
+  local member role declared_hit entry dmember drole
+  while IFS='|' read -r member role; do
+    [[ -z "$member" ]] && continue
+    is_service_agent "$member" "$role" && continue
+    declared_hit=0
+    for entry in "${DECLARED[@]}"; do
+      IFS='|' read -r _ _ dmember drole <<< "$entry"
+      if [[ "$dmember" == "$member" && "$drole" == "$role" ]]; then
+        declared_hit=1
+        break
+      fi
+    done
+    if [[ "$declared_hit" == 0 ]]; then
+      undeclared+=("${kind}|${scope}|${member}|${role}")
     fi
-  done
-  if [[ "$declared_hit" == 0 ]]; then
-    undeclared+=("project|${PROJECT_ID}|${member}|${role}")
-  fi
-done < <(printf '%s\n' "${LIVE_PROJECT[@]}")
+  done < <(printf '%s\n' "${live[@]}")
+}
+
+scan_undeclared project "$PROJECT_ID" "${LIVE_PROJECT[@]}"
+scan_undeclared sa "$DEPLOY_SA" "${LIVE_SA[@]}"
 
 print_section() {
   local title="$1"
