@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { participatingPoolQuery, sharedPoolQuery } from "@/data/nodes";
 import { useOverviewPair } from "@/hooks/use-overview";
 import { locationCounts } from "@/models/location-counts";
+import type { Location } from "@/models/locations";
 import type { Node } from "@/models/node";
 
 /**
@@ -13,7 +14,10 @@ import type { Node } from "@/models/node";
  * same cache. The roll-up and the selection both live in `models/`, where
  * they are tested.
  */
-export function useLocationCounts(homeId: string | null): {
+export function useLocationCounts(
+	homeId: string | null,
+	locations: readonly Location[],
+): {
 	/** Everything the open listeners hold, unordered. */
 	pool: Node[];
 	/** The open count per place, rolled up through the subtree. */
@@ -33,7 +37,10 @@ export function useLocationCounts(homeId: string | null): {
 		},
 	);
 
-	const counts = useMemo(() => locationCounts(pool.nodes), [pool.nodes]);
+	const counts = useMemo(
+		() => locationCounts(pool.nodes, locations),
+		[pool.nodes, locations],
+	);
 	return {
 		pool: pool.nodes,
 		counts,

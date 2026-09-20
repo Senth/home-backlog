@@ -85,7 +85,7 @@ export default function Locations() {
 	const homeId = activeHome?.id ?? null;
 	const { locations, loading, failed, retry } = useLocations(homeId);
 	const { setFilter } = useBoardFilter(homeId);
-	const { pool, counts } = useLocationCounts(homeId);
+	const { pool, counts } = useLocationCounts(homeId, locations);
 
 	/** Collapsed, not expanded: the tree opens expanded, and session-only. */
 	const [collapsed, setCollapsed] = useState<Set<string>>(new Set());

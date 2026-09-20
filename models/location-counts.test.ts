@@ -1,4 +1,5 @@
 import { locationCounts } from "@/models/location-counts";
+import type { Location } from "@/models/locations";
 import type { Node } from "@/models/node";
 
 function node(overrides: Partial<Node> = {}): Node {
@@ -24,7 +25,10 @@ function node(overrides: Partial<Node> = {}): Node {
 		notes: "",
 		checklist: [],
 		effort: null,
-		photos: [],
+		attachments: [],
+		attachmentCount: 0,
+		attachmentDisplay: "count",
+		heroAttachmentId: null,
 		archived: false,
 		createdVia: "app",
 		completedAt: null,
@@ -35,13 +39,39 @@ function node(overrides: Partial<Node> = {}): Node {
 	};
 }
 
+function location(
+	id: string,
+	parentId: string | null,
+	ancestorIds: string[] = [],
+): Location {
+	return {
+		id,
+		title: id,
+		parentId,
+		ancestorIds,
+		rank: "a0",
+		icon: "home",
+		color: "stone",
+		createdAt: null,
+		createdBy: "uid-a",
+		updatedAt: null,
+	};
+}
+
 describe("locationCounts", () => {
+	const tree = [
+		location("garden", null),
+		location("shed", "garden", ["garden"]),
+		location("basement", null),
+		location("mancave", "basement", ["basement"]),
+	];
+
 	it("counts a card for the place it is filed in", () => {
 		const pool = [
 			node({ locationId: "shed", locationAncestorIds: ["garden"] }),
 		];
 
-		expect(locationCounts(pool).get("shed")).toBe(1);
+		expect(locationCounts(pool, tree).get("shed")).toBe(1);
 	});
 
 	it("rolls a card up through every place above it", () => {
@@ -49,7 +79,23 @@ describe("locationCounts", () => {
 			node({ locationId: "shed", locationAncestorIds: ["garden"] }),
 		];
 
-		expect(locationCounts(pool).get("garden")).toBe(1);
+		expect(locationCounts(pool, tree).get("garden")).toBe(1);
+	});
+
+	it("rolls up from the tree, not the card's stored crumb", () => {
+		// A crumb the card never carried (the seed's, or one a write
+		// dropped) must not collapse the roll-up to the card's own place:
+		// the human's case is one card in Basement plus two in Mancave
+		// under it, and Basement says 3.
+		const pool = [
+			node({ id: "a", locationId: "basement", locationAncestorIds: [] }),
+			node({ id: "b", locationId: "mancave", locationAncestorIds: [] }),
+			node({ id: "c", locationId: "mancave", locationAncestorIds: [] }),
+		];
+
+		const counts = locationCounts(pool, tree);
+		expect(counts.get("basement")).toBe(3);
+		expect(counts.get("mancave")).toBe(2);
 	});
 
 	it("counts a card under the place its project passes down (#290)", () => {
@@ -61,7 +107,7 @@ describe("locationCounts", () => {
 		const step = node({ id: "step", ancestorIds: ["project"] });
 		const pool = [project, step];
 
-		const counts = locationCounts(pool);
+		const counts = locationCounts(pool, tree);
 		expect(counts.get("shed")).toBe(2);
 		expect(counts.get("garden")).toBe(2);
 	});
@@ -73,19 +119,27 @@ describe("locationCounts", () => {
 			node({ id: "c", locationId: "boiler" }),
 		];
 
-		expect(locationCounts(pool).get("boiler")).toBe(2);
+		expect(locationCounts(pool, tree).get("boiler")).toBe(2);
 	});
 
 	it("says nothing for a place with nothing under it", () => {
 		const pool = [node({ locationId: "shed", locationAncestorIds: [] })];
 
-		expect(locationCounts(pool).has("attic")).toBe(false);
+		expect(locationCounts(pool, tree).has("attic")).toBe(false);
 	});
 
 	it("says nothing for a card filed nowhere", () => {
 		const pool = [node({})];
 
-		expect(locationCounts(pool).size).toBe(0);
+		expect(locationCounts(pool, tree).size).toBe(0);
+	});
+
+	it("counts a place the list does not hold for itself alone", () => {
+		const pool = [node({ locationId: "ghost", locationAncestorIds: [] })];
+
+		const counts = locationCounts(pool, tree);
+		expect(counts.get("ghost")).toBe(1);
+		expect(counts.size).toBe(1);
 	});
 
 	it("counts a done parent's filing nothing — the pool is the open set", () => {
@@ -94,6 +148,6 @@ describe("locationCounts", () => {
 		// unfiled as far as this count can know.
 		const step = node({ id: "step", ancestorIds: ["done-project"] });
 
-		expect(locationCounts([step]).size).toBe(0);
+		expect(locationCounts([step], tree).size).toBe(0);
 	});
 });
