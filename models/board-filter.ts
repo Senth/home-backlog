@@ -50,6 +50,22 @@ export function filterActionVisible(
 	return memberCount > 1 || labelCount > 0 || locationCount > 0;
 }
 
+/**
+ * The filter a place's row writes when it is opened (#204, #205): open work
+ * at that place and everything under it. The same reach the row's count
+ * answers to, so the board the tap lands on delivers the number the row
+ * promised. One shape, written by every route that opens a place — the tree
+ * row today, whatever comes next — so two entries cannot disagree about what
+ * "at a place" means.
+ */
+export function locationFilter(locationId: string): BoardFilter {
+	return {
+		mode: "open",
+		reach: "subtree",
+		conditions: [{ field: "locationId", anyOf: [locationId] }],
+	};
+}
+
 /** The filter as one stored string, stamped with when it was last touched. */
 export function encodeBoardFilter(
 	filter: BoardFilter,

@@ -184,8 +184,10 @@ export function nodeDoc(
 
 /**
  * A location document in the shape the app writes it: every field, with a
- * value. `validLocation()` requires each of them outright — the collection is
- * new (#50), so there is no present-only escape hatch to test against.
+ * value. `validLocationCreate()` requires each of them on create — the
+ * collection is new (#50), so there is no present-only escape hatch to test
+ * against — while an update also accepts documents that predate `icon` and
+ * `color`.
  *
  * The timestamps are real dates so that `immutable()` has a value to hold an
  * update against, the same reason `nodeDoc`'s are.
@@ -198,6 +200,8 @@ export function locationDoc(
 		parentId: null,
 		ancestorIds: [],
 		rank: "a0",
+		icon: "crosshairs-gps",
+		color: "stone",
 		createdAt: new Date("2026-01-01T00:00:00Z"),
 		createdBy: OWNER.uid,
 		updatedAt: new Date("2026-01-01T00:00:00Z"),

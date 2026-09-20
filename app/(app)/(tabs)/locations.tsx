@@ -1,44 +1,54 @@
+import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { type ReactNode, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, useWindowDimensions, View } from "react-native";
+import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import {
 	ActivityIndicator,
 	Appbar,
 	Button,
 	FAB,
 	Icon,
-	IconButton,
-	Menu,
 	Snackbar,
 	Text,
-	TouchableRipple,
 } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
-import { TitleDialog } from "@/components/board/TitleDialog";
-import { ConfirmDialog } from "@/components/ui/AppDialog";
-import { BackAction } from "@/components/ui/BackAction";
-import { useAuth } from "@/contexts/AuthContext";
-import { useHome } from "@/contexts/HomeContext";
+import { LocationDialog } from "@/components/location/LocationDialog";
 import {
-	createLocation,
-	deleteLocation,
-	locationErrorKey,
-	moveLocation,
-	renameLocation,
-	reorderLocation,
-} from "@/data/locations";
+	LocationDragOverlay,
+	LocationTree,
+} from "@/components/location/LocationRow";
+import {
+	screenKey,
+	useLocationDrag,
+} from "@/components/location/use-location-drag";
+import { BackAction } from "@/components/ui/BackAction";
+import { useHome } from "@/contexts/HomeContext";
+import { locationErrorKey, moveLocation } from "@/data/locations";
+import { useBoardFilter } from "@/hooks/use-board-filter";
+import { useEscapeCancel } from "@/hooks/use-escape-cancel";
+import { useLocationCounts } from "@/hooks/use-location-counts";
 import { useLocations } from "@/hooks/use-locations";
 import { useOnlineStatus } from "@/hooks/use-online-status";
-import { inSubtree, type Location } from "@/models/locations";
-import { movedRank, rankAtEnd } from "@/models/node";
+import { locationFilter } from "@/models/board-filter";
+import { dropHint } from "@/models/location-drag";
+import {
+	beginMove,
+	cancelMove,
+	idleMove,
+	type MoveMode,
+	selectDestination,
+} from "@/models/location-move";
+import { childLocations, type Location } from "@/models/locations";
+import { rankAtEnd } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import {
+	border,
 	contentWidth,
 	denseBreakpoint,
 	fab as fabTokens,
 	icon,
-	indent,
+	radius,
 	space,
 	touchTarget,
 } from "@/theme/tokens";
@@ -51,12 +61,15 @@ type AddTarget = { parent: Location | null } | null;
 /**
  * The location tree — the second hierarchy, of places (#50).
  *
- * One row per location, indented by depth, one listener for the whole
- * collection behind it. The FAB creates a root place; a row's overflow menu
- * reorders, nests, renames, moves and deletes. Create and rename queue
- * offline; move and delete read the subtree from the server first, so they
- * are disabled offline with the hint the card menu shows, rather than failing
- * after the tap.
+ * One row per place; the depth is carried by the rails, not by padding. The
+ * FAB creates a root place; a row's overflow menu reorders, nests, edits,
+ * moves and deletes. Create and edit queue offline; move and delete read the
+ * subtree from the server first, so they are disabled offline with the hint
+ * the card menu shows, rather than failing after the tap.
+ *
+ * A row is three sibling controls and nothing nested — a pressable inside a
+ * pressable rendered invalid HTML on every load (#205). The row itself and
+ * its rails are `components/location/LocationRow.tsx`'s.
  *
  * The app bar names the *home*, not the screen — the tab bar already names
  * the screen, and which home you are in has to be visible without a tap.
@@ -65,20 +78,57 @@ export default function Locations() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const router = useRouter();
-	const { user } = useAuth();
 	const { activeHome } = useHome();
 	const { width } = useWindowDimensions();
 	const online = useOnlineStatus();
 
 	const homeId = activeHome?.id ?? null;
 	const { locations, loading, failed, retry } = useLocations(homeId);
+	const { setFilter } = useBoardFilter(homeId);
+	const { pool, counts } = useLocationCounts(homeId, locations);
 
 	/** Collapsed, not expanded: the tree opens expanded, and session-only. */
 	const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+	/** Cards hidden by default (#205); the toggle is the control row's. */
+	const [cardsOpen, setCardsOpen] = useState(false);
+	/** The move-under mode (Q14) — idle means the tree browses. */
+	const [move, setMove] = useState<MoveMode>(idleMove);
 	const [adding, setAdding] = useState<AddTarget>(null);
-	const [error, setError] = useState<string | null>(null);
+	const [notice, setNotice] = useState<string | null>(null);
 	const [fabHeight, setFabHeight] = useState(0);
 	const openerRef = useRef<View | null>(null);
+	const navigation = useNavigation();
+
+	// The drag is the one move a gesture makes, and it writes the same
+	// `moveLocation` the move mode does — offline the hook never starts.
+	const drag = useLocationDrag({
+		homeId: homeId ?? "",
+		locations,
+		onPutBack: () => setNotice("locations.putBack"),
+		onError: (reason) => {
+			console.error("Could not move the location:", reason);
+			setNotice(locationErrorKey(reason));
+		},
+	});
+	// The drop indicator is what the model already decided, drawn: a highlight
+	// for a re-parent, an empty recessed slot between the blocks for a reorder
+	// or an outdent.
+	const hint = drag.over === null ? null : dropHint(drag.over, locations);
+	const gapHeight = drag.overlay?.height ?? space.none;
+
+	// The tab bar stays live, and leaving cancels silently: a blur ends the
+	// mode before another tab can act on a half-run one.
+	useEffect(
+		() => navigation.addListener("blur", () => setMove(idleMove)),
+		[navigation],
+	);
+
+	// Escape and the back gesture answer the same cancel — a mode is not a
+	// navigation push, so the back button must not leave the screen.
+	useEscapeCancel(move.phase !== "idle", () => setMove(cancelMove()));
+
+	/** The card face's location facts: id → title, from the one tree listener. */
+	const locationTitles = new Map(locations.map((l) => [l.id, l.title]));
 
 	const fabInset = fabHeight > 0 ? fabHeight + space.md + space.md : space.xxl;
 
@@ -94,58 +144,89 @@ export default function Locations() {
 		});
 	};
 
-	/**
-	 * A root place from the FAB or the empty state, a nested one from a row.
-	 * Queued, never awaited — it is in the tree the moment Firestore applies
-	 * it locally, and lands when the connection does.
-	 */
-	const add = (title: string) => {
-		if (user === null || homeId === null || adding === null) return;
+	const collapseAll = () => {
+		setCollapsed(
+			new Set(
+				locations
+					.filter(
+						(location) => childLocations(locations, location.id).length > 0,
+					)
+					.map((location) => location.id),
+			),
+		);
+	};
 
-		const parent = adding.parent;
-		const siblings = childrenOf(locations, parent?.id ?? null);
-		createLocation(homeId, user.uid, {
-			title,
+	const expandAll = () => setCollapsed(new Set());
+
+	/**
+	 * The tap is the row's reason to exist (#204): the board filtered to this
+	 * place and everything under it — the same reach the row's count answers
+	 * to, so the place delivers the number it promised. This replaces whatever
+	 * filter the member already had, and it persists for a day; the chips on
+	 * the board make the new state visible at once.
+	 */
+	const openPlace = (location: Location) => {
+		setFilter(locationFilter(location.id));
+		router.push("/projects");
+	};
+
+	/**
+	 * The move itself, written only from the confirm phase: one batch, the
+	 * moved place at the end of its new siblings. Offline the write reads the
+	 * subtree from the server and fails loudly, which is why the menu item
+	 * that starts the mode is disabled offline instead.
+	 */
+	const confirmMove = () => {
+		if (move.phase !== "confirm" || homeId === null) return;
+		const { moving, parent } = move;
+		setMove(idleMove);
+		const siblings = childLocations(locations, parent?.id ?? null);
+		moveLocation(
+			homeId,
+			moving,
 			parent,
-			rank: rankAtEnd(siblings.at(-1)?.rank ?? null),
+			rankAtEnd(siblings.at(-1)?.rank ?? null),
+		).catch((reason) => {
+			console.error("Could not move the location:", reason);
+			setNotice(locationErrorKey(reason));
 		});
 	};
 
-	const rows: ReactNode[] = [];
-	if (!loading && !failed && locations.length > 0) {
-		const renderLevel = (parentId: string | null, depth: number) => {
-			for (const location of childrenOf(locations, parentId)) {
-				const hasChildren = childrenOf(locations, location.id).length > 0;
-				const expanded = !collapsed.has(location.id);
-				rows.push(
-					<LocationRow
-						key={location.id}
-						homeId={homeId ?? ""}
-						location={location}
-						depth={depth}
-						hasChildren={hasChildren}
-						expanded={expanded}
-						onToggle={toggle}
-						locations={locations}
-						online={online}
-						onAddUnder={(parent) => setAdding({ parent })}
-						onError={setError}
-					/>,
-				);
-				if (hasChildren && expanded) renderLevel(location.id, depth + 1);
-			}
-		};
-		renderLevel(null, 0);
-	}
-
 	const empty = !loading && !failed && locations.length === 0;
+	const showTree = !loading && !failed && locations.length > 0;
+	const moveActive = move.phase !== "idle";
+
+	const footBarStyle = {
+		position: "absolute" as const,
+		left: space.md,
+		right: space.md,
+		bottom: space.md,
+		flexDirection: "row" as const,
+		alignItems: "center" as const,
+		gap: space.sm,
+		padding: space.md,
+		borderRadius: radius.md,
+		backgroundColor: theme.colors.elevation.level2,
+	};
 
 	return (
-		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+		<View
+			ref={drag.register(screenKey)}
+			collapsable={false}
+			style={{ flex: 1, backgroundColor: theme.colors.background }}
+		>
 			<Appbar.Header>
 				<BackAction
-					accessibilityLabel={t("homes.title")}
-					onPress={() => router.push("/homes")}
+					accessibilityLabel={
+						moveActive ? t("common.cancel") : t("homes.title")
+					}
+					onPress={() => {
+						if (moveActive) {
+							setMove(cancelMove());
+						} else {
+							router.push("/homes");
+						}
+					}}
 				/>
 				<Appbar.Content title={activeHome?.name ?? ""} />
 				<AccountMenu />
@@ -157,7 +238,7 @@ export default function Locations() {
 					paddingBottom: fabInset,
 					alignSelf: "center",
 					width: "100%",
-					maxWidth: contentWidth.form,
+					maxWidth: contentWidth.tree,
 				}}
 			>
 				{loading ? (
@@ -225,14 +306,146 @@ export default function Locations() {
 					</View>
 				) : null}
 
-				{rows.length > 0 ? <View>{rows}</View> : null}
+				{/* The control row: the tree's two disclosures in one place, so
+				    a deep tree never needs a walk to tidy; the cards toggle rides
+				    beside them. Session-only, like the collapsed set itself. A
+				    drag starts nowhere offline, and the row is where the screen
+				    says why — before the gesture, not after a dead one. */}
+				{showTree ? (
+					<View
+						style={{
+							flexDirection: "row",
+							flexWrap: "wrap",
+							gap: space.sm,
+							marginBottom: space.md,
+						}}
+					>
+						<Button
+							mode="outlined"
+							icon="unfold-less-horizontal"
+							onPress={collapseAll}
+							// The row wraps below the phone's width, and a wrapped line
+							// starts at the same left edge as the one above it — buttons
+							// that stretch to the row's rhythm keep their edges exactly
+							// on each other's instead of a fraction of a pixel off.
+							style={{ flexGrow: 1 }}
+							contentStyle={{ minHeight: touchTarget }}
+						>
+							{t("locations.collapseAll")}
+						</Button>
+						<Button
+							mode="outlined"
+							icon="unfold-more-horizontal"
+							onPress={expandAll}
+							style={{ flexGrow: 1 }}
+							contentStyle={{ minHeight: touchTarget }}
+						>
+							{t("locations.expandAll")}
+						</Button>
+						<Button
+							mode="outlined"
+							icon={cardsOpen ? "eye-off-outline" : "eye-outline"}
+							onPress={() => setCardsOpen((open) => !open)}
+							accessibilityRole="button"
+							style={{ flexGrow: 1 }}
+							contentStyle={{ minHeight: touchTarget }}
+						>
+							{t(cardsOpen ? "locations.hideCards" : "locations.showCards")}
+						</Button>
+						{online ? null : (
+							<Text
+								variant="bodySmall"
+								style={{
+									color: theme.colors.onSurfaceVariant,
+									alignSelf: "center",
+								}}
+							>
+								{t("locations.dragOffline")}
+							</Text>
+						)}
+					</View>
+				) : null}
+
+				{/* The mode's synthetic row, pinned above the tree and visible only
+				    during a move (Q14): every destination, the top level included,
+				    is then one list. Refused is impossible here — the top level is
+				    no place's subtree. */}
+				{moveActive ? (
+					<Pressable
+						accessible
+						accessibilityRole="button"
+						accessibilityLabel={t("locations.moveUnderTop")}
+						accessibilityState={{
+							selected: move.phase === "confirm" && move.parent === null,
+						}}
+						onPress={() => setMove(selectDestination(move, null))}
+						style={{
+							flexDirection: "row",
+							alignItems: "center",
+							gap: space.sm,
+							minHeight: touchTarget,
+							marginBottom: space.sm,
+							paddingHorizontal: space.sm,
+							borderRadius: radius.md,
+							borderWidth: border.hairline,
+							borderColor:
+								move.phase === "confirm" && move.parent === null
+									? theme.colors.primary
+									: theme.colors.outlineVariant,
+						}}
+					>
+						<Icon
+							source="home-variant-outline"
+							size={icon.md}
+							color={theme.colors.onSurfaceVariant}
+						/>
+						<Text variant="bodyLarge" style={{ flex: 1 }}>
+							{t("locations.moveUnderTop")}
+						</Text>
+						{move.phase === "confirm" && move.parent === null ? (
+							<Icon
+								source="check"
+								size={icon.md}
+								color={theme.colors.primary}
+							/>
+						) : null}
+					</Pressable>
+				) : null}
+
+				{showTree ? (
+					<LocationTree
+						locations={locations}
+						parentId={null}
+						collapsed={collapsed}
+						counts={counts}
+						cardsOpen={cardsOpen}
+						pool={pool}
+						locationTitles={locationTitles}
+						mode={move}
+						onToggle={toggle}
+						onOpen={openPlace}
+						onAddUnder={(parent) => setAdding({ parent })}
+						onMoveUnder={(location) => setMove(beginMove(location))}
+						onSelectDestination={(parent) =>
+							setMove(selectDestination(move, parent))
+						}
+						onError={setNotice}
+						homeId={homeId ?? ""}
+						online={online}
+						drag={drag}
+						hint={hint}
+						gapHeight={gapHeight}
+					/>
+				) : null}
 			</ScrollView>
 
 			{/* The same two footprint caps the board's and Overview's FABs carry:
 			    a share of the width it floats over, and the words over the glyph
 			    below `denseBreakpoint`. Stands down while the empty state is up —
 			    its button is then the one create control. */}
-			{rows.length > 0 ? (
+			{/* The FAB stands down while a move runs — the foot bar below is then
+			    the loudest shape on the screen, and the mode is unmistakable. */}
+			{showTree && !moveActive ? (
 				<FAB
 					ref={openerRef}
 					icon={width < denseBreakpoint ? undefined : "plus"}
@@ -248,315 +461,70 @@ export default function Locations() {
 				/>
 			) : null}
 
+			{/* The mode's foot bar: first it asks, then it confirms (Q14).
+			    Confirm is the one contained-tonal action — the affirmative — and
+			    Cancel and Escape and back all answer the same way: idle, with
+			    nothing written. */}
+			{move.phase === "choose" ? (
+				<View style={footBarStyle}>
+					<Text variant="bodyLarge">
+						{t("locations.moveBar", { name: move.moving.title })}
+					</Text>
+				</View>
+			) : null}
+			{move.phase === "confirm" ? (
+				<View style={footBarStyle}>
+					<Text variant="bodyLarge" style={{ flex: 1 }}>
+						{t("locations.moveConfirm", {
+							name: move.moving.title,
+							destination: move.parent?.title ?? t("locations.moveUnderTop"),
+						})}
+					</Text>
+					<Button
+						mode="text"
+						onPress={() => setMove(cancelMove())}
+						textColor={theme.colors.onSurfaceVariant}
+						contentStyle={{ minHeight: touchTarget }}
+					>
+						{t("common.cancel")}
+					</Button>
+					<Button
+						mode="contained-tonal"
+						onPress={confirmMove}
+						contentStyle={{ minHeight: touchTarget }}
+					>
+						{t("locations.moveHere")}
+					</Button>
+				</View>
+			) : null}
+
 			{adding !== null ? (
-				<TitleDialog
-					visible
+				<LocationDialog
+					homeId={homeId ?? ""}
+					location={null}
+					parent={adding.parent}
+					siblings={childLocations(locations, adding.parent?.id ?? null)}
 					onDismiss={() => setAdding(null)}
-					heading={t("locations.add")}
-					confirmLabel={t("board.add")}
-					label={t("locations.nameLabel")}
-					onSubmit={add}
 					testID={newLocationDialogTestID}
 					returnFocusTo={openerRef}
 				/>
 			) : null}
 
+			{/* The carried place, following the finger; the row it belongs to
+			    waits flattened where it was. */}
+			{drag.dragged !== null ? <LocationDragOverlay drag={drag} /> : null}
+
 			<Snackbar
-				visible={error !== null}
-				onDismiss={() => setError(null)}
+				visible={notice !== null}
+				onDismiss={() => setNotice(null)}
 				style={{
 					maxWidth: contentWidth.snackbar,
 					alignSelf: "center",
 					marginBottom: space.md,
 				}}
 			>
-				{error ? t(error) : ""}
+				{notice ? t(notice) : ""}
 			</Snackbar>
-		</View>
-	);
-}
-
-function childrenOf(
-	locations: Location[],
-	parentId: string | null,
-): Location[] {
-	return locations.filter((location) => location.parentId === parentId);
-}
-
-type RowPage = "root" | "under";
-
-interface LocationRowProps {
-	homeId: string;
-	location: Location;
-	depth: number;
-	hasChildren: boolean;
-	expanded: boolean;
-	onToggle: (id: string) => void;
-	/** Every location in the home — the move picker's destinations. */
-	locations: Location[];
-	online: boolean;
-	onAddUnder: (parent: Location) => void;
-	onError: (message: string) => void;
-}
-
-/**
- * One place, its chevron, and everything it can do.
- *
- * The chevron-and-indent chrome is quiet on purpose — a chevron of
- * `onSurfaceVariant` and an indent capped by depth — because the names are
- * the content. The row with children is the disclosure control itself, the
- * way the details screen's is: `List.Accordion` hard-codes an accessibility
- * state React Native Web drops, so the row carries `aria-expanded` and the
- * chevron is a plain `Icon`. Delete lives only in the menu — never a swipe,
- * never a long-press.
- *
- * The menu changes *page* rather than opening a submenu, and the pages after
- * the first scroll inside the height Paper measured on the first one — the
- * same one-measurement shape `CardMenu` works around.
- */
-function LocationRow({
-	homeId,
-	location,
-	depth,
-	hasChildren,
-	expanded,
-	onToggle,
-	locations,
-	online,
-	onAddUnder,
-	onError,
-}: LocationRowProps) {
-	const { t } = useTranslation();
-	const theme = useAppTheme();
-	const anchor = useRef<View | null>(null);
-	const [open, setOpen] = useState(false);
-	const [page, setPage] = useState<RowPage>("root");
-	const [renaming, setRenaming] = useState(false);
-	const [deleting, setDeleting] = useState(false);
-	const [rootPageHeight, setRootPageHeight] = useState<number | undefined>(
-		undefined,
-	);
-
-	const close = () => {
-		setOpen(false);
-		setPage("root");
-	};
-
-	/**
-	 * Moving the place and everything under it. The moved place's own subtree
-	 * is disabled in the picker, so the throw in `moveLocation` should never
-	 * fire — it is the write-time backstop, not the refusal.
-	 */
-	const moveUnder = (parent: Location | null) => {
-		close();
-		const siblings = childrenOf(locations, parent?.id ?? null);
-		moveLocation(
-			homeId,
-			location,
-			parent,
-			rankAtEnd(siblings.at(-1)?.rank ?? null),
-		).catch((reason) => {
-			console.error("Could not move the location:", reason);
-			onError(locationErrorKey(reason));
-		});
-	};
-
-	const siblings = childrenOf(locations, location.parentId);
-	const siblingIndex = siblings.findIndex((each) => each.id === location.id);
-
-	/** One step up or down among siblings, queued optimistically like a rename. */
-	const reorder = (delta: -1 | 1) => {
-		close();
-		const rank = movedRank(siblings, siblingIndex, delta);
-		if (rank === null) return;
-		reorderLocation(homeId, location.id, rank);
-	};
-
-	const remove = async () => {
-		setDeleting(false);
-		try {
-			await deleteLocation(homeId, location);
-		} catch (reason) {
-			console.error("Could not delete the location:", reason);
-			onError(locationErrorKey(reason));
-		}
-	};
-
-	const row = (
-		<View
-			style={{
-				flexDirection: "row",
-				alignItems: "center",
-				minHeight: touchTarget,
-				gap: space.sm,
-				paddingVertical: space.xs,
-				paddingLeft: indent.step * Math.min(depth, indent.levels),
-				paddingRight: space.sm,
-			}}
-		>
-			{/* The chevron column is fixed width, so a childless name lines up
-			    with a nested one at every depth and every text size. */}
-			{hasChildren ? (
-				<Icon
-					source={expanded ? "chevron-down" : "chevron-right"}
-					size={icon.sm}
-					color={theme.colors.onSurfaceVariant}
-				/>
-			) : (
-				<View style={{ width: icon.sm }} />
-			)}
-			<Text variant="bodyLarge" style={{ flex: 1 }}>
-				{location.title}
-			</Text>
-			<Menu
-				visible={open}
-				onDismiss={close}
-				overlayAccessibilityLabel={t("common.closeMenu")}
-				anchor={
-					<View ref={anchor}>
-						<IconButton
-							icon="dots-vertical"
-							size={icon.sm}
-							accessibilityLabel={t("locations.actions")}
-							// Without this the row underneath takes the tap as well and
-							// the chevron toggles while the menu opens.
-							onPress={(event) => {
-								event.stopPropagation();
-								setOpen(true);
-							}}
-							style={{
-								width: touchTarget,
-								height: touchTarget,
-								margin: space.none,
-							}}
-						/>
-					</View>
-				}
-			>
-				{page === "root" ? (
-					<View
-						onLayout={(event) =>
-							setRootPageHeight(event.nativeEvent.layout.height)
-						}
-					>
-						<Menu.Item
-							leadingIcon="plus"
-							title={t("locations.addUnder")}
-							onPress={() => {
-								close();
-								onAddUnder(location);
-							}}
-						/>
-						<Menu.Item
-							leadingIcon="arrow-up"
-							title={t("locations.moveUp")}
-							disabled={siblingIndex === 0}
-							onPress={() => reorder(-1)}
-						/>
-						<Menu.Item
-							leadingIcon="arrow-down"
-							title={t("locations.moveDown")}
-							disabled={siblingIndex === siblings.length - 1}
-							onPress={() => reorder(1)}
-						/>
-						<Menu.Item
-							leadingIcon="file-tree-outline"
-							title={t("locations.moveUnder")}
-							onPress={() => setPage("under")}
-							disabled={!online}
-						/>
-						<Menu.Item
-							leadingIcon="pencil-outline"
-							title={t("locations.rename")}
-							onPress={() => {
-								close();
-								setRenaming(true);
-							}}
-						/>
-						<Menu.Item
-							leadingIcon="delete-outline"
-							title={t("locations.delete")}
-							onPress={() => {
-								close();
-								setDeleting(true);
-							}}
-							disabled={!online}
-						/>
-						{/* Both disabled ones read from the server on purpose, so the
-						    hint says what they need rather than letting the tap fail
-						    after the fact. */}
-						{online ? null : (
-							<Menu.Item disabled title={t("board.offlineHint")} />
-						)}
-					</View>
-				) : (
-					<ScrollView style={{ maxHeight: rootPageHeight }}>
-						<Menu.Item
-							title={t("locations.moveUnderTop")}
-							onPress={() => moveUnder(null)}
-						/>
-						{locations.map((candidate) => (
-							<Menu.Item
-								key={candidate.id}
-								title={candidate.title}
-								onPress={() => moveUnder(candidate)}
-								// The moved place's own subtree, itself included: the
-								// refusal is visible before it is committed.
-								disabled={inSubtree(candidate, location.id)}
-							/>
-						))}
-					</ScrollView>
-				)}
-			</Menu>
-		</View>
-	);
-
-	return (
-		<View>
-			{hasChildren ? (
-				/* The row carries the disclosure semantics, not a `List.Accordion`:
-				    see the docblock. */
-				<TouchableRipple
-					onPress={() => onToggle(location.id)}
-					accessibilityRole="button"
-					aria-expanded={expanded}
-					style={{ minHeight: touchTarget }}
-				>
-					{row}
-				</TouchableRipple>
-			) : (
-				row
-			)}
-
-			{/* Mounted only while open — each dialog carries a `Portal`, and a
-			    tree grows without bound. */}
-			{renaming ? (
-				<TitleDialog
-					visible
-					onDismiss={() => setRenaming(false)}
-					heading={t("locations.renameTitle")}
-					confirmLabel={t("locations.rename")}
-					initialTitle={location.title}
-					label={t("locations.nameLabel")}
-					onSubmit={(title) => renameLocation(homeId, location.id, title)}
-					testID={`rename-location-${location.id}`}
-					returnFocusTo={anchor}
-				/>
-			) : null}
-
-			{deleting ? (
-				<ConfirmDialog
-					visible
-					onDismiss={() => setDeleting(false)}
-					onConfirm={remove}
-					title={t("locations.deleteTitle", { name: location.title })}
-					body={t("locations.deleteBody", { name: location.title })}
-					confirmLabel={t("locations.delete")}
-					destructive
-					testID={`delete-location-${location.id}`}
-					returnFocusTo={anchor}
-				/>
-			) : null}
 		</View>
 	);
 }

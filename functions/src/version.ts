@@ -7,4 +7,4 @@
  * moves — a new verb, a new field, a changed status code — not when a handler is
  * refactored.
  */
-export const apiVersion = "2.0.0";
+export const apiVersion = "2.1.0";

@@ -24,7 +24,12 @@ import {
 } from "./idempotency.js";
 import { parseBulkLocationsBody, planBulkLocations } from "./locations-bulk.js";
 import { childAncestorIds, movedAncestorIds, rankAfter } from "./node.js";
-import { type LocationContext, validateLocation } from "./validate.js";
+import {
+	defaultLocationColor,
+	defaultLocationIcon,
+	type LocationContext,
+	validateLocation,
+} from "./validate.js";
 import { checkPrecondition, refuseOversizedSubtree } from "./writes.js";
 
 /**
@@ -189,6 +194,8 @@ async function createLocation(
 		// path is exactly what cannot be verified from outside.
 		ancestorIds: childAncestorIds(parent),
 		rank: body.rank ?? (await rankAtEndOfSiblings(homeId, parent?.id ?? null)),
+		icon: body.icon ?? defaultLocationIcon,
+		color: body.color ?? defaultLocationColor,
 		createdAt: FieldValue.serverTimestamp(),
 		createdBy: me.uid,
 		updatedAt: FieldValue.serverTimestamp(),
@@ -240,6 +247,8 @@ async function patchLocation(
 
 	const changes: Record<string, unknown> = {
 		...(body.title !== undefined ? { title: body.title.trim() } : {}),
+		...(body.icon !== undefined ? { icon: body.icon } : {}),
+		...(body.color !== undefined ? { color: body.color } : {}),
 		...(moving
 			? {
 					parentId: newParentId,

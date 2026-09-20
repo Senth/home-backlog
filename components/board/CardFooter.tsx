@@ -22,6 +22,12 @@ interface CardFooterProps {
 	 * Location id → title, as passed down by the screen.
 	 */
 	locations?: ReadonlyMap<string, string>;
+	/**
+	 * False suppresses the location fact (#205): the tree screen draws a card
+	 * inside the very place's row, and *Verkstaden* under *Verkstaden* is the
+	 * row saying its own name twice. One prop, so the footer keeps its shape.
+	 */
+	showLocation?: boolean;
 	/** The waiting mark, when the card is waiting; `null` when it is not. */
 	waiting: { label: string; a11yLabel: string } | null;
 	/** The card owns the air between its title and this footer. */
@@ -97,6 +103,7 @@ export function CardFooter({
 	node,
 	locationId,
 	locations,
+	showLocation = true,
 	waiting,
 	style,
 }: CardFooterProps) {
@@ -114,7 +121,9 @@ export function CardFooter({
 	const carries = face.mode === "count" && face.total > 0;
 
 	const locationTitle =
-		locationId === null ? undefined : locations?.get(locationId);
+		showLocation && locationId !== null
+			? locations?.get(locationId)
+			: undefined;
 	const where = locationTitle !== undefined || node.effort !== null;
 	const when = showDue || waiting !== null;
 

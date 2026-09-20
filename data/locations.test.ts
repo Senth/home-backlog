@@ -5,15 +5,14 @@ import type {
 	WriteBatch,
 } from "firebase/firestore";
 import {
-	compareLocations,
 	createLocation,
 	deleteLocation,
+	editLocation,
 	locationErrorKey,
 	moveLocation,
-	renameLocation,
 	reorderLocation,
 } from "@/data/locations";
-import type { Location } from "@/models/locations";
+import { compareLocations, type Location } from "@/models/locations";
 
 jest.mock("@/config/firebase", () => ({ db: {} }));
 
@@ -52,6 +51,8 @@ function location(overrides: Partial<Location> = {}): Location {
 		parentId: null,
 		ancestorIds: [],
 		rank: "a0",
+		icon: "flower",
+		color: "teal",
 		createdAt: null,
 		createdBy: "uid-owner",
 		updatedAt: null,
@@ -136,6 +137,8 @@ describe("createLocation", () => {
 				rank: "a0",
 				parentId: null,
 				ancestorIds: [],
+				icon: "crosshairs-gps",
+				color: "stone",
 				createdAt: "server-timestamp",
 				createdBy: "uid-owner",
 				updatedAt: "server-timestamp",
@@ -175,13 +178,20 @@ describe("createLocation", () => {
 	});
 });
 
-describe("renameLocation", () => {
-	it("writes the trimmed title", async () => {
-		await renameLocation("home-1", "garden", "  Trädgården  ");
+describe("editLocation", () => {
+	it("writes only the fields that changed, under one field-path merge", async () => {
+		await editLocation("home-1", "garden", {
+			title: "  Trädgården  ",
+			color: "amber",
+		});
 
 		expect(mockUpdateDoc).toHaveBeenCalledWith(
 			{ id: "garden" },
-			{ title: "Trädgården", updatedAt: "server-timestamp" },
+			{
+				title: "Trädgården",
+				color: "amber",
+				updatedAt: "server-timestamp",
+			},
 		);
 	});
 
@@ -190,9 +200,9 @@ describe("renameLocation", () => {
 		mockUpdateDoc.mockReturnValueOnce(Promise.reject(reason));
 		const consoleError = jest.spyOn(console, "error").mockImplementation();
 
-		await expect(renameLocation("home-1", "garden", "Garden")).rejects.toBe(
-			reason,
-		);
+		await expect(
+			editLocation("home-1", "garden", { icon: "wrench" }),
+		).rejects.toBe(reason);
 		expect(consoleError).toHaveBeenCalled();
 		consoleError.mockRestore();
 	});

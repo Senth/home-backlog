@@ -98,6 +98,13 @@ interface BoardCardProps {
 	 * rule the labels above follow.
 	 */
 	ancestorLocationId?: string | null;
+	/**
+	 * True drops the footer's location fact (#205): the tree screen draws the
+	 * card inside the very place's row, and naming it again is the row saying
+	 * its own name twice. One prop through to `CardFooter` — the face is not
+	 * restyled, it just keeps one fact to itself.
+	 */
+	hideLocation?: boolean;
 }
 
 /**
@@ -192,6 +199,7 @@ export function BoardCard({
 	ancestorLabelIds = noAncestorLabelIds,
 	locations,
 	ancestorLocationId = null,
+	hideLocation = false,
 }: BoardCardProps) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
@@ -447,6 +455,7 @@ export function BoardCard({
 						node={node}
 						locationId={locationId}
 						locations={locations}
+						showLocation={!hideLocation}
 						waiting={waiting}
 						// The title owns the space between them; the footer hangs one
 						// `space.sm` under it, whether or not it has anything to say.

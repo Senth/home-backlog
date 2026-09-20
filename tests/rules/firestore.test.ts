@@ -2649,6 +2649,8 @@ describe("homes/{homeId}/locations", () => {
 		"parentId",
 		"ancestorIds",
 		"rank",
+		"icon",
+		"color",
 		"createdAt",
 		"createdBy",
 		"updatedAt",
@@ -2659,6 +2661,51 @@ describe("homes/{homeId}/locations", () => {
 
 		await assertFails(
 			setDoc(doc(dbAs(env, MEMBER), locationsPath, "incomplete"), data),
+		);
+	});
+
+	it.each([
+		["icon", 7],
+		["icon", ""],
+		["color", 7],
+		["color", ""],
+	])("refuses a location whose %s is %j", async (field, value) => {
+		await seedHome();
+
+		await assertFails(
+			create(dbAs(env, MEMBER), "bad-shape", { [field]: value }),
+		);
+	});
+
+	it("refuses a create with neither icon nor color", async () => {
+		// The create-only shape of the #205 requirement: a document without the
+		// two fields must not be born, only edited.
+		await seedHome();
+		const data = locationDoc();
+		delete data.icon;
+		delete data.color;
+
+		await assertFails(
+			setDoc(doc(dbAs(env, MEMBER), locationsPath, "legacy"), data),
+		);
+	});
+
+	it("lets a member update a document that predates icon and color", async () => {
+		// Documents written before #205 carry neither field, and toLocation
+		// defaults them on read — so a rename of one must not die
+		// permission-denied. Create still refuses, which the case above holds.
+		await seedHome();
+		await seed(env, async (db) => {
+			const legacy = locationDoc();
+			delete legacy.icon;
+			delete legacy.color;
+			await setDoc(doc(db, locationsPath, "old-place"), legacy);
+		});
+
+		await assertSucceeds(
+			updateDoc(doc(dbAs(env, MEMBER), locationsPath, "old-place"), {
+				title: "The garden",
+			}),
 		);
 	});
 

@@ -38,6 +38,8 @@ function location(
 		parentId: ancestorIds.at(-1) ?? null,
 		ancestorIds,
 		rank: id,
+		icon: "crosshairs-gps",
+		color: "stone",
 		createdAt: null,
 		createdBy: "uid-a",
 		updatedAt: null,

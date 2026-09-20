@@ -4,6 +4,7 @@ import {
 	decodeBoardFilter,
 	encodeBoardFilter,
 	filterActionVisible,
+	locationFilter,
 } from "@/models/board-filter";
 
 const hour = 60 * 60 * 1000;
@@ -31,6 +32,22 @@ describe("filterActionVisible", () => {
 		expect(filterActionVisible(2, 0, 0)).toBe(true);
 		expect(filterActionVisible(1, 1, 0)).toBe(true);
 		expect(filterActionVisible(1, 0, 1)).toBe(true);
+	});
+});
+
+describe("locationFilter", () => {
+	it("is open work at the place and everything under it", () => {
+		expect(locationFilter("basement")).toEqual({
+			mode: "open",
+			reach: "subtree",
+			conditions: [{ field: "locationId", anyOf: ["basement"] }],
+		});
+	});
+
+	it("names one place, and only that one", () => {
+		const { conditions } = locationFilter("shed");
+		expect(conditions).toHaveLength(1);
+		expect(conditions[0]).toMatchObject({ field: "locationId" });
 	});
 });
 

@@ -1,7 +1,7 @@
 ---
 name: home-backlog-api
 description: Read and write a Home Backlog board over REST — nested kanban nodes where a project, a task and a subtask are the same thing at different depths. Use when asked to research, break down, file or re-prioritise home-improvement work for a household, or when a prompt mentions Home Backlog, hb.senth.org, or an API key beginning hb_. Covers bearer auth, the node verbs, the atomic bulk create that writes a whole subtree in one undoable call, and the Overview dashboard card config.
-api-version: 2.0.0
+api-version: 2.1.0
 ---
 
 # Home Backlog API
@@ -206,16 +206,22 @@ you get every failure at once:
 
 ### `GET /v1/homes/{homeId}/locations`
 
-Every place in the home — rooms, floors, the garden — in `rank` order. Locations have no
-privacy: every member sees every place.
+Every place in the home — rooms, floors, the garden — in `rank` order. Each carries an
+`icon` (a MaterialCommunityIcons glyph name) and a `color` (one of the twelve label hues
+or a `#rgb` / `#rrggbb` hex), what the household recognises the place by. Locations have
+no privacy: every member sees every place.
 
 ### `POST /v1/homes/{homeId}/locations`
 
 One place. `title` is required; `parentId` nests it under another place and `rank` places it
-among its siblings (omit both for a top-level place at the end).
+among its siblings (omit both for a top-level place at the end). `icon` and `color` are
+optional — a place defaults to the `crosshairs-gps` glyph in `stone` — but `icon` must be a
+real MaterialCommunityIcons glyph name and `color` one of red, orange, amber, lime, green,
+teal, cyan, blue, indigo, purple, pink, stone, or a hex, or the create is refused with
+`unknown_icon` / `invalid_color`.
 
 ```json
-{ "title": "Garden", "parentId": "wJg9A41tevu4ydzlnZvz" }
+{ "title": "Garden", "parentId": "wJg9A41tevu4ydzlnZvz", "icon": "flower", "color": "teal" }
 ```
 
 Returns `201` and the created location, with its `ETag` in the response headers — there is
@@ -225,9 +231,10 @@ of places in one call is `POST /v1/homes/{homeId}/locations:bulk` below.
 
 ### `PATCH /v1/homes/{homeId}/locations/{locationId}`
 
-One update verb, like the node one: send `title` to rename, `parentId` to move the place and
-everything under it. Moving a place inside its own subtree is `400 cycle`. The response
-carries an `ETag`, and `If-Match` guards the write exactly as it does for nodes.
+One update verb, like the node one: send `title` to rename, `icon` or `color` to restyle,
+`parentId` to move the place and everything under it. Moving a place inside its own subtree
+is `400 cycle`. The response carries an `ETag`, and `If-Match` guards the write exactly as
+it does for nodes.
 
 ### `DELETE /v1/homes/{homeId}/locations/{locationId}`
 
@@ -245,12 +252,13 @@ Entries reference each other by a `ref` you choose, valid only inside the reques
 one entry has no `parentRef`, and that one is the new root. The optional top-level
 `parentId` attaches that root under a place that already exists. There is no `rank` inside
 a payload: siblings land in the order you list them, and the root lands at the end of its
-existing siblings.
+existing siblings. An entry may also carry `icon` and `color`, under the same grammar the
+single create holds them to; omitted, a place lands in the defaults.
 
 ```json
 {
   "locations": [
-    { "ref": "garden", "title": "Garden" },
+    { "ref": "garden", "title": "Garden", "icon": "flower", "color": "teal" },
     { "ref": "shed",   "parentRef": "garden", "title": "The shed" },
     { "ref": "bench",  "parentRef": "shed", "title": "The workbench" }
   ]

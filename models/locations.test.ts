@@ -2,6 +2,7 @@ import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import {
 	inSubtree,
 	type Location,
+	locationTitleError,
 	newLocationData,
 	toLocation,
 } from "@/models/locations";
@@ -13,6 +14,8 @@ function location(overrides: Partial<Location> = {}): Location {
 		parentId: null,
 		ancestorIds: [],
 		rank: "a0",
+		icon: "flower",
+		color: "teal",
 		createdAt: null,
 		createdBy: "uid-owner",
 		updatedAt: null,
@@ -40,6 +43,8 @@ describe("newLocationData", () => {
 			rank: "a0",
 			parentId: null,
 			ancestorIds: [],
+			icon: "crosshairs-gps",
+			color: "stone",
 		});
 	});
 
@@ -53,13 +58,42 @@ describe("newLocationData", () => {
 		expect(data.parentId).toBe("garden");
 		expect(data.ancestorIds).toEqual(["ute", "garden"]);
 	});
+
+	it("carries the chosen icon and color, and defaults when none is chosen", () => {
+		expect(
+			newLocationData({ title: "G", rank: "a0", icon: "wrench" }).icon,
+		).toBe("wrench");
+		expect(
+			newLocationData({ title: "G", rank: "a0", color: "amber" }).color,
+		).toBe("amber");
+		expect(newLocationData({ title: "G", rank: "a0" }).icon).toBe(
+			"crosshairs-gps",
+		);
+	});
+});
+
+describe("locationTitleError", () => {
+	it("refuses an empty name", () => {
+		expect(locationTitleError("   ")).toBe("locations.titleRequired");
+	});
+
+	it("refuses a name over 200 characters", () => {
+		expect(locationTitleError("x".repeat(201))).toBe("locations.titleTooLong");
+	});
+
+	it("accepts a name the rules would", () => {
+		expect(locationTitleError("  The garden  ")).toBeNull();
+	});
+
+	it("accepts a name another place already has — places are not unique", () => {
+		expect(locationTitleError("Hallway")).toBeNull();
+	});
 });
 
 describe("inSubtree", () => {
 	it("is the location itself", () => {
 		expect(inSubtree(location({ id: "garden" }), "garden")).toBe(true);
 	});
-
 	it("is everything under it, at any depth", () => {
 		const child = location({ id: "bed", ancestorIds: ["garden"] });
 		const grandchild = location({
@@ -84,6 +118,8 @@ describe("toLocation", () => {
 				parentId: "ute",
 				ancestorIds: ["ute"],
 				rank: "a1",
+				icon: "flower",
+				color: "teal",
 				createdAt: "stamp",
 				createdBy: "uid-owner",
 				updatedAt: "stamp",
@@ -96,6 +132,8 @@ describe("toLocation", () => {
 			parentId: "ute",
 			ancestorIds: ["ute"],
 			rank: "a1",
+			icon: "flower",
+			color: "teal",
 			createdAt: "stamp",
 			createdBy: "uid-owner",
 			updatedAt: "stamp",
@@ -119,9 +157,28 @@ describe("toLocation", () => {
 			parentId: null,
 			ancestorIds: ["ute"],
 			rank: "",
+			icon: "crosshairs-gps",
+			color: "stone",
 			createdAt: null,
 			createdBy: "",
 			updatedAt: null,
 		});
+	});
+
+	it("reads a document written before #205 as the defaults, not a crash", () => {
+		const read = toLocation(
+			snapshot("garden", {
+				title: "Garden",
+				parentId: null,
+				ancestorIds: [],
+				rank: "a0",
+				createdAt: "stamp",
+				createdBy: "uid-owner",
+				updatedAt: "stamp",
+			}),
+		);
+
+		expect(read.icon).toBe("crosshairs-gps");
+		expect(read.color).toBe("stone");
 	});
 });

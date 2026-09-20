@@ -30,7 +30,7 @@ import { childAncestorIds, movedAncestorIds } from "@/models/node";
  * so the whole-collection query is provably safe: every document it can match
  * is one the caller may read.
  *
- * **Offline.** `createLocation` and `renameLocation` queue optimistically, the
+ * **Offline.** `createLocation` and `editLocation` queue optimistically, the
  * acknowledged-promise pattern `createNode` uses — nothing user-facing awaits
  * the promise. `moveLocation` and `deleteLocation` read the subtree from the
  * server first, so offline they fail loudly: the cache holds only the locations
@@ -63,26 +63,6 @@ function locationsRef(homeId: string) {
  */
 export function locationsQuery(homeId: string): Query<DocumentData> {
 	return locationsRef(homeId);
-}
-
-/**
- * The tree sort: by parent, then rank, then id.
- *
- * A location's document order is Firestore's, which is arrival order — the
- * tree screen needs siblings together and in rank order, with the roots
- * first so the tree reads top-down. The id breaks rank ties the way
- * `compareNodes` does: two devices offline can produce the same rank between
- * the same neighbours, and a tie that resolves by arrival order renders
- * differently on every device.
- */
-export function compareLocations(a: Location, b: Location): number {
-	if (a.parentId !== b.parentId) {
-		if (a.parentId === null) return -1;
-		if (b.parentId === null) return 1;
-		return a.parentId < b.parentId ? -1 : 1;
-	}
-	if (a.rank !== b.rank) return a.rank < b.rank ? -1 : 1;
-	return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
 /*
@@ -123,24 +103,28 @@ export function createLocation(
 }
 
 /**
- * A rename, queued optimistically like any edit.
+ * An edit, queued optimistically like any write (#205).
  *
- * Same acknowledged-promise shape as `createLocation`: the tree row shows the
- * new name from the local cache at once, the promise resolves when the server
- * has it, and a rejection is logged here rather than left unhandled.
+ * One `updateDoc` with only the fields that changed, so two members editing
+ * different facts about the same place merge at the field path. Same
+ * acknowledged-promise shape as `createLocation`: the tree row shows the edit
+ * from the local cache at once, the promise resolves when the server has it,
+ * and a rejection is logged here rather than left unhandled.
  */
-export function renameLocation(
+export function editLocation(
 	homeId: string,
 	locationId: string,
-	title: string,
+	changes: { title?: string; icon?: string; color?: string },
 ): Promise<void> {
 	const written = updateDoc(locationRef(homeId, locationId), {
-		title: title.trim(),
+		...(changes.title !== undefined ? { title: changes.title.trim() } : {}),
+		...(changes.icon !== undefined ? { icon: changes.icon } : {}),
+		...(changes.color !== undefined ? { color: changes.color } : {}),
 		updatedAt: serverTimestamp(),
 	});
 
 	written.catch((reason) => {
-		console.error("Could not rename the location:", reason);
+		console.error("Could not save the location:", reason);
 	});
 
 	return written;

@@ -35,6 +35,8 @@ const locations: Location[] = [
 		parentId: null,
 		ancestorIds: [],
 		rank: "a0",
+		icon: "crosshairs-gps",
+		color: "stone",
 		createdAt: null,
 		createdBy: "uid-me",
 		updatedAt: null,

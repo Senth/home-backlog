@@ -1,6 +1,8 @@
 import type {
 	DocumentReference,
 	DocumentSnapshot,
+	Query,
+	QueryDocumentSnapshot,
 } from "firebase-admin/firestore";
 import { FieldValue } from "firebase-admin/firestore";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
@@ -22,23 +24,28 @@ import { region } from "./options.js";
  * a node. What they cannot survive on their own is the location itself moving:
  * a node filed at `Garden › Shed` carries `Garden › Shed` in its path, and when
  * the Shed re-homes under Basement that stored path is a lie. The rewrite needs
- * an `array-contains` query over `locationAncestorIds`, which from a *client*
- * could match a private node and have the whole query denied — so the only
- * rule-respecting writer is the Admin SDK, here.
+ * two queries — `locationId == movedId` for the nodes filed *at* the location,
+ * and `array-contains` over `locationAncestorIds` for the nodes filed under it
+ * — which from a *client* could match a private node and have the whole query
+ * denied, so the only rule-respecting writer is the Admin SDK, here.
  *
  * The branch per event:
  *
  * - **Create** — nothing anchored yet, nothing to maintain.
- * - **Update where `ancestorIds` changed** — a move. Every node whose path
- *   contains the moved id gets the prefix up to and including it rewritten
- *   (`movedAncestorIds`), the tail after it kept. A node's own `locationId`
- *   never changes: the Shed is still the Shed, it just sits elsewhere.
+ * - **Update where `ancestorIds` changed** — a move. A node filed *under* the
+ *   moved location gets the prefix up to and including it rewritten
+ *   (`movedAncestorIds`), the tail after it kept. A node filed *at* it keeps
+ *   its `locationId` and takes the moved location's new `ancestorIds` whole —
+ *   the stored crumb is exclusive of the location itself, so that path is
+ *   exactly what picking the place fresh would write. A node's own
+ *   `locationId` never changes: the Shed is still the Shed, it just sits
+ *   elsewhere.
  * - **Update where only `title` (or `rank`) changed** — no-op. A rename must
  *   not pay for a subtree read.
- * - **Delete** — every node whose path contains the deleted id is unfiled:
- *   `locationId: null`, `locationAncestorIds: []`. A node's own location is
- *   the last element of its path, so one `array-contains` catches both nodes
- *   filed *at* the location and nodes filed anywhere under it. Unfiled, not
+ * - **Delete** — every node anchored to the deleted id is unfiled:
+ *   `locationId: null`, `locationAncestorIds: []`. Filed *at* it and filed
+ *   under it are the two queries above — a crumb excludes its own location,
+ *   so the crumb alone misses the node filed at the location. Unfiled, not
  *   re-homed: re-homing silently moves somebody's work, and a deleted root has
  *   no parent to re-home to.
  *
@@ -65,11 +72,9 @@ export const onLocationWritten = onDocumentWritten(
 		if (!change.before.exists) return; // create
 
 		if (!change.after.exists) {
-			const anchored = await nodes
-				.where("locationAncestorIds", "array-contains", movedId)
-				.get();
+			const anchored = await anchoredNodes(nodes, movedId);
 			await writeAll(
-				anchored.docs.map((node) => ({
+				anchored.map((node) => ({
 					ref: node.ref,
 					data: { ...unfiledNode, updatedAt: FieldValue.serverTimestamp() },
 				})),
@@ -81,16 +86,16 @@ export const onLocationWritten = onDocumentWritten(
 		const afterAncestorIds = ancestorPath(change.after);
 		if (!pathChanged(beforeAncestorIds, afterAncestorIds)) return; // rename, rank
 
-		const anchored = await nodes
-			.where("locationAncestorIds", "array-contains", movedId)
-			.get();
+		const anchored = await anchoredNodes(nodes, movedId);
 		await writeAll(
-			anchored.docs.flatMap((node) => {
-				const update = moveUpdate(
-					node.get("locationAncestorIds") ?? [],
-					movedId,
-					afterAncestorIds,
-				);
+			anchored.flatMap((node) => {
+				const update =
+					filedUpdate(node.get("locationId"), movedId, afterAncestorIds) ??
+					moveUpdate(
+						node.get("locationAncestorIds") ?? [],
+						movedId,
+						afterAncestorIds,
+					);
 				return update === null
 					? []
 					: [
@@ -124,9 +129,9 @@ export function pathChanged(
 }
 
 /**
- * The update one anchored node gets when its location moves, or `null` when
- * the moved location does not appear in its path — the state the
- * `array-contains` query should have already excluded, and a document with no
+ * The update one node filed *under* the moved location gets, or `null` when
+ * the moved id does not appear in its crumb — the state the crumb arm of the
+ * query should have already excluded, and a document with no
  * `locationAncestorIds` at all.
  */
 export function moveUpdate(
@@ -144,6 +149,23 @@ export function moveUpdate(
 	};
 }
 
+/**
+ * The update one node filed *at* the moved location gets, or `null` when its
+ * place is a different one. The crumb is exclusive of the location itself, so
+ * the moved location's new `ancestorIds` is the whole crumb — the state
+ * picking that place fresh would write — and the `array-contains` query that
+ * finds the nodes under the location structurally never reaches these.
+ */
+export function filedUpdate(
+	locationId: string | null,
+	movedId: string,
+	newLocationAncestors: readonly string[],
+): { locationAncestorIds: string[] } | null {
+	return locationId === movedId
+		? { locationAncestorIds: [...newLocationAncestors] }
+		: null;
+}
+
 /** What a node anchored to a deleted location ends up as: unfiled. */
 export const unfiledNode: {
 	locationId: null;
@@ -159,6 +181,27 @@ function ancestorPath(snapshot: DocumentSnapshot): string[] {
 	return Array.isArray(ancestorIds)
 		? ancestorIds.filter((id): id is string => typeof id === "string")
 		: [];
+}
+
+/**
+ * Every node anchored to the location, from both arms the anchor lives on:
+ * filed *at* it (`locationId`) and filed *under* it (its id inside the crumb).
+ * Neither arm alone sees the other — a crumb excludes its own location — and
+ * a document can only appear in both when a stale crumb still carries the id
+ * of the place it is filed at, so the union is deduplicated by id and the
+ * filed-at answer wins.
+ */
+async function anchoredNodes(
+	nodes: Query,
+	movedId: string,
+): Promise<QueryDocumentSnapshot[]> {
+	const [direct, under] = await Promise.all([
+		nodes.where("locationId", "==", movedId).get(),
+		nodes.where("locationAncestorIds", "array-contains", movedId).get(),
+	]);
+	const byId = new Map(under.docs.map((doc) => [doc.id, doc]));
+	for (const doc of direct.docs) byId.set(doc.id, doc);
+	return [...byId.values()];
 }
 
 /** Apply a list of node updates, in commits the batch limit can hold. */

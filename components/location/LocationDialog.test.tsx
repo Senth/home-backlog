@@ -1,0 +1,120 @@
+import { fireEvent, render, screen } from "@testing-library/react-native";
+import { TextInput as RNTextInput } from "react-native";
+import { Provider } from "react-native-paper";
+import { LocationDialog } from "@/components/location/LocationDialog";
+import { createLocation, editLocation } from "@/data/locations";
+import type { Location } from "@/models/locations";
+import { lightTheme } from "@/theme";
+
+jest.mock("react-i18next", () => ({
+	// Keys asserted, not sentences — `LabelDialog.test.tsx` for the reasoning.
+	useTranslation: () => ({
+		t: (key: string, values?: Record<string, unknown>) =>
+			values === undefined ? key : `${key}:${JSON.stringify(values)}`,
+		i18n: { language: "en-US" },
+	}),
+}));
+
+jest.mock("@/contexts/AuthContext", () => ({
+	useAuth: () => ({ user: { uid: "uid-me" } }),
+}));
+
+jest.mock("@/data/locations", () => ({
+	createLocation: jest.fn(() => ({
+		id: "new-location",
+		acknowledged: Promise.resolve(),
+	})),
+	editLocation: jest.fn(() => Promise.resolve()),
+}));
+
+// The real icon set loads its font map asynchronously — the same double the
+// label dialog's test uses.
+jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
+	const { View } = jest.requireActual("react-native");
+	const Mock = ({ name }: { name: string }) => <View testID={name} />;
+	const withGlyphMap = Mock as unknown as { glyphMap: Record<string, number> };
+	withGlyphMap.glyphMap = { home: 0x0f2d };
+	return { __esModule: true, default: Mock };
+});
+
+function place(overrides: Partial<Location> = {}): Location {
+	return {
+		id: "garden",
+		title: "Garden",
+		parentId: null,
+		ancestorIds: [],
+		rank: "a0",
+		icon: "crosshairs-gps",
+		color: "stone",
+		createdAt: null,
+		createdBy: "uid-me",
+		updatedAt: null,
+		...overrides,
+	};
+}
+
+function renderDialog(
+	props: Partial<Parameters<typeof LocationDialog>[0]> = {},
+) {
+	return render(
+		<Provider theme={lightTheme}>
+			<LocationDialog
+				homeId="home-1"
+				location={null}
+				parent={null}
+				siblings={[]}
+				onDismiss={() => {}}
+				testID="location-dialog"
+				{...props}
+			/>
+		</Provider>,
+	);
+}
+
+/** The name field, which Paper renders as one inner `TextInput`. */
+function nameField() {
+	return screen.UNSAFE_getByType(RNTextInput);
+}
+
+afterEach(() => {
+	jest.clearAllMocks();
+});
+
+describe("LocationDialog", () => {
+	it("trims the name on the create path", () => {
+		renderDialog();
+
+		fireEvent.changeText(nameField(), "  Garden  ");
+		fireEvent.press(screen.getByText("board.add"));
+
+		expect(createLocation).toHaveBeenCalledWith(
+			"home-1",
+			"uid-me",
+			expect.objectContaining({
+				title: "Garden",
+				icon: "crosshairs-gps",
+				color: "stone",
+			}),
+		);
+	});
+
+	it("trims the name on the edit path", () => {
+		renderDialog({ location: place() });
+
+		fireEvent.changeText(nameField(), "  Trädgården  ");
+		fireEvent.press(screen.getByText("labels.save"));
+
+		expect(editLocation).toHaveBeenCalledWith("home-1", "garden", {
+			title: "Trädgården",
+		});
+	});
+
+	it("writes nothing when the trimmed name is the one already stored", () => {
+		renderDialog({ location: place() });
+
+		fireEvent.changeText(nameField(), "  Garden  ");
+		fireEvent.press(screen.getByText("labels.save"));
+
+		expect(editLocation).not.toHaveBeenCalled();
+	});
+});

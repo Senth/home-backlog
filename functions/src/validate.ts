@@ -1,6 +1,11 @@
 import { ApiError } from "./errors.js";
 import { iconNames } from "./icon-names.js";
-import { isLabelColor, type Label, maxLabelTitleLength } from "./label.js";
+import {
+	isLabelColor,
+	type Label,
+	labelHueNames,
+	maxLabelTitleLength,
+} from "./label.js";
 import {
 	defaultColumns,
 	dueDatePattern,
@@ -557,6 +562,15 @@ export interface LocationContext {
 }
 
 /**
+ * What a place carries when the caller did not choose (#205) — the mirror of
+ * `models/locations.ts`'s defaults. Both are written outright, so a create
+ * that omits them still lands a whole document, and the rules' `validLocation`
+ * — which requires the two fields outright — never sees a hole.
+ */
+export const defaultLocationIcon = "crosshairs-gps";
+export const defaultLocationColor = "stone";
+
+/**
  * The rules' `validLocation()` and their locations `structure()`, re-stated in
  * TypeScript — the mirror the location verbs write through, exactly as
  * `validateNode` is the one the node verbs write through.
@@ -568,6 +582,12 @@ export interface LocationContext {
  * check the same fields: title 1–200, `parentId` null or a string, `ancestorIds`
  * a list ending at `parentId` (empty at the root) and never containing the
  * location's own id, a non-empty `rank`, and the three timestamps present.
+ * `icon` and `color` are two places the mirror is stricter than the rules, the
+ * way a label's are: the rules can hold the two fields to presence and type
+ * only, while here the icon is a real MaterialCommunityIcons glyph name and the
+ * color one of the twelve hue names or a `#rgb` / `#rrggbb` hex — a
+ * hallucinated glyph or a made-up color word is a place that renders wrong
+ * everywhere, so an agent cannot store one.
  */
 export function validateLocation(
 	data: Record<string, unknown>,
@@ -584,6 +604,25 @@ export function validateLocation(
 			"title",
 			"title_too_long",
 			`A title is at most ${maxTitleLength} characters.`,
+		);
+	}
+
+	if (
+		!isString(data.icon) ||
+		!(iconNames as ReadonlySet<string>).has(data.icon)
+	) {
+		add(
+			"icon",
+			"unknown_icon",
+			"icon must be a MaterialCommunityIcons glyph name, such as wrench.",
+		);
+	}
+
+	if (!isLabelColor(data.color)) {
+		add(
+			"color",
+			"invalid_color",
+			`color must be one of ${labelHueNames.join(", ")}, or a #rgb / #rrggbb hex.`,
 		);
 	}
 

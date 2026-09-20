@@ -270,10 +270,31 @@ describe("a location body", () => {
 	it("takes every field a create writes", () => {
 		expect(
 			parseLocationBody(
-				{ title: "Garden", parentId: "place-1", rank: "a0" },
+				{
+					title: "Garden",
+					parentId: "place-1",
+					rank: "a0",
+					icon: "flower",
+					color: "teal",
+				},
 				"create",
 			),
-		).toEqual({ title: "Garden", parentId: "place-1", rank: "a0" });
+		).toEqual({
+			title: "Garden",
+			parentId: "place-1",
+			rank: "a0",
+			icon: "flower",
+			color: "teal",
+		});
+	});
+
+	it("takes an icon and a color on an update", () => {
+		expect(parseLocationBody({ icon: "wrench" }, "update")).toEqual({
+			icon: "wrench",
+		});
+		expect(parseLocationBody({ color: "#A32E28" }, "update")).toEqual({
+			color: "#A32E28",
+		});
 	});
 
 	it("takes a null parentId, which creates a root place", () => {

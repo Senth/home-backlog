@@ -2,7 +2,12 @@ import { asObject } from "./body.js";
 import { ApiError, type ApiErrorDetail } from "./errors.js";
 import { maxBatchWrites } from "./firestore.js";
 import { childAncestorIds, rankSequence } from "./node.js";
-import { type LocationContext, validateLocation } from "./validate.js";
+import {
+	defaultLocationColor,
+	defaultLocationIcon,
+	type LocationContext,
+	validateLocation,
+} from "./validate.js";
 
 /**
  * A whole place tree, planned before a single document is written — the node
@@ -33,6 +38,9 @@ export interface BulkLocation {
 	/** Another place's `ref`. Absent on exactly one place: the new root. */
 	parentRef: string | null;
 	title?: string;
+	/** What the place is recognisable by (#205); defaulted when omitted. */
+	icon?: string;
+	color?: string;
 	/** Where this place sat in the request, so an error can point at it. */
 	index: number;
 }
@@ -169,7 +177,12 @@ export function parseBulkLocationsBody(body: unknown): BulkLocationsPayload {
 		}
 
 		const unknown = Object.keys(object).filter(
-			(field) => field !== "ref" && field !== "parentRef" && field !== "title",
+			(field) =>
+				field !== "ref" &&
+				field !== "parentRef" &&
+				field !== "title" &&
+				field !== "icon" &&
+				field !== "color",
 		);
 		if (unknown.length > 0) {
 			for (const field of unknown) {
@@ -177,7 +190,7 @@ export function parseBulkLocationsBody(body: unknown): BulkLocationsPayload {
 					index,
 					field,
 					code: "unknown_field",
-					message: `${field} is not a field a bulk entry writes. Allowed: ref, parentRef, title.`,
+					message: `${field} is not a field a bulk entry writes. Allowed: ref, parentRef, title, icon, color.`,
 				});
 			}
 			continue;
@@ -213,11 +226,33 @@ export function parseBulkLocationsBody(body: unknown): BulkLocationsPayload {
 			});
 			continue;
 		}
+		const icon = object.icon;
+		if (icon !== undefined && typeof icon !== "string") {
+			details.push({
+				index,
+				field: "icon",
+				code: "invalid_type",
+				message: "icon must be a string.",
+			});
+			continue;
+		}
+		const color = object.color;
+		if (color !== undefined && typeof color !== "string") {
+			details.push({
+				index,
+				field: "color",
+				code: "invalid_type",
+				message: "color must be a string.",
+			});
+			continue;
+		}
 
 		locations.push({
 			ref,
 			parentRef,
 			...(title !== undefined ? { title } : {}),
+			...(icon !== undefined ? { icon } : {}),
+			...(color !== undefined ? { color } : {}),
 			index,
 		});
 	}
@@ -321,6 +356,8 @@ export function planBulkLocations(
 			// exactly what cannot be verified from outside.
 			ancestorIds: childAncestorIds(facts),
 			rank,
+			icon: location.icon ?? defaultLocationIcon,
+			color: location.color ?? defaultLocationColor,
 			createdAt: now,
 			createdBy,
 			updatedAt: now,
