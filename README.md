@@ -81,3 +81,4 @@ Google account is needed locally.
 | `yarn e2e:report`                        | Open the last `yarn e2e` HTML report                                   |
 | `yarn build:web`                         | Static web export to `dist/`                                           |
 | `yarn icons`                             | Regenerate every app and PWA icon from `scripts/gen-icons.py`          |
+| `scripts/project-iam.sh` / `--apply`     | Audit (default) or grant the project's declared IAM bindings           |
