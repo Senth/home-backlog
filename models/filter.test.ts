@@ -1,5 +1,10 @@
 import type { Timestamp } from "firebase/firestore";
-import { type CardCondition, type CardSort, sortRows } from "@/models/filter";
+import {
+	type CardCondition,
+	type CardSort,
+	defaultDirection,
+	sortRows,
+} from "@/models/filter";
 import { defaultColumns, type Node } from "@/models/node";
 import { doneWithinDays } from "@/models/overview";
 import {
@@ -589,5 +594,19 @@ describe("sortRows", () => {
 				(each) => each.id + each.rank,
 			),
 		).toEqual(["aa0", "aa1", "ba1"]);
+	});
+});
+
+/**
+ * #311: picking a sort field preselects a direction, and priority's is the
+ * one a reader means — high first.
+ */
+describe("defaultDirection", () => {
+	it("opens priority high-first and every other field low-first", () => {
+		expect(defaultDirection("priority")).toBe("desc");
+		expect(defaultDirection("dueDate")).toBe("asc");
+		expect(defaultDirection("effort")).toBe("asc");
+		expect(defaultDirection("status")).toBe("asc");
+		expect(defaultDirection("completedAt")).toBe("asc");
 	});
 });

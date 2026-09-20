@@ -99,6 +99,15 @@ export function sortCarriedBy(mode: CardMode, field: SortField): boolean {
 	return mode === "done" || field !== "completedAt";
 }
 
+/**
+ * The direction a fresh sort pick starts from (#311): priority reads high
+ * first — the order a reader means — and every other field runs low-first,
+ * the plain reading of the scale.
+ */
+export function defaultDirection(field: SortField): "asc" | "desc" {
+	return field === "priority" ? "desc" : "asc";
+}
+
 /** What one condition holds a node against; `uid` answers `"me"`. */
 export interface MatchContext {
 	uid: string;
