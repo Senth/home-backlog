@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 #
 # The IAM bindings this project needs, declared once so drift is a diff instead of
-# a mystery. Default run is a read-only audit: three sections, ok / missing /
-# undeclared, exit 1 if anything is missing. `--apply` grants what is missing and
-# never revokes; undeclared bindings are reported and left alone.
+# a mystery. Default run is a read-only audit: ok / missing / undeclared, plus an
+# informational service-agent section, exit 1 if anything is missing. `--apply`
+# grants what is missing and never revokes; undeclared bindings are reported and
+# left alone.
 #
 # Google-managed service agents (created and bound automatically when an API is
-# enabled, and restored on their own if deleted) are filtered out of `undeclared`
-# so the script does not go stale every time Google renames one. The one
-# exception, `gcp-sa-firebasestorage` needing `roles/firebaserules.firestoreServiceAgent`,
+# enabled, and restored on their own if deleted) are matched by member glob, not
+# by member+role, so the script does not go stale every time Google grants one
+# of them a new role. A matched member's undeclared roles print in their own
+# informational section instead of `undeclared`. The one exception,
+# `gcp-sa-firebasestorage` needing `roles/firebaserules.firestoreServiceAgent`,
 # is declared explicitly below because no API enablement ever grants it.
 
 set -euo pipefail
@@ -61,43 +64,30 @@ DECLARED+=("project|${PROJECT_ID}|serviceAccount:${STORAGE_AGENT}|roles/firebase
 DECLARED+=("sa|${DEPLOY_SA}|${WORKLOAD_PRINCIPAL}|roles/iam.workloadIdentityUser")
 DECLARED+=("sa|${DEPLOY_SA}|user:${OWNER_ACCOUNT}|roles/iam.serviceAccountTokenCreator")
 
-# member|role pairs, not member alone: a service agent picking up a role beyond
-# what its own API auto-grants must still surface as undeclared, so the filter
-# only swallows the exact (member glob, role) pairs Google is known to grant.
-SERVICE_AGENT_ROLES=(
-  '*@cloudbuild.gserviceaccount.com|roles/cloudbuild.builds.builder'
-  '*@cloudservices.gserviceaccount.com|roles/editor'
-  '*-compute@developer.gserviceaccount.com|roles/editor'
-  '*-compute@developer.gserviceaccount.com|roles/eventarc.eventReceiver'
-  '*-compute@developer.gserviceaccount.com|roles/run.invoker'
-  '*firebase-adminsdk-*@*.iam.gserviceaccount.com|roles/firebase.sdkAdminServiceAgent'
-  '*firebase-adminsdk-*@*.iam.gserviceaccount.com|roles/iam.serviceAccountTokenCreator'
-  '*@appspot.gserviceaccount.com|roles/editor'
-  '*@containerregistry.iam.gserviceaccount.com|roles/containerregistry.ServiceAgent'
-  '*@firebase-rules.iam.gserviceaccount.com|roles/firebaserules.system'
-  '*@gcf-admin-robot.iam.gserviceaccount.com|roles/cloudfunctions.serviceAgent'
-  '*service-*@gcp-sa-artifactregistry.iam.gserviceaccount.com|roles/artifactregistry.serviceAgent'
-  '*service-*@gcp-sa-cloudbuild.iam.gserviceaccount.com|roles/cloudbuild.serviceAgent'
-  '*service-*@gcp-sa-eventarc.iam.gserviceaccount.com|roles/eventarc.serviceAgent'
-  '*service-*@gcp-sa-firebase.iam.gserviceaccount.com|roles/firebase.managementServiceAgent'
-  '*service-*@gcp-sa-firebasestorage.iam.gserviceaccount.com|roles/firebasestorage.serviceAgent'
-  '*service-*@gcp-sa-firestore.iam.gserviceaccount.com|roles/firestore.serviceAgent'
-  '*service-*@gcp-sa-pubsub.iam.gserviceaccount.com|roles/iam.serviceAccountTokenCreator'
-  '*service-*@gcp-sa-pubsub.iam.gserviceaccount.com|roles/pubsub.serviceAgent'
-  '*@gs-project-accounts.iam.gserviceaccount.com|roles/pubsub.publisher'
-  '*@serverless-robot-prod.iam.gserviceaccount.com|roles/run.serviceAgent'
+# member globs Google itself owns: it creates, binds and re-binds these on its
+# own schedule, and it grants them whatever roles its APIs need without asking.
+# A member matching one of these is never a human's deliberate grant, so it
+# never belongs in the loud `undeclared` section, whatever role it carries.
+SERVICE_AGENT_MEMBERS=(
+  'serviceAccount:service-*@gcp-sa-*.iam.gserviceaccount.com'
+  'serviceAccount:*@gcf-admin-robot.iam.gserviceaccount.com'
+  'serviceAccount:*@firebase-rules.iam.gserviceaccount.com'
+  'serviceAccount:*@containerregistry.iam.gserviceaccount.com'
+  'serviceAccount:*@serverless-robot-prod.iam.gserviceaccount.com'
+  'serviceAccount:*@cloudbuild.gserviceaccount.com'
+  'serviceAccount:*@cloudservices.gserviceaccount.com'
+  'serviceAccount:*@appspot.gserviceaccount.com'
+  'serviceAccount:*-compute@developer.gserviceaccount.com'
+  'serviceAccount:*firebase-adminsdk-*@*.iam.gserviceaccount.com'
+  'serviceAccount:*@gs-project-accounts.iam.gserviceaccount.com'
 )
 
-is_service_agent() {
+is_service_agent_member() {
   local member="$1"
-  local role="$2"
-  local entry pattern allowed_role
-  for entry in "${SERVICE_AGENT_ROLES[@]}"; do
-    IFS='|' read -r pattern allowed_role <<< "$entry"
+  local pattern
+  for pattern in "${SERVICE_AGENT_MEMBERS[@]}"; do
     # shellcheck disable=SC2053
-    if [[ "$member" == $pattern && "$role" == "$allowed_role" ]]; then
-      return 0
-    fi
+    [[ "$member" == $pattern ]] && return 0
   done
   return 1
 }
@@ -153,6 +143,7 @@ for entry in "${DECLARED[@]}"; do
 done
 
 undeclared=()
+service_agent_roles=()
 scan_undeclared() {
   local kind="$1"
   local scope="$2"
@@ -161,7 +152,6 @@ scan_undeclared() {
   local member role declared_hit entry dmember drole
   while IFS='|' read -r member role; do
     [[ -z "$member" ]] && continue
-    is_service_agent "$member" "$role" && continue
     declared_hit=0
     for entry in "${DECLARED[@]}"; do
       IFS='|' read -r _ _ dmember drole <<< "$entry"
@@ -170,7 +160,10 @@ scan_undeclared() {
         break
       fi
     done
-    if [[ "$declared_hit" == 0 ]]; then
+    [[ "$declared_hit" == 1 ]] && continue
+    if is_service_agent_member "$member"; then
+      service_agent_roles+=("${kind}|${scope}|${member}|${role}")
+    else
       undeclared+=("${kind}|${scope}|${member}|${role}")
     fi
   done < <(printf '%s\n' "${live[@]}")
@@ -200,6 +193,8 @@ report() {
   print_section "missing:" "${missing[@]}"
   echo
   print_section "undeclared:" "${undeclared[@]}"
+  echo
+  print_section "service-agent roles (informational, not compared):" "${service_agent_roles[@]}"
 }
 
 report
