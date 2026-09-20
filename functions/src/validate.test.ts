@@ -637,6 +637,8 @@ function locationDoc(
 		parentId: null,
 		ancestorIds: [],
 		rank: "a0",
+		icon: "crosshairs-gps",
+		color: "stone",
 		createdAt: new Date("2026-01-01T00:00:00Z"),
 		createdBy: "uid-owner",
 		updatedAt: new Date("2026-01-01T00:00:00Z"),
@@ -671,15 +673,20 @@ describe("a location, mirrored from validLocation()", () => {
 		).toEqual([]);
 	});
 
-	it.each(["title", "rank", "createdAt", "createdBy", "updatedAt"])(
-		"refuses a location with no %s",
-		(field) => {
-			const data = locationDoc();
-			delete data[field];
+	it.each([
+		"title",
+		"rank",
+		"icon",
+		"color",
+		"createdAt",
+		"createdBy",
+		"updatedAt",
+	])("refuses a location with no %s", (field) => {
+		const data = locationDoc();
+		delete data[field];
 
-			expect(validateLocation(data, atLocationRoot).length).toBeGreaterThan(0);
-		},
-	);
+		expect(validateLocation(data, atLocationRoot).length).toBeGreaterThan(0);
+	});
 
 	it("refuses an over-long title", () => {
 		expect(locationCodes(locationDoc({ title: "x".repeat(201) }))).toContain(
@@ -702,6 +709,30 @@ describe("a location, mirrored from validLocation()", () => {
 	it("refuses a rank that is not a non-empty string", () => {
 		expect(locationCodes(locationDoc({ rank: "" }))).toContain("invalid_rank");
 		expect(locationCodes(locationDoc({ rank: 3 }))).toContain("invalid_rank");
+	});
+
+	// Stricter than the rules, the way a label's are: the rules can hold the
+	// two fields to presence and type only, while here the glyph must be a real
+	// MaterialCommunityIcons name and the color one of the twelve hues or hex.
+	it("refuses an icon that is not a MaterialCommunityIcons glyph name", () => {
+		expect(locationCodes(locationDoc({ icon: "made-up-glyph" }))).toContain(
+			"unknown_icon",
+		);
+	});
+
+	it("refuses a color that is neither a hue name nor a hex", () => {
+		expect(locationCodes(locationDoc({ color: "reddish" }))).toContain(
+			"invalid_color",
+		);
+	});
+
+	it("accepts a color that is a hue name or a hex", () => {
+		expect(locationCodes(locationDoc({ color: "amber" }))).not.toContain(
+			"invalid_color",
+		);
+		expect(locationCodes(locationDoc({ color: "#A32E28" }))).not.toContain(
+			"invalid_color",
+		);
 	});
 
 	it("refuses ancestors that contain the location's own id", () => {

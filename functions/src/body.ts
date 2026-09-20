@@ -291,13 +291,22 @@ export interface LocationBody {
 	 * update it is an unknown field, because sibling reorder is #182's.
 	 */
 	rank?: string;
+	/** What the place is recognisable by (#205); defaulted when omitted. */
+	icon?: string;
+	color?: string;
 }
 
 /** Fields a caller may send when creating a location. */
-const locationCreateFields = ["title", "parentId", "rank"] as const;
+const locationCreateFields = [
+	"title",
+	"parentId",
+	"rank",
+	"icon",
+	"color",
+] as const;
 
 /** Fields a caller may send when changing one. Reorder is #182's. */
-const locationUpdateFields = ["title", "parentId"] as const;
+const locationUpdateFields = ["title", "parentId", "icon", "color"] as const;
 
 /**
  * Read a location body against the allow-list for this verb.
@@ -305,9 +314,9 @@ const locationUpdateFields = ["title", "parentId"] as const;
  * `ancestorIds` is derived server-side from `parentId` and never read from the
  * body — the same rule the node verbs follow, for the same reason: a
  * caller-supplied path is exactly what cannot be verified from outside. What
- * *is* allowed is what a person can do from the tree screen once it ships
- * (#50): name a place, nest it, and — on a create only — place it among its
- * siblings.
+ * *is* allowed is what a person can do from the tree screen: name a place,
+ * nest it, give it a glyph and a color (#205) and — on a create only — place
+ * it among its siblings.
  */
 export function parseLocationBody(
 	body: unknown,
@@ -332,6 +341,8 @@ export function parseLocationBody(
 		parsed.parentId = asStringOrNull(raw.parentId, "parentId");
 	}
 	if ("rank" in raw) parsed.rank = asString(raw.rank, "rank");
+	if ("icon" in raw) parsed.icon = asString(raw.icon, "icon");
+	if ("color" in raw) parsed.color = asString(raw.color, "color");
 
 	return parsed;
 }

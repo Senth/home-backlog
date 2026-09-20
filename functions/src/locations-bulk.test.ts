@@ -113,6 +113,48 @@ describe("a planned place tree", () => {
 			expect(item.data.createdBy).toBe(ME);
 		}
 	});
+
+	it("defaults the icon and color a caller did not choose", () => {
+		for (const item of plan(tree).items) {
+			expect(item.data.icon).toBe("crosshairs-gps");
+			expect(item.data.color).toBe("stone");
+		}
+	});
+
+	it("carries a chosen icon and color through", () => {
+		const result = plan({
+			locations: [
+				{ ref: "garden", title: "Garden", icon: "flower", color: "teal" },
+				{ ref: "bench", parentRef: "garden", title: "The bench" },
+			],
+		});
+
+		expect(itemFor(result, "garden").icon).toBe("flower");
+		expect(itemFor(result, "garden").color).toBe("teal");
+		expect(itemFor(result, "bench").icon).toBe("crosshairs-gps");
+	});
+
+	it("refuses an entry whose icon or color is not a string", () => {
+		const error = refusal(() =>
+			plan({
+				locations: [{ ref: "garden", title: "Garden", icon: 7 }],
+			}),
+		);
+
+		expect(error.code).toBe("invalid_type");
+		expect(error.details?.[0]).toMatchObject({ field: "icon", index: 0 });
+	});
+
+	it("refuses an entry with a field the verb does not write", () => {
+		const error = refusal(() =>
+			plan({
+				locations: [{ ref: "garden", title: "Garden", hue: "teal" }],
+			}),
+		);
+
+		expect(error.code).toBe("unknown_field");
+		expect(error.message).toContain("icon, color");
+	});
 });
 
 describe("ranks", () => {
@@ -286,14 +328,14 @@ describe("per-index errors", () => {
 			plan({
 				locations: [
 					{ ref: "garden", title: "Garden" },
-					{ ref: "shed", parentRef: "garden", title: "The shed", icon: "home" },
+					{ ref: "shed", parentRef: "garden", title: "The shed", hue: "teal" },
 				],
 			}),
 		);
 
 		expect(error.details?.[0]).toMatchObject({
 			index: 1,
-			field: "icon",
+			field: "hue",
 			code: "unknown_field",
 		});
 	});

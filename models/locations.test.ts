@@ -13,6 +13,8 @@ function location(overrides: Partial<Location> = {}): Location {
 		parentId: null,
 		ancestorIds: [],
 		rank: "a0",
+		icon: "flower",
+		color: "teal",
 		createdAt: null,
 		createdBy: "uid-owner",
 		updatedAt: null,
@@ -40,6 +42,8 @@ describe("newLocationData", () => {
 			rank: "a0",
 			parentId: null,
 			ancestorIds: [],
+			icon: "crosshairs-gps",
+			color: "stone",
 		});
 	});
 
@@ -52,6 +56,18 @@ describe("newLocationData", () => {
 
 		expect(data.parentId).toBe("garden");
 		expect(data.ancestorIds).toEqual(["ute", "garden"]);
+	});
+
+	it("carries the chosen icon and color, and defaults when none is chosen", () => {
+		expect(
+			newLocationData({ title: "G", rank: "a0", icon: "wrench" }).icon,
+		).toBe("wrench");
+		expect(
+			newLocationData({ title: "G", rank: "a0", color: "amber" }).color,
+		).toBe("amber");
+		expect(newLocationData({ title: "G", rank: "a0" }).icon).toBe(
+			"crosshairs-gps",
+		);
 	});
 });
 
@@ -84,6 +100,8 @@ describe("toLocation", () => {
 				parentId: "ute",
 				ancestorIds: ["ute"],
 				rank: "a1",
+				icon: "flower",
+				color: "teal",
 				createdAt: "stamp",
 				createdBy: "uid-owner",
 				updatedAt: "stamp",
@@ -96,6 +114,8 @@ describe("toLocation", () => {
 			parentId: "ute",
 			ancestorIds: ["ute"],
 			rank: "a1",
+			icon: "flower",
+			color: "teal",
 			createdAt: "stamp",
 			createdBy: "uid-owner",
 			updatedAt: "stamp",
@@ -119,9 +139,28 @@ describe("toLocation", () => {
 			parentId: null,
 			ancestorIds: ["ute"],
 			rank: "",
+			icon: "crosshairs-gps",
+			color: "stone",
 			createdAt: null,
 			createdBy: "",
 			updatedAt: null,
 		});
+	});
+
+	it("reads a document written before #205 as the defaults, not a crash", () => {
+		const read = toLocation(
+			snapshot("garden", {
+				title: "Garden",
+				parentId: null,
+				ancestorIds: [],
+				rank: "a0",
+				createdAt: "stamp",
+				createdBy: "uid-owner",
+				updatedAt: "stamp",
+			}),
+		);
+
+		expect(read.icon).toBe("crosshairs-gps");
+		expect(read.color).toBe("stone");
 	});
 });

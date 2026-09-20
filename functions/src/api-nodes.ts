@@ -10,6 +10,7 @@ import {
 	statuses,
 	type Visibility,
 } from "./node.js";
+import { defaultLocationColor, defaultLocationIcon } from "./validate.js";
 
 /**
  * What a node looks like on the wire, and who is allowed to see it.
@@ -203,6 +204,9 @@ export interface ApiLocation {
 	parentId: string | null;
 	ancestorIds: string[];
 	rank: string;
+	/** What the place is recognisable by (#205); defaulted when not stored. */
+	icon: string;
+	color: string;
 	createdAt: string | null;
 	createdBy: string;
 	updatedAt: string | null;
@@ -212,7 +216,8 @@ export interface ApiLocation {
  * A stored location as JSON, read defensively — the same argument `apiNode`
  * makes. Smaller than a node, because a location is household furniture: no
  * visibility, no participants, no counters. The id fields are read but never
- * taken from a request body; `ancestorIds` is derived from `parentId`.
+ * taken from a request body; `ancestorIds` is derived from `parentId`. A
+ * document written before #205 reads as the defaults, not as holes.
  */
 export function apiLocation(
 	id: string,
@@ -224,6 +229,8 @@ export function apiLocation(
 		parentId: stringOrNull(data.parentId),
 		ancestorIds: strings(data.ancestorIds),
 		rank: stringOr(data.rank, ""),
+		icon: stringOr(data.icon, defaultLocationIcon),
+		color: stringOr(data.color, defaultLocationColor),
 		createdAt: isoTime(data.createdAt),
 		createdBy: stringOr(data.createdBy, ""),
 		updatedAt: isoTime(data.updatedAt),

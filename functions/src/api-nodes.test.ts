@@ -177,12 +177,23 @@ describe("a location on the wire", () => {
 	};
 
 	it("carries the id and every field", () => {
-		expect(apiLocation("loc-1", stored)).toEqual({
+		expect(
+			apiLocation("loc-1", { ...stored, icon: "flower", color: "teal" }),
+		).toEqual({
 			id: "loc-1",
 			...stored,
+			icon: "flower",
+			color: "teal",
 			createdAt: "2026-01-01T00:00:00.000Z",
 			updatedAt: "2026-02-01T12:00:00.000Z",
 		});
+	});
+
+	it("defaults the icon and color a document predates (#205)", () => {
+		const location = apiLocation("loc-1", stored);
+
+		expect(location.icon).toBe("crosshairs-gps");
+		expect(location.color).toBe("stone");
 	});
 
 	it("renders a root place's parentId as null", () => {

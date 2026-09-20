@@ -542,6 +542,11 @@ service cloud.firestore {
       // anything and no counters to keep in step. New collection, no legacy
       // documents — so unlike the node fields, nothing here is validated
       // present-only; every document carries every field from the first one.
+      // `icon` and `color` (#205) are required outright for the same reason —
+      // both are always written — and what the rules can hold them to is
+      // presence and type; the grammar (a MaterialCommunityIcons glyph name,
+      // one of the twelve hue names or a #rgb / #rrggbb hex) is the REST
+      // mirror's, in `validateLocation`, which the rules cannot spell.
       //
       // No get() anywhere: a location carries no inheritance invariant beyond
       // structure, so a batched subtree move never approaches the
@@ -555,6 +560,10 @@ service cloud.firestore {
             && data.ancestorIds is list
             && data.rank is string
             && data.rank.size() > 0
+            && data.icon is string
+            && data.icon.size() > 0
+            && data.color is string
+            && data.color.size() > 0
             && data.createdAt is timestamp
             && data.createdBy is string
             && data.updatedAt is timestamp;

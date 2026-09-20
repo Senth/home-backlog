@@ -198,6 +198,8 @@ export function locationDoc(
 		parentId: null,
 		ancestorIds: [],
 		rank: "a0",
+		icon: "crosshairs-gps",
+		color: "stone",
 		createdAt: new Date("2026-01-01T00:00:00Z"),
 		createdBy: OWNER.uid,
 		updatedAt: new Date("2026-01-01T00:00:00Z"),

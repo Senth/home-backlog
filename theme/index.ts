@@ -126,58 +126,66 @@ const darkBoard = {
  * schemes. Anything else a household wants is a custom color, stored raw and
  * clamped at render by `models/label-color.ts`.
  *
+ * Each scheme also carries a third tone, **`ink`** (#205): Tailwind's 700 in
+ * light and its 300 in dark. A hue is a *fill* — a label dot, with its glyph
+ * knocked out — and an *ink* — a bare colored glyph, no fill behind it, the
+ * way a location draws. A fill's 200 tone painted as a bare glyph is ~1.3:1 on
+ * the light page, so an ink has its own tone and its own floor: every ink
+ * clears 3:1 against `background` in both schemes, asserted in
+ * `theme/index.test.ts` rather than eyeballed.
+ *
  * Identity only. No ramp of these means *more* — that is `priorityRamp`'s job —
  * and none of them is more saturated than `primaryContainer`, so the way
  * forward stays the loudest shape on a board full of labels.
  */
 export const labelHues = {
 	red: {
-		light: { fill: "#FECACA", on: "#7F1D1D" },
-		dark: { fill: "#7F1D1D", on: "#FECACA" },
+		light: { fill: "#FECACA", on: "#7F1D1D", ink: "#B91C1C" },
+		dark: { fill: "#7F1D1D", on: "#FECACA", ink: "#FCA5A5" },
 	},
 	orange: {
-		light: { fill: "#FED7AA", on: "#7C2D12" },
-		dark: { fill: "#7C2D12", on: "#FED7AA" },
+		light: { fill: "#FED7AA", on: "#7C2D12", ink: "#C2410C" },
+		dark: { fill: "#7C2D12", on: "#FED7AA", ink: "#FDBA74" },
 	},
 	amber: {
-		light: { fill: "#FDE68A", on: "#78350F" },
-		dark: { fill: "#78350F", on: "#FDE68A" },
+		light: { fill: "#FDE68A", on: "#78350F", ink: "#B45309" },
+		dark: { fill: "#78350F", on: "#FDE68A", ink: "#FCD34D" },
 	},
 	lime: {
-		light: { fill: "#D9F99D", on: "#365314" },
-		dark: { fill: "#365314", on: "#D9F99D" },
+		light: { fill: "#D9F99D", on: "#365314", ink: "#4D7C0F" },
+		dark: { fill: "#365314", on: "#D9F99D", ink: "#BEF264" },
 	},
 	green: {
-		light: { fill: "#BBF7D0", on: "#14532D" },
-		dark: { fill: "#14532D", on: "#BBF7D0" },
+		light: { fill: "#BBF7D0", on: "#14532D", ink: "#15803D" },
+		dark: { fill: "#14532D", on: "#BBF7D0", ink: "#86EFAC" },
 	},
 	teal: {
-		light: { fill: "#99F6E4", on: "#134E4A" },
-		dark: { fill: "#134E4A", on: "#99F6E4" },
+		light: { fill: "#99F6E4", on: "#134E4A", ink: "#0F766E" },
+		dark: { fill: "#134E4A", on: "#99F6E4", ink: "#5EEAD4" },
 	},
 	cyan: {
-		light: { fill: "#A5F3FC", on: "#164E63" },
-		dark: { fill: "#164E63", on: "#A5F3FC" },
+		light: { fill: "#A5F3FC", on: "#164E63", ink: "#0E7490" },
+		dark: { fill: "#164E63", on: "#A5F3FC", ink: "#67E8F9" },
 	},
 	blue: {
-		light: { fill: "#BFDBFE", on: "#1E3A8A" },
-		dark: { fill: "#1E3A8A", on: "#BFDBFE" },
+		light: { fill: "#BFDBFE", on: "#1E3A8A", ink: "#1D4ED8" },
+		dark: { fill: "#1E3A8A", on: "#BFDBFE", ink: "#93C5FD" },
 	},
 	indigo: {
-		light: { fill: "#C7D2FE", on: "#312E81" },
-		dark: { fill: "#312E81", on: "#C7D2FE" },
+		light: { fill: "#C7D2FE", on: "#312E81", ink: "#4338CA" },
+		dark: { fill: "#312E81", on: "#C7D2FE", ink: "#A5B4FC" },
 	},
 	purple: {
-		light: { fill: "#E9D5FF", on: "#581C87" },
-		dark: { fill: "#581C87", on: "#E9D5FF" },
+		light: { fill: "#E9D5FF", on: "#581C87", ink: "#6D28D9" },
+		dark: { fill: "#581C87", on: "#E9D5FF", ink: "#D8B4FE" },
 	},
 	pink: {
-		light: { fill: "#FBCFE8", on: "#831843" },
-		dark: { fill: "#831843", on: "#FBCFE8" },
+		light: { fill: "#FBCFE8", on: "#831843", ink: "#BE185D" },
+		dark: { fill: "#831843", on: "#FBCFE8", ink: "#F9A8D4" },
 	},
 	stone: {
-		light: { fill: "#E7E5E4", on: "#44403C" },
-		dark: { fill: "#44403C", on: "#E7E5E4" },
+		light: { fill: "#E7E5E4", on: "#44403C", ink: "#44403C" },
+		dark: { fill: "#44403C", on: "#E7E5E4", ink: "#D6D3D1" },
 	},
 } as const;
 

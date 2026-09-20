@@ -2649,6 +2649,8 @@ describe("homes/{homeId}/locations", () => {
 		"parentId",
 		"ancestorIds",
 		"rank",
+		"icon",
+		"color",
 		"createdAt",
 		"createdBy",
 		"updatedAt",
@@ -2659,6 +2661,19 @@ describe("homes/{homeId}/locations", () => {
 
 		await assertFails(
 			setDoc(doc(dbAs(env, MEMBER), locationsPath, "incomplete"), data),
+		);
+	});
+
+	it.each([
+		["icon", 7],
+		["icon", ""],
+		["color", 7],
+		["color", ""],
+	])("refuses a location whose %s is %j", async (field, value) => {
+		await seedHome();
+
+		await assertFails(
+			create(dbAs(env, MEMBER), "bad-shape", { [field]: value }),
 		);
 	});
 
