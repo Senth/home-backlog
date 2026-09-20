@@ -268,12 +268,17 @@ test("5: a deep link straight to a nested board lands on that board", async ({
 	await openBoard(page, grandchildId, `${PREFIX}grandchild`);
 
 	// The full trail is on screen, root first, and the board itself is the
-	// grandchild's own — empty, and saying so like any board would.
+	// grandchild's own — empty, and saying so like any board would (#310, per
+	// column rather than once above them all).
 	await expect(
 		page.getByRole("button", { name: `${PREFIX}root` }),
 	).toBeVisible();
 	await expect(
 		page.getByRole("button", { name: `${PREFIX}child` }),
 	).toBeVisible();
-	await expect(page.getByText(enUS.board.empty)).toBeVisible();
+	await expect(
+		page
+			.locator(columnSelector("backlog"))
+			.getByText(enUS.board.columnEmpty, { exact: true }),
+	).toBeVisible();
 });

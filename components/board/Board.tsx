@@ -77,9 +77,8 @@ interface BoardProps {
 	 * True once the board's listeners gave up, which makes `nodes` the last thing
 	 * that arrived rather than what is on the board.
 	 *
-	 * The empty state has to give way to it. "Nothing here yet. Add the first
-	 * card." is the same sentence whether the board is empty or unreadable, and
-	 * on the second one it invites a duplicate of a card that is already there.
+	 * The all-hidden line has to give way to it: a board whose listeners gave
+	 * up must not say its cards all belong to somebody else.
 	 */
 	failed?: boolean;
 	/** Opens the board's listeners again after they gave up. */
@@ -89,9 +88,9 @@ interface BoardProps {
 	 * rather than draw as though they were not there.
 	 *
 	 * A board whose every card is somebody else's personal project is not a board
-	 * with nothing on it, and "add the first card" is a lie with a toggle sitting
-	 * two taps away that disproves it. The same is true one column at a time,
-	 * which is what a compact pane shows.
+	 * with nothing on it, and the columns' "Nothing here" alone would say it
+	 * was. The same is true one column at a time, which is what a compact pane
+	 * shows.
 	 */
 	hidden?: Node[];
 	/**
@@ -576,13 +575,20 @@ export function Board({
 				</View>
 			) : null}
 
-			{/* Not while `failed`: "add the first card" and "could not load" are
-			    contradictory instructions, and only one of them is true.
+			{/* Not while `failed`: "everything is hidden" and "could not load" are
+			    contradictory instructions, and only one of them is true. The empty
+			    board itself is said per column (#310), so the only board-level
+			    line left is the one no column can say: every card on it belongs
+			    to somebody else.
 
 			    With a filter on and nothing left on the board, the one board-level
 			    state replaces the four column-level ones (Q4): the sentence names
 			    the filter, and the way out is a tap away. */}
-			{!loading && !failed && shownNodes.length === 0 && !filterActive ? (
+			{!loading &&
+			!failed &&
+			shownNodes.length === 0 &&
+			!filterActive &&
+			hidden.length > 0 ? (
 				<Text
 					variant="bodyLarge"
 					style={{
@@ -592,7 +598,7 @@ export function Board({
 						paddingBottom: space.md,
 					}}
 				>
-					{t(hidden.length > 0 ? "board.allHidden" : "board.empty")}
+					{t("board.allHidden")}
 				</Text>
 			) : null}
 			{!loading && !failed && shownNodes.length === 0 && filterActive ? (

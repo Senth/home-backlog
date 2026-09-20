@@ -174,7 +174,9 @@ describe("Board", () => {
 		renderBoard({ loading: false, viewport: 800 });
 
 		expect(screen.getByTestId("board-column-backlog")).toBeOnTheScreen();
-		expect(screen.getByText("board.empty")).toBeOnTheScreen();
+		// #310: the empty board is said per column, not once above them all.
+		expect(screen.getAllByText("board.columnEmpty")).toHaveLength(4);
+		expect(screen.queryByText("board.empty")).not.toBeOnTheScreen();
 	});
 
 	it("renders the cards it was given once loaded", () => {
