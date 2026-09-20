@@ -381,8 +381,8 @@
 			"sort": {
 				"label": "Sort",
 				"boardOrder": "Board order",
-				"ascending": "Ascending",
-				"descending": "Descending",
+				"ascending": "Lower",
+				"descending": "Higher",
 				"completedAt": "Completed"
 			},
 			"field": {

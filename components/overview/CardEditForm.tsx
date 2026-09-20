@@ -26,6 +26,7 @@ import {
 	type CardMode,
 	type CardSort,
 	conditionCarriedBy,
+	defaultDirection,
 	type SortField,
 	sortCarriedBy,
 } from "@/models/filter";
@@ -755,7 +756,8 @@ function SheetBody({
 									onSortOpen(false);
 									onSort({
 										field: sortField,
-										direction: draft.sort?.direction ?? "asc",
+										direction:
+											draft.sort?.direction ?? defaultDirection(sortField),
 									});
 								}}
 							/>
@@ -786,7 +788,7 @@ function SheetBody({
 }
 
 /**
- * Ascending or descending, offered once a field is chosen. A separate
+ * Lower or higher, offered once a field is chosen. A separate
  * component so the non-null `sort` is a prop — narrowing `draft.sort` inside
  * a callback does not survive the capture.
  */
