@@ -47,8 +47,9 @@ interface CheckListPickerProps {
 	note?: ReactNode;
 	/**
 	 * Rows drawn as `CheckRow`'s fill presentation instead of checkboxes —
-	 * the filter's priority group, which reads like the details screen's
-	 * picker. Opt-in: every other caller keeps its checkbox rows.
+	 * the board filter sheet's groups, which read like the details screen's
+	 * picker (#314). Opt-in: the label picker and the card editor keep their
+	 * checkbox rows.
 	 */
 	fill?: boolean;
 }

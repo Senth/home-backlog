@@ -180,10 +180,10 @@ export function BoardFilterSheet({
 	/**
 	 * The picker for the field being edited: the shared row vocabulary renders
 	 * the items, and its mapping turns the checked ids back into a condition.
-	 * The priority group rides with the fill presentation and leads every row
-	 * with its mark — the ramp dot, and the empty ring for *Not set* — which
-	 * only this sheet asks for; the card editor's priority picker stays a
-	 * checkbox list.
+	 * Every group rides the fill presentation (#314) — one selection style in
+	 * the sheet — and the priority group leads every row with its mark, the
+	 * ramp dot and the empty ring for *Not set*; no other group carries a
+	 * mark of its own for every row.
 	 */
 	const pickerItems = (): CheckItem[] => {
 		const spec = specs.find((each) => each.field === openField);
@@ -341,7 +341,7 @@ export function BoardFilterSheet({
 					items={pickerItems()}
 					value={pickerValue()}
 					onChange={pickerChange}
-					fill={open === "priority"}
+					fill
 					emptySentence={
 						open === "labelIds" ? t("labels.empty") : t("board.filter.empty")
 					}
