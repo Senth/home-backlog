@@ -13,6 +13,9 @@
  */
 export default {
 	preset: "ts-jest/presets/default-esm",
+	// Clears call history and results between tests, not implementations, so
+	// per-test `mockResolvedValue` setups are unaffected.
+	clearMocks: true,
 	testEnvironment: "node",
 	roots: ["<rootDir>/src"],
 	moduleNameMapper: {

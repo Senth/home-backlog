@@ -155,7 +155,6 @@ function board({ cards, pane }: Board) {
 
 beforeEach(() => {
 	jest.useFakeTimers();
-	moved.mockClear();
 	reducedMotion.mockReturnValue(false);
 });
 

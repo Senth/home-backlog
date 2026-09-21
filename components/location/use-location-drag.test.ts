@@ -120,7 +120,6 @@ function screen() {
 
 beforeEach(() => {
 	jest.useFakeTimers();
-	moved.mockClear();
 	reducedMotion.mockReturnValue(false);
 });
 

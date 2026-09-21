@@ -40,10 +40,6 @@ const { uploadBytes, deleteObject } = jest.requireMock("firebase/storage") as {
 	deleteObject: jest.Mock;
 };
 
-beforeEach(() => {
-	jest.clearAllMocks();
-});
-
 const oneMb = 1024 * 1024;
 const photoBytes = 3 * oneMb;
 const ceiling = 20 * oneMb;

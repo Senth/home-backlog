@@ -85,7 +85,6 @@ function descendants(count: number) {
 let batch: { update: jest.Mock; delete: jest.Mock };
 
 beforeEach(() => {
-	jest.clearAllMocks();
 	mockSetDoc.mockReturnValue(Promise.resolve());
 	mockUpdateDoc.mockReturnValue(Promise.resolve());
 	batch = { update: jest.fn(), delete: jest.fn() };

@@ -213,7 +213,6 @@ function aResponse(): Response {
 
 beforeEach(() => {
 	resetStore();
-	jest.clearAllMocks();
 	jest.mocked(homeAccess).mockResolvedValue({
 		homeId: HOME,
 		callerName: "Marcus",

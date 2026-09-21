@@ -87,10 +87,6 @@ const node = (id: string, ancestorIds: string[]): Node => ({
 });
 
 describe("useBoardNodes", () => {
-	beforeEach(() => {
-		jest.clearAllMocks();
-	});
-
 	it("this-board reach builds the board pair and nothing else", () => {
 		renderHook(() => useBoardNodes("home-1", "board-1", "board"));
 

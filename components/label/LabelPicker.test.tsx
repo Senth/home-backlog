@@ -105,10 +105,6 @@ function capSentence() {
 	return helper;
 }
 
-afterEach(() => {
-	jest.clearAllMocks();
-});
-
 describe("LabelPicker", () => {
 	it("lists the home's labels by name and marks the applied ones", () => {
 		mockHome = { labels: [label("l1"), label("l2")] };

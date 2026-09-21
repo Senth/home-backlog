@@ -33,10 +33,6 @@ import { toHex } from "@/models/label-color";
 
 const amber = toHex([0xfd, 0xe6, 0x8a]);
 
-beforeEach(() => {
-	jest.clearAllMocks();
-});
-
 const me = {
 	uid: "uid-new",
 	email: "anna@example.com",
