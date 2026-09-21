@@ -213,6 +213,49 @@ describe("CardEditForm", () => {
 		);
 	});
 
+	/**
+	 * #327: the empty state is the reader's to set — the checkbox at the
+	 * bottom writes `hide` on, and unticking it restores the sentence a
+	 * card with no configuration carries.
+	 */
+	it("the hide-when-empty checkbox saves the empty mode on and off", () => {
+		const onSave = jest.fn();
+		renderForm(onSave);
+
+		fireEvent.press(
+			screen.getByRole("checkbox", {
+				name: "overview.cards.edit.hideWhenEmpty",
+			}),
+		);
+		fireEvent.changeText(
+			screen.getByTestId("overview-card-edit-title"),
+			"Any card",
+		);
+		fireEvent.press(screen.getByText("manageHome.save"));
+
+		expect(onSave).toHaveBeenCalledWith(
+			expect.objectContaining({ empty: { mode: "hide" } }),
+			"home",
+		);
+
+		onSave.mockClear();
+		// A blank card moved to done arrives ticked (the #229 shape), so the
+		// way back is the same row unticked — not a fresh card.
+		fireEvent.press(
+			screen.getByRole("checkbox", {
+				name: "overview.cards.edit.hideWhenEmpty",
+			}),
+		);
+		fireEvent.press(screen.getByText("manageHome.save"));
+
+		expect(onSave).toHaveBeenCalledWith(
+			expect.objectContaining({
+				empty: { mode: "say", key: "overview.cards.empty.generic" },
+			}),
+			"home",
+		);
+	});
+
 	it("says what each mode collects", () => {
 		renderForm();
 

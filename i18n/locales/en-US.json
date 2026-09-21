@@ -380,7 +380,8 @@
 				"fewer": "Fewer",
 				"withinDays": "Days ahead",
 				"followsDefault": "Uses its default name. Type to give it your own.",
-				"daysBack": "Days back"
+				"daysBack": "Days back",
+				"hideWhenEmpty": "Hide when there are no cards"
 			},
 			"due": {
 				"comingUp": "Coming up",
