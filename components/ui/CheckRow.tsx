@@ -20,10 +20,10 @@ interface CheckRowProps {
 	/**
 	 * The selection drawn as the shared fill-row paint
 	 * (`components/ui/fill-row.ts`, the same paint `ChoiceField` rows get)
-	 * instead of a checkbox glyph — the filter's priority group, which reads
-	 * like the details screen's picker. The row keeps `checkbox` and
-	 * `aria-checked`: with no tick drawn, the fill and the checked state are
-	 * the only things saying "selected", so with the object form of
+	 * instead of a checkbox glyph — the board filter sheet's groups, which
+	 * read like the details screen's picker (#314). The row keeps `checkbox`
+	 * and `aria-checked`: with no tick drawn, the fill and the checked state
+	 * are the only things saying "selected", so with the object form of
 	 * `accessibilityState` dead in React Native Web 0.21 the ARIA prop is the
 	 * one that must survive.
 	 */
