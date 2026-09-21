@@ -2,9 +2,10 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import { TextInput as RNTextInput } from "react-native";
 import { Provider } from "react-native-paper";
 import { LocationDialog } from "@/components/location/LocationDialog";
+import { PaperIcon } from "@/components/ui/PaperIcon";
 import { createLocation, editLocation } from "@/data/locations";
 import type { Location } from "@/models/locations";
-import { lightTheme } from "@/theme";
+import { labelHues, lightTheme } from "@/theme";
 
 jest.mock("react-i18next", () => ({
 	// Keys asserted, not sentences — `LabelDialog.test.tsx` for the reasoning.
@@ -28,10 +29,18 @@ jest.mock("@/data/locations", () => ({
 }));
 
 // The real icon set loads its font map asynchronously — the same double the
-// label dialog's test uses.
+// label dialog's test uses. The color PaperIcon hands the glyph is painted as
+// the mock's background, so the icon preview's color stays assertable past
+// the renderer's prop mapping (and the glyph stays aria-hidden, like the real
+// one, which is why the preview test opts into hidden elements).
 jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
 	const { View } = jest.requireActual("react-native");
-	const Mock = ({ name }: { name: string }) => <View testID={name} />;
+	const Mock = ({ name, color }: { name: string; color?: string }) => (
+		<View
+			testID={name}
+			style={color === undefined ? undefined : { backgroundColor: color }}
+		/>
+	);
 	const withGlyphMap = Mock as unknown as { glyphMap: Record<string, number> };
 	withGlyphMap.glyphMap = { home: 0x0f2d };
 	return { __esModule: true, default: Mock };
@@ -57,7 +66,7 @@ function renderDialog(
 	props: Partial<Parameters<typeof LocationDialog>[0]> = {},
 ) {
 	return render(
-		<Provider theme={lightTheme}>
+		<Provider theme={lightTheme} settings={{ icon: PaperIcon }}>
 			<LocationDialog
 				homeId="home-1"
 				location={null}
@@ -112,5 +121,22 @@ describe("LocationDialog", () => {
 		fireEvent.press(screen.getByText("labels.save"));
 
 		expect(editLocation).not.toHaveBeenCalled();
+	});
+
+	it("paints the palette swatches in the ink tone the tree will draw", () => {
+		renderDialog();
+
+		const swatch = screen.getByLabelText("labels.hue.stone");
+		const dot = swatch.props.children[0];
+		expect(dot.props.style.backgroundColor).toBe(labelHues.stone.light.ink);
+	});
+
+	it("tints the icon preview with the color the tree will draw", () => {
+		renderDialog();
+
+		const glyph = screen.getByTestId("crosshairs-gps", {
+			includeHiddenElements: true,
+		});
+		expect(glyph.props.style.backgroundColor).toBe(labelHues.stone.light.ink);
 	});
 });

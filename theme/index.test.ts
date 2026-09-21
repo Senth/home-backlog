@@ -25,3 +25,28 @@ describe("every label hue's ink", () => {
 		).toBeGreaterThanOrEqual(fillFloor);
 	});
 });
+
+/**
+ * The location palette's check mark (#328): the selected swatch rides the
+ * hue's `ink` dot, and the mark inside it is drawn in the hue's own `fill`
+ * tone — the one tone that reads against an ink. It is a mark, so it needs
+ * the non-text floor, in both schemes.
+ */
+describe("every label hue's ink against its own fill", () => {
+	const hues = Object.entries(labelHues) as [
+		LabelHueName,
+		(typeof labelHues)[LabelHueName],
+	][];
+
+	it.each(hues)("clears 3:1 in light for %s", (_name, hue) => {
+		expect(
+			contrast(parseHex(hue.light.ink), parseHex(hue.light.fill)),
+		).toBeGreaterThanOrEqual(fillFloor);
+	});
+
+	it.each(hues)("clears 3:1 in dark for %s", (_name, hue) => {
+		expect(
+			contrast(parseHex(hue.dark.ink), parseHex(hue.dark.fill)),
+		).toBeGreaterThanOrEqual(fillFloor);
+	});
+});

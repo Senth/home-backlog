@@ -37,7 +37,7 @@ export interface Location {
 	/**
 	 * The color exactly as picked — one of `theme`'s twelve `labelHues` or a
 	 * custom hex, the same grammar a label's color has. Never rendered raw:
-	 * `hooks/use-location-color.ts` resolves the ink (or clamps) at draw time.
+	 * `hooks/use-location-colors.ts` resolves the ink (or clamps) at draw time.
 	 */
 	color: string;
 	createdAt: Timestamp | null;

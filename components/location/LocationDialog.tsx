@@ -4,6 +4,7 @@ import { View } from "react-native";
 import {
 	Button,
 	HelperText,
+	Icon,
 	Portal,
 	Text,
 	TextInput,
@@ -13,6 +14,7 @@ import { IconPicker } from "@/components/label/IconPicker";
 import { AppDialog } from "@/components/ui/AppDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { createLocation, editLocation } from "@/data/locations";
+import { useLocationColors } from "@/hooks/use-location-colors";
 import {
 	defaultLocationColor,
 	defaultLocationIcon,
@@ -69,6 +71,9 @@ export function LocationDialog({
 		null,
 	);
 	const [pickingIcon, setPickingIcon] = useState(false);
+	// The preview and the palette row both show the tone the tree will draw
+	// (#328), so a chosen color reads the same in the dialog as on the map.
+	const glyphColor = useLocationColors(color).fill;
 
 	const save = () => {
 		// Trimmed once, here, like the removed rename path did: the stored
@@ -177,15 +182,23 @@ export function LocationDialog({
 							</Text>
 							<Button
 								mode="text"
-								icon={icon}
 								onPress={() => setPickingIcon(true)}
 								contentStyle={{ minHeight: touchTarget }}
+								// The glyph is the preview in the chosen color; a string
+								// source would draw it in the button's own text color.
+								icon={({ size }) => (
+									<Icon source={icon} size={size} color={glyphColor} />
+								)}
 							>
 								{t("labels.changeIcon")}
 							</Button>
 						</View>
 
-						<ColorSwatches value={color} onChange={setColor} />
+						<ColorSwatches
+							value={color}
+							onChange={setColor}
+							variant="location"
+						/>
 					</View>
 				</AppDialog>
 			)}
