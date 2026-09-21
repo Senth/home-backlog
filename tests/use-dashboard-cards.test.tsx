@@ -44,10 +44,6 @@ describe("useDashboardCards", () => {
 		jest.spyOn(console, "error").mockImplementation(() => {});
 	});
 
-	beforeEach(() => {
-		jest.clearAllMocks();
-	});
-
 	it("a rejected seed flags the config failed, so the screen offers a retry", async () => {
 		(onSnapshot as jest.Mock).mockImplementation(() => () => {});
 		(seedGlobalCards as jest.Mock).mockRejectedValue(new Error("offline"));

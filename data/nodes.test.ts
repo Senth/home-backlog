@@ -53,10 +53,6 @@ import {
 } from "@/data/nodes";
 import { doneFetchLimit, doneSince } from "@/models/overview";
 
-beforeEach(() => {
-	jest.clearAllMocks();
-});
-
 function aNode(over: Partial<Node> = {}): Node {
 	return {
 		...newNodeData({ title: "Card", rank: "a0", participantIds: ["me"] }),

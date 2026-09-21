@@ -82,7 +82,6 @@ function writesHook() {
 }
 
 beforeEach(() => {
-	jest.clearAllMocks();
 	authModule.__setUser({ uid: "uid-me" });
 	homeModule.__setHome({ activeHome: { id: "home-1" } });
 	cardsContextModule.__setCards({

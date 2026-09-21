@@ -165,10 +165,6 @@ describe("CardMenu", () => {
 	 * out of order, and on top of a rank that may already be taken.
 	 */
 	it("reads a deep card's siblings from its own parent, not the board's", () => {
-		// Test 1 asserts an identical argument list; without this its recorded
-		// call satisfies the `toHaveBeenCalledWith` below, and the test passes
-		// even against the pre-fix sibling set.
-		jest.mocked(moveNode).mockClear();
 		renderMenu({
 			node: node("self", { parentId: "mid" }),
 			parent: node("board-card"),

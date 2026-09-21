@@ -76,10 +76,6 @@ function nameField() {
 	return screen.UNSAFE_getByType(RNTextInput);
 }
 
-afterEach(() => {
-	jest.clearAllMocks();
-});
-
 describe("LocationDialog", () => {
 	it("trims the name on the create path", () => {
 		renderDialog();

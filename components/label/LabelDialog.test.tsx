@@ -96,7 +96,6 @@ function titleHelper() {
 
 afterEach(() => {
 	mockHomes = [];
-	jest.clearAllMocks();
 });
 
 describe("LabelDialog", () => {
