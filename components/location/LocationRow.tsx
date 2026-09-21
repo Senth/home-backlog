@@ -16,7 +16,7 @@ import {
 	locationErrorKey,
 	reorderLocation,
 } from "@/data/locations";
-import { useLocationColor } from "@/hooks/use-location-color";
+import { useLocationColors } from "@/hooks/use-location-colors";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { LocationDropHint } from "@/models/location-drag";
 import { destinationRefused, type MoveMode } from "@/models/location-move";
@@ -284,7 +284,7 @@ export function LocationRow({
 }: LocationRowProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
-	const locationColor = useLocationColor(location.color);
+	const locationColor = useLocationColors(location.color).fill;
 	const count = counts.get(location.id) ?? 0;
 	const anchor = useRef<View | null>(null);
 	const [open, setOpen] = useState(false);
@@ -560,7 +560,7 @@ export function LocationDragOverlay({ drag }: { drag: LocationDrag }) {
 	const theme = useAppTheme();
 	// Reduced motion keeps the copy at its own size, following the finger only.
 	const reduced = useReducedMotion();
-	const color = useLocationColor(drag.dragged?.color ?? "");
+	const color = useLocationColors(drag.dragged?.color ?? "").fill;
 	if (drag.dragged === null || drag.overlay === null) return null;
 
 	const { overlay } = drag;
