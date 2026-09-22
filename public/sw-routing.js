@@ -48,7 +48,81 @@ function chooseStrategy({ method, mode, sameOrigin, pathname, search }) {
 	return "stale-while-revalidate";
 }
 
+/**
+ * What a navigation gets when the network is gone and the shell was never
+ * cached — an eviction under storage pressure, or a clear, after a successful
+ * install. `Response.error()` there reads to the browser as a real connection
+ * failure, so it paints its own network-error page over a working app (#322).
+ *
+ * The copy is hardcoded English, the one string in the app outside `t()`: a
+ * service worker cannot reach the i18n bundle, and this file has no build step
+ * that could bake a localized page out of it. The styling is inline and the
+ * colors are CSS system colors for the same reason — `theme/tokens.ts` is out
+ * of reach here, and `Canvas`/`CanvasText` under `color-scheme: light dark`
+ * follow the OS setting without naming a palette. Unstyled, this page renders
+ * as a Times New Roman line in the corner, which reads as the breakage it
+ * exists to deny.
+ */
+const OFFLINE_SHELL_HTML = `<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offline</title>
+<style>
+:root { color-scheme: light dark }
+body {
+	margin: 0;
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 24px;
+	box-sizing: border-box;
+	text-align: center;
+	background: Canvas;
+	color: CanvasText;
+	font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+h1 { margin: 0; font-size: 20px; font-weight: 600 }
+p { margin: 0; max-width: 28rem; font-size: 15px; line-height: 1.5; opacity: 0.75 }
+</style>
+<h1>You're offline</h1>
+<p>This page was never saved for offline use. Reconnect and reload.</p>
+</html>
+`;
+
+/** 503, because the app is the thing that is unavailable, not the URL. */
+const OFFLINE_SHELL_INIT = {
+	status: 503,
+	headers: {
+		"Content-Type": "text/html; charset=utf-8",
+		"Cache-Control": "no-store",
+	},
+};
+
+/**
+ * What an offline navigation answers with: the cached shell when there is one,
+ * the offline page's ingredients when there is not. The choice lives here,
+ * clear of `Response` and every other worker global, so both branches are unit
+ * tested; `sw.js` turns the second one into an actual response.
+ *
+ * @param {unknown} cached the `cache.match(SHELL_URL)` result, or undefined
+ * @returns {unknown} the cached response, or `{ html, init }`
+ */
+function offlineNavigationResponse(cached) {
+	return cached ?? { html: OFFLINE_SHELL_HTML, init: OFFLINE_SHELL_INIT };
+}
+
 // Present when required from Jest, absent in the service worker scope.
 if (typeof module !== "undefined" && module.exports) {
-	module.exports = { chooseStrategy, IMMUTABLE_PREFIX, RESERVED_PREFIX };
+	module.exports = {
+		chooseStrategy,
+		offlineNavigationResponse,
+		IMMUTABLE_PREFIX,
+		RESERVED_PREFIX,
+		OFFLINE_SHELL_HTML,
+		OFFLINE_SHELL_INIT,
+	};
 }
