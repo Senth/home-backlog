@@ -11,10 +11,6 @@ jest.mock("@/data/nodes", () => ({ getNode: jest.fn() }));
 
 import { getNode } from "@/data/nodes";
 
-beforeEach(() => {
-	jest.clearAllMocks();
-});
-
 function aNode(id: string): Node {
 	return {
 		...newNodeData({ title: id, rank: "a0", participantIds: ["me"] }),

@@ -266,7 +266,6 @@ function seedStore(): void {
 beforeEach(() => {
 	store.clear();
 	autoIds = 0;
-	jest.clearAllMocks();
 	jest.mocked(homeAccess).mockResolvedValue({
 		homeId: HOME,
 		callerName: "Marcus",

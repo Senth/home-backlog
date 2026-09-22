@@ -4,16 +4,31 @@ import { Pressable, View } from "react-native";
 import { Icon } from "react-native-paper";
 import { ColorField } from "@/components/ui/ColorField";
 import { useLabelColors } from "@/hooks/use-label-colors";
+import { useLocationColors } from "@/hooks/use-location-colors";
 import { type LabelHueName, labelHues, useAppTheme } from "@/theme";
 import { border, icon, radius, size, space, touchTarget } from "@/theme/tokens";
 
 const hueNames = Object.keys(labelHues) as LabelHueName[];
+
+/** The two tones one stored color draws in, per variant — see `ColorSwatches`. */
+function useSwatchColors(color: string, variant: "label" | "location") {
+	const label = useLabelColors(color);
+	const location = useLocationColors(color);
+	return variant === "location" ? location : label;
+}
 
 interface ColorSwatchesProps {
 	/** The color exactly as stored — a hue name or a custom hex. */
 	value: string;
 	/** Called with the chosen hue, or the normalized hex once the field holds one. */
 	onChange: (color: string) => void;
+	/**
+	 * Which drawing the swatches preview. Labels are filled dots in a hue's
+	 * `fill` tone; locations are bare glyphs in its `ink` tone, and a custom
+	 * color clamps against the page rather than the card (#328). Default:
+	 * `label`.
+	 */
+	variant?: "label" | "location";
 }
 
 /**
@@ -25,7 +40,11 @@ interface ColorSwatchesProps {
  * The custom field is open from the start when the stored color already is a
  * custom one — the field is where its value is visible.
  */
-export function ColorSwatches({ value, onChange }: ColorSwatchesProps) {
+export function ColorSwatches({
+	value,
+	onChange,
+	variant = "label",
+}: ColorSwatchesProps) {
 	const { t } = useTranslation();
 	const [customOpen, setCustomOpen] = useState(
 		!(value in labelHues) && value !== "",
@@ -46,12 +65,14 @@ export function ColorSwatches({ value, onChange }: ColorSwatchesProps) {
 						hue={hue}
 						selected={value === hue}
 						onSelect={() => onChange(hue)}
+						variant={variant}
 					/>
 				))}
 				<CustomSwatch
 					color={value}
 					selected={!(value in labelHues)}
 					onOpen={() => setCustomOpen(true)}
+					variant={variant}
 				/>
 			</View>
 			{customOpen ? (
@@ -118,13 +139,15 @@ function HueSwatch({
 	hue,
 	selected,
 	onSelect,
+	variant,
 }: {
 	hue: LabelHueName;
 	selected: boolean;
 	onSelect: () => void;
+	variant: "label" | "location";
 }) {
 	const { t } = useTranslation();
-	const { fill, on } = useLabelColors(hue);
+	const { fill, on } = useSwatchColors(hue, variant);
 
 	return (
 		<Swatch
@@ -152,15 +175,17 @@ function CustomSwatch({
 	color,
 	selected,
 	onOpen,
+	variant,
 }: {
 	color: string;
 	selected: boolean;
 	onOpen: () => void;
+	variant: "label" | "location";
 }) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const isCustom = !(color in labelHues);
-	const { fill, on } = useLabelColors(color);
+	const { fill, on } = useSwatchColors(color, variant);
 
 	return (
 		<Swatch

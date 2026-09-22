@@ -54,7 +54,6 @@ function snapshot(
 }
 
 beforeEach(() => {
-	jest.clearAllMocks();
 	jest.useFakeTimers();
 	// Every listener opened hands its callbacks back here; the latest pair is
 	// the live one, which is the one a test delivers to.

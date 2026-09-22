@@ -151,15 +151,22 @@ export default function NodeBoard() {
 				// room for a title — see `appBarStackBreakpoint`.
 				mode={width < appBarStackBreakpoint ? "medium" : "small"}
 			>
-				{/* Up to the parent board, never `router.back()`. This screen is
+				{/* Back to wherever the push came from — the overview's tap on a card
+				    with steps, or the board you drilled down from — and to the parent
+				    board when there is no history to go back through: this screen is
 				    reachable with no in-app history — a reload, a bookmark, a shared
 				    link — and there `back()` is a no-op that logs "GO_BACK was not
-				    handled by any navigator" and leaves the arrow dead. */}
+				    handled by any navigator" and leaves the arrow dead.
+				    `canGoBack()` is exactly that test, the details screen's own. */}
 				{/* The label names where the arrow *goes*, which is the parent card
 				    at every depth but one — not "Projects". */}
 				<BackAction
 					accessibilityLabel={t("board.up")}
-					onPress={() => router.dismissTo(boardHref(node?.parentId ?? null))}
+					onPress={() =>
+						router.canGoBack()
+							? router.back()
+							: router.dismissTo(boardHref(node?.parentId ?? null))
+					}
 				/>
 				{/* No `subtitle`: Paper renders it only outside Material 3, so the
 				    home's name lives on the root board's app bar and one crumb away

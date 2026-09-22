@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import { Provider } from "react-native-paper";
 import { BoardFilterSheet } from "@/components/board/BoardFilterSheet";
 import { PriorityDot } from "@/components/board/PriorityDot";
+import { LabelGlyph } from "@/components/label/LabelGlyph";
 import type { BoardFilter } from "@/models/board-filter";
 import type { Member } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
@@ -212,14 +213,18 @@ describe("BoardFilterSheet", () => {
 		);
 	});
 
-	it("the label picker keeps its checkbox rows", () => {
+	it("the label picker reads as fill rows, its glyphs leading", () => {
 		renderSheet({});
 
 		fireEvent.press(screen.getByTestId("board-filter-row-labelIds"));
 
+		// The sheet's one selection style (#314): no tick drawn on any row,
+		// and the identity marks every label row carries stay ahead of the
+		// words.
 		expect(
-			screen.UNSAFE_getAllByProps({ source: "checkbox-blank-outline" }),
-		).toHaveLength(2);
+			screen.UNSAFE_queryAllByProps({ source: "checkbox-blank-outline" }),
+		).toHaveLength(0);
+		expect(screen.UNSAFE_getAllByType(LabelGlyph)).toHaveLength(2);
 	});
 
 	it("the priority picker reads as fill rows: ramp dot on every row, a ring on Not set", () => {

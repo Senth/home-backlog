@@ -416,3 +416,84 @@ test("8: a section menu's Edit opens that card's own form, not the whole editor 
 	expect(new URL(page.url()).searchParams.get("cardId")).toBe("quickWins");
 	await expect(page.getByTestId("overview-card-edit-title")).toBeVisible();
 });
+
+test("9: going back after opening a card from Overview returns to Overview", async ({
+	page,
+}) => {
+	// Both taps the overview makes (#326): a card with steps opens its own
+	// board, one without opens its details. From either, the bar's back arrow
+	// must come back here — not up into the project above. The fixtures are
+	// read-only, so `participantIds: []` is fine.
+	const boardTitle = `${PREFIX}back to overview board`;
+	// Ongoing projects, not Needs an estimate: the estimate card keeps to
+	// tasks without children (#212), and this root has a step so the tap
+	// opens its board. The ongoing card takes every execution root.
+	const boardId = await createFixtureNode({
+		title: boardTitle,
+		parentId: null,
+		ancestorIds: [],
+		childCount: 1,
+		doneCount: 0,
+		rank: "V6",
+		status: "execution",
+		visibility: "shared",
+		participantIds: [],
+		completedAt: null,
+		dueDate: null,
+		columns: ["backlog", "next_up", "execution", "done"],
+	});
+	await createFixtureNode({
+		title: `${PREFIX}back to overview step`,
+		parentId: boardId,
+		ancestorIds: [boardId],
+		childCount: 0,
+		doneCount: 0,
+		rank: "V6",
+		status: "backlog",
+		visibility: "shared",
+		participantIds: [],
+		completedAt: null,
+		dueDate: null,
+	});
+	const detailsTitle = `${PREFIX}back to overview details`;
+	// Ongoing too, and for the cap as much as the reach: Needs an estimate
+	// shows five rows and the seed's own taskless steps already fill it, so a
+	// fifth+ row hides behind "+N more". A childless execution root is on the
+	// ongoing card with room to spare, and its tap still opens details.
+	await createFixtureNode({
+		title: detailsTitle,
+		parentId: null,
+		ancestorIds: [],
+		childCount: 0,
+		doneCount: 0,
+		rank: "V7",
+		status: "execution",
+		visibility: "shared",
+		participantIds: [],
+		completedAt: null,
+		dueDate: null,
+	});
+
+	// Scoped to the ongoing section: an execution root qualifies for other
+	// cards too.
+	const ongoing = page.getByTestId("overview-section-ongoing");
+
+	await gotoOverview(page);
+	await ongoing.locator(CARD, { hasText: boardTitle }).click();
+	await page.waitForURL(new RegExp(`/projects/${boardId}$`), {
+		timeout: 30_000,
+	});
+	await page.getByRole("button", { name: enUS.board.up }).click();
+	await page.waitForURL((url) => url.pathname === "/overview", {
+		timeout: 30_000,
+	});
+
+	// The second arm: the card without steps, whose tap opens details.
+	await gotoOverview(page);
+	await ongoing.locator(CARD, { hasText: detailsTitle }).click();
+	await page.waitForURL(/\/projects\/[^/]+\/details$/, { timeout: 30_000 });
+	await page.getByRole("button", { name: enUS.board.up }).click();
+	await page.waitForURL((url) => url.pathname === "/overview", {
+		timeout: 30_000,
+	});
+});

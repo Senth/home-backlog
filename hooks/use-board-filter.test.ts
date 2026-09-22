@@ -33,7 +33,6 @@ const openBoard = () => renderHook(() => useBoardFilter("huset"));
 describe("useBoardFilter", () => {
 	beforeEach(() => {
 		mockStore = {};
-		jest.clearAllMocks();
 		jest.spyOn(Date, "now").mockReturnValue(t0);
 	});
 

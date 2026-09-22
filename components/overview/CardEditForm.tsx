@@ -19,6 +19,7 @@ import {
 	pickerValueFor,
 } from "@/components/board/BoardFilterRow";
 import { CheckListPicker } from "@/components/ui/CheckListPicker";
+import { CheckRow } from "@/components/ui/CheckRow";
 import { useAuth } from "@/contexts/AuthContext";
 import { soonInDays } from "@/models/due-date";
 import {
@@ -488,6 +489,14 @@ export function CardEditForm({
 					}}
 					onShown={(shown) => setDraft({ ...draft, shown })}
 					onMax={(max) => setDraft({ ...draft, max })}
+					onHideEmpty={(hide) =>
+						setDraft({
+							...draft,
+							empty: hide
+								? { mode: "hide" }
+								: { mode: "say", key: "overview.cards.empty.generic" },
+						})
+					}
 				/>
 				<Button
 					mode="contained"
@@ -531,12 +540,14 @@ interface SheetBodyProps {
 	onTitle: (title: string) => void;
 	onShown: (shown: number) => void;
 	onMax: (max: number) => void;
+	/** The checkbox at the bottom: hide the section while it holds no cards. */
+	onHideEmpty: (hide: boolean) => void;
 }
 
 /**
  * The form groups. One group per row: the mode and its sentence, the scope
  * and its sentence, the title, the conditions and their one open field, the
- * sort, and the two row budgets.
+ * sort, the two row budgets, and the hide-when-empty checkbox.
  */
 function SheetBody({
 	uid,
@@ -558,6 +569,7 @@ function SheetBody({
 	onTitle,
 	onShown,
 	onMax,
+	onHideEmpty,
 }: SheetBodyProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
@@ -782,6 +794,11 @@ function SheetBody({
 				min={draft.shown}
 				max={overviewLimit}
 				onChange={onMax}
+			/>
+			<CheckRow
+				label={t("overview.cards.edit.hideWhenEmpty")}
+				checked={draft.empty.mode === "hide"}
+				onPress={() => onHideEmpty(draft.empty.mode !== "hide")}
 			/>
 		</View>
 	);

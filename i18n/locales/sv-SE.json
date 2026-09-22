@@ -380,7 +380,8 @@
 				"fewer": "Färre",
 				"withinDays": "Dagar framåt",
 				"followsDefault": "Använder sitt standardnamn. Skriv för att ge den ett eget.",
-				"daysBack": "Dagar bakåt"
+				"daysBack": "Dagar bakåt",
+				"hideWhenEmpty": "Dölj när det inte finns några kort"
 			},
 			"due": {
 				"comingUp": "Blir aktuellt",
