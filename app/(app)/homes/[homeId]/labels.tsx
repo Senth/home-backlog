@@ -14,6 +14,7 @@ import {
 } from "react-native-paper";
 import { LabelDialog } from "@/components/label/LabelDialog";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
+import { AppMenu } from "@/components/ui/AppMenu";
 import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
 import { reorderLabel } from "@/data/homes";
@@ -251,7 +252,7 @@ function LabelRow({
 				</View>
 			</TouchableRipple>
 
-			<Menu
+			<AppMenu
 				visible={menuOpen}
 				onDismiss={() => setMenuOpen(false)}
 				overlayAccessibilityLabel={t("common.closeMenu")}
@@ -287,7 +288,7 @@ function LabelRow({
 						onMove(index, 1);
 					}}
 				/>
-			</Menu>
+			</AppMenu>
 
 			{/* Mounted only while open — each dialog carries a `Portal`, and a
 			    list grows without bound. */}

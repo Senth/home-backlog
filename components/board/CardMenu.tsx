@@ -6,6 +6,7 @@ import { TitleDialog } from "@/components/board/TitleDialog";
 import { LabelPicker } from "@/components/label/LabelPicker";
 import { BlockerSearchDialog } from "@/components/node/BlockerSearchDialog";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
+import { AppMenu } from "@/components/ui/AppMenu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import {
@@ -318,7 +319,7 @@ export function CardMenu({
 
 	return (
 		<>
-			<Menu
+			<AppMenu
 				visible={open}
 				onDismiss={close}
 				overlayAccessibilityLabel={t("common.closeMenu")}
@@ -538,7 +539,7 @@ export function CardMenu({
 						</ScrollView>
 					)}
 				</View>
-			</Menu>
+			</AppMenu>
 
 			{/* Mounted only while open. Each dialog carries a `Portal`, which
 			    registers with the portal host even when the modal inside it renders

@@ -1,13 +1,7 @@
-import { type ComponentProps, type ReactNode, useState } from "react";
+import { type ComponentProps, useState } from "react";
 import { Menu } from "react-native-paper";
 
-/**
- * Paper allows a `{ x, y }` anchor, which has nothing to render before the first
- * open. Every menu here anchors to an element, so the wrapper requires one.
- */
-type AppMenuProps = Omit<ComponentProps<typeof Menu>, "anchor"> & {
-	anchor: ReactNode;
-};
+type AppMenuProps = ComponentProps<typeof Menu>;
 
 /**
  * Paper's `Menu`, without the scroll jump a closed one causes on mount.
@@ -32,7 +26,13 @@ export function AppMenu({ visible, children, ...props }: AppMenuProps) {
 	}
 
 	if (!opened) {
-		return <>{props.anchor}</>;
+		// A `{ x, y }` anchor is a position, not an element: there is nothing to
+		// render for it before the first open.
+		const { anchor } = props;
+		if (anchor !== null && typeof anchor === "object" && "x" in anchor) {
+			return null;
+		}
+		return <>{anchor}</>;
 	}
 
 	return (

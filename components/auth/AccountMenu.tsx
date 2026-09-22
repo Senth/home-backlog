@@ -15,6 +15,7 @@ import {
 import { displayLabel } from "@/auth/display-name";
 import { type AuthErrorKey, mapAuthError } from "@/auth/errors";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
+import { AppMenu } from "@/components/ui/AppMenu";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAnchorFocusGuard, useTabTrap } from "@/hooks/use-modal-focus";
@@ -105,7 +106,7 @@ export function AccountMenu() {
 
 	return (
 		<>
-			<Menu
+			<AppMenu
 				visible={menuOpen}
 				onDismiss={closeMenu}
 				overlayAccessibilityLabel={t("common.closeMenu")}
@@ -207,7 +208,7 @@ export function AccountMenu() {
 						}}
 					/>
 				</View>
-			</Menu>
+			</AppMenu>
 
 			{/* `ConfirmDialog`, not a Paper `Dialog` of its own. This screen had
 			    its own copy of the width clamp, the wrapping action row and the

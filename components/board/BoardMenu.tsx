@@ -5,6 +5,7 @@ import { View } from "react-native";
 import { Appbar, Menu } from "react-native-paper";
 import { detailsHref } from "@/components/board/board-href";
 import { TitleDialog } from "@/components/board/TitleDialog";
+import { AppMenu } from "@/components/ui/AppMenu";
 import { updateNode } from "@/data/nodes";
 import { useAnchorFocusGuard, useTabTrap } from "@/hooks/use-modal-focus";
 import { hasDetails, type Node } from "@/models/node";
@@ -59,7 +60,7 @@ export function BoardMenu({ homeId, node }: BoardMenuProps) {
 
 	return (
 		<>
-			<Menu
+			<AppMenu
 				visible={open}
 				onDismiss={close}
 				// Paper's scrim is announced, and its default name is English.
@@ -117,7 +118,7 @@ export function BoardMenu({ homeId, node }: BoardMenuProps) {
 						/>
 					)}
 				</View>
-			</Menu>
+			</AppMenu>
 
 			{/* Mounted only while open — see `CardMenu`'s identical dialog. */}
 			{renaming && node !== null ? (

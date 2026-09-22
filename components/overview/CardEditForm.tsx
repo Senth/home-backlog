@@ -18,6 +18,7 @@ import {
 	pickerConditionFromIds,
 	pickerValueFor,
 } from "@/components/board/BoardFilterRow";
+import { AppMenu } from "@/components/ui/AppMenu";
 import { CheckListPicker } from "@/components/ui/CheckListPicker";
 import { CheckRow } from "@/components/ui/CheckRow";
 import { useAuth } from "@/contexts/AuthContext";
@@ -736,7 +737,7 @@ function SheetBody({
 					>
 						{t("overview.cards.sort.label")}
 					</Text>
-					<Menu
+					<AppMenu
 						visible={sortOpen}
 						onDismiss={() => onSortOpen(false)}
 						anchor={
@@ -774,7 +775,7 @@ function SheetBody({
 								}}
 							/>
 						))}
-					</Menu>
+					</AppMenu>
 					{draft.sort === null ? null : (
 						<DirectionChips sort={draft.sort} onSort={onSort} />
 					)}
