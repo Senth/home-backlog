@@ -76,10 +76,24 @@ const OFFLINE_SHELL_INIT = {
 	},
 };
 
+/**
+ * What an offline navigation answers with: the cached shell when there is one,
+ * the offline page's ingredients when there is not. The choice lives here,
+ * clear of `Response` and every other worker global, so both branches are unit
+ * tested; `sw.js` turns the second one into an actual response.
+ *
+ * @param {unknown} cached the `cache.match(SHELL_URL)` result, or undefined
+ * @returns {unknown} the cached response, or `{ html, init }`
+ */
+function offlineNavigationResponse(cached) {
+	return cached ?? { html: OFFLINE_SHELL_HTML, init: OFFLINE_SHELL_INIT };
+}
+
 // Present when required from Jest, absent in the service worker scope.
 if (typeof module !== "undefined" && module.exports) {
 	module.exports = {
 		chooseStrategy,
+		offlineNavigationResponse,
 		IMMUTABLE_PREFIX,
 		RESERVED_PREFIX,
 		OFFLINE_SHELL_HTML,

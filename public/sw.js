@@ -21,9 +21,9 @@
 
 importScripts("./sw-routing.js");
 
-// Bumped with every change to this file, see the header. v3 could store a shell
-// copy under a build-check query key on every freshness check, and may hold a
-// shell naming bundles that no longer exist on the origin.
+// Bumped with every change to this file, see the header. v5 adds the offline
+// navigation fallback; anything older may hold a shell naming bundles the
+// origin no longer serves.
 const VERSION = "v5";
 const CACHE = `home-backlog-${VERSION}`;
 /** Enough to boot the SPA offline; every route renders from this shell. */
@@ -101,8 +101,12 @@ function isCacheable(response) {
 }
 
 async function networkFirst(request) {
-	const cache = await caches.open(CACHE);
+	// Opened inside the `try`: `caches.open` itself rejects when site data is
+	// blocked (private browsing), and a rejection escaping this function is the
+	// browser network-error page #322 is about.
+	let cache;
 	try {
+		cache = await caches.open(CACHE);
 		// `no-store` bypasses the browser HTTP cache, not just ours. Without it
 		// "network-first" can be answered by an hour-old shell the HTTP cache
 		// is still allowed to hold — the origin header is what actually made
@@ -116,12 +120,16 @@ async function networkFirst(request) {
 		return response;
 	} catch {
 		// The shell renders any route client-side, so one entry covers them all.
-		// Without a cached shell, answer with our own page rather than
-		// `Response.error()`, which the browser paints as a network error (#322).
-		return (
-			(await cache.match(SHELL_URL)) ??
-			new Response(OFFLINE_SHELL_HTML, OFFLINE_SHELL_INIT)
-		);
+		// No cache at all, or no shell in it: answer with our own page rather
+		// than `Response.error()`, which the browser paints as a network error
+		// over a working app (#322).
+		const cached = cache
+			? await cache.match(SHELL_URL).catch(() => undefined)
+			: undefined;
+		const answer = offlineNavigationResponse(cached);
+		return answer instanceof Response
+			? answer
+			: new Response(answer.html, answer.init);
 	}
 }
 

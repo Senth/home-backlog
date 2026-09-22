@@ -1,17 +1,22 @@
 // The service worker's routing table is plain JS served from `public/`, so it
 // is required by path rather than imported through the module graph.
-const { chooseStrategy, OFFLINE_SHELL_HTML, OFFLINE_SHELL_INIT } =
-	require("@/public/sw-routing.js") as {
-		chooseStrategy: (request: {
-			method: string;
-			mode: string;
-			sameOrigin: boolean;
-			pathname: string;
-			search: string;
-		}) => string;
-		OFFLINE_SHELL_HTML: string;
-		OFFLINE_SHELL_INIT: { status: number; headers: Record<string, string> };
-	};
+const {
+	chooseStrategy,
+	offlineNavigationResponse,
+	OFFLINE_SHELL_HTML,
+	OFFLINE_SHELL_INIT,
+} = require("@/public/sw-routing.js") as {
+	chooseStrategy: (request: {
+		method: string;
+		mode: string;
+		sameOrigin: boolean;
+		pathname: string;
+		search: string;
+	}) => string;
+	offlineNavigationResponse: (cached: unknown) => unknown;
+	OFFLINE_SHELL_HTML: string;
+	OFFLINE_SHELL_INIT: { status: number; headers: Record<string, string> };
+};
 
 const GET = {
 	method: "GET",
@@ -109,8 +114,27 @@ describe("the offline navigation fallback", () => {
 		expect(OFFLINE_SHELL_HTML).toContain("reload");
 	});
 
-	it("is never stored by the HTTP cache", () => {
-		// A 503 kept by the browser cache would outlive the outage.
+	it("carries no-store, which nothing here needs but nothing here costs", () => {
+		// Defensive only: a response built inside the worker is handed straight
+		// to the page and enters neither the HTTP cache nor the Cache API, so
+		// the header prevents nothing today. It is kept so the response stays
+		// correct if it is ever put in a cache or replayed through a proxy.
 		expect(OFFLINE_SHELL_INIT.headers["Cache-Control"]).toBe("no-store");
+	});
+
+	it("keeps the cached shell when there is one", () => {
+		// The shell renders every route client-side, so it beats the offline
+		// page whenever the cache has it.
+		const cachedShell = { marker: "the cached shell response" };
+		expect(offlineNavigationResponse(cachedShell)).toBe(cachedShell);
+	});
+
+	it("answers with the offline page when the shell was never cached", () => {
+		// The branch #322 is about: no shell, and the alternative was
+		// `Response.error()` painted as a browser network error.
+		expect(offlineNavigationResponse(undefined)).toEqual({
+			html: OFFLINE_SHELL_HTML,
+			init: OFFLINE_SHELL_INIT,
+		});
 	});
 });
