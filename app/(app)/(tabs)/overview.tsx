@@ -259,9 +259,8 @@ export default function Overview() {
 	};
 
 	/**
-	 * The editor, reached from the tune action or from a card's own menu. One
-	 * screen owns every arrangement — neither entry is load-bearing for the
-	 * other.
+	 * The editor with every section, reached from the app bar's tune action —
+	 * a card's own menu goes to that card's form instead (#325).
 	 */
 	const openEditor = () => {
 		router.push("/overview-editor");
@@ -317,7 +316,7 @@ export default function Overview() {
 						testID={`overview-card-menu-${card.id}`}
 						card={card}
 						scope={scopes[card.id] ?? "global"}
-						onEdit={openEditor}
+						onEdit={() => router.push(`/overview-card-edit?cardId=${card.id}`)}
 						onHide={
 							scopes[card.id] === "shared" ? () => hideCard(card) : undefined
 						}
