@@ -71,10 +71,19 @@ ready = "Huset"
 # fläkt" carries one; no label is a custom color, so the palette sweep can
 # enumerate everything a labelled card paints. There are **no `recurring`
 # documents at all**: the maintenance screen is empty by construction, which is
-# the cold-start shape. The **location tree is seeded** (#205): Huset holds
-# seventeen places three levels deep — Bottenvåning, Övervåning, Källaren and
-# Utomhus, with Uteplatsen under Trädgården and Verkstaden under Garaget, each
-# with its own icon and hue — and Stugan holds Boden and Bryggan. Ten cards
+# the cold-start shape. The **location tree is seeded** (#205, grown in #341):
+# Huset holds **forty places three levels deep** — four roots, Bottenvåning,
+# Övervåning, Källaren and Utomhus, carrying twenty-three rooms between them
+# (five under Utomhus, six under each of the others), and eleven of those rooms
+# nest thirteen deeper places (Uteplatsen, Växthuset and
+# Köksträdgården under Trädgården, Verkstaden and Cykelförrådet under Garaget,
+# Klädkammaren under Hallen, Skafferiet under Köket, TV-hörnan and Braskaminen
+# under Vardagsrummet, Garderoben under Sovrummet, Lekvrån under Barnrummet,
+# Torkrummet under Tvättstugan, Elcentralen under Pannrummet). Every place has
+# its own icon and a hue from `labelHues`; Stugan still holds only Boden and
+# Bryggan. The tree is deliberately taller than one 1280x900 viewport — that is
+# what makes a scroll bug on `/locations` provable — so arriving at the screen
+# and seeing rows below the fold is the fixture, not a defect. Ten cards
 # carry a `locationId`, chosen to cover the selection rules rather than to look
 # plausible: "Byt badrumsfläkten" and "Renovera badrummet" sit at Badrummet so
 # their whole subtrees inherit the place, "Hyr container" and "Köp färg"
