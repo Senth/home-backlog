@@ -1,14 +1,17 @@
 // The service worker's routing table is plain JS served from `public/`, so it
 // is required by path rather than imported through the module graph.
-const { chooseStrategy } = require("@/public/sw-routing.js") as {
-	chooseStrategy: (request: {
-		method: string;
-		mode: string;
-		sameOrigin: boolean;
-		pathname: string;
-		search: string;
-	}) => string;
-};
+const { chooseStrategy, OFFLINE_SHELL_HTML, OFFLINE_SHELL_INIT } =
+	require("@/public/sw-routing.js") as {
+		chooseStrategy: (request: {
+			method: string;
+			mode: string;
+			sameOrigin: boolean;
+			pathname: string;
+			search: string;
+		}) => string;
+		OFFLINE_SHELL_HTML: string;
+		OFFLINE_SHELL_INIT: { status: number; headers: Record<string, string> };
+	};
 
 const GET = {
 	method: "GET",
@@ -85,5 +88,29 @@ describe("chooseStrategy", () => {
 				search: "?build-check=1789074600000",
 			}),
 		).toBe("passthrough");
+	});
+});
+
+describe("the offline navigation fallback", () => {
+	it("is HTML the browser will render instead of its own error page", () => {
+		// `Response.error()` here reads as a real connection failure (#322).
+		expect(OFFLINE_SHELL_INIT.status).toBe(503);
+		expect(OFFLINE_SHELL_INIT.headers["Content-Type"]).toBe(
+			"text/html; charset=utf-8",
+		);
+		expect(new Response(OFFLINE_SHELL_HTML, OFFLINE_SHELL_INIT).type).not.toBe(
+			"error",
+		);
+	});
+
+	it("says what happened and what to do about it", () => {
+		expect(OFFLINE_SHELL_HTML).toContain("<!doctype html>");
+		expect(OFFLINE_SHELL_HTML).toContain("offline");
+		expect(OFFLINE_SHELL_HTML).toContain("reload");
+	});
+
+	it("is never stored by the HTTP cache", () => {
+		// A 503 kept by the browser cache would outlive the outage.
+		expect(OFFLINE_SHELL_INIT.headers["Cache-Control"]).toBe("no-store");
 	});
 });

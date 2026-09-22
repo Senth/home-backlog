@@ -21,10 +21,10 @@
 
 importScripts("./sw-routing.js");
 
-// v4 drops any older cache: v3 could store a shell copy under a build-check
-// query key on every freshness check, and may hold a shell naming bundles
-// that no longer exist on the origin — see the header above.
-const VERSION = "v4";
+// Bumped with every change to this file, see the header. v3 could store a shell
+// copy under a build-check query key on every freshness check, and may hold a
+// shell naming bundles that no longer exist on the origin.
+const VERSION = "v5";
 const CACHE = `home-backlog-${VERSION}`;
 /** Enough to boot the SPA offline; every route renders from this shell. */
 const SHELL_URL = "/";
@@ -116,7 +116,12 @@ async function networkFirst(request) {
 		return response;
 	} catch {
 		// The shell renders any route client-side, so one entry covers them all.
-		return (await cache.match(SHELL_URL)) ?? Response.error();
+		// Without a cached shell, answer with our own page rather than
+		// `Response.error()`, which the browser paints as a network error (#322).
+		return (
+			(await cache.match(SHELL_URL)) ??
+			new Response(OFFLINE_SHELL_HTML, OFFLINE_SHELL_INIT)
+		);
 	}
 }
 

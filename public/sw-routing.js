@@ -48,7 +48,41 @@ function chooseStrategy({ method, mode, sameOrigin, pathname, search }) {
 	return "stale-while-revalidate";
 }
 
+/**
+ * What a navigation gets when the network is gone and the shell was never
+ * cached — an eviction under storage pressure, or a clear, after a successful
+ * install. `Response.error()` there reads to the browser as a real connection
+ * failure, so it paints its own network-error page over a working app (#322).
+ *
+ * The copy is hardcoded English, the one string in the app outside `t()`: a
+ * service worker cannot reach the i18n bundle, and this file has no build step
+ * that could bake a localized page out of it.
+ */
+const OFFLINE_SHELL_HTML = `<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offline</title>
+<p>You're offline and this page was never saved for offline use. Reconnect and reload.</p>
+</html>
+`;
+
+/** 503, because the app is the thing that is unavailable, not the URL. */
+const OFFLINE_SHELL_INIT = {
+	status: 503,
+	headers: {
+		"Content-Type": "text/html; charset=utf-8",
+		"Cache-Control": "no-store",
+	},
+};
+
 // Present when required from Jest, absent in the service worker scope.
 if (typeof module !== "undefined" && module.exports) {
-	module.exports = { chooseStrategy, IMMUTABLE_PREFIX, RESERVED_PREFIX };
+	module.exports = {
+		chooseStrategy,
+		IMMUTABLE_PREFIX,
+		RESERVED_PREFIX,
+		OFFLINE_SHELL_HTML,
+		OFFLINE_SHELL_INIT,
+	};
 }
