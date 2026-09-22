@@ -56,14 +56,40 @@ function chooseStrategy({ method, mode, sameOrigin, pathname, search }) {
  *
  * The copy is hardcoded English, the one string in the app outside `t()`: a
  * service worker cannot reach the i18n bundle, and this file has no build step
- * that could bake a localized page out of it.
+ * that could bake a localized page out of it. The styling is inline and the
+ * colors are CSS system colors for the same reason — `theme/tokens.ts` is out
+ * of reach here, and `Canvas`/`CanvasText` under `color-scheme: light dark`
+ * follow the OS setting without naming a palette. Unstyled, this page renders
+ * as a Times New Roman line in the corner, which reads as the breakage it
+ * exists to deny.
  */
 const OFFLINE_SHELL_HTML = `<!doctype html>
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Offline</title>
-<p>You're offline and this page was never saved for offline use. Reconnect and reload.</p>
+<style>
+:root { color-scheme: light dark }
+body {
+	margin: 0;
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 24px;
+	box-sizing: border-box;
+	text-align: center;
+	background: Canvas;
+	color: CanvasText;
+	font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+h1 { margin: 0; font-size: 20px; font-weight: 600 }
+p { margin: 0; max-width: 28rem; font-size: 15px; line-height: 1.5; opacity: 0.75 }
+</style>
+<h1>You're offline</h1>
+<p>This page was never saved for offline use. Reconnect and reload.</p>
 </html>
 `;
 
