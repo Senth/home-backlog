@@ -53,8 +53,8 @@ interface LocationTreeProps {
 	cardsOpen: boolean;
 	/** The home's open cards, for a place's own card list. */
 	pool: readonly Node[];
-	/** Location id → title, as the card faces read. */
-	locationTitles: ReadonlyMap<string, string>;
+	/** Location id → place, as the card faces read. */
+	locationTitles: ReadonlyMap<string, Location>;
 	/** The move-under mode, exactly as the screen holds it. */
 	mode: MoveMode;
 	/** The tree's drag, carrying the gesture and the rows it measures. */

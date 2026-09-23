@@ -149,10 +149,10 @@ export default function NodeDetails() {
 	const flip = useFlip(homeId ?? "");
 
 	// The location tree (#50), heard once here and passed down — the card
-	// face's footer reads titles from it, and so does the row below (#246).
+	// face's footer reads places from it, and so does the row below (#246).
 	const { locations } = useLocations(homeId);
-	const locationTitles = new Map(
-		locations.map((location) => [location.id, location.title]),
+	const locationsById = new Map(
+		locations.map((location) => [location.id, location]),
 	);
 
 	const [failed, setFailed] = useState(false);
@@ -226,7 +226,7 @@ export default function NodeDetails() {
 		// ancestor passes down.
 		const at = effectiveLocation(current, trail);
 		const place =
-			at === null ? null : (locationTitles.get(at.locationId) ?? null);
+			at === null ? null : (locationsById.get(at.locationId) ?? null);
 
 		return [
 			homeId === null ? null : (
@@ -290,7 +290,9 @@ export default function NodeDetails() {
 				name={t("detail.location")}
 				testID={`field-location-${current.id}`}
 				onPress={() => setLocating(true)}
-				value={<Text variant="bodyMedium">{place ?? t("detail.notSet")}</Text>}
+				value={
+					<Text variant="bodyMedium">{place?.title ?? t("detail.notSet")}</Text>
+				}
 			/>,
 			homeId === null ? null : (
 				<DetailRow
@@ -514,7 +516,7 @@ export default function NodeDetails() {
 						<DetailCard
 							homeId={homeId}
 							node={node}
-							locations={locationTitles}
+							locations={locationsById}
 							onRename={() => setRenaming(true)}
 							onOpenCrumb={(crumbId) => router.dismissTo(boardHref(crumbId))}
 						/>

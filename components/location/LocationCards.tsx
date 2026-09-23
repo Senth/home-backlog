@@ -23,8 +23,8 @@ interface LocationCardsProps {
 	location: Location;
 	/** The home's open cards — the pool pair the screen already holds. */
 	pool: readonly Node[];
-	/** Location id → title, for the footers elsewhere. */
-	locationTitles: ReadonlyMap<string, string>;
+	/** Location id → place, for the card faces. */
+	locationTitles: ReadonlyMap<string, Location>;
 	/** The "+N more": the filtered board, the route the row's tap writes. */
 	onMore: (location: Location) => void;
 }

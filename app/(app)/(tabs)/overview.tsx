@@ -27,6 +27,7 @@ import { useLabelAncestors } from "@/hooks/use-label-ancestors";
 import { useLocations } from "@/hooks/use-locations";
 import { useOverview } from "@/hooks/use-overview";
 import { effectiveLabels } from "@/models/label";
+import type { Location } from "@/models/locations";
 import {
 	crumbTitlesOf,
 	effectiveLocation,
@@ -100,9 +101,9 @@ export default function Overview() {
 		rootsById.set(node.id, node);
 	}
 
-	// The card face's location facts (#100): id → title, from the one listener
+	// The card face's location facts (#100): id → place, from the one listener
 	// this screen holds.
-	const locationTitles = new Map(locations.map((l) => [l.id, l.title]));
+	const locationsById = new Map(locations.map((l) => [l.id, l]));
 
 	// The labels a row inherits (#100). Overview draws cards from anywhere, so
 	// their trails reach nodes no listener is holding — the pool pair answers
@@ -308,7 +309,7 @@ export default function Overview() {
 				onOpen={open}
 				nodesById={nodesById}
 				ancestors={ancestors}
-				locations={locationTitles}
+				locations={locationsById}
 				narrow={narrow}
 				width={flowing ? sectionWidth : null}
 				menu={
@@ -493,8 +494,8 @@ interface CardSectionProps {
 	 * from. See `useLabelAncestors`.
 	 */
 	ancestors: ReadonlyMap<string, Node | null>;
-	/** Location id → title, the leaf. See `BoardCard`. */
-	locations: ReadonlyMap<string, string>;
+	/** Location id → place, the leaf. See `BoardCard`. */
+	locations: ReadonlyMap<string, Location>;
 	/** Below `cardGutterBreakpoint` the cards give their gutters' room back. */
 	narrow: boolean;
 	/**
