@@ -509,7 +509,6 @@
 		"whoIsIn": "Vem är med",
 		"whoIsDoing": "Vem gör det",
 		"createdViaApi": "Tillagd av en automation",
-		"column": "Kolumn",
 		"moveToColumn": "Flytta till {{column}}",
 		"location": "Plats",
 		"locationNone": "Hemmet har inga platser än.",

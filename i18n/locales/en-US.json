@@ -509,7 +509,6 @@
 		"whoIsIn": "Who's in it",
 		"whoIsDoing": "Who's doing it",
 		"createdViaApi": "Added by an automation",
-		"column": "Column",
 		"moveToColumn": "Move to {{column}}",
 		"location": "Location",
 		"locationNone": "The home has no locations yet.",

@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
-import { Button, IconButton, Surface, Text } from "react-native-paper";
+import { type LayoutChangeEvent, View } from "react-native";
+import { Button, Icon, Surface, Text } from "react-native-paper";
 import { moveNode } from "@/data/nodes";
+import { pickRung } from "@/models/column-bar";
 import type { Node, Status } from "@/models/node";
 import { nextStatus, previousStatus, rankAtEnd } from "@/models/node";
 import { useAppTheme } from "@/theme";
@@ -11,7 +13,6 @@ import {
 	icon,
 	space,
 	touchTarget,
-	touchTargetStyle,
 } from "@/theme/tokens";
 
 interface ColumnBarProps {
@@ -26,16 +27,15 @@ interface ColumnBarProps {
 	onFailed: () => void;
 }
 
+type Measured = Record<string, number>;
+
 /**
- * The bar at the foot of the details screen (#237 phase 4): back, the column's
- * name, forward, and *Done* — a card moved without going back to the board.
+ * The bar at the foot of the details screen: back and forward, each named by
+ * where it sends the card, and between them the column the card is in.
  *
- * It is about this card, not about the app, so it looks like nothing the frame
- * owns: no tabs, no nav row. The column's name is where the eye lands first and
- * stays uncoloured — a status that is a hue is the Trello habit
- * `docs/DESIGN.md` names — and *Done* is the only `contained-tonal` on the
- * screen. The write is the one the card menu already makes, `moveNode` with
- * `rankAtEnd` of the destination, and offline it queues like every other write.
+ * Its shape is the first of three rungs that fits (`pickRung`), from widths
+ * measured off a hidden row of every label in the column set, so the buttons
+ * hold one width as the card steps and the bar paints once, whole.
  */
 export function ColumnBar({
 	homeId,
@@ -46,6 +46,8 @@ export function ColumnBar({
 }: ColumnBarProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
+	const [measured, setMeasured] = useState<Measured>({});
+	const [barWidth, setBarWidth] = useState(0);
 
 	const next = nextStatus(columns, node.status);
 	const previous = previousStatus(columns, node.status);
@@ -53,8 +55,6 @@ export function ColumnBar({
 	const moveTo = (status: Status) => {
 		if (status === node.status) return;
 
-		// Appends to the destination column, the way `CardMenu.moveTo` does —
-		// the same write, not a second implementation of it.
 		const last = nodes.filter((card) => card.status === status).at(-1);
 		moveNode(homeId, node, status, rankAtEnd(last?.rank ?? null)).catch(
 			(reason) => {
@@ -64,93 +64,162 @@ export function ColumnBar({
 		);
 	};
 
+	const measure = (key: string) => (event: LayoutChangeEvent) => {
+		const { width } = event.nativeEvent.layout;
+		setMeasured((current) =>
+			current[key] === width ? current : { ...current, [key]: width },
+		);
+	};
+
+	const widest = (prefix: string) =>
+		Math.max(
+			0,
+			...columns.map((status) => measured[`${prefix}-${status}`] ?? 0),
+		);
+	const button = widest("button");
+	const centre = widest("centre");
+	const iconOnly = measured.icon ?? 0;
+	const ready =
+		barWidth > 0 &&
+		iconOnly > 0 &&
+		columns.every(
+			(status) =>
+				measured[`button-${status}`] !== undefined &&
+				measured[`centre-${status}`] !== undefined,
+		);
+	const rung = pickRung(
+		{
+			labelled: 2 * button + centre + 2 * space.sm,
+			icons: 2 * iconOnly + centre + 2 * space.sm,
+		},
+		ready ? barWidth - 2 * space.sm : 0,
+	);
+	const labelled = rung === "labelled";
+
+	const arrow = (destination: Status | null, forward: boolean) => (
+		<Button
+			mode="outlined"
+			icon={forward ? "chevron-right" : "chevron-left"}
+			disabled={destination === null}
+			accessibilityLabel={t("detail.moveToColumn", {
+				column: t(`status.${destination ?? node.status}`),
+			})}
+			onPress={() => destination !== null && moveTo(destination)}
+			contentStyle={{
+				minHeight: touchTarget,
+				flexDirection: forward ? "row-reverse" : "row",
+			}}
+			style={{
+				margin: space.none,
+				borderColor: theme.colors.outline,
+				width: labelled ? button : undefined,
+				flexGrow: rung === "stacked" ? 1 : 0,
+			}}
+		>
+			{labelled && destination !== null ? t(`status.${destination}`) : ""}
+		</Button>
+	);
+
+	const name = (status: Status) => (
+		<View
+			style={{
+				flexDirection: "row",
+				alignItems: "center",
+				justifyContent: "center",
+				gap: space.xs,
+			}}
+		>
+			<Text
+				variant="titleMedium"
+				numberOfLines={2}
+				style={{ textAlign: "center", flexShrink: 1 }}
+			>
+				{t(`status.${status}`)}
+			</Text>
+			<Icon
+				source="menu-down"
+				size={icon.sm}
+				color={theme.colors.onSurfaceVariant}
+			/>
+		</View>
+	);
+
+	const centreView = (
+		<View
+			testID={`column-name-${node.id}`}
+			style={{
+				flexGrow: 1,
+				flexShrink: 1,
+				flexBasis: "auto",
+				minHeight: touchTarget,
+				justifyContent: "center",
+			}}
+		>
+			{name(node.status)}
+		</View>
+	);
+
 	return (
 		<Surface
 			elevation={elevation.low}
 			mode="flat"
 			testID={`column-bar-${node.id}`}
-			// It rides the card's form width, the way the content above it
-			// clamps (#237) — full-bleed beside a clamped column read as two
-			// different screens. The wrap is the 200 % escape the contract
-			// names for rows of controls: when the row cannot hold the name,
-			// the name takes a line of its own rather than shrinking to a
-			// character per line.
+			onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
 			style={{
-				flexDirection: "row",
-				flexWrap: "wrap",
-				alignItems: "center",
 				alignSelf: "center",
 				width: "100%",
 				maxWidth: contentWidth.form,
 				gap: space.sm,
 				paddingHorizontal: space.sm,
 				paddingVertical: space.sm,
+				opacity: ready ? 1 : 0,
 			}}
 		>
-			<IconButton
-				icon="chevron-left"
-				mode="outlined"
-				size={icon.md}
-				disabled={previous === null}
-				accessibilityLabel={t("detail.moveToColumn", {
-					column: t(`status.${previous ?? node.status}`),
-				})}
-				onPress={() => previous !== null && moveTo(previous)}
-				// Paper greys the border of a disabled outlined button to
-				// `surfaceDisabled`, which drops the circle the mock keeps on
-				// both arrows — the outline is the affordance that says these
-				// two are a pair, enabled or not.
-				style={[
-					touchTargetStyle,
-					{ margin: space.none, borderColor: theme.colors.outline },
-				]}
-			/>
-			{/* An auto basis, not `flex: 1`: with a zero basis the name was
-			    weight zero in the shrink phase and collapsed to a character per
-			    line at 200 % text, the same bug `Row` fixes for the rows. */}
 			<View
-				testID={`column-name-${node.id}`}
+				pointerEvents="none"
+				aria-hidden
+				accessibilityElementsHidden
+				importantForAccessibility="no-hide-descendants"
 				style={{
-					flexGrow: 1,
-					flexShrink: 1,
-					flexBasis: "auto",
-					minHeight: touchTarget,
-					justifyContent: "center",
+					position: "absolute",
+					opacity: 0,
+					alignItems: "flex-start",
 				}}
 			>
-				<Text
-					variant="labelMedium"
-					style={{ color: theme.colors.onSurfaceVariant, textAlign: "center" }}
-				>
-					{t("detail.column")}
-				</Text>
-				<Text variant="titleMedium" style={{ textAlign: "center" }}>
-					{t(`status.${node.status}`)}
-				</Text>
+				{columns.map((status) => (
+					<View key={status} style={{ flexDirection: "row" }}>
+						<View onLayout={measure(`button-${status}`)}>
+							<Button
+								mode="outlined"
+								icon="chevron-right"
+								contentStyle={{ minHeight: touchTarget }}
+								style={{ margin: space.none }}
+							>
+								{t(`status.${status}`)}
+							</Button>
+						</View>
+						<View onLayout={measure(`centre-${status}`)}>{name(status)}</View>
+					</View>
+				))}
+				<View onLayout={measure("icon")}>
+					<Button
+						mode="outlined"
+						icon="chevron-right"
+						contentStyle={{ minHeight: touchTarget }}
+						style={{ margin: space.none }}
+					>
+						{""}
+					</Button>
+				</View>
 			</View>
-			<IconButton
-				icon="chevron-right"
-				mode="outlined"
-				size={icon.md}
-				disabled={next === null}
-				accessibilityLabel={t("detail.moveToColumn", {
-					column: t(`status.${next ?? node.status}`),
-				})}
-				onPress={() => next !== null && moveTo(next)}
-				style={[
-					touchTargetStyle,
-					{ margin: space.none, borderColor: theme.colors.outline },
-				]}
-			/>
-			<Button
-				mode="contained-tonal"
-				icon="check"
-				contentStyle={{ minHeight: touchTarget }}
-				onPress={() => moveTo("done")}
-				style={{ margin: space.none }}
+			{rung === "stacked" && centreView}
+			<View
+				style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
 			>
-				{t("common.done")}
-			</Button>
+				{arrow(previous, false)}
+				{rung !== "stacked" && centreView}
+				{arrow(next, true)}
+			</View>
 		</Surface>
 	);
 }
