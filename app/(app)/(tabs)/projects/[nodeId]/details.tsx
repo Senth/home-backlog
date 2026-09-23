@@ -35,6 +35,7 @@ import { PeopleSection } from "@/components/node/PeopleSection";
 import { StepsSection } from "@/components/node/StepsSection";
 import { VisibilityField } from "@/components/node/VisibilityField";
 import { WaitingOnSection } from "@/components/node/WaitingOnSection";
+import { AppMenu } from "@/components/ui/AppMenu";
 import { AppSheet } from "@/components/ui/AppSheet";
 import { BackAction } from "@/components/ui/BackAction";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
@@ -448,7 +449,7 @@ export default function NodeDetails() {
 			    long title with nowhere to go (#237, the settled mock). */}
 				<Appbar.Content title={t("detail.title")} />
 				{node === null ? null : (
-					<Menu
+					<AppMenu
 						visible={menuOpen}
 						onDismiss={closeMenu}
 						overlayAccessibilityLabel={t("common.closeMenu")}
@@ -471,7 +472,7 @@ export default function NodeDetails() {
 								setRenaming(true);
 							}}
 						/>
-					</Menu>
+					</AppMenu>
 				)}
 			</Appbar.Header>
 

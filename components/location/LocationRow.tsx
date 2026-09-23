@@ -11,6 +11,7 @@ import {
 	rowKey,
 } from "@/components/location/use-location-drag";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
+import { AppMenu } from "@/components/ui/AppMenu";
 import {
 	deleteLocation,
 	locationErrorKey,
@@ -437,7 +438,7 @@ export function LocationRow({
 							/>
 						) : null}
 
-						<Menu
+						<AppMenu
 							visible={open}
 							onDismiss={close}
 							overlayAccessibilityLabel={t("common.closeMenu")}
@@ -515,7 +516,7 @@ export function LocationRow({
 									<Menu.Item disabled title={t("board.offlineHint")} />
 								)}
 							</View>
-						</Menu>
+						</AppMenu>
 					</View>
 				</DragArea>
 			</View>

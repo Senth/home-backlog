@@ -5,8 +5,9 @@ import { View } from "react-native";
 import { Appbar, Menu } from "react-native-paper";
 import { detailsHref } from "@/components/board/board-href";
 import { TitleDialog } from "@/components/board/TitleDialog";
+import { AppMenu } from "@/components/ui/AppMenu";
 import { updateNode } from "@/data/nodes";
-import { useAnchorFocusGuard, useTabTrap } from "@/hooks/use-modal-focus";
+import { useTabTrap } from "@/hooks/use-modal-focus";
 import { hasDetails, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { radius, size, space, touchTargetStyle } from "@/theme/tokens";
@@ -42,8 +43,6 @@ export function BoardMenu({ homeId, node }: BoardMenuProps) {
 	// reasoning, and the same fix, as `components/board/CardMenu.tsx`.
 	const close = useCallback(() => setOpen(false), []);
 
-	// Same unasked mount focus from Paper's closed `Menu` as every card's menu.
-	useAnchorFocusGuard(anchor);
 	// Same trap, same reasoning: while open, the menu is what is being answered.
 	useTabTrap(open, `board-menu-${node?.id ?? "root"}`);
 
@@ -59,7 +58,7 @@ export function BoardMenu({ homeId, node }: BoardMenuProps) {
 
 	return (
 		<>
-			<Menu
+			<AppMenu
 				visible={open}
 				onDismiss={close}
 				// Paper's scrim is announced, and its default name is English.
@@ -117,7 +116,7 @@ export function BoardMenu({ homeId, node }: BoardMenuProps) {
 						/>
 					)}
 				</View>
-			</Menu>
+			</AppMenu>
 
 			{/* Mounted only while open — see `CardMenu`'s identical dialog. */}
 			{renaming && node !== null ? (

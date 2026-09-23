@@ -2,6 +2,7 @@ import { getDownloadURL, ref } from "firebase/storage";
 import { useTranslation } from "react-i18next";
 import { Platform, View } from "react-native";
 import { Menu } from "react-native-paper";
+import { AppMenu } from "@/components/ui/AppMenu";
 import { storage } from "@/config/firebase";
 import { isImageType } from "@/models/attachment";
 import type { Attachment, Node } from "@/models/node";
@@ -123,7 +124,7 @@ export function AttachmentMenu({
 
 	if (anchor === null) return null;
 	return (
-		<Menu
+		<AppMenu
 			visible
 			onDismiss={onDismiss}
 			overlayAccessibilityLabel={t("common.closeMenu")}
@@ -142,6 +143,6 @@ export function AttachmentMenu({
 					/>
 				))}
 			</View>
-		</Menu>
+		</AppMenu>
 	);
 }

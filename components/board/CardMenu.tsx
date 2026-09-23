@@ -6,6 +6,7 @@ import { TitleDialog } from "@/components/board/TitleDialog";
 import { LabelPicker } from "@/components/label/LabelPicker";
 import { BlockerSearchDialog } from "@/components/node/BlockerSearchDialog";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
+import { AppMenu } from "@/components/ui/AppMenu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import {
@@ -17,7 +18,7 @@ import {
 	reparentNode,
 	updateNode,
 } from "@/data/nodes";
-import { useAnchorFocusGuard, useTabTrap } from "@/hooks/use-modal-focus";
+import { useTabTrap } from "@/hooks/use-modal-focus";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import {
 	type Node,
@@ -141,9 +142,6 @@ export function CardMenu({
 		setPage("root");
 	}, []);
 
-	// Paper focuses the first card's menu button when the board mounts, closed
-	// menus and all — the same unasked focus `useAnchorFocusGuard` exists for.
-	useAnchorFocusGuard(anchor);
 	// The menu is what the user is answering while it is open: Tab stays inside
 	// it instead of walking onto the board behind it. The surface is this
 	// wrapper, not Paper's own — the plan does not rely on `Menu` forwarding a
@@ -318,7 +316,7 @@ export function CardMenu({
 
 	return (
 		<>
-			<Menu
+			<AppMenu
 				visible={open}
 				onDismiss={close}
 				overlayAccessibilityLabel={t("common.closeMenu")}
@@ -538,7 +536,7 @@ export function CardMenu({
 						</ScrollView>
 					)}
 				</View>
-			</Menu>
+			</AppMenu>
 
 			{/* Mounted only while open. Each dialog carries a `Portal`, which
 			    registers with the portal host even when the modal inside it renders

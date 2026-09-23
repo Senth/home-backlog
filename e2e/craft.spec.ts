@@ -640,6 +640,16 @@ for (const scheme of ["light", "dark"] as const) {
 }
 
 /**
+ * How long check 34 watches a settled route for a scroll nobody asked for.
+ *
+ * The #341 jump was last observed around five seconds after arrival, well
+ * after `gotoAndSettle` returned, because the rows that carry the menus mount
+ * as Firestore delivers them. Eight seconds is that worst case with room to
+ * spare on a loaded worker; a single read at any earlier moment is a coin flip.
+ */
+const SCROLL_WATCH_MS = 8_000;
+
+/**
  * Geometry, measured once per project.
  *
  * A box is the same box in the dark, so these take whatever scheme Playwright
@@ -673,6 +683,66 @@ for (const route of ROUTES) {
 			overflow.scrollWidth,
 			`horizontal overflow on ${route.path}`,
 		).toBeLessThanOrEqual(overflow.clientWidth);
+	});
+
+	test(`34: ${route.path} arrives at the top and stays there (#341)`, async ({
+		page,
+	}) => {
+		await gotoAndSettle(page, route);
+
+		// #341: Paper's `Menu` ran its hide path on its *first* render and
+		// focused its own anchor, and focusing a node on the web scrolls every
+		// scrollable ancestor until that node is in view. A screen with one
+		// menu per row therefore walked itself to the bottom, one trigger at a
+		// time, and stayed there.
+		//
+		// Two things make this a sample-over-time rather than a single read.
+		// The jump is not on arrival — rows mount as Firestore delivers them,
+		// and in the dev build the last hop landed seconds after the readiness
+		// marker was already visible. And the scroller is never the document:
+		// a `ScrollView` scrolls its own inner element, so this watches every
+		// element on the page instead of `document.documentElement`.
+		const offenders = await page.evaluate(async (window_) => {
+			const seen = new Map<string, number>();
+			const describe = (element: Element) =>
+				`${element.tagName.toLowerCase()}${element.id !== "" ? `#${element.id}` : ""}` +
+				`${
+					element.getAttribute("data-testid") !== null
+						? `[data-testid="${element.getAttribute("data-testid")}"]`
+						: ""
+				}` +
+				// A `ScrollView`'s inner element carries no id and no testid, so
+				// the only thing that says *which* scroller moved is what it holds.
+				` "${(element.textContent ?? "").trim().slice(0, 40)}"`;
+
+			const sample = () => {
+				for (const element of [
+					document.documentElement,
+					...Array.from(document.querySelectorAll("*")),
+				]) {
+					if (element.scrollTop <= 0) continue;
+					const key = describe(element);
+					seen.set(key, Math.max(seen.get(key) ?? 0, element.scrollTop));
+				}
+			};
+
+			const deadline = Date.now() + window_;
+			do {
+				sample();
+				await new Promise((resolve) => setTimeout(resolve, 250));
+			} while (Date.now() < deadline);
+			sample();
+
+			return Array.from(
+				seen,
+				([element, scrollTop]) => `${element} @ ${scrollTop}`,
+			);
+		}, SCROLL_WATCH_MS);
+
+		expect(
+			offenders,
+			`${route.path} scrolled itself without anyone touching it`,
+		).toEqual([]);
 	});
 
 	test(`12: ${route.path} has no touch target under ${touchTarget}dp`, async ({

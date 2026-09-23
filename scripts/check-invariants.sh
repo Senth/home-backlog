@@ -12,7 +12,7 @@
 # Usage:   yarn invariants [--base <ref>]
 # Exit:    0 = all pass, 1 = an invariant failed, 2 = the script could not run
 #
-# Checks 1-6, 8 and 14 through 19 read the whole working tree — tracked files
+# Checks 1-6, 8 and 14 through 20 read the whole working tree — tracked files
 # *and* untracked ones that git would add, because the moment you most want
 # this run is right after writing a new file, and a new file has not been
 # staged yet. A violation is a violation whoever wrote it, and the tree being
@@ -671,6 +671,31 @@ if [[ -n "$hits" ]]; then
 		"LabelGlyph is silent — PaperIcon hides the glyph from the accessibility tree. Wrap it in LabelDot, or put the name on the row that carries it (see LabelPicker's CheckRow)."
 else
 	report 19 "label glyph named" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 20. Paper's Menu is only rendered by AppMenu
+#
+# Paper initialises `prevVisible` to `null`, so the first render of a *closed*
+# `Menu` runs its hide path, which focuses the first focusable node inside the
+# anchor. On the web that scrolls every scrollable ancestor to that trigger, so
+# a screen with one menu per row arrives scrolled to its last row (#341).
+# components/ui/AppMenu.tsx is the one place that renders `Menu`, and it only
+# mounts it once the menu has been opened. `Menu.Item` is untouched by this —
+# it is a plain list row and carries none of that lifecycle.
+# ---------------------------------------------------------------------------
+MENU_FILES=()
+for f in "${ALL_TS[@]}"; do
+	[[ "$f" == "components/ui/AppMenu.tsx" ]] && continue
+	MENU_FILES+=("$f")
+done
+PATTERN='<Menu([[:space:]/>]|$)'
+hits=$(scan "${MENU_FILES[@]}" | strip_comments)
+if [[ -n "$hits" ]]; then
+	report 20 "Menu only via AppMenu" FAIL "$hits" \
+		"A closed Paper Menu focus-scrolls its anchor on mount. Render <AppMenu> instead — components/ui/AppMenu.tsx."
+else
+	report 20 "Menu only via AppMenu" ok
 fi
 
 # ---------------------------------------------------------------------------
