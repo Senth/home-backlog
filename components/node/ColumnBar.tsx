@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { type LayoutChangeEvent, Pressable, View } from "react-native";
-import { Button, Icon, Surface, Text } from "react-native-paper";
+import { Button, Icon, IconButton, Surface, Text } from "react-native-paper";
 import { ChoiceField } from "@/components/node/ChoiceField";
 import { AppSheet } from "@/components/ui/AppSheet";
 import { moveNode } from "@/data/nodes";
@@ -20,6 +20,7 @@ import {
 	icon,
 	space,
 	touchTarget,
+	touchTargetStyle,
 } from "@/theme/tokens";
 
 interface ColumnBarProps {
@@ -107,31 +108,50 @@ export function ColumnBar({
 	);
 	const labelled = rung === "labelled";
 
-	const arrow = (destination: Status | null, forward: boolean) => (
-		<Button
-			mode="outlined"
-			icon={forward ? "chevron-right" : "chevron-left"}
-			disabled={destination === null}
-			accessibilityLabel={
-				destination === null
-					? undefined
-					: t("detail.moveToColumn", { column: t(`status.${destination}`) })
-			}
-			onPress={() => destination !== null && moveTo(destination)}
-			contentStyle={{
-				minHeight: touchTarget,
-				flexDirection: forward ? "row-reverse" : "row",
-			}}
-			style={{
-				margin: space.none,
-				borderColor: theme.colors.outline,
-				width: labelled ? button : undefined,
-				flexGrow: rung === "stacked" ? 1 : 0,
-			}}
-		>
-			{labelled && destination !== null ? t(`status.${destination}`) : ""}
-		</Button>
-	);
+	const arrow = (destination: Status | null, forward: boolean) => {
+		const accessibilityLabel =
+			destination === null
+				? undefined
+				: t("detail.moveToColumn", { column: t(`status.${destination}`) });
+		const onPress = () => destination !== null && moveTo(destination);
+
+		if (!labelled)
+			return (
+				<IconButton
+					icon={forward ? "chevron-right" : "chevron-left"}
+					mode="outlined"
+					size={icon.md}
+					disabled={destination === null}
+					accessibilityLabel={accessibilityLabel}
+					onPress={onPress}
+					style={[
+						touchTargetStyle,
+						{ margin: space.none, borderColor: theme.colors.outline },
+					]}
+				/>
+			);
+
+		return (
+			<Button
+				mode="outlined"
+				icon={forward ? "chevron-right" : "chevron-left"}
+				disabled={destination === null}
+				accessibilityLabel={accessibilityLabel}
+				onPress={onPress}
+				contentStyle={{
+					minHeight: touchTarget,
+					flexDirection: forward ? "row-reverse" : "row",
+				}}
+				style={{
+					margin: space.none,
+					borderColor: theme.colors.outline,
+					width: button,
+				}}
+			>
+				{destination !== null ? t(`status.${destination}`) : ""}
+			</Button>
+		);
+	};
 
 	const name = (status: Status) => (
 		<View
@@ -220,19 +240,22 @@ export function ColumnBar({
 					</View>
 				))}
 				<View onLayout={measure("icon")}>
-					<Button
-						mode="outlined"
+					<IconButton
 						icon="chevron-right"
-						contentStyle={{ minHeight: touchTarget }}
-						style={{ margin: space.none }}
-					>
-						{""}
-					</Button>
+						mode="outlined"
+						size={icon.md}
+						style={[touchTargetStyle, { margin: space.none }]}
+					/>
 				</View>
 			</View>
 			{rung === "stacked" && centreView}
 			<View
-				style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
+				style={{
+					flexDirection: "row",
+					alignItems: "center",
+					justifyContent: "space-between",
+					gap: space.sm,
+				}}
 			>
 				{arrow(previous, false)}
 				{rung !== "stacked" && centreView}

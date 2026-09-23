@@ -739,7 +739,7 @@ test.describe("at 200% text in sv-SE (#237)", () => {
 			[svSE.status.backlog, bar.getByRole("button", { disabled: true })],
 			[svSE.status.next_up, arrowTo(svSE.status.next_up)],
 		] as const) {
-			const box = await arrow.boundingBox();
+			const box = await arrow.locator("..").boundingBox();
 			expect(box?.width ?? 0, `${column} arrow width`).toBeGreaterThanOrEqual(
 				touchTarget,
 			);
