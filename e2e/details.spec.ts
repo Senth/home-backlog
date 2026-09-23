@@ -439,11 +439,11 @@ test("2: marking a card waiting lists the blocker on the details screen, complet
 });
 
 /**
- * The bar's own walk (#237 phase 4). The columns are the default set, so the
- * forward arrow has somewhere to go until the last working one, and *Done* is
- * reachable from everywhere.
+ * The bar's own walk (#237 phase 4, #336). The columns are the default set:
+ * the arrows step one column either way, the last working column steps into
+ * Done, and the centre opens a picker that jumps anywhere.
  */
-test("3: the bar at the foot moves the card forward, back and to Done, disables the arrows at the ends, and never covers the last row", async ({
+test("3: the bar at the foot steps the card forward and back, jumps it through the picker, steps it into Done, and never covers the last row", async ({
 	page,
 }) => {
 	const title = `${PREFIX}bar walk`;
@@ -456,54 +456,66 @@ test("3: the bar at the foot moves the card forward, back and to Done, disables 
 	});
 
 	const bar = page.getByTestId(`column-bar-${nodeId}`);
+	const centre = page.getByTestId(`column-name-${nodeId}`);
 	const forwardTo = (column: string) =>
 		bar.getByRole("button", {
 			name: enUS.detail.moveToColumn.replace("{{column}}", column),
 		});
+	const settled = (status: string) =>
+		expect
+			.poll(async () => (await nodeFields(nodeId)).status, { timeout: 30_000 })
+			.toBe(status);
 
 	// First column: the back arrow has nowhere to go, and the name reads the
-	// card's own status.
-	await expect(
-		page.getByTestId(`column-name-${nodeId}`).getByText(enUS.status.backlog),
-	).toBeVisible();
+	// card's own status. en-US default columns do not fit labelled at 400px,
+	// so the arrows are icon-only.
+	await expect(centre.getByText(enUS.status.backlog)).toBeVisible();
 	await expect(forwardTo(enUS.status.next_up)).toBeEnabled();
+	await expect(forwardTo(enUS.status.next_up)).not.toContainText(
+		enUS.status.next_up,
+	);
 	await expect(forwardTo(enUS.status.backlog)).toBeDisabled();
 
 	// Forward writes, and the name follows the card's listener — the write is
 	// settled when the backend says so, not when the optimistic copy moves.
 	await forwardTo(enUS.status.next_up).click();
-	await expect
-		.poll(async () => (await nodeFields(nodeId)).status, { timeout: 30_000 })
-		.toBe("next_up");
-	await expect(
-		page.getByTestId(`column-name-${nodeId}`).getByText(enUS.status.next_up),
-	).toBeVisible();
-
-	await forwardTo(enUS.status.execution).click();
-	await expect
-		.poll(async () => (await nodeFields(nodeId)).status, { timeout: 30_000 })
-		.toBe("execution");
-	// The last working column: forward is off, *Done* is the way on.
-	await expect(forwardTo(enUS.status.execution)).toBeDisabled();
+	await settled("next_up");
+	await expect(centre.getByText(enUS.status.next_up)).toBeVisible();
 
 	// Back writes too, from the column it landed in.
-	await forwardTo(enUS.status.next_up).click();
-	await expect
-		.poll(async () => (await nodeFields(nodeId)).status, { timeout: 30_000 })
-		.toBe("next_up");
-	await expect(
-		page.getByTestId(`column-name-${nodeId}`).getByText(enUS.status.next_up),
-	).toBeVisible();
+	await forwardTo(enUS.status.backlog).click();
+	await settled("backlog");
+	await expect(centre.getByText(enUS.status.backlog)).toBeVisible();
 
-	// *Done* is always available and moves to done.
-	await bar.getByRole("button", { name: enUS.common.done }).click();
-	await expect
-		.poll(async () => (await nodeFields(nodeId)).status, { timeout: 30_000 })
-		.toBe("done");
-	// Scoped to the name: the button beside it says Done too.
-	await expect(
-		page.getByTestId(`column-name-${nodeId}`).getByText(enUS.status.done),
-	).toBeVisible();
+	// The centre jumps: every column, the card's own marked, and a tap on
+	// the current one changes nothing and keeps the sheet open.
+	await centre.click();
+	const picker = page.getByTestId(`editor-column-${nodeId}-surface`);
+	const row = (column: string) =>
+		picker.getByRole("button", { name: column, exact: true });
+	for (const column of [
+		enUS.status.backlog,
+		enUS.status.next_up,
+		enUS.status.execution,
+		enUS.status.done,
+	]) {
+		await expect(row(column)).toBeVisible();
+	}
+	await expect(row(enUS.status.backlog)).toHaveAttribute(
+		"aria-pressed",
+		"true",
+	);
+	await row(enUS.status.backlog).click();
+	await expect(picker).toBeVisible();
+	await row(enUS.status.execution).click();
+	await expect(picker).toBeHidden();
+	await settled("execution");
+	await expect(centre.getByText(enUS.status.execution)).toBeVisible();
+
+	// The last working column steps into Done, where forward is off.
+	await forwardTo(enUS.status.done).click();
+	await settled("done");
+	await expect(centre.getByText(enUS.status.done)).toBeVisible();
 	await expect(forwardTo(enUS.status.done)).toBeDisabled();
 
 	// The bar owns no band of the list: scrolled to its end, the last row and
@@ -513,9 +525,7 @@ test("3: the bar at the foot moves the card forward, back and to Done, disables 
 	await expect(
 		page.getByRole("button", { name: enUS.detail.whoIsIn }),
 	).toBeVisible();
-	await expect(
-		bar.getByRole("button", { name: enUS.common.done, exact: true }),
-	).toBeVisible();
+	await expect(forwardTo(enUS.status.execution)).toBeVisible();
 });
 
 /** A board frozen to a non-default column set, and one card on it. */
@@ -576,8 +586,12 @@ test("4: a card whose board has a non-default column set steps through that set"
 	await expect(
 		page.getByTestId(`column-name-${cardId}`).getByText(enUS.status.execution),
 	).toBeVisible();
-	// `execution` is the last working column of *this* set, so forward is off.
-	await expect(forwardTo(enUS.status.execution)).toBeDisabled();
+	// `execution` is the last working column of *this* set: forward is Done.
+	await forwardTo(enUS.status.done).click();
+	await expect
+		.poll(async () => (await nodeFields(cardId)).status, { timeout: 30_000 })
+		.toBe("done");
+	await expect(forwardTo(enUS.status.done)).toBeDisabled();
 });
 
 /**
@@ -700,23 +714,45 @@ test.describe("at 200% text in sv-SE (#237)", () => {
 			).toBe(false);
 		}
 
-		// The bar: the column name keeps room to read as words, and *Done* ends
-		// inside the viewport instead of wrapping past its right edge.
+		// The bar stacks: the name on a line of its own, whole — one line, no
+		// ellipsis — and both arrows a full touch target below it.
 		const bar = page.getByTestId(`column-bar-${nodeId}`);
-		const nameBox = await page
+		const name = page
 			.getByTestId(`column-name-${nodeId}`)
-			.getByText(svSE.status.backlog)
-			.boundingBox();
-		expect(
-			nameBox?.width ?? 0,
-			"the bar's column name at 195px",
-		).toBeGreaterThanOrEqual(touchTarget);
-		const done = await bar
-			.getByRole("button", { name: svSE.common.done, exact: true })
-			.boundingBox();
-		expect(
-			(done?.x ?? 0) + (done?.width ?? 0),
-			"*Done* stays inside a 195px viewport",
-		).toBeLessThanOrEqual(VIEWPORTS.phoneZoomed.width);
+			.getByText(svSE.status.backlog);
+		const fit = await name.evaluate((element) => ({
+			height: element.getBoundingClientRect().height,
+			line: Number.parseFloat(getComputedStyle(element).lineHeight),
+			clipped:
+				element.scrollWidth > element.clientWidth ||
+				element.scrollHeight > element.clientHeight,
+		}));
+		expect(fit.clipped, "the bar's name is clipped at 195px").toBe(false);
+		expect(fit.height, "the bar's name wraps at 195px").toBeLessThan(
+			2 * fit.line,
+		);
+		const arrowTo = (column: string) =>
+			bar.getByRole("button", {
+				name: svSE.detail.moveToColumn.replace("{{column}}", column),
+			});
+		for (const column of [svSE.status.backlog, svSE.status.next_up]) {
+			const box = await arrowTo(column).boundingBox();
+			expect(box?.width ?? 0, `${column} arrow width`).toBeGreaterThanOrEqual(
+				touchTarget,
+			);
+			expect(box?.height ?? 0, `${column} arrow height`).toBeGreaterThanOrEqual(
+				touchTarget,
+			);
+			expect(
+				(box?.x ?? 0) + (box?.width ?? 0),
+				`${column} arrow stays inside a 195px viewport`,
+			).toBeLessThanOrEqual(VIEWPORTS.phoneZoomed.width);
+		}
+
+		// Given the bar's full 400px, Swedish default columns fit labelled.
+		await page.setViewportSize(VIEWPORTS.desktop);
+		await expect(arrowTo(svSE.status.next_up)).toContainText(
+			svSE.status.next_up,
+		);
 	});
 });
