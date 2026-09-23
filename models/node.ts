@@ -241,9 +241,8 @@ export function hasDetails(node: Node): boolean {
  * its *children* form, so the board a card sits on is the set its parent
  * carries. The caller falls back to `defaultColumns` for a root.
  *
- * `done` is the end of the ramp, not a step on it: the last working column has
- * no next, because the bar's own *Done* is what moves to `done` — an arrow
- * that reached the same place would offer two ways and disable neither. A
+ * `done` is the end of the ramp: the last working column steps into it, and
+ * the forward arrow is the only way there. `done` itself has no next. A
  * status the set does not name (a card sitting in an extra `visibleColumns()`
  * column) steps to the next column the set does have.
  */
@@ -254,7 +253,7 @@ export function nextStatus(
 	if (status === "done") return null;
 	const later = statuses
 		.slice(statuses.indexOf(status) + 1)
-		.find((candidate) => candidate !== "done" && columns.includes(candidate));
+		.find((candidate) => candidate === "done" || columns.includes(candidate));
 	return later ?? null;
 }
 
