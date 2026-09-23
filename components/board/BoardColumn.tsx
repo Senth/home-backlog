@@ -9,6 +9,7 @@ import {
 	cardKey,
 	columnKey,
 } from "@/components/board/use-board-drag";
+import type { Location } from "@/models/locations";
 import type { Node, Status } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import {
@@ -88,8 +89,8 @@ interface BoardColumnProps {
 	 * `BoardCard`.
 	 */
 	ancestorLocationId?: string | null;
-	/** Location id → title, the leaf. See `BoardCard`. */
-	locations?: ReadonlyMap<string, string>;
+	/** Location id → place, the leaf. See `BoardCard`. */
+	locations?: ReadonlyMap<string, Location>;
 }
 
 /**

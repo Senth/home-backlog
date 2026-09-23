@@ -106,8 +106,8 @@ interface BoardProps {
 	 * `effectiveLocation`.
 	 */
 	ancestorLocation?: EffectiveLocation | null;
-	/** Location id → title, the leaf. See `BoardCard`. */
-	locations?: ReadonlyMap<string, string>;
+	/** Location id → place, the leaf. See `BoardCard`. */
+	locations?: ReadonlyMap<string, Location>;
 	/**
 	 * The home's stored filter (#62), whose conditions hold back the cards
 	 * that do not answer to them. The pills row and the three empty states
@@ -501,6 +501,12 @@ export function Board({
 		() => (activeHome === null ? [] : membersOf(activeHome)),
 		[activeHome],
 	);
+	// The pills name a place by its title, while the cards draw the place
+	// itself — the one mapping the two want differently, derived here.
+	const filterTitles = useMemo(
+		() => new Map([...locations].map(([id, place]) => [id, place.title])),
+		[locations],
+	);
 	// The home's label definitions, for the pills' glyphs. Not a listener —
 	// they ride the homes listener the context already holds.
 	const homeLabels = activeHome?.labels ?? noLabels;
@@ -532,7 +538,7 @@ export function Board({
 						uid: user?.uid ?? "",
 						members,
 						labels: homeLabels,
-						locationTitles: locations,
+						locationTitles: filterTitles,
 						surface: theme.colors.background,
 					}}
 				/>
@@ -944,7 +950,7 @@ const noLabelIds: string[] = [];
 const noConditions: CardCondition[] = [];
 const noLabels: LabelWithId[] = [];
 const noLocations: Location[] = [];
-const noLocationTitles: ReadonlyMap<string, string> = new Map();
+const noLocationTitles: ReadonlyMap<string, Location> = new Map();
 
 /** The lifted card is a picture of a card; the tap belongs to the one it left. */
 const noop = () => {};

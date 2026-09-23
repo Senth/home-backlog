@@ -13,6 +13,7 @@ import type { Crumb } from "@/hooks/use-ancestors";
 import { formatList } from "@/i18n/format-list";
 import { cardFace } from "@/models/attachment";
 import { effectiveLabels } from "@/models/label";
+import type { Location } from "@/models/locations";
 import type { Attachment } from "@/models/node";
 import { hasSteps, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
@@ -86,10 +87,10 @@ interface BoardCardProps {
 	 */
 	ancestorLabelIds?: readonly string[];
 	/**
-	 * Location id → title, the leaf, as the screen holds it. A location the map
+	 * Location id → place, the leaf, as the screen holds it. A location the map
 	 * cannot answer says nothing rather than a wrong name.
 	 */
-	locations?: ReadonlyMap<string, string>;
+	locations?: ReadonlyMap<string, Location>;
 	/**
 	 * The nearest place the trail passes down (#290) — the board's own chain on
 	 * a board, resolved once by the screen that already holds it; the card's

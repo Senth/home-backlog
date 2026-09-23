@@ -5,6 +5,7 @@ import { IconButton } from "react-native-paper";
 import { BoardCard } from "@/components/board/BoardCard";
 import { useAncestors } from "@/hooks/use-ancestors";
 import { useBlockerReads } from "@/hooks/use-blockers";
+import type { Location } from "@/models/locations";
 import { inheritedLocation, type Node } from "@/models/node";
 import {
 	cardGutterBreakpoint,
@@ -18,8 +19,8 @@ interface DetailCardProps {
 	homeId: string | null;
 	/** The card this screen is about — the one that was tapped. */
 	node: Node;
-	/** Location id → title, read by the screen and handed down. */
-	locations: ReadonlyMap<string, string>;
+	/** Location id → place, read by the screen and handed down. */
+	locations: ReadonlyMap<string, Location>;
 	/** Opens the rename dialog the overflow menu also opens. */
 	onRename: () => void;
 	/** Where a crumb goes: that ancestor's board. */

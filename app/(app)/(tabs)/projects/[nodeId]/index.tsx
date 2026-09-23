@@ -102,9 +102,9 @@ export default function NodeBoard() {
 					crumbs.map((crumb) => crumb.node ?? null),
 				);
 
-	// The card face's location facts (#100), read from the leaf: id → title,
+	// The card face's location facts (#100), read from the leaf: id → place,
 	// from the one listener this screen holds.
-	const locationTitles = new Map(locations.map((l) => [l.id, l.title]));
+	const locationsById = new Map(locations.map((l) => [l.id, l]));
 
 	// The filter action exists where a condition could change something (D10);
 	// the board menu, which now only renames, only where there is a card to
@@ -210,7 +210,7 @@ export default function NodeBoard() {
 					hidden={filtered.hidden}
 					ancestorLabelIds={ancestorLabelIds}
 					ancestorLocation={ancestorLocation}
-					locations={locationTitles}
+					locations={locationsById}
 					filter={filter}
 					onChangeFilter={setFilter}
 					onOpenFilter={() => setFilterOpen(true)}
