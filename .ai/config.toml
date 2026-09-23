@@ -74,7 +74,7 @@ ready = "Huset"
 # the cold-start shape. The **location tree is seeded** (#205, grown in #341):
 # Huset holds **forty places three levels deep** — four roots, Bottenvåning,
 # Övervåning, Källaren and Utomhus, carrying twenty-three rooms between them
-# (five under Utomhus, six under each of the others), and eleven of those rooms
+# (five under Utomhus, six under each of the others), and nine of those rooms
 # nest thirteen deeper places (Uteplatsen, Växthuset and
 # Köksträdgården under Trädgården, Verkstaden and Cykelförrådet under Garaget,
 # Klädkammaren under Hallen, Skafferiet under Köket, TV-hörnan and Braskaminen

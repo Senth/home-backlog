@@ -1,4 +1,5 @@
-import { type ComponentProps, useState } from "react";
+import { type ComponentProps, useRef } from "react";
+import { View } from "react-native";
 import { Menu } from "react-native-paper";
 
 type AppMenuProps = ComponentProps<typeof Menu>;
@@ -19,11 +20,9 @@ type AppMenuProps = ComponentProps<typeof Menu>;
  * trigger.
  */
 export function AppMenu({ visible, children, ...props }: AppMenuProps) {
-	const [opened, setOpened] = useState(visible);
-
-	if (visible && !opened) {
-		setOpened(true);
-	}
+	const openedRef = useRef(false);
+	openedRef.current ||= visible;
+	const opened = openedRef.current;
 
 	if (!opened) {
 		// A `{ x, y }` anchor is a position, not an element: there is nothing to
@@ -32,7 +31,9 @@ export function AppMenu({ visible, children, ...props }: AppMenuProps) {
 		if (anchor !== null && typeof anchor === "object" && "x" in anchor) {
 			return null;
 		}
-		return <>{anchor}</>;
+		// Paper wraps the anchor in this same view, so keeping it here makes the
+		// anchor's box identical before and after the first open.
+		return <View collapsable={false}>{anchor}</View>;
 	}
 
 	return (
