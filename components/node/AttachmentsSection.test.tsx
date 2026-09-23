@@ -1,4 +1,5 @@
 import {
+	act,
 	fireEvent,
 	render,
 	screen,
@@ -219,6 +220,7 @@ describe("AttachmentsSection", () => {
 			expect(screen.getByLabelText("badrum.jpg")).toBeOnTheScreen();
 		});
 		fireEvent.press(screen.getByLabelText("badrum.jpg"));
+		await act(async () => {});
 
 		// The bar is where the actions live — the gesture menu is only the
 		// shortcut, so the tap route carries all of it, plus the way out.
@@ -241,6 +243,7 @@ describe("AttachmentsSection", () => {
 			expect(screen.getByLabelText("badrum.jpg")).toBeOnTheScreen();
 		});
 		fireEvent.press(screen.getByLabelText("badrum.jpg"));
+		await act(async () => {});
 
 		expect(screen.queryByLabelText("detail.attachmentsHero")).toBeNull();
 		expect(
@@ -256,6 +259,7 @@ describe("AttachmentsSection", () => {
 			expect(screen.getByLabelText("badrum.jpg")).toBeOnTheScreen();
 		});
 		fireEvent.press(screen.getByLabelText("badrum.jpg"));
+		await act(async () => {});
 		fireEvent.press(screen.getByLabelText("detail.attachmentsDelete"));
 
 		expect(
@@ -264,5 +268,6 @@ describe("AttachmentsSection", () => {
 
 		fireEvent.press(screen.getByText("detail.attachmentsDelete"));
 		expect(deleteAttachment).toHaveBeenCalledWith("home", "card", entry);
+		await act(async () => {});
 	});
 });
