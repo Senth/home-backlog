@@ -25,16 +25,6 @@ jest.mock("@/data/nodes", () => ({
 	removeLabel: jest.fn(() => Promise.resolve()),
 }));
 
-// The real icon set loads its font map asynchronously — the same double the
-// card face's test uses, with the glyph name as the testID.
-jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
-	const { View } = jest.requireActual("react-native");
-	return {
-		__esModule: true,
-		default: ({ name }: { name: string }) => <View testID={name} />,
-	};
-});
-
 function label(id: string, overrides: Partial<LabelWithId> = {}): LabelWithId {
 	return {
 		id,

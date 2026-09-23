@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 // `Provider`, not `ThemeProvider`: the board's Snackbar mounts a Portal host.
 import { Provider, TextInput } from "react-native-paper";
 // Paper's Snackbar reads the safe-area insets its provider carries.
@@ -36,14 +36,9 @@ jest.mock("expo-router", () => ({
 	useRouter: () => ({ push: jest.fn() }),
 }));
 
-// The real icon set loads its font map asynchronously — see `BoardCard.test.tsx`.
-jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
-	const { View } = jest.requireActual("react-native");
-	return {
-		__esModule: true,
-		default: ({ name }: { name: string }) => <View testID={name} />,
-	};
-});
+jest.mock("@/hooks/use-reduced-motion", () => ({
+	useReducedMotion: () => false,
+}));
 
 // CardMenu reaches BlockerSearchDialog, which imports the Firestore module
 // itself — jest's node_modules cannot parse it. The same stub its test uses.
@@ -300,7 +295,7 @@ describe("Board", () => {
 		expect(screen.queryByText("board.allHidden")).not.toBeOnTheScreen();
 	});
 
-	it("subtree reach shows a card three levels down that an inherited label answers for", () => {
+	it("subtree reach shows a card three levels down that an inherited label answers for", async () => {
 		const boardId = "board-1";
 		const project = node("backlog");
 		project.id = "project";
@@ -335,6 +330,7 @@ describe("Board", () => {
 		expect(screen.UNSAFE_queryAllByType(DragArea)).toHaveLength(0);
 		// And the Done column says its bound.
 		expect(screen.getByText('board.doneWindow:{"count":30}')).toBeOnTheScreen();
+		await act(async () => {});
 	});
 
 	it("this-board reach keeps the drag and does not bound the Done column", () => {

@@ -335,6 +335,10 @@ has to carry itself.
   never by moving the scroll position under you. Motion you did not ask for is distraction.
 - **What merely arrives does not animate.** No entrance animation on a board you navigated
   to, no staggered list reveal, no skeleton shimmer.
+- **A control arrives whole, or not yet.** Anything sized by a measurement stays
+  invisible until it has measured, then paints once, complete. Content may change
+  later because someone edited it. It may not change because the UI has just
+  worked out what fits.
 - Transform and opacity only.
 
 **`prefers-reduced-motion` is mandatory here, not aspirational** — an expressive appetite is

@@ -886,12 +886,8 @@ describe("nextStatus", () => {
 		expect(nextStatus([...defaultColumns], "next_up")).toBe("execution");
 	});
 
-	/**
-	 * `done` is the end of the ramp, not a step on it — the bar's own *Done*
-	 * makes that move, so the forward arrow disables instead of duplicating it.
-	 */
-	it("has no next from the last working column", () => {
-		expect(nextStatus([...defaultColumns], "execution")).toBeNull();
+	it("steps from the last working column into done, and no further", () => {
+		expect(nextStatus([...defaultColumns], "execution")).toBe("done");
 		expect(nextStatus([...defaultColumns], "done")).toBeNull();
 	});
 
@@ -899,7 +895,8 @@ describe("nextStatus", () => {
 		const narrow: readonly Status[] = ["backlog", "execution", "done"];
 
 		expect(nextStatus(narrow, "backlog")).toBe("execution");
-		expect(nextStatus(narrow, "execution")).toBeNull();
+		expect(nextStatus(narrow, "execution")).toBe("done");
+		expect(nextStatus(["backlog", "execution"], "execution")).toBe("done");
 	});
 
 	it("moves a card sitting in a column the set does not name to one it does", () => {

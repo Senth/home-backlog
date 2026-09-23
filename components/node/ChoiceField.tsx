@@ -18,6 +18,8 @@ interface ChoiceFieldProps<T extends string> {
 	 * hanging indent for a mark that does not exist.
 	 */
 	adornment?: (value: T) => ReactNode;
+	/** `false` where there is no "not set" to clear to: a retap is a no-op. */
+	clearable?: boolean;
 }
 
 /**
@@ -57,6 +59,7 @@ export function ChoiceField<T extends string>({
 	labelFor,
 	onChange,
 	adornment,
+	clearable = true,
 }: ChoiceFieldProps<T>) {
 	const theme = useAppTheme();
 
@@ -76,7 +79,10 @@ export function ChoiceField<T extends string>({
 						<Pressable
 							key={candidate}
 							accessibilityRole="button"
-							onPress={() => onChange(selected ? null : candidate)}
+							onPress={() => {
+								if (!selected) onChange(candidate);
+								else if (clearable) onChange(null);
+							}}
 							// `aria-pressed`, not `accessibilityState`: React Native Web
 							// 0.21 does not forward the object form, so the selected row
 							// would reach the DOM as a plain button and a screen reader

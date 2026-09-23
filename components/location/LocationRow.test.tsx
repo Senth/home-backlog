@@ -7,6 +7,14 @@ import type { Location } from "@/models/locations";
 import { lightTheme } from "@/theme";
 import { space } from "@/theme/tokens";
 
+jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
+	const { View } = jest.requireActual("react-native");
+	const Mock = ({ name }: { name: string }) => <View testID={name} />;
+	const withGlyphMap = Mock as unknown as { glyphMap: Record<string, number> };
+	withGlyphMap.glyphMap = { home: 0x0f2d };
+	return { __esModule: true, default: Mock };
+});
+
 jest.mock("@/contexts/AuthContext", () => ({
 	// LocationDialog reads the uid on save; the row's render never saves.
 	useAuth: () => ({ user: { uid: "uid-me" } }),

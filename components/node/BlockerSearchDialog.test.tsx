@@ -34,16 +34,6 @@ jest.mock("@/hooks/use-ancestors", () => ({
 	cachedNode: jest.fn(),
 }));
 
-// The real icon set loads its font map asynchronously — the same double the
-// label picker's test uses, with the glyph name as the testID.
-jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
-	const { View } = jest.requireActual("react-native");
-	return {
-		__esModule: true,
-		default: ({ name }: { name: string }) => <View testID={name} />,
-	};
-});
-
 function node(overrides: Partial<Node> = {}): Node {
 	return {
 		id: "node-1",

@@ -21,17 +21,6 @@ jest.mock("@/hooks/use-background", () => ({
 	useBackgrounded: () => {},
 }));
 
-// The real icon set loads its font map asynchronously, which warns about
-// updates outside `act`. A test double that carries the glyph name is enough —
-// the glyph itself is Paper's. See `BoardCard.test.tsx` for the full story.
-jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
-	const { View } = jest.requireActual("react-native");
-	return {
-		__esModule: true,
-		default: ({ name }: { name: string }) => <View testID={name} />,
-	};
-});
-
 // `Provider`, not `ThemeProvider`: the editor is a sheet (#237), and the
 // portal it renders into needs the host `Provider` sets up — the same
 // renderer `LabelDialog.test.tsx` uses for its dialog.
