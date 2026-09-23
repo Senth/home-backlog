@@ -301,7 +301,9 @@ describe("BoardCard", () => {
 			/>,
 		);
 
-		expect(screen.getByText("board.blocked")).toBeOnTheScreen();
+		expect(
+			screen.getByText('board.waitingOnTitle:{"titles":"Fix the gutter"}'),
+		).toBeOnTheScreen();
 	});
 
 	it("carries the path label in both locales", () => {

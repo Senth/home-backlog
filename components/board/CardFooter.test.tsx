@@ -93,4 +93,21 @@ describe("CardFooter, the count face", () => {
 
 		expect(screen.queryByText(/attachedCount/)).toBeNull();
 	});
+
+	it("the waiting fact holds one line for the edge fade (#339)", () => {
+		render(
+			<Provider theme={lightTheme}>
+				<CardFooter
+					node={aNode([])}
+					locationId={null}
+					waiting={{
+						label: "Waiting on Paint",
+						a11yLabel: "Waiting on 1 card",
+					}}
+				/>
+			</Provider>,
+		);
+
+		expect(screen.getByText("Waiting on Paint").props.numberOfLines).toBe(1);
+	});
 });

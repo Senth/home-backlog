@@ -9,6 +9,7 @@ jest.mock("react-i18next", () => ({
 	useTranslation: () => ({
 		t: (key: string, values?: Record<string, unknown>) =>
 			values === undefined ? key : `${key}:${JSON.stringify(values)}`,
+		i18n: { language: "en-US" },
 	}),
 }));
 
@@ -85,6 +86,35 @@ describe("useWaitingMark", () => {
 			),
 		);
 		expect(result.current.isWaiting).toBe(false);
+	});
+
+	it("names the card it waits on", () => {
+		const card = node({ blockedBy: ["blocker-1"] });
+		const { result } = renderHook(() =>
+			useWaitingMark(
+				card,
+				new Map([["blocker-1", blocker("blocker-1", "backlog")]]),
+			),
+		);
+		expect(result.current.label).toBe(
+			'board.waitingOnTitle:{"titles":"Blocker blocker-1"}',
+		);
+	});
+
+	it("names every blocker it still waits on", () => {
+		const card = node({ blockedBy: ["blocker-1", "blocker-2"] });
+		const { result } = renderHook(() =>
+			useWaitingMark(
+				card,
+				new Map([
+					["blocker-1", blocker("blocker-1", "backlog")],
+					["blocker-2", blocker("blocker-2", "backlog")],
+				]),
+			),
+		);
+		expect(result.current.label).toBe(
+			'board.waitingOnTitle:{"titles":"Blocker blocker-1 and Blocker blocker-2"}',
+		);
 	});
 
 	it("says plain Waiting for one blocker and carries the count past one", () => {
