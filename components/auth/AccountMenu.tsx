@@ -18,7 +18,7 @@ import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { AppMenu } from "@/components/ui/AppMenu";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAnchorFocusGuard, useTabTrap } from "@/hooks/use-modal-focus";
+import { useTabTrap } from "@/hooks/use-modal-focus";
 import { useAppTheme } from "@/theme";
 import {
 	compactBreakpoint,
@@ -76,9 +76,6 @@ export function AccountMenu() {
 
 	const closeConfirm = useCallback(() => setConfirmOpen(false), []);
 
-	// Paper's `Menu` focuses this trigger on mount, unasked — see the hook. The
-	// dialog's own focus trap comes with `ConfirmDialog`.
-	useAnchorFocusGuard(triggerRef);
 	// The wrapper below is the trap's surface. Closed menus mount no portal
 	// content, so `account-menu` is unique while it matters: only the open
 	// menu's wrapper is in the DOM at all.

@@ -18,7 +18,7 @@ import {
 	reparentNode,
 	updateNode,
 } from "@/data/nodes";
-import { useAnchorFocusGuard, useTabTrap } from "@/hooks/use-modal-focus";
+import { useTabTrap } from "@/hooks/use-modal-focus";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import {
 	type Node,
@@ -142,9 +142,6 @@ export function CardMenu({
 		setPage("root");
 	}, []);
 
-	// Paper focuses the first card's menu button when the board mounts, closed
-	// menus and all — the same unasked focus `useAnchorFocusGuard` exists for.
-	useAnchorFocusGuard(anchor);
 	// The menu is what the user is answering while it is open: Tab stays inside
 	// it instead of walking onto the board behind it. The surface is this
 	// wrapper, not Paper's own — the plan does not rely on `Menu` forwarding a
