@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	within,
+} from "@testing-library/react-native";
 import { Provider } from "react-native-paper";
 import { ColumnBar } from "@/components/node/ColumnBar";
 import { moveNode } from "@/data/nodes";
@@ -137,5 +143,22 @@ describe("ColumnBar", () => {
 		renderBar("next_up");
 		expect(screen.queryByText("common.done")).toBeNull();
 		expect(screen.queryByTestId("check")).toBeNull();
+	});
+
+	it("the centre opens a picker that jumps to any column", () => {
+		renderBar("backlog");
+		fireEvent.press(screen.getByTestId("column-name-n1"));
+		const sheet = within(screen.getByTestId("editor-column-n1-surface"));
+
+		fireEvent.press(sheet.getByText("status.backlog"));
+		expect(moveNode).not.toHaveBeenCalled();
+
+		fireEvent.press(sheet.getByText("status.done"));
+		expect(moveNode).toHaveBeenCalledWith(
+			"h1",
+			expect.anything(),
+			"done",
+			expect.any(String),
+		);
 	});
 });

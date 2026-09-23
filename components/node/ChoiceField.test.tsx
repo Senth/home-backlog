@@ -86,4 +86,13 @@ describe("ChoiceField", () => {
 
 		expect(screen.queryAllByTestId(/adornment-/)).toHaveLength(0);
 	});
+
+	it("tapping the selected row does nothing when not clearable", () => {
+		const onChange = jest.fn();
+		renderChoiceField({ value: "high", onChange, clearable: false });
+
+		fireEvent.press(screen.getByText("High"));
+
+		expect(onChange).not.toHaveBeenCalled();
+	});
 });

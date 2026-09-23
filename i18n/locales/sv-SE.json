@@ -510,6 +510,8 @@
 		"whoIsDoing": "Vem gör det",
 		"createdViaApi": "Tillagd av en automation",
 		"moveToColumn": "Flytta till {{column}}",
+		"column": "Kolumn",
+		"columnCurrent": "Kolumn: {{column}}",
 		"location": "Plats",
 		"locationNone": "Hemmet har inga platser än.",
 		"locationSearchPlaceholder": "Sök platser",

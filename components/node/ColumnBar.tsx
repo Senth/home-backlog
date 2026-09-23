@@ -1,11 +1,18 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { type LayoutChangeEvent, View } from "react-native";
+import { type LayoutChangeEvent, Pressable, View } from "react-native";
 import { Button, Icon, Surface, Text } from "react-native-paper";
+import { ChoiceField } from "@/components/node/ChoiceField";
+import { AppSheet } from "@/components/ui/AppSheet";
 import { moveNode } from "@/data/nodes";
 import { pickRung } from "@/models/column-bar";
 import type { Node, Status } from "@/models/node";
-import { nextStatus, previousStatus, rankAtEnd } from "@/models/node";
+import {
+	nextStatus,
+	previousStatus,
+	rankAtEnd,
+	visibleColumns,
+} from "@/models/node";
 import { useAppTheme } from "@/theme";
 import {
 	contentWidth,
@@ -36,6 +43,9 @@ type Measured = Record<string, number>;
  * Its shape is the first of three rungs that fits (`pickRung`), from widths
  * measured off a hidden row of every label in the column set, so the buttons
  * hold one width as the card steps and the bar paints once, whole.
+ *
+ * The centre opens a sheet of every visible column: the arrows step, the sheet
+ * jumps.
  */
 export function ColumnBar({
 	homeId,
@@ -48,6 +58,7 @@ export function ColumnBar({
 	const theme = useAppTheme();
 	const [measured, setMeasured] = useState<Measured>({});
 	const [barWidth, setBarWidth] = useState(0);
+	const [picking, setPicking] = useState(false);
 
 	const next = nextStatus(columns, node.status);
 	const previous = previousStatus(columns, node.status);
@@ -145,8 +156,13 @@ export function ColumnBar({
 	);
 
 	const centreView = (
-		<View
+		<Pressable
 			testID={`column-name-${node.id}`}
+			accessibilityRole="button"
+			accessibilityLabel={t("detail.columnCurrent", {
+				column: t(`status.${node.status}`),
+			})}
+			onPress={() => setPicking(true)}
 			style={{
 				flexGrow: 1,
 				flexShrink: 1,
@@ -156,7 +172,7 @@ export function ColumnBar({
 			}}
 		>
 			{name(node.status)}
-		</View>
+		</Pressable>
 	);
 
 	return (
@@ -220,6 +236,26 @@ export function ColumnBar({
 				{rung !== "stacked" && centreView}
 				{arrow(next, true)}
 			</View>
+			{picking ? (
+				<AppSheet
+					visible
+					onDismiss={() => setPicking(false)}
+					testID={`editor-column-${node.id}`}
+				>
+					<ChoiceField
+						label={t("detail.column")}
+						value={node.status}
+						values={visibleColumns(columns, nodes)}
+						labelFor={(status) => t(`status.${status}`)}
+						clearable={false}
+						onChange={(status) => {
+							if (status === null) return;
+							setPicking(false);
+							moveTo(status);
+						}}
+					/>
+				</AppSheet>
+			) : null}
 		</Surface>
 	);
 }

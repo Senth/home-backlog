@@ -510,6 +510,8 @@
 		"whoIsDoing": "Who's doing it",
 		"createdViaApi": "Added by an automation",
 		"moveToColumn": "Move to {{column}}",
+		"column": "Column",
+		"columnCurrent": "Column: {{column}}",
 		"location": "Location",
 		"locationNone": "The home has no locations yet.",
 		"locationSearchPlaceholder": "Search locations",
