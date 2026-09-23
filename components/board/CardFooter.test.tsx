@@ -14,21 +14,6 @@ jest.mock("react-i18next", () => ({
 	}),
 }));
 
-jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
-	const { View } = jest.requireActual("react-native");
-	// The color PaperIcon hands the glyph is painted as the mock's background,
-	// so the footer's hue stays assertable past the renderer's prop mapping —
-	// and the glyph stays aria-hidden, like the real one, which is why the
-	// location test opts into hidden elements.
-	const Mock = ({ name, color }: { name: string; color?: string }) => (
-		<View
-			testID={name}
-			style={color === undefined ? undefined : { backgroundColor: color }}
-		/>
-	);
-	return { __esModule: true, default: Mock };
-});
-
 const oneKb = 1024;
 
 function anEntry(over: Partial<Attachment> = {}): Attachment {

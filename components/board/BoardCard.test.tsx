@@ -27,20 +27,6 @@ jest.mock("@/contexts/HomeContext", () => ({
 	useHome: () => ({ activeHome: mockHome }),
 }));
 
-// The real icon set loads its font map asynchronously, which warns about
-// updates outside `act` and renders nothing until it lands. A test double
-// that carries the glyph name is enough — the glyph itself is Paper's. The
-// `__esModule` marker is what makes the default import bind to the double
-// rather than to the module object, which dies as an invalid element type the
-// moment something renders `PaperIcon` as a component.
-jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
-	const { View } = jest.requireActual("react-native");
-	return {
-		__esModule: true,
-		default: ({ name }: { name: string }) => <View testID={name} />,
-	};
-});
-
 function node(overrides: Partial<Node> = {}): Node {
 	return {
 		id: "node-1",

@@ -20,14 +20,6 @@ jest.mock("react-i18next", () => ({
 	}),
 }));
 
-jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
-	const { View } = jest.requireActual("react-native");
-	return {
-		__esModule: true,
-		default: ({ name }: { name: string }) => <View testID={name} />,
-	};
-});
-
 jest.mock("@/data/nodes", () => ({
 	moveNode: jest.fn(() => Promise.resolve()),
 }));
@@ -118,8 +110,9 @@ describe("ColumnBar", () => {
 	it("disables back in the first column, and it names nothing", () => {
 		renderBar("backlog");
 		layOutWide();
-		const back = screen.getByLabelText(label("backlog"));
-		expect(back).toBeDisabled();
+		const back = screen.getByRole("button", { disabled: true });
+		expect(back).not.toHaveAccessibleName();
+		expect(screen.queryByLabelText(label("backlog"))).toBeNull();
 		expect(back).not.toHaveTextContent(/status\./);
 		expect(screen.getByLabelText(label("next_up"))).toHaveTextContent(
 			"status.next_up",
@@ -129,8 +122,9 @@ describe("ColumnBar", () => {
 	it("disables forward in done, and it names nothing", () => {
 		renderBar("done");
 		layOutWide();
-		const forward = screen.getByLabelText(label("done"));
-		expect(forward).toBeDisabled();
+		const forward = screen.getByRole("button", { disabled: true });
+		expect(forward).not.toHaveAccessibleName();
+		expect(screen.queryByLabelText(label("done"))).toBeNull();
 		expect(forward).not.toHaveTextContent(/status\./);
 		expect(screen.getByLabelText(label("execution"))).toHaveTextContent(
 			"status.execution",

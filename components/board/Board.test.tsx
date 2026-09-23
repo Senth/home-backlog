@@ -36,15 +36,6 @@ jest.mock("expo-router", () => ({
 	useRouter: () => ({ push: jest.fn() }),
 }));
 
-// The real icon set loads its font map asynchronously — see `BoardCard.test.tsx`.
-jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
-	const { View } = jest.requireActual("react-native");
-	return {
-		__esModule: true,
-		default: ({ name }: { name: string }) => <View testID={name} />,
-	};
-});
-
 jest.mock("@/hooks/use-reduced-motion", () => ({
 	useReducedMotion: () => false,
 }));

@@ -112,9 +112,11 @@ export function ColumnBar({
 			mode="outlined"
 			icon={forward ? "chevron-right" : "chevron-left"}
 			disabled={destination === null}
-			accessibilityLabel={t("detail.moveToColumn", {
-				column: t(`status.${destination ?? node.status}`),
-			})}
+			accessibilityLabel={
+				destination === null
+					? undefined
+					: t("detail.moveToColumn", { column: t(`status.${destination}`) })
+			}
 			onPress={() => destination !== null && moveTo(destination)}
 			contentStyle={{
 				minHeight: touchTarget,

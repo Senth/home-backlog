@@ -8,14 +8,6 @@ import type { LabelWithId } from "@/models/label";
 import type { Location } from "@/models/locations";
 import { lightTheme } from "@/theme";
 
-jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
-	const { View } = jest.requireActual("react-native");
-	return {
-		__esModule: true,
-		default: ({ name }: { name: string }) => <View testID={name} />,
-	};
-});
-
 jest.mock("@/contexts/AuthContext", () => ({
 	// CardEditForm now reads the uid, and its module pulls firebase/auth.
 	useAuth: () => ({ user: { uid: "uid-me" } }),

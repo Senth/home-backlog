@@ -474,7 +474,7 @@ test("3: the bar at the foot steps the card forward and back, jumps it through t
 	await expect(forwardTo(enUS.status.next_up)).not.toContainText(
 		enUS.status.next_up,
 	);
-	await expect(forwardTo(enUS.status.backlog)).toBeDisabled();
+	await expect(bar.getByRole("button", { disabled: true })).toHaveCount(1);
 
 	// Forward writes, and the name follows the card's listener — the write is
 	// settled when the backend says so, not when the optimistic copy moves.
@@ -516,7 +516,7 @@ test("3: the bar at the foot steps the card forward and back, jumps it through t
 	await forwardTo(enUS.status.done).click();
 	await settled("done");
 	await expect(centre.getByText(enUS.status.done)).toBeVisible();
-	await expect(forwardTo(enUS.status.done)).toBeDisabled();
+	await expect(bar.getByRole("button", { disabled: true })).toHaveCount(1);
 
 	// The bar owns no band of the list: scrolled to its end, the last row and
 	// the bar are both on screen.
@@ -577,7 +577,7 @@ test("4: a card whose board has a non-default column set steps through that set"
 		page.getByTestId(`column-name-${cardId}`).getByText(enUS.status.backlog),
 	).toBeVisible();
 	await expect(forwardTo(enUS.status.execution)).toBeEnabled();
-	await expect(forwardTo(enUS.status.backlog)).toBeDisabled();
+	await expect(bar.getByRole("button", { disabled: true })).toHaveCount(1);
 
 	await forwardTo(enUS.status.execution).click();
 	await expect
@@ -591,7 +591,7 @@ test("4: a card whose board has a non-default column set steps through that set"
 	await expect
 		.poll(async () => (await nodeFields(cardId)).status, { timeout: 30_000 })
 		.toBe("done");
-	await expect(forwardTo(enUS.status.done)).toBeDisabled();
+	await expect(bar.getByRole("button", { disabled: true })).toHaveCount(1);
 });
 
 /**
@@ -735,8 +735,11 @@ test.describe("at 200% text in sv-SE (#237)", () => {
 			bar.getByRole("button", {
 				name: svSE.detail.moveToColumn.replace("{{column}}", column),
 			});
-		for (const column of [svSE.status.backlog, svSE.status.next_up]) {
-			const box = await arrowTo(column).boundingBox();
+		for (const [column, arrow] of [
+			[svSE.status.backlog, bar.getByRole("button", { disabled: true })],
+			[svSE.status.next_up, arrowTo(svSE.status.next_up)],
+		] as const) {
+			const box = await arrow.boundingBox();
 			expect(box?.width ?? 0, `${column} arrow width`).toBeGreaterThanOrEqual(
 				touchTarget,
 			);

@@ -21,14 +21,6 @@ jest.mock("react-i18next", () => ({
 	}),
 }));
 
-jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
-	const { View } = jest.requireActual("react-native");
-	return {
-		__esModule: true,
-		default: ({ name }: { name: string }) => <View testID={name} />,
-	};
-});
-
 jest.mock("@/contexts/AuthContext", () => ({
 	useAuth: () => ({ user: { uid: "me" } }),
 }));
