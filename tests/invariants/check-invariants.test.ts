@@ -41,6 +41,7 @@ const CHECKS = [
 	"button hierarchy",
 	"DueChip warning-only",
 	"label glyph named",
+	"Menu only via AppMenu",
 ];
 
 type Case = {
@@ -94,6 +95,7 @@ const CASES: Case[] = [
 	{ name: "button-hierarchy", check: "button hierarchy" },
 	{ name: "duechip-warning", check: "DueChip warning-only" },
 	{ name: "label-glyph-named", check: "label glyph named" },
+	{ name: "menu-via-appmenu", check: "Menu only via AppMenu" },
 ];
 
 type Run = { code: number; stdout: string; stderr: string };

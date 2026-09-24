@@ -4,8 +4,10 @@ import { type StyleProp, View, type ViewStyle } from "react-native";
 import { Icon, Text } from "react-native-paper";
 import { DueChip } from "@/components/board/DueChip";
 import { FadeText } from "@/components/board/FadeText";
+import { useLocationColors } from "@/hooks/use-location-colors";
 import { cardFace } from "@/models/attachment";
 import { showsDue } from "@/models/due-date";
+import type { Location } from "@/models/locations";
 import type { Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { border, icon, space } from "@/theme/tokens";
@@ -20,9 +22,11 @@ interface CardFooterProps {
 	 */
 	locationId: string | null;
 	/**
-	 * Location id → title, as passed down by the screen.
+	 * Location id → place, as passed down by the screen. A location the map
+	 * cannot answer — gone, or not loaded — says nothing rather than a wrong
+	 * name, the same neutral answer an unreadable crumb renders.
 	 */
-	locations?: ReadonlyMap<string, string>;
+	locations?: ReadonlyMap<string, Location>;
 	/**
 	 * False suppresses the location fact (#205): the tree screen draws a card
 	 * inside the very place's row, and *Verkstaden* under *Verkstaden* is the
@@ -47,6 +51,27 @@ interface FactProps {
 	 */
 	fade?: boolean;
 	children: ReactNode;
+}
+
+/**
+ * The location fact (#338): the place's own glyph, in its own hue — the same
+ * colored mark the tree draws for it, so a card and the tree say one place
+ * alike, and a footer of places reads as a footer of places, not of pins.
+ */
+function LocationFact({
+	location,
+	children,
+}: {
+	location: Location;
+	children: ReactNode;
+}) {
+	const tone = useLocationColors(location.color).fill;
+
+	return (
+		<Fact source={location.icon} color={tone}>
+			{children}
+		</Fact>
+	);
 }
 
 /**
@@ -148,11 +173,11 @@ export function CardFooter({
 	const face = cardFace(node);
 	const carries = face.mode === "count" && face.total > 0;
 
-	const locationTitle =
+	const location =
 		showLocation && locationId !== null
 			? locations?.get(locationId)
 			: undefined;
-	const where = locationTitle !== undefined || node.effort !== null;
+	const where = location !== undefined || node.effort !== null;
 	const when = showDue || waiting !== null;
 
 	if (!where && !when && !carries) return null;
@@ -161,8 +186,8 @@ export function CardFooter({
 		<View style={[{ rowGap: border.hairline }, style]}>
 			{where || carries ? (
 				<Pair>
-					{locationTitle === undefined ? null : (
-						<Fact source="crosshairs-gps">{locationTitle}</Fact>
+					{location === undefined ? null : (
+						<LocationFact location={location}>{location.title}</LocationFact>
 					)}
 					{node.effort === null ? null : (
 						<Fact source="clock-outline">{t(`effort.${node.effort}`)}</Fact>

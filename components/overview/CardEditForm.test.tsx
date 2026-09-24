@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import type { ReactNode } from "react";
+
 // Paper's inputs read the theme its provider carries.
 import { Provider } from "react-native-paper";
 import { CardEditForm } from "@/components/overview/CardEditForm";

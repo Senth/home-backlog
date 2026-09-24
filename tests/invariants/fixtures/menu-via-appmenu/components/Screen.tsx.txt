@@ -1,0 +1,17 @@
+import { Button, Menu } from "react-native-paper";
+
+export const Screen = () => (
+	<Menu visible={false} onDismiss={() => {}} anchor={<Button>Open</Button>}>
+		<Menu.Item title="One" />
+	</Menu>
+);
+
+export const Other = () => (
+	<Menu
+		visible={false}
+		onDismiss={() => {}}
+		anchor={<Button>Open</Button>}
+	>
+		<Menu.Item title="Two" />
+	</Menu>
+);

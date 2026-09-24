@@ -1,4 +1,5 @@
 import {
+	attachmentAccept,
 	attachmentErrorKey,
 	attachmentPath,
 	attachmentRefusal,
@@ -7,6 +8,9 @@ import {
 	formatBytes,
 	isImageType,
 	maxAttachmentBytes,
+	namedRefusals,
+	nextDropPhase,
+	photoAccept,
 	thumbnailPathFor,
 } from "@/models/attachment";
 import type { Attachment, Node } from "@/models/node";
@@ -52,6 +56,22 @@ describe("isImageType", () => {
 	});
 });
 
+describe("photoAccept", () => {
+	it("includes exactly the allowed images, without documents", () => {
+		expect(photoAccept.split(",")).toEqual([
+			"image/jpeg",
+			"image/png",
+			"image/webp",
+			"image/heic",
+		]);
+		expect(attachmentAccept.split(",")).toEqual([
+			...photoAccept.split(","),
+			"application/pdf",
+			"text/plain",
+		]);
+	});
+});
+
 describe("attachmentErrorKey", () => {
 	it("maps each refusal to its sentence and anything else to the plain one", () => {
 		expect(attachmentErrorKey({ code: "attachment-too-large" })).toBe(
@@ -73,6 +93,67 @@ describe("attachmentErrorKey", () => {
 		expect(attachmentErrorKey({ code: "storage/unauthenticated" })).toBe(
 			"detail.attachmentsRefused",
 		);
+	});
+});
+
+describe("namedRefusals", () => {
+	it("keeps rejected file names in pick order and maps each failure", () => {
+		expect(
+			namedRefusals(
+				[
+					"first.jpg",
+					"ok.pdf",
+					"large.png",
+					"quota.txt",
+					"denied.pdf",
+					"other.jpg",
+				],
+				[
+					{ status: "rejected", reason: { code: "attachment-type" } },
+					{ status: "fulfilled", value: undefined },
+					{ status: "rejected", reason: { code: "attachment-too-large" } },
+					{ status: "rejected", reason: { code: "attachment-quota" } },
+					{ status: "rejected", reason: { code: "storage/unauthorized" } },
+					{ status: "rejected", reason: new Error("failed") },
+				],
+			),
+		).toEqual([
+			{ name: "first.jpg", key: "detail.attachmentsWrongType", index: 0 },
+			{ name: "large.png", key: "detail.attachmentsTooLarge", index: 2 },
+			{ name: "quota.txt", key: "detail.attachmentsQuota", index: 3 },
+			{ name: "denied.pdf", key: "detail.attachmentsRefused", index: 4 },
+			{ name: "other.jpg", key: "detail.attachmentsFailed", index: 5 },
+		]);
+	});
+});
+
+describe("nextDropPhase", () => {
+	const idle = { phase: "idle" as const, depth: 0 };
+	const event = (
+		type: Parameters<typeof nextDropPhase>[1]["type"],
+		isFiles = true,
+	) => ({ type, isFiles });
+
+	it("keeps nested window entries armed until the last leave", () => {
+		const first = nextDropPhase(idle, event("window-enter"));
+		const nested = nextDropPhase(first, event("window-enter"));
+		expect(nested).toEqual({ phase: "armed", depth: 2 });
+		expect(nextDropPhase(nested, event("window-leave"))).toEqual(first);
+		expect(nextDropPhase(first, event("window-leave"))).toEqual(idle);
+	});
+
+	it("marks the section over, returns to armed on leave, and clears on drop", () => {
+		const armed = nextDropPhase(idle, event("window-enter"));
+		const over = nextDropPhase(armed, event("section-enter"));
+		expect(over).toEqual({ phase: "over", depth: 1 });
+		expect(nextDropPhase(over, event("section-leave"))).toEqual(armed);
+		expect(nextDropPhase(over, event("drop"))).toEqual(idle);
+		expect(nextDropPhase(armed, event("dragend"))).toEqual(idle);
+	});
+
+	it("ignores non-file drags", () => {
+		expect(nextDropPhase(idle, event("window-enter", false))).toEqual(idle);
+		expect(nextDropPhase(idle, event("section-enter", false))).toEqual(idle);
 	});
 });
 

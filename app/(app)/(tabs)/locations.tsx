@@ -127,8 +127,8 @@ export default function Locations() {
 	// navigation push, so the back button must not leave the screen.
 	useEscapeCancel(move.phase !== "idle", () => setMove(cancelMove()));
 
-	/** The card face's location facts: id → title, from the one tree listener. */
-	const locationTitles = new Map(locations.map((l) => [l.id, l.title]));
+	/** The card face's location facts: id → place, from the one tree listener. */
+	const locationsById = new Map(locations.map((l) => [l.id, l]));
 
 	const fabInset = fabHeight > 0 ? fabHeight + space.md + space.md : space.xxl;
 
@@ -420,7 +420,7 @@ export default function Locations() {
 						counts={counts}
 						cardsOpen={cardsOpen}
 						pool={pool}
-						locationTitles={locationTitles}
+						locationTitles={locationsById}
 						mode={move}
 						onToggle={toggle}
 						onOpen={openPlace}

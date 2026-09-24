@@ -35,6 +35,7 @@ import { PeopleSection } from "@/components/node/PeopleSection";
 import { StepsSection } from "@/components/node/StepsSection";
 import { VisibilityField } from "@/components/node/VisibilityField";
 import { WaitingOnSection } from "@/components/node/WaitingOnSection";
+import { AppMenu } from "@/components/ui/AppMenu";
 import { AppSheet } from "@/components/ui/AppSheet";
 import { BackAction } from "@/components/ui/BackAction";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
@@ -149,10 +150,10 @@ export default function NodeDetails() {
 	const flip = useFlip(homeId ?? "");
 
 	// The location tree (#50), heard once here and passed down — the card
-	// face's footer reads titles from it, and so does the row below (#246).
+	// face's footer reads places from it, and so does the row below (#246).
 	const { locations } = useLocations(homeId);
-	const locationTitles = new Map(
-		locations.map((location) => [location.id, location.title]),
+	const locationsById = new Map(
+		locations.map((location) => [location.id, location]),
 	);
 
 	const [failed, setFailed] = useState(false);
@@ -226,7 +227,7 @@ export default function NodeDetails() {
 		// ancestor passes down.
 		const at = effectiveLocation(current, trail);
 		const place =
-			at === null ? null : (locationTitles.get(at.locationId) ?? null);
+			at === null ? null : (locationsById.get(at.locationId) ?? null);
 
 		return [
 			homeId === null ? null : (
@@ -290,7 +291,9 @@ export default function NodeDetails() {
 				name={t("detail.location")}
 				testID={`field-location-${current.id}`}
 				onPress={() => setLocating(true)}
-				value={<Text variant="bodyMedium">{place ?? t("detail.notSet")}</Text>}
+				value={
+					<Text variant="bodyMedium">{place?.title ?? t("detail.notSet")}</Text>
+				}
 			/>,
 			homeId === null ? null : (
 				<DetailRow
@@ -446,7 +449,7 @@ export default function NodeDetails() {
 			    long title with nowhere to go (#237, the settled mock). */}
 				<Appbar.Content title={t("detail.title")} />
 				{node === null ? null : (
-					<Menu
+					<AppMenu
 						visible={menuOpen}
 						onDismiss={closeMenu}
 						overlayAccessibilityLabel={t("common.closeMenu")}
@@ -469,7 +472,7 @@ export default function NodeDetails() {
 								setRenaming(true);
 							}}
 						/>
-					</Menu>
+					</AppMenu>
 				)}
 			</Appbar.Header>
 
@@ -514,7 +517,7 @@ export default function NodeDetails() {
 						<DetailCard
 							homeId={homeId}
 							node={node}
-							locations={locationTitles}
+							locations={locationsById}
 							onRename={() => setRenaming(true)}
 							onOpenCrumb={(crumbId) => router.dismissTo(boardHref(crumbId))}
 						/>

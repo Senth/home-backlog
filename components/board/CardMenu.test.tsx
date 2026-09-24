@@ -28,14 +28,6 @@ jest.mock("@/hooks/use-online-status", () => ({
 	useOnlineStatus: () => true,
 }));
 
-jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
-	const { View } = jest.requireActual("react-native");
-	return {
-		__esModule: true,
-		default: ({ name }: { name: string }) => <View testID={name} />,
-	};
-});
-
 // The menu's under page reads the board above from the server; the gate under
 // test is not it. The same stub `Board.test.tsx` uses.
 jest.mock("firebase/firestore", () => ({

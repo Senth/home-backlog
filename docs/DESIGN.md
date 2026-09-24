@@ -232,6 +232,9 @@ do not clamp themselves on web.
   `full` on avatars and round marks. `none` exists so that removing a corner is still a token.
   A radius outside this mapping needs a reason.
 - **Borders** — `border.hairline`, and only where a fill cannot separate.
+  - The file drop zone (#321) is the app's only dashed edge, still `border.hairline`. A drop
+    target has to read as "put it here" before the pointer arrives, and a fill alone can't
+    say that.
 - **Texture** — none. Stated so that nobody later calls a gradient a judgement call.
 
 ## Components
@@ -251,6 +254,7 @@ when it looks identical.**
 | Avatar | `components/ui/PersonAvatar.tsx` |
 | Back action | `components/ui/BackAction.tsx` |
 | Icon | `components/ui/PaperIcon.tsx` |
+| Drop zone | `components/node/AttachmentDropZone.tsx` |
 | Empty screen | `components/ui/PlaceholderScreen.tsx` — scaffolding only, never a real empty state |
 
 Reach for a `react-native-paper` component before building one. A hand-rolled control where
@@ -335,6 +339,10 @@ has to carry itself.
   never by moving the scroll position under you. Motion you did not ask for is distraction.
 - **What merely arrives does not animate.** No entrance animation on a board you navigated
   to, no staggered list reveal, no skeleton shimmer.
+- **A control arrives whole, or not yet.** Anything sized by a measurement stays
+  invisible until it has measured, then paints once, complete. Content may change
+  later because someone edited it. It may not change because the UI has just
+  worked out what fits.
 - Transform and opacity only.
 
 **`prefers-reduced-motion` is mandatory here, not aspirational** — an expressive appetite is

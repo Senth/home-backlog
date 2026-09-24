@@ -57,10 +57,10 @@ export default function Projects() {
 	const [filterOpen, setFilterOpen] = useState(false);
 	const filterAnchor = useRef<View>(null);
 
-	// The card face's location facts (#100): id → title, from the one listener
+	// The card face's location facts (#100): id → place, from the one listener
 	// this screen holds. Every card here is a root, so the trail passes down no
 	// labels and none are resolved.
-	const locationTitles = new Map(locations.map((l) => [l.id, l.title]));
+	const locationsById = new Map(locations.map((l) => [l.id, l]));
 
 	// The filter action exists where a condition could change something (D10):
 	// a second member to filter by, or a label, or a place. A household of one
@@ -103,7 +103,7 @@ export default function Projects() {
 					failed={failed}
 					onRetry={retry}
 					hidden={board.hidden}
-					locations={locationTitles}
+					locations={locationsById}
 					filter={filter}
 					onChangeFilter={setFilter}
 					onOpenFilter={() => setFilterOpen(true)}

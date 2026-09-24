@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Chip, IconButton, Menu, Text } from "react-native-paper";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
+import { AppMenu } from "@/components/ui/AppMenu";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { Row } from "@/components/ui/Row";
 import { removeMember, setMemberRole } from "@/data/homes";
@@ -131,7 +132,7 @@ function MemberRow({
 								: t("members.roleMember")}
 						</Chip>
 						{canManage ? (
-							<Menu
+							<AppMenu
 								visible={menuOpen}
 								onDismiss={closeMenu}
 								overlayAccessibilityLabel={t("common.closeMenu")}
@@ -201,7 +202,7 @@ function MemberRow({
 										{t("members.lastAdmin")}
 									</Text>
 								) : null}
-							</Menu>
+							</AppMenu>
 						) : null}
 					</View>
 				}

@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { IconButton, Menu, Snackbar } from "react-native-paper";
+import { AppMenu } from "@/components/ui/AppMenu";
 import { type Card, exportCard, seedTitleKeys } from "@/models/overview-cards";
 import { contentWidth, icon, space, touchTarget } from "@/theme/tokens";
 
@@ -80,7 +81,7 @@ export function CardActionsMenu({
 
 	return (
 		<>
-			<Menu
+			<AppMenu
 				visible={open}
 				onDismiss={close}
 				overlayAccessibilityLabel={t("common.closeMenu")}
@@ -173,7 +174,7 @@ export function CardActionsMenu({
 						onRemove();
 					}}
 				/>
-			</Menu>
+			</AppMenu>
 
 			{/* The copy is clipboard-local — it never touches the network — so the
 			    confirmation is the only thing it needs to say. */}

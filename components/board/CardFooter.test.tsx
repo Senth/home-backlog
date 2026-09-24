@@ -1,9 +1,10 @@
 import { render, screen } from "@testing-library/react-native";
 import { Provider } from "react-native-paper";
 import { CardFooter } from "@/components/board/CardFooter";
+import type { Location } from "@/models/locations";
 import type { Attachment, Node } from "@/models/node";
 import { newNodeData } from "@/models/node";
-import { lightTheme } from "@/theme";
+import { labelHues, lightTheme } from "@/theme";
 
 jest.mock("react-i18next", () => ({
 	useTranslation: () => ({
@@ -12,14 +13,6 @@ jest.mock("react-i18next", () => ({
 		i18n: { language: "en-US" },
 	}),
 }));
-
-jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
-	const { View } = jest.requireActual("react-native");
-	return {
-		__esModule: true,
-		default: ({ name }: { name: string }) => <View testID={name} />,
-	};
-});
 
 const oneKb = 1024;
 
@@ -49,6 +42,22 @@ function aNode(
 		updatedAt: null,
 		attachments,
 		attachmentDisplay: display,
+	};
+}
+
+function aLocation(over: Partial<Location> = {}): Location {
+	return {
+		id: "place-1",
+		title: "Badrummet",
+		parentId: null,
+		ancestorIds: [],
+		rank: "a0",
+		icon: "sofa-outline",
+		color: "teal",
+		createdAt: null,
+		createdBy: "me",
+		updatedAt: null,
+		...over,
 	};
 }
 
@@ -109,5 +118,28 @@ describe("CardFooter, the count face", () => {
 		);
 
 		expect(screen.getByText("Waiting on Paint").props.numberOfLines).toBe(1);
+	});
+});
+
+describe("CardFooter, the location fact", () => {
+	it("draws the place's own glyph in its own hue (#338)", () => {
+		render(
+			<Provider theme={lightTheme}>
+				<CardFooter
+					node={aNode([])}
+					locationId="place-1"
+					locations={new Map([["place-1", aLocation()]])}
+					waiting={null}
+				/>
+			</Provider>,
+		);
+
+		expect(
+			screen.getByTestId("sofa-outline", { includeHiddenElements: true }),
+		).toBeOnTheScreen();
+		expect(
+			screen.getByTestId("sofa-outline", { includeHiddenElements: true }).props
+				.style.backgroundColor,
+		).toBe(labelHues.teal.light.ink);
 	});
 });

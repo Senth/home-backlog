@@ -5,6 +5,7 @@ import { BoardCard } from "@/components/board/BoardCard";
 import enUS from "@/i18n/locales/en-US.json";
 import svSE from "@/i18n/locales/sv-SE.json";
 import type { LabelWithId } from "@/models/label";
+import type { Location } from "@/models/locations";
 import { defaultColumns, type Node } from "@/models/node";
 import { lightTheme } from "@/theme";
 
@@ -25,20 +26,6 @@ let mockHome: { labels: LabelWithId[] } | null = null;
 jest.mock("@/contexts/HomeContext", () => ({
 	useHome: () => ({ activeHome: mockHome }),
 }));
-
-// The real icon set loads its font map asynchronously, which warns about
-// updates outside `act` and renders nothing until it lands. A test double
-// that carries the glyph name is enough — the glyph itself is Paper's. The
-// `__esModule` marker is what makes the default import bind to the double
-// rather than to the module object, which dies as an invalid element type the
-// moment something renders `PaperIcon` as a component.
-jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
-	const { View } = jest.requireActual("react-native");
-	return {
-		__esModule: true,
-		default: ({ name }: { name: string }) => <View testID={name} />,
-	};
-});
 
 function node(overrides: Partial<Node> = {}): Node {
 	return {
@@ -85,6 +72,21 @@ function label(id: string, overrides: Partial<LabelWithId> = {}): LabelWithId {
 		color: "teal",
 		rank: id,
 		...overrides,
+	};
+}
+
+function place(id: string, title: string): Location {
+	return {
+		id,
+		title,
+		parentId: null,
+		ancestorIds: [],
+		rank: id,
+		icon: "crosshairs-gps",
+		color: "stone",
+		createdAt: null,
+		createdBy: "uid-a",
+		updatedAt: null,
 	};
 }
 
@@ -231,7 +233,7 @@ describe("BoardCard", () => {
 			<BoardCard
 				node={node({ locationId: "loc-1", effort: "evening" })}
 				onOpen={() => {}}
-				locations={new Map([["loc-1", "Workshop"]])}
+				locations={new Map([["loc-1", place("loc-1", "Workshop")]])}
 			/>,
 		);
 
@@ -244,7 +246,7 @@ describe("BoardCard", () => {
 			<BoardCard
 				node={node({ locationId: "loc-gone" })}
 				onOpen={() => {}}
-				locations={new Map([["loc-1", "Workshop"]])}
+				locations={new Map([["loc-1", place("loc-1", "Workshop")]])}
 			/>,
 		);
 
@@ -257,7 +259,7 @@ describe("BoardCard", () => {
 				node={node()}
 				onOpen={() => {}}
 				ancestorLocationId="loc-1"
-				locations={new Map([["loc-1", "Workshop"]])}
+				locations={new Map([["loc-1", place("loc-1", "Workshop")]])}
 			/>,
 		);
 
@@ -272,8 +274,8 @@ describe("BoardCard", () => {
 				ancestorLocationId="loc-1"
 				locations={
 					new Map([
-						["loc-1", "Workshop"],
-						["loc-2", "Attic"],
+						["loc-1", place("loc-1", "Workshop")],
+						["loc-2", place("loc-2", "Attic")],
 					])
 				}
 			/>,

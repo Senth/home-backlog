@@ -85,6 +85,7 @@ export const size = {
 	avatarSm: 32,
 	avatarMd: 48,
 	brandMark: 96,
+	attachmentButtonMin: 144,
 	/**
 	 * The range a board column flexes between above `compactBreakpoint`, so the
 	 * columns divide the width they are given instead of taking a fixed slice.

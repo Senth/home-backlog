@@ -11,6 +11,7 @@ import {
 	rowKey,
 } from "@/components/location/use-location-drag";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
+import { AppMenu } from "@/components/ui/AppMenu";
 import {
 	deleteLocation,
 	locationErrorKey,
@@ -53,8 +54,8 @@ interface LocationTreeProps {
 	cardsOpen: boolean;
 	/** The home's open cards, for a place's own card list. */
 	pool: readonly Node[];
-	/** Location id → title, as the card faces read. */
-	locationTitles: ReadonlyMap<string, string>;
+	/** Location id → place, as the card faces read. */
+	locationTitles: ReadonlyMap<string, Location>;
 	/** The move-under mode, exactly as the screen holds it. */
 	mode: MoveMode;
 	/** The tree's drag, carrying the gesture and the rows it measures. */
@@ -437,7 +438,7 @@ export function LocationRow({
 							/>
 						) : null}
 
-						<Menu
+						<AppMenu
 							visible={open}
 							onDismiss={close}
 							overlayAccessibilityLabel={t("common.closeMenu")}
@@ -515,7 +516,7 @@ export function LocationRow({
 									<Menu.Item disabled title={t("board.offlineHint")} />
 								)}
 							</View>
-						</Menu>
+						</AppMenu>
 					</View>
 				</DragArea>
 			</View>
