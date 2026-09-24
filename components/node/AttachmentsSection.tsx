@@ -9,8 +9,9 @@ import {
 	useWindowDimensions,
 	View,
 } from "react-native";
-import { ActivityIndicator, Button, Icon, Text } from "react-native-paper";
+import { Button, Icon, Text } from "react-native-paper";
 import { urlOf } from "@/components/board/CardThumbnails";
+import { AttachmentDropZone } from "@/components/node/AttachmentDropZone";
 import { AttachmentMenu } from "@/components/node/AttachmentMenu";
 import { AttachmentModeChip } from "@/components/node/AttachmentModeChip";
 import { AttachmentViewer } from "@/components/node/AttachmentViewer";
@@ -19,19 +20,19 @@ import { Row } from "@/components/ui/Row";
 import { useAuth } from "@/contexts/AuthContext";
 import { deleteAttachment, uploadAttachment } from "@/data/attachments";
 import type { NodeChanges } from "@/data/nodes";
+import { useFileDrop } from "@/hooks/use-file-drop";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import {
-	type AttachmentErrorKey,
 	attachmentAccept,
-	attachmentErrorKey,
 	formatBytes,
 	isImageType,
 	maxAttachmentBytes,
+	namedRefusals,
 	thumbnailPathFor,
 } from "@/models/attachment";
 import type { Attachment, Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { border, icon, radius, space, touchTarget } from "@/theme/tokens";
+import { icon, radius, space } from "@/theme/tokens";
 
 interface AttachmentsSectionProps {
 	homeId: string;
@@ -40,9 +41,6 @@ interface AttachmentsSectionProps {
 	/** The ordinary node write, so *Set as hero* is one field on the card. */
 	onSave: (changes: NodeChanges) => void;
 }
-
-/** Why the section is currently saying something under the Add control. */
-type SectionMessage = AttachmentErrorKey | "detail.attachmentsDeleteFailed";
 
 /** Where a long-press or right-click happened, in viewport coordinates. */
 type MenuAnchor = { x: number; y: number };
@@ -104,9 +102,11 @@ export function AttachmentsSection({
 	const online = useOnlineStatus();
 
 	const [urls, setUrls] = useState<Record<string, string>>({});
-	const [uploading, setUploading] = useState(false);
-	const [dragging, setDragging] = useState(false);
-	const [message, setMessage] = useState<SectionMessage | null>(null);
+	const [uploadingCount, setUploadingCount] = useState(0);
+	const [refusals, setRefusals] = useState<ReturnType<typeof namedRefusals>>(
+		[],
+	);
+	const [deleteFailed, setDeleteFailed] = useState(false);
 	const [viewing, setViewing] = useState<Attachment | null>(null);
 	const [menu, setMenu] = useState<{
 		anchor: MenuAnchor;
@@ -131,11 +131,17 @@ export function AttachmentsSection({
 		(list: FileList | readonly File[]) => {
 			const picked = Array.from(list);
 			const uid = user?.uid;
-			if (picked.length === 0 || uploading || !online || uid === undefined) {
+			if (
+				picked.length === 0 ||
+				uploadingCount > 0 ||
+				!online ||
+				uid === undefined
+			) {
 				return;
 			}
-			setMessage(null);
-			setUploading(true);
+			setRefusals([]);
+			setDeleteFailed(false);
+			setUploadingCount(picked.length);
 			void Promise.allSettled(
 				picked.map((file) =>
 					uploadAttachment(homeId, node.id, uid, {
@@ -146,16 +152,16 @@ export function AttachmentsSection({
 					}),
 				),
 			).then((results) => {
-				setUploading(false);
-				const firstRefused = results.find(
-					(result) => result.status === "rejected",
-				) as PromiseRejectedResult | undefined;
-				if (firstRefused !== undefined) {
-					setMessage(attachmentErrorKey(firstRefused.reason));
-				}
+				setUploadingCount(0);
+				setRefusals(
+					namedRefusals(
+						picked.map((file) => file.name),
+						results,
+					),
+				);
 			});
 		},
-		[homeId, node.id, online, uploading, user],
+		[homeId, node.id, online, uploadingCount, user],
 	);
 
 	// A download URL carries a rotating token, so it is asked for at render
@@ -202,43 +208,8 @@ export function AttachmentsSection({
 		input.click();
 	}, [addFiles]);
 
-	// react-native-web has no drag props on `View`, so the section's own DOM
-	// node carries them. `dragover` has to keep being prevented or the browser
-	// takes the file for itself.
 	const section = useRef<View>(null);
-	useEffect(() => {
-		const element = section.current as unknown as HTMLElement | null;
-		if (
-			Platform.OS !== "web" ||
-			element === null ||
-			typeof element.addEventListener !== "function"
-		) {
-			return;
-		}
-		const over = (event: DragEvent) => {
-			event.preventDefault();
-			setDragging(true);
-		};
-		const leave = (event: DragEvent) => {
-			const from = event.relatedTarget as Element | null;
-			if (from === null || !element.contains(from)) {
-				setDragging(false);
-			}
-		};
-		const drop = (event: DragEvent) => {
-			event.preventDefault();
-			setDragging(false);
-			if (event.dataTransfer?.files.length) addFiles(event.dataTransfer.files);
-		};
-		element.addEventListener("dragover", over);
-		element.addEventListener("dragleave", leave);
-		element.addEventListener("drop", drop);
-		return () => {
-			element.removeEventListener("dragover", over);
-			element.removeEventListener("dragleave", leave);
-			element.removeEventListener("drop", drop);
-		};
-	}, [addFiles]);
+	const phase = useFileDrop(section, addFiles);
 
 	// Pasting a copied image attaches it, wherever the focus happens to be on
 	// this screen. A paste that carries no files — text, mostly — is left alone.
@@ -288,21 +259,13 @@ export function AttachmentsSection({
 		try {
 			await deleteAttachment(homeId, node.id, attachment);
 		} catch {
-			setMessage("detail.attachmentsDeleteFailed");
+			setDeleteFailed(true);
 		}
 	};
 
 	return (
 		<>
-			<View
-				ref={section}
-				style={{
-					gap: space.md,
-					borderRadius: radius.sm,
-					borderWidth: border.hairline,
-					borderColor: dragging ? theme.colors.outline : "transparent",
-				}}
-			>
+			<View ref={section} style={{ gap: space.md }}>
 				<View
 					style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
 				>
@@ -396,46 +359,42 @@ export function AttachmentsSection({
 					</Pressable>
 				))}
 
-				<View
-					style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
-				>
-					<Button
-						mode="outlined"
-						icon="plus"
-						onPress={openPicker}
-						disabled={!online || uploading}
-						contentStyle={{ minHeight: touchTarget }}
-					>
-						{t("detail.attachmentsAdd")}
-					</Button>
-					{uploading ? (
-						<ActivityIndicator
-							accessibilityLabel={t("detail.attachmentsUploading")}
-						/>
-					) : null}
-				</View>
+				<AttachmentDropZone
+					size={node.attachments.length === 0 ? "large" : "slim"}
+					phase={phase}
+					state={
+						!online ? "offline" : uploadingCount > 0 ? "uploading" : "ready"
+					}
+					uploadingCount={uploadingCount}
+					onPress={openPicker}
+				/>
 
-				{!online ? (
-					<Text
-						variant="bodySmall"
-						style={{ color: theme.colors.onSurfaceVariant }}
-					>
-						{t("detail.attachmentsOffline")}
-					</Text>
-				) : null}
-
-				{message === null ? null : (
+				{refusals.length > 0 || deleteFailed ? (
 					<View style={{ gap: space.xs }}>
-						<Text variant="bodyMedium" style={{ color: theme.colors.error }}>
-							{t(message, {
-								limit: formatBytes(maxAttachmentBytes, i18n.language),
-							})}
-						</Text>
+						{refusals.map(({ name, key }) => (
+							<Text
+								key={name}
+								variant="bodyMedium"
+								style={{ color: theme.colors.error }}
+							>
+								{t("detail.attachmentsNamedRefusal", {
+									name,
+									reason: t(key, {
+										limit: formatBytes(maxAttachmentBytes, i18n.language),
+									}),
+								})}
+							</Text>
+						))}
+						{deleteFailed ? (
+							<Text variant="bodyMedium" style={{ color: theme.colors.error }}>
+								{t("detail.attachmentsDeleteFailed")}
+							</Text>
+						) : null}
 						{/* The one refusal with a remedy: at the ceiling, the way to
 						    do something about it is the inventory, and the refusal
 						    names it instead of leaving a failure with nothing behind
 						    it. */}
-						{message === "detail.attachmentsQuota" ? (
+						{refusals.some(({ key }) => key === "detail.attachmentsQuota") ? (
 							<Button
 								mode="text"
 								icon="clipboard-list-outline"
@@ -445,7 +404,7 @@ export function AttachmentsSection({
 							</Button>
 						) : null}
 					</View>
-				)}
+				) : null}
 			</View>
 
 			{/* The viewer and the gesture menu, mounted only while open — the way

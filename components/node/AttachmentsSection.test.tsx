@@ -5,15 +5,18 @@ import {
 	screen,
 	waitFor,
 } from "@testing-library/react-native";
+import { Platform } from "react-native";
 import { Provider } from "react-native-paper";
 import { AttachmentsSection } from "@/components/node/AttachmentsSection";
 import enUS from "@/i18n/locales/en-US.json";
 import svSE from "@/i18n/locales/sv-SE.json";
+import { attachmentAccept } from "@/models/attachment";
 import type { Attachment, Node } from "@/models/node";
 import { newNodeData } from "@/models/node";
 import { lightTheme } from "@/theme";
 
 jest.mock("react-i18next", () => ({
+	Trans: ({ i18nKey }: { i18nKey: string }) => i18nKey,
 	useTranslation: () => ({
 		t: (key: string, values?: Record<string, unknown>) =>
 			values === undefined ? key : `${key}:${JSON.stringify(values)}`,
@@ -31,7 +34,7 @@ jest.mock("@/data/attachments", () => ({
 }));
 
 import { getDownloadURL } from "firebase/storage";
-import { deleteAttachment } from "@/data/attachments";
+import { deleteAttachment, uploadAttachment } from "@/data/attachments";
 
 jest.mock("@/config/firebase", () => ({ db: {}, storage: {} }));
 
@@ -41,6 +44,13 @@ jest.mock("firebase/storage", () => ({
 }));
 
 let mockOnline = true;
+let mockDroppedFiles: (files: File[]) => void;
+jest.mock("@/hooks/use-file-drop", () => ({
+	useFileDrop: (_section: unknown, onFiles: (files: File[]) => void) => {
+		mockDroppedFiles = onFiles;
+		return "idle";
+	},
+}));
 jest.mock("@/hooks/use-online-status", () => ({
 	useOnlineStatus: () => mockOnline,
 }));
@@ -88,12 +98,53 @@ describe("AttachmentsSection", () => {
 		mockOnline = true;
 	});
 
-	it("reads as a quiet section with its one way in", () => {
+	it("offers a named zone and states the limits on an empty card", () => {
 		renderSection(aNode([]));
 
 		expect(screen.getByText("detail.attachments")).toBeOnTheScreen();
-		expect(screen.getByText("detail.attachmentsAdd")).toBeOnTheScreen();
+		expect(
+			screen.getByRole("button", { name: "detail.attachmentsChooseFiles" }),
+		).toBeOnTheScreen();
+		expect(
+			screen.getByText('detail.attachmentsLimits:{"limit":"20 megabytes"}'),
+		).toBeOnTheScreen();
 		expect(screen.queryByText("detail.attachmentsOffline")).toBeNull();
+	});
+
+	it("opens the file picker when the zone is pressed", () => {
+		const original = Platform.OS;
+		Platform.OS = "web";
+		const click = jest.fn();
+		const input = {
+			click,
+			type: "",
+			multiple: false,
+			accept: "",
+			onchange: null,
+		};
+		const createElement = jest.fn(() => input);
+		Object.defineProperty(globalThis, "document", {
+			configurable: true,
+			value: {
+				createElement,
+				addEventListener: jest.fn(),
+				removeEventListener: jest.fn(),
+			},
+		});
+		const view = renderSection(aNode([]));
+		fireEvent.press(
+			screen.getByRole("button", { name: "detail.attachmentsChooseFiles" }),
+		);
+		expect(createElement).toHaveBeenCalledWith("input");
+		expect(click).toHaveBeenCalledTimes(1);
+		expect(input).toMatchObject({
+			type: "file",
+			multiple: true,
+			accept: attachmentAccept,
+		});
+		view.unmount();
+		Platform.OS = original;
+		Reflect.deleteProperty(globalThis, "document");
 	});
 
 	it("leads with the first image and grids the rest three across", async () => {
@@ -193,8 +244,52 @@ describe("AttachmentsSection", () => {
 		mockOnline = false;
 		renderSection(aNode([]));
 
-		expect(screen.getByText("detail.attachmentsAdd")).toBeDisabled();
+		expect(
+			screen.getByRole("button", { name: "detail.attachmentsChooseFiles" }),
+		).toBeDisabled();
 		expect(screen.getByText("detail.attachmentsOffline")).toBeOnTheScreen();
+	});
+
+	it("counts a pending batch and names both refusals, with one quota action", async () => {
+		const rejectors: ((reason: unknown) => void)[] = [];
+		(uploadAttachment as jest.Mock).mockImplementation(
+			() =>
+				new Promise((_resolve, reject) => {
+					rejectors.push(reject);
+				}),
+		);
+		renderSection(aNode([]));
+		const files = ["first.zip", "second.zip", "third.zip"].map((name) => ({
+			name,
+			type: "application/zip",
+			size: photoBytes,
+		})) as File[];
+		act(() => mockDroppedFiles(files));
+		expect(
+			screen.getByText('detail.attachmentsUploadingCount:{"count":3}'),
+		).toBeOnTheScreen();
+		expect(
+			screen.getByRole("button", { name: "detail.attachmentsChooseFiles" }),
+		).toBeDisabled();
+		await act(async () => {
+			rejectors[0]?.({ code: "attachment-quota" });
+			rejectors[1]?.({ code: "attachment-type" });
+			rejectors[2]?.({ code: "attachment-quota" });
+		});
+		expect(
+			screen.getByText(/"name":"first.zip","reason":"detail.attachmentsQuota/),
+		).toBeOnTheScreen();
+		expect(
+			screen.getByText(
+				/"name":"second.zip","reason":"detail.attachmentsWrongType/,
+			),
+		).toBeOnTheScreen();
+		expect(
+			screen.getByText(/"name":"third.zip","reason":"detail.attachmentsQuota/),
+		).toBeOnTheScreen();
+		expect(screen.getAllByText("detail.attachmentsInventoryOpen")).toHaveLength(
+			1,
+		);
 	});
 
 	it("carries the heading and the explanation in both locales", () => {
@@ -202,6 +297,19 @@ describe("AttachmentsSection", () => {
 		expect(svSE.detail.attachments.length).toBeGreaterThan(0);
 		expect(enUS.detail.attachmentsOffline.length).toBeGreaterThan(0);
 		expect(svSE.detail.attachmentsOffline.length).toBeGreaterThan(0);
+		for (const key of [
+			"attachmentsDrag",
+			"attachmentsDropArmed",
+			"attachmentsDropOver",
+			"attachmentsLimits",
+			"attachmentsUploadingCount_one",
+			"attachmentsUploadingCount_other",
+			"attachmentsChooseFiles",
+			"attachmentsNamedRefusal",
+		] as const) {
+			expect(enUS.detail[key]).toBeTruthy();
+			expect(svSE.detail[key]).toBeTruthy();
+		}
 	});
 
 	it("opens the viewer from a tap, with every action in its bar", async () => {
