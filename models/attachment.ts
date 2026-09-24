@@ -55,6 +55,8 @@ export function isImageType(contentType: string): boolean {
 	return contentType.startsWith("image/");
 }
 
+export const photoAccept = allowedContentTypes.filter(isImageType).join(",");
+
 /** The i18n key for an upload failure; anything else is a plain failure. */
 export type AttachmentErrorKey =
 	| "detail.attachmentsTooLarge"
@@ -71,6 +73,47 @@ export function attachmentErrorKey(reason: unknown): AttachmentErrorKey {
 	if (code === "storage/unauthorized" || code === "storage/unauthenticated")
 		return "detail.attachmentsRefused";
 	return "detail.attachmentsFailed";
+}
+
+export function namedRefusals(
+	names: readonly string[],
+	results: readonly PromiseSettledResult<unknown>[],
+): { name: string; key: AttachmentErrorKey; index: number }[] {
+	return results.flatMap((result, index) =>
+		result.status === "rejected" && names[index] !== undefined
+			? [{ name: names[index], key: attachmentErrorKey(result.reason), index }]
+			: [],
+	);
+}
+
+export type DropPhase = "idle" | "armed" | "over";
+export type DropState = { phase: DropPhase; depth: number };
+export type DropEvent = {
+	type:
+		| "window-enter"
+		| "window-leave"
+		| "section-enter"
+		| "section-leave"
+		| "drop"
+		| "dragend";
+	isFiles: boolean;
+};
+
+export function nextDropPhase(state: DropState, event: DropEvent): DropState {
+	if (event.type === "drop" || event.type === "dragend")
+		return { phase: "idle", depth: 0 };
+	if (!event.isFiles) return state;
+	if (event.type === "window-enter")
+		return {
+			phase: state.phase === "over" ? "over" : "armed",
+			depth: state.depth + 1,
+		};
+	if (event.type === "window-leave") {
+		const depth = Math.max(0, state.depth - 1);
+		return { phase: depth === 0 ? "idle" : state.phase, depth };
+	}
+	if (event.type === "section-enter") return { ...state, phase: "over" };
+	return { ...state, phase: state.depth > 0 ? "armed" : "idle" };
 }
 
 /**
