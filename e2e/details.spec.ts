@@ -74,9 +74,12 @@ async function newRootCard(title: string): Promise<string> {
 	});
 }
 
-/** The waiting mark on a card face. */
-function markOf(card: Locator): Locator {
-	return card.getByText(enUS.board.blocked, { exact: true });
+/** The waiting mark on a card face: the full "Waiting on <blocker>" line (#339). */
+function markOf(card: Locator, blockerTitle: string): Locator {
+	return card.getByText(
+		enUS.board.waitingOnTitle.replace("{{titles}}", blockerTitle),
+		{ exact: true },
+	);
 }
 
 test("1: every control on the details screen writes on the spot, and a reload puts every value back", async ({
@@ -376,7 +379,7 @@ test("2: marking a card waiting lists the blocker on the details screen, complet
 	await gotoAndSettle(page, BOARD);
 	const waiter = page.locator(CARD, { hasText: waiterTitle });
 	await expect(waiter).toBeVisible({ timeout: 30_000 });
-	await expect(markOf(waiter)).toHaveCount(0);
+	await expect(markOf(waiter, blockerTitle)).toHaveCount(0);
 
 	// Mark it: `CardMenu › Waiting on… › <blocker>`, both cards on this board.
 	await clickMenuItem(
@@ -385,7 +388,7 @@ test("2: marking a card waiting lists the blocker on the details screen, complet
 		enUS.board.waitingOn,
 	);
 	await page.getByRole("menuitem", { name: blockerTitle }).click();
-	await expect(markOf(waiter)).toBeVisible({ timeout: 30_000 });
+	await expect(markOf(waiter, blockerTitle)).toBeVisible({ timeout: 30_000 });
 	await page.keyboard.press("Escape");
 	await expect(page.getByRole("menuitem", { name: blockerTitle })).toBeHidden();
 
@@ -400,18 +403,23 @@ test("2: marking a card waiting lists the blocker on the details screen, complet
 	});
 
 	// Completing the blocker from the board — no reload anywhere — clears the
-	// mark, because the mark derives from the blocker's own status.
+	// mark, because the mark derives from the blocker's own status. The card
+	// is picked by its exact title: the waiter's waiting line (#339) now also
+	// carries the blocker's words, so a hasText would match both cards.
 	await page.goBack();
 	await expect(waiter).toBeVisible({ timeout: 30_000 });
 	await clickMenuItem(
 		page,
 		page
-			.locator(CARD, { hasText: blockerTitle })
+			.locator(CARD)
+			.filter({ has: page.getByText(blockerTitle, { exact: true }) })
 			.getByRole("button", { name: enUS.board.actions }),
 		enUS.board.moveTo,
 	);
 	await page.getByRole("menuitem", { name: enUS.status.done }).click();
-	await expect(markOf(waiter)).toHaveCount(0, { timeout: 30_000 });
+	await expect(markOf(waiter, blockerTitle)).toHaveCount(0, {
+		timeout: 30_000,
+	});
 
 	// The row says what happened to it, and stopping is what ends the wait —
 	// nothing about completing the blocker removed the entry itself.

@@ -251,6 +251,7 @@
 		"waitingOn": "Väntar på…",
 		"waitingLabel_one": "Väntar på {{count}} kort",
 		"waitingLabel_other": "Väntar på {{count}} kort",
+		"waitingOnTitle": "Väntar på {{titles}}",
 		"waitingGroupBoard": "På den här tavlan",
 		"waitingGroupEverywhere": "Överallt annars",
 		"waitingSearch": "Sök överallt…",

@@ -251,6 +251,7 @@
 		"waitingOn": "Waiting on…",
 		"waitingLabel_one": "Waiting on {{count}} card",
 		"waitingLabel_other": "Waiting on {{count}} cards",
+		"waitingOnTitle": "Waiting on {{titles}}",
 		"waitingGroupBoard": "On this board",
 		"waitingGroupEverywhere": "Everywhere else",
 		"waitingSearch": "Search everywhere…",

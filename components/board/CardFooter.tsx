@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { type StyleProp, View, type ViewStyle } from "react-native";
 import { Icon, Text } from "react-native-paper";
 import { DueChip } from "@/components/board/DueChip";
+import { FadeText } from "@/components/board/FadeText";
 import { useLocationColors } from "@/hooks/use-location-colors";
 import { cardFace } from "@/models/attachment";
 import { showsDue } from "@/models/due-date";
@@ -44,6 +45,11 @@ interface FactProps {
 	color?: string;
 	/** What a screen reader hears instead of the visual shorthand. */
 	accessibilityLabel?: string;
+	/**
+	 * One line that fades at the card's right edge instead of wrapping (#339)
+	 * — the waiting fact, whose words name a card that may be called anything.
+	 */
+	fade?: boolean;
 	children: ReactNode;
 }
 
@@ -73,20 +79,42 @@ function LocationFact({
  * card's footer is text on the card, and a chip border there was one more
  * edge competing with the card's own.
  */
-function Fact({ source, color, accessibilityLabel, children }: FactProps) {
+function Fact({
+	source,
+	color,
+	accessibilityLabel,
+	fade = false,
+	children,
+}: FactProps) {
 	const theme = useAppTheme();
 	const tone = color ?? theme.colors.onCardMuted;
 
 	return (
-		<View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
+		<View
+			style={{
+				flexDirection: "row",
+				alignItems: "center",
+				gap: space.xs,
+				// The faded fact claims the whole line it sits on, so its fade
+				// waits at the card's edge for words that actually get there —
+				// a fact that fits is never faded.
+				flex: fade ? 1 : undefined,
+			}}
+		>
 			<Icon source={source} size={icon.sm} color={tone} />
-			<Text
-				variant="labelMedium"
-				accessibilityLabel={accessibilityLabel}
-				style={{ color: tone, flexShrink: 1 }}
-			>
-				{children}
-			</Text>
+			{fade ? (
+				<FadeText color={tone} accessibilityLabel={accessibilityLabel}>
+					{children}
+				</FadeText>
+			) : (
+				<Text
+					variant="labelMedium"
+					accessibilityLabel={accessibilityLabel}
+					style={{ color: tone, flexShrink: 1 }}
+				>
+					{children}
+				</Text>
+			)}
 		</View>
 	);
 }
@@ -175,7 +203,11 @@ export function CardFooter({
 				<Pair>
 					{showDue ? <DueChip node={node} /> : null}
 					{waiting === null ? null : (
-						<Fact source="timer-sand" accessibilityLabel={waiting.a11yLabel}>
+						<Fact
+							source="timer-sand"
+							accessibilityLabel={waiting.a11yLabel}
+							fade
+						>
 							{waiting.label}
 						</Fact>
 					)}
