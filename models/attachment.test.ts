@@ -118,11 +118,11 @@ describe("namedRefusals", () => {
 				],
 			),
 		).toEqual([
-			{ name: "first.jpg", key: "detail.attachmentsWrongType" },
-			{ name: "large.png", key: "detail.attachmentsTooLarge" },
-			{ name: "quota.txt", key: "detail.attachmentsQuota" },
-			{ name: "denied.pdf", key: "detail.attachmentsRefused" },
-			{ name: "other.jpg", key: "detail.attachmentsFailed" },
+			{ name: "first.jpg", key: "detail.attachmentsWrongType", index: 0 },
+			{ name: "large.png", key: "detail.attachmentsTooLarge", index: 2 },
+			{ name: "quota.txt", key: "detail.attachmentsQuota", index: 3 },
+			{ name: "denied.pdf", key: "detail.attachmentsRefused", index: 4 },
+			{ name: "other.jpg", key: "detail.attachmentsFailed", index: 5 },
 		]);
 	});
 });

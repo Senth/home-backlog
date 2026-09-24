@@ -34,7 +34,7 @@ import {
 } from "@/models/attachment";
 import type { Attachment, Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { icon, radius, space, touchTarget } from "@/theme/tokens";
+import { icon, radius, size, space, touchTarget } from "@/theme/tokens";
 
 interface AttachmentsSectionProps {
 	homeId: string;
@@ -375,7 +375,7 @@ export function AttachmentsSection({
 								icon="image-plus-outline"
 								onPress={() => openPicker(photoAccept)}
 								disabled={!online || uploadingCount > 0}
-								style={{ flex: 1, minWidth: touchTarget * 3 }}
+								style={{ flex: 1, minWidth: size.attachmentButtonMin }}
 								contentStyle={{ minHeight: touchTarget }}
 							>
 								{t("detail.attachmentsAddPhotos")}
@@ -385,7 +385,7 @@ export function AttachmentsSection({
 								icon="file-plus-outline"
 								onPress={() => openPicker(attachmentAccept)}
 								disabled={!online || uploadingCount > 0}
-								style={{ flex: 1, minWidth: touchTarget * 3 }}
+								style={{ flex: 1, minWidth: size.attachmentButtonMin }}
 								contentStyle={{ minHeight: touchTarget }}
 							>
 								{t("detail.attachmentsAddFiles")}
@@ -420,9 +420,9 @@ export function AttachmentsSection({
 
 				{refusals.length > 0 || deleteFailed ? (
 					<View style={{ gap: space.xs }}>
-						{refusals.map(({ name, key }) => (
+						{refusals.map(({ name, key, index }) => (
 							<Text
-								key={name}
+								key={index}
 								variant="bodyMedium"
 								style={{ color: theme.colors.error }}
 							>

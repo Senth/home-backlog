@@ -78,10 +78,10 @@ export function attachmentErrorKey(reason: unknown): AttachmentErrorKey {
 export function namedRefusals(
 	names: readonly string[],
 	results: readonly PromiseSettledResult<unknown>[],
-): { name: string; key: AttachmentErrorKey }[] {
+): { name: string; key: AttachmentErrorKey; index: number }[] {
 	return results.flatMap((result, index) =>
 		result.status === "rejected" && names[index] !== undefined
-			? [{ name: names[index], key: attachmentErrorKey(result.reason) }]
+			? [{ name: names[index], key: attachmentErrorKey(result.reason), index }]
 			: [],
 	);
 }

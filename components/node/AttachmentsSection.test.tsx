@@ -392,6 +392,32 @@ describe("AttachmentsSection", () => {
 		);
 	});
 
+	it("shows both refused files with the same name without a duplicate key warning", async () => {
+		const consoleError = jest
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
+		(uploadAttachment as jest.Mock).mockRejectedValue({
+			code: "attachment-type",
+		});
+		renderSection(aNode([]));
+		await act(async () => {
+			mockDroppedFiles(
+				["same.jpg", "same.jpg"].map((name) => ({
+					name,
+					type: "application/zip",
+					size: photoBytes,
+				})) as File[],
+			);
+		});
+		expect(
+			screen.getAllByText(
+				/"name":"same.jpg","reason":"detail.attachmentsWrongType/,
+			),
+		).toHaveLength(2);
+		expect(consoleError).not.toHaveBeenCalled();
+		consoleError.mockRestore();
+	});
+
 	it("carries the heading and the explanation in both locales", () => {
 		expect(enUS.detail.attachments.length).toBeGreaterThan(0);
 		expect(svSE.detail.attachments.length).toBeGreaterThan(0);

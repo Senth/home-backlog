@@ -72,7 +72,9 @@ export function AttachmentDropZone({
 						color={
 							over
 								? theme.colors.onPrimaryContainer
-								: theme.colors.onSurfaceVariant
+								: active
+									? theme.colors.onSurfaceVariant
+									: theme.colors.onSurfaceDisabled
 						}
 					/>
 				)}
@@ -120,7 +122,9 @@ export function AttachmentDropZone({
 					<Text
 						variant="bodySmall"
 						style={{
-							color: theme.colors.onSurfaceVariant,
+							color: active
+								? theme.colors.onSurfaceVariant
+								: theme.colors.onSurfaceDisabled,
 							textAlign: size === "large" ? "center" : "left",
 						}}
 					>
