@@ -20,6 +20,7 @@ import { Row } from "@/components/ui/Row";
 import { useAuth } from "@/contexts/AuthContext";
 import { deleteAttachment, uploadAttachment } from "@/data/attachments";
 import type { NodeChanges } from "@/data/nodes";
+import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import {
@@ -28,11 +29,12 @@ import {
 	isImageType,
 	maxAttachmentBytes,
 	namedRefusals,
+	photoAccept,
 	thumbnailPathFor,
 } from "@/models/attachment";
 import type { Attachment, Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { icon, radius, space } from "@/theme/tokens";
+import { icon, radius, space, touchTarget } from "@/theme/tokens";
 
 interface AttachmentsSectionProps {
 	homeId: string;
@@ -100,6 +102,7 @@ export function AttachmentsSection({
 	const router = useRouter();
 	const { user } = useAuth();
 	const online = useOnlineStatus();
+	const coarse = useCoarsePointer();
 
 	const [urls, setUrls] = useState<Record<string, string>>({});
 	const [uploadingCount, setUploadingCount] = useState(0);
@@ -196,17 +199,20 @@ export function AttachmentsSection({
 		};
 	}, [node.attachments]);
 
-	const openPicker = useCallback(() => {
-		if (Platform.OS !== "web" || typeof document === "undefined") return;
-		const input = document.createElement("input");
-		input.type = "file";
-		input.multiple = true;
-		input.accept = attachmentAccept;
-		input.onchange = () => {
-			if (input.files !== null) addFiles(input.files);
-		};
-		input.click();
-	}, [addFiles]);
+	const openPicker = useCallback(
+		(accept: string) => {
+			if (Platform.OS !== "web" || typeof document === "undefined") return;
+			const input = document.createElement("input");
+			input.type = "file";
+			input.multiple = true;
+			input.accept = accept;
+			input.onchange = () => {
+				if (input.files !== null) addFiles(input.files);
+			};
+			input.click();
+		},
+		[addFiles],
+	);
 
 	const section = useRef<View>(null);
 	const phase = useFileDrop(section, addFiles);
@@ -359,15 +365,58 @@ export function AttachmentsSection({
 					</Pressable>
 				))}
 
-				<AttachmentDropZone
-					size={node.attachments.length === 0 ? "large" : "slim"}
-					phase={phase}
-					state={
-						!online ? "offline" : uploadingCount > 0 ? "uploading" : "ready"
-					}
-					uploadingCount={uploadingCount}
-					onPress={openPicker}
-				/>
+				{coarse ? (
+					<View style={{ gap: space.sm }}>
+						<View
+							style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}
+						>
+							<Button
+								mode="outlined"
+								icon="image-plus-outline"
+								onPress={() => openPicker(photoAccept)}
+								disabled={!online || uploadingCount > 0}
+								style={{ flex: 1, minWidth: touchTarget * 3 }}
+								contentStyle={{ minHeight: touchTarget }}
+							>
+								{t("detail.attachmentsAddPhotos")}
+							</Button>
+							<Button
+								mode="outlined"
+								icon="file-plus-outline"
+								onPress={() => openPicker(attachmentAccept)}
+								disabled={!online || uploadingCount > 0}
+								style={{ flex: 1, minWidth: touchTarget * 3 }}
+								contentStyle={{ minHeight: touchTarget }}
+							>
+								{t("detail.attachmentsAddFiles")}
+							</Button>
+						</View>
+						<Text
+							variant="bodySmall"
+							style={{ color: theme.colors.onSurfaceVariant }}
+						>
+							{!online
+								? t("detail.attachmentsOffline")
+								: uploadingCount > 0
+									? t("detail.attachmentsUploadingCount", {
+											count: uploadingCount,
+										})
+									: t("detail.attachmentsLimits", {
+											limit: formatBytes(maxAttachmentBytes, i18n.language),
+										})}
+						</Text>
+					</View>
+				) : (
+					<AttachmentDropZone
+						size={node.attachments.length === 0 ? "large" : "slim"}
+						phase={phase}
+						state={
+							!online ? "offline" : uploadingCount > 0 ? "uploading" : "ready"
+						}
+						uploadingCount={uploadingCount}
+						onPress={() => openPicker(attachmentAccept)}
+					/>
+				)}
 
 				{refusals.length > 0 || deleteFailed ? (
 					<View style={{ gap: space.xs }}>

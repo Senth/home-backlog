@@ -10,7 +10,7 @@ import { Provider } from "react-native-paper";
 import { AttachmentsSection } from "@/components/node/AttachmentsSection";
 import enUS from "@/i18n/locales/en-US.json";
 import svSE from "@/i18n/locales/sv-SE.json";
-import { attachmentAccept } from "@/models/attachment";
+import { attachmentAccept, photoAccept } from "@/models/attachment";
 import type { Attachment, Node } from "@/models/node";
 import { newNodeData } from "@/models/node";
 import { lightTheme } from "@/theme";
@@ -44,6 +44,10 @@ jest.mock("firebase/storage", () => ({
 }));
 
 let mockOnline = true;
+let mockCoarse = false;
+jest.mock("@/hooks/use-coarse-pointer", () => ({
+	useCoarsePointer: () => mockCoarse,
+}));
 let mockDroppedFiles: (files: File[]) => void;
 jest.mock("@/hooks/use-file-drop", () => ({
 	useFileDrop: (_section: unknown, onFiles: (files: File[]) => void) => {
@@ -96,6 +100,7 @@ function renderSection(node: Node) {
 describe("AttachmentsSection", () => {
 	beforeEach(() => {
 		mockOnline = true;
+		mockCoarse = false;
 	});
 
 	it("offers a named zone and states the limits on an empty card", () => {
@@ -105,10 +110,105 @@ describe("AttachmentsSection", () => {
 		expect(
 			screen.getByRole("button", { name: "detail.attachmentsChooseFiles" }),
 		).toBeOnTheScreen();
+		expect(screen.queryByText("detail.attachmentsAddPhotos")).toBeNull();
+		expect(screen.queryByText("detail.attachmentsAddFiles")).toBeNull();
 		expect(
 			screen.getByText('detail.attachmentsLimits:{"limit":"20 megabytes"}'),
 		).toBeOnTheScreen();
 		expect(screen.queryByText("detail.attachmentsOffline")).toBeNull();
+	});
+
+	it("offers photo and file pickers instead of a zone on coarse pointers, with limits on filled cards", () => {
+		mockCoarse = true;
+		renderSection(aNode([anAttachment({ contentType: "application/pdf" })]));
+		expect(screen.getByText("detail.attachmentsAddPhotos")).toBeOnTheScreen();
+		expect(screen.getByText("detail.attachmentsAddFiles")).toBeOnTheScreen();
+		expect(
+			screen.queryByRole("button", { name: "detail.attachmentsChooseFiles" }),
+		).toBeNull();
+		expect(
+			screen.getByText('detail.attachmentsLimits:{"limit":"20 megabytes"}'),
+		).toBeOnTheScreen();
+	});
+
+	it("opens both coarse pickers with multiple selection and their own accepted types", () => {
+		mockCoarse = true;
+		const original = Platform.OS;
+		Platform.OS = "web";
+		const inputs: {
+			type: string;
+			multiple: boolean;
+			accept: string;
+			click: jest.Mock;
+			onchange: null;
+		}[] = [];
+		Object.defineProperty(globalThis, "document", {
+			configurable: true,
+			value: {
+				createElement: jest.fn(() => {
+					const input = {
+						type: "",
+						multiple: false,
+						accept: "",
+						click: jest.fn(),
+						onchange: null,
+					};
+					inputs.push(input);
+					return input;
+				}),
+				addEventListener: jest.fn(),
+				removeEventListener: jest.fn(),
+			},
+		});
+		const view = renderSection(aNode([]));
+		fireEvent.press(screen.getByText("detail.attachmentsAddPhotos"));
+		fireEvent.press(screen.getByText("detail.attachmentsAddFiles"));
+		expect(inputs).toMatchObject([
+			{ type: "file", multiple: true, accept: photoAccept },
+			{ type: "file", multiple: true, accept: attachmentAccept },
+		]);
+		expect(inputs.every(({ click }) => click.mock.calls.length === 1)).toBe(
+			true,
+		);
+		view.unmount();
+		Platform.OS = original;
+		Reflect.deleteProperty(globalThis, "document");
+	});
+
+	it("disables both coarse pickers offline and replaces the limits sentence", () => {
+		mockCoarse = true;
+		mockOnline = false;
+		renderSection(aNode([]));
+		expect(screen.getByText("detail.attachmentsAddPhotos")).toBeDisabled();
+		expect(screen.getByText("detail.attachmentsAddFiles")).toBeDisabled();
+		expect(screen.getByText("detail.attachmentsOffline")).toBeOnTheScreen();
+		expect(screen.queryByText(/detail.attachmentsLimits/)).toBeNull();
+	});
+
+	it("disables both coarse pickers and shows the batch count while uploading", async () => {
+		mockCoarse = true;
+		let finish!: (value: unknown) => void;
+		(uploadAttachment as jest.Mock).mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					finish = resolve;
+				}),
+		);
+		renderSection(aNode([]));
+		act(() =>
+			mockDroppedFiles([
+				{ name: "photo.jpg", type: "image/jpeg", size: photoBytes },
+			] as File[]),
+		);
+		expect(screen.getByText("detail.attachmentsAddPhotos")).toBeDisabled();
+		expect(screen.getByText("detail.attachmentsAddFiles")).toBeDisabled();
+		expect(
+			screen.getByText('detail.attachmentsUploadingCount:{"count":1}'),
+		).toBeOnTheScreen();
+		await act(async () => finish(undefined));
+		expect(
+			screen.getByText('detail.attachmentsLimits:{"limit":"20 megabytes"}'),
+		).toBeOnTheScreen();
 	});
 
 	it("opens the file picker when the zone is pressed", () => {
@@ -298,6 +398,8 @@ describe("AttachmentsSection", () => {
 		expect(enUS.detail.attachmentsOffline.length).toBeGreaterThan(0);
 		expect(svSE.detail.attachmentsOffline.length).toBeGreaterThan(0);
 		for (const key of [
+			"attachmentsAddPhotos",
+			"attachmentsAddFiles",
 			"attachmentsDrag",
 			"attachmentsDropArmed",
 			"attachmentsDropOver",

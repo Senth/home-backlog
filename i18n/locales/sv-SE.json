@@ -525,6 +525,8 @@
 		"attachmentsUploadingCount_one": "Laddar upp {{count}} fil…",
 		"attachmentsUploadingCount_other": "Laddar upp {{count}} filer…",
 		"attachmentsChooseFiles": "Välj filer att bifoga",
+		"attachmentsAddPhotos": "Lägg till bilder",
+		"attachmentsAddFiles": "Lägg till filer",
 		"attachmentsNamedRefusal": "{{name}}: {{reason}}",
 		"attachmentsUploading": "Laddar upp…",
 		"attachmentsOffline": "Bilagor behöver uppkoppling — de laddas upp direkt och kan inte vänta.",
