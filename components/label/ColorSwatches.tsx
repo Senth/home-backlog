@@ -94,12 +94,10 @@ interface SwatchProps {
 }
 
 /**
- * One color swatch: the dot inside a full `touchTarget` pressable, with a
- * hairline ring on the chosen one and a check in the dot's own on-color —
- * the same mark the icon picker's list rows make. The dot is `avatarSm`, so
- * the ring reads around the color, not over it.
+ * Shared 48dp slot for color swatches and icon quick picks. The ring belongs
+ * to the slot, not its content; each picker owns the mark inside it.
  */
-function Swatch({
+export function Swatch({
 	accessibilityLabel,
 	selected,
 	onSelect,
