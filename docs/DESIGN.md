@@ -344,6 +344,7 @@ has to carry itself.
   later because someone edited it. It may not change because the UI has just
   worked out what fits.
 - Transform and opacity only.
+- Scrollbars are a 3px theme thumb shown on hover; columns fade where cards continue.
 
 **`prefers-reduced-motion` is mandatory here, not aspirational** — an expressive appetite is
 exactly what makes it load-bearing. Every animation above needs a path where it does not run.
