@@ -136,8 +136,7 @@ function GridCell({ name, selected, onPress }: CellProps) {
 			accessibilityState={{ selected }}
 			onPress={onPress}
 			style={{
-				flex: 1,
-				aspectRatio: 1,
+				...touchTargetStyle,
 				alignItems: "center",
 				justifyContent: "center",
 				borderRadius: radius.sm,
