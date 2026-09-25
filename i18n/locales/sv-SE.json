@@ -608,6 +608,35 @@
 		"viewList": "Visa som lista",
 		"colorInvalid": "Använd en färg som #A32E28 — steg och sex siffror."
 	},
+	"icons": {
+		"more": "Fler ikoner",
+		"pick": {
+			"sofa": "Soffa",
+			"television": "TV",
+			"bed": "Säng",
+			"silverware-fork-knife": "Kök",
+			"shower": "Dusch",
+			"toilet": "Toalett",
+			"washing-machine": "Tvättmaskin",
+			"desk": "Skrivbord",
+			"hanger": "Klädhängare",
+			"stairs": "Trappa",
+			"garage": "Garage",
+			"flower": "Blomma",
+			"star": "Stjärna",
+			"flash": "El",
+			"water": "Vatten",
+			"format-paint": "Målning",
+			"hammer-wrench": "Verktyg",
+			"sprout": "Odling",
+			"broom": "Städning",
+			"hand-saw": "Snickeri",
+			"home-roof": "Tak",
+			"radiator": "Värme",
+			"lightbulb": "Belysning",
+			"cart": "Inköp"
+		}
+	},
 	"priority": {
 		"low": "Låg",
 		"normal": "Normal",

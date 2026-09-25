@@ -1,13 +1,39 @@
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import enUS from "@/i18n/locales/en-US.json";
+import svSE from "@/i18n/locales/sv-SE.json";
 import {
+	defaultLabelIcon,
 	effectiveLabels,
 	type LabelWithId,
 	labelError,
+	labelIconPicks,
 	maxLabelsPerNode,
 	newLabel,
 	toLabels,
 } from "@/models/label";
 import { toHex } from "@/models/label-color";
+import { locationIconPicks } from "@/models/locations";
 import { movedRank, rankBetween } from "@/models/node";
+
+describe("labelIconPicks", () => {
+	it("starts with the default and holds twelve distinct real glyphs", () => {
+		expect(labelIconPicks).toHaveLength(12);
+		expect(labelIconPicks[0]).toBe(defaultLabelIcon);
+		expect(new Set(labelIconPicks).size).toBe(labelIconPicks.length);
+		for (const name of labelIconPicks) {
+			expect(MaterialCommunityIcons.glyphMap).toHaveProperty(name);
+		}
+	});
+
+	it("names every quick pick and the search slot in both languages", () => {
+		expect(enUS.icons.more).toBe("More icons");
+		expect(svSE.icons.more).toBe("Fler ikoner");
+		for (const name of [...locationIconPicks, ...labelIconPicks]) {
+			expect(enUS.icons.pick[name]).toBeTruthy();
+			expect(svSE.icons.pick[name]).toBeTruthy();
+		}
+	});
+});
 
 const amber = toHex([0xfd, 0xe6, 0x8a]);
 const teal = toHex([0x99, 0xf6, 0xe4]);

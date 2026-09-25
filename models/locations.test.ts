@@ -1,11 +1,25 @@
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import {
+	defaultLocationIcon,
 	inSubtree,
 	type Location,
+	locationIconPicks,
 	locationTitleError,
 	newLocationData,
 	toLocation,
 } from "@/models/locations";
+
+describe("locationIconPicks", () => {
+	it("starts with the default and holds twelve distinct real glyphs", () => {
+		expect(locationIconPicks).toHaveLength(12);
+		expect(locationIconPicks[0]).toBe(defaultLocationIcon);
+		expect(new Set(locationIconPicks).size).toBe(locationIconPicks.length);
+		for (const name of locationIconPicks) {
+			expect(MaterialCommunityIcons.glyphMap).toHaveProperty(name);
+		}
+	});
+});
 
 function location(overrides: Partial<Location> = {}): Location {
 	return {

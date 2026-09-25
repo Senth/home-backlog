@@ -25,6 +25,7 @@ import {
 	renameLabel,
 } from "@/data/homes";
 import {
+	defaultLabelIcon,
 	type LabelTitleError,
 	type LabelWithId,
 	labelError,
@@ -77,7 +78,7 @@ export function LabelDialog({
 	const { homes } = useHome();
 
 	const [title, setTitle] = useState(label?.title ?? "");
-	const [icon, setIcon] = useState(label?.icon ?? "star");
+	const [icon, setIcon] = useState(label?.icon ?? defaultLabelIcon);
 	const [color, setColor] = useState(label?.color ?? defaultLabelHue);
 	const [titleProblem, setTitleProblem] = useState<LabelTitleError | null>(
 		null,
