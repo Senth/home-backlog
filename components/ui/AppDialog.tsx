@@ -29,9 +29,10 @@ interface AppDialogProps {
  * Every dialog in the app, with the three things Paper does not do on the web.
  *
  * **Width.** Paper leaves the surface to fill its container, so on a monitor a
- * dialog spans the window. Computing it keeps the inset on a phone *and* the
- * Material 3 clamp on a monitor — `width: "100%"` instead cancels Paper's own
- * margin.
+ * dialog spans the window. A `space.md` inset on a phone leaves room for six
+ * 48dp swatches and their `space.xs` gaps after Paper's content padding;
+ * the Material 3 clamp still holds on a monitor. `width: "100%"` instead
+ * cancels Paper's own margin.
  *
  * **Focus.** Paper renders into a Portal and leaves focus where it was, so
  * without the trap a dialog is reachable only by tabbing through the screen
@@ -68,7 +69,7 @@ export function AppDialog({
 				testID={testID}
 				style={{
 					alignSelf: "center",
-					width: Math.min(width - space.lg * 2, contentWidth.dialog),
+					width: Math.min(width - space.md * 2, contentWidth.dialog),
 				}}
 			>
 				<Dialog.Title>{title}</Dialog.Title>

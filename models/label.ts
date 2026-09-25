@@ -27,6 +27,22 @@ export interface Label {
 	rank: string;
 }
 
+export const labelIconPicks = [
+	"star",
+	"flash",
+	"water",
+	"format-paint",
+	"hammer-wrench",
+	"sprout",
+	"broom",
+	"hand-saw",
+	"home-roof",
+	"radiator",
+	"lightbulb",
+	"cart",
+] as const;
+export const defaultLabelIcon = labelIconPicks[0];
+
 /** What a card may carry at most — what the picker refuses and the gutter is built around. */
 export const maxLabelsPerNode = 6;
 

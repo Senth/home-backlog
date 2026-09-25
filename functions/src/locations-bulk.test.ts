@@ -116,7 +116,7 @@ describe("a planned place tree", () => {
 
 	it("defaults the icon and color a caller did not choose", () => {
 		for (const item of plan(tree).items) {
-			expect(item.data.icon).toBe("crosshairs-gps");
+			expect(item.data.icon).toBe("sofa");
 			expect(item.data.color).toBe("stone");
 		}
 	});
@@ -131,7 +131,7 @@ describe("a planned place tree", () => {
 
 		expect(itemFor(result, "garden").icon).toBe("flower");
 		expect(itemFor(result, "garden").color).toBe("teal");
-		expect(itemFor(result, "bench").icon).toBe("crosshairs-gps");
+		expect(itemFor(result, "bench").icon).toBe("sofa");
 	});
 
 	it("refuses an entry whose icon or color is not a string", () => {

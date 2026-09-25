@@ -1,11 +1,25 @@
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import {
+	defaultLocationIcon,
 	inSubtree,
 	type Location,
+	locationIconPicks,
 	locationTitleError,
 	newLocationData,
 	toLocation,
 } from "@/models/locations";
+
+describe("locationIconPicks", () => {
+	it("starts with the default and holds twelve distinct real glyphs", () => {
+		expect(locationIconPicks).toHaveLength(12);
+		expect(locationIconPicks[0]).toBe(defaultLocationIcon);
+		expect(new Set(locationIconPicks).size).toBe(locationIconPicks.length);
+		for (const name of locationIconPicks) {
+			expect(MaterialCommunityIcons.glyphMap).toHaveProperty(name);
+		}
+	});
+});
 
 function location(overrides: Partial<Location> = {}): Location {
 	return {
@@ -43,7 +57,7 @@ describe("newLocationData", () => {
 			rank: "a0",
 			parentId: null,
 			ancestorIds: [],
-			icon: "crosshairs-gps",
+			icon: "sofa",
 			color: "stone",
 		});
 	});
@@ -66,9 +80,7 @@ describe("newLocationData", () => {
 		expect(
 			newLocationData({ title: "G", rank: "a0", color: "amber" }).color,
 		).toBe("amber");
-		expect(newLocationData({ title: "G", rank: "a0" }).icon).toBe(
-			"crosshairs-gps",
-		);
+		expect(newLocationData({ title: "G", rank: "a0" }).icon).toBe("sofa");
 	});
 });
 
@@ -140,6 +152,12 @@ describe("toLocation", () => {
 		});
 	});
 
+	it("keeps the glyph of a place stored before the default changed", () => {
+		expect(
+			toLocation(snapshot("garden", { icon: "crosshairs-gps" })).icon,
+		).toBe("crosshairs-gps");
+	});
+
 	it("coerces a document with missing or wrong-typed fields", () => {
 		const read = toLocation(
 			snapshot("garden", {
@@ -157,7 +175,7 @@ describe("toLocation", () => {
 			parentId: null,
 			ancestorIds: ["ute"],
 			rank: "",
-			icon: "crosshairs-gps",
+			icon: "sofa",
 			color: "stone",
 			createdAt: null,
 			createdBy: "",
@@ -178,7 +196,7 @@ describe("toLocation", () => {
 			}),
 		);
 
-		expect(read.icon).toBe("crosshairs-gps");
+		expect(read.icon).toBe("sofa");
 		expect(read.color).toBe("stone");
 	});
 });

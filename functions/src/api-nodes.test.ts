@@ -192,7 +192,7 @@ describe("a location on the wire", () => {
 	it("defaults the icon and color a document predates (#205)", () => {
 		const location = apiLocation("loc-1", stored);
 
-		expect(location.icon).toBe("crosshairs-gps");
+		expect(location.icon).toBe("sofa");
 		expect(location.color).toBe("stone");
 	});
 
