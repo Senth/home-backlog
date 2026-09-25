@@ -2,6 +2,7 @@ import { ScrollViewStyleReset } from "expo-router/html";
 import type { PropsWithChildren } from "react";
 import { themeColor } from "@/theme";
 import { focusVisibleCss } from "@/theme/focus-visible";
+import { scrollbarCss } from "@/theme/scrollbar";
 import { buildId } from "@/utils/build-info";
 
 /**
@@ -54,6 +55,10 @@ export default function Root({ children }: PropsWithChildren) {
 				{/* The keyboard focus ring. A stylesheet because React Native Web
 				    has no way to express `:focus-visible` — see the module. */}
 				<style>{focusVisibleCss}</style>
+				{/* The scrollbar for scrollers the app does not render itself. A
+				    stylesheet because React Native Web cannot reach a text input's
+				    own bar — see the module. */}
+				<style>{scrollbarCss}</style>
 			</head>
 			<body>{children}</body>
 		</html>
