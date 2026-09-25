@@ -215,7 +215,7 @@ no privacy: every member sees every place.
 
 One place. `title` is required; `parentId` nests it under another place and `rank` places it
 among its siblings (omit both for a top-level place at the end). `icon` and `color` are
-optional — a place defaults to the `crosshairs-gps` glyph in `stone` — but `icon` must be a
+optional — a place defaults to the `sofa` glyph in `stone` — but `icon` must be a
 real MaterialCommunityIcons glyph name and `color` one of red, orange, amber, lime, green,
 teal, cyan, blue, indigo, purple, pink, stone, or a hex, or the create is refused with
 `unknown_icon` / `invalid_color`.

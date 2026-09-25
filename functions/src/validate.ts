@@ -567,7 +567,7 @@ export interface LocationContext {
  * that omits them still lands a whole document, and the rules' `validLocation`
  * — which requires the two fields outright — never sees a hole.
  */
-export const defaultLocationIcon = "crosshairs-gps";
+export const defaultLocationIcon = "sofa";
 export const defaultLocationColor = "stone";
 
 /**

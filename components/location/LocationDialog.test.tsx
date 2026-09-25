@@ -97,7 +97,7 @@ describe("LocationDialog", () => {
 			"uid-me",
 			expect.objectContaining({
 				title: "Garden",
-				icon: "crosshairs-gps",
+				icon: "sofa",
 				color: "stone",
 			}),
 		);
@@ -134,7 +134,7 @@ describe("LocationDialog", () => {
 	it("tints the icon preview with the color the tree will draw", () => {
 		renderDialog();
 
-		const glyph = screen.getByTestId("crosshairs-gps", {
+		const glyph = screen.getByTestId("sofa", {
 			includeHiddenElements: true,
 		});
 		expect(glyph.props.style.backgroundColor).toBe(labelHues.stone.light.ink);

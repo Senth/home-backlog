@@ -43,7 +43,7 @@ describe("newLocationData", () => {
 			rank: "a0",
 			parentId: null,
 			ancestorIds: [],
-			icon: "crosshairs-gps",
+			icon: "sofa",
 			color: "stone",
 		});
 	});
@@ -66,9 +66,7 @@ describe("newLocationData", () => {
 		expect(
 			newLocationData({ title: "G", rank: "a0", color: "amber" }).color,
 		).toBe("amber");
-		expect(newLocationData({ title: "G", rank: "a0" }).icon).toBe(
-			"crosshairs-gps",
-		);
+		expect(newLocationData({ title: "G", rank: "a0" }).icon).toBe("sofa");
 	});
 });
 
@@ -140,6 +138,12 @@ describe("toLocation", () => {
 		});
 	});
 
+	it("keeps the glyph of a place stored before the default changed", () => {
+		expect(
+			toLocation(snapshot("garden", { icon: "crosshairs-gps" })).icon,
+		).toBe("crosshairs-gps");
+	});
+
 	it("coerces a document with missing or wrong-typed fields", () => {
 		const read = toLocation(
 			snapshot("garden", {
@@ -157,7 +161,7 @@ describe("toLocation", () => {
 			parentId: null,
 			ancestorIds: ["ute"],
 			rank: "",
-			icon: "crosshairs-gps",
+			icon: "sofa",
 			color: "stone",
 			createdAt: null,
 			createdBy: "",
@@ -178,7 +182,7 @@ describe("toLocation", () => {
 			}),
 		);
 
-		expect(read.icon).toBe("crosshairs-gps");
+		expect(read.icon).toBe("sofa");
 		expect(read.color).toBe("stone");
 	});
 });

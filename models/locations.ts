@@ -52,7 +52,7 @@ export interface Location {
  * twelve hues end on — a default from the middle of the set reads as a
  * choice; the first swatch would read as one nobody made.
  */
-export const defaultLocationIcon = "crosshairs-gps";
+export const defaultLocationIcon = "sofa";
 export const defaultLocationColor = "stone";
 
 /**

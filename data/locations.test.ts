@@ -136,7 +136,7 @@ describe("createLocation", () => {
 				rank: "a0",
 				parentId: null,
 				ancestorIds: [],
-				icon: "crosshairs-gps",
+				icon: "sofa",
 				color: "stone",
 				createdAt: "server-timestamp",
 				createdBy: "uid-owner",
