@@ -1,8 +1,5 @@
 import { act, renderHook } from "@testing-library/react-native";
-import {
-	useCoarsePointer,
-	useFinePointer,
-} from "@/hooks/use-coarse-pointer.web";
+import { useCoarsePointer, useFinePointer } from "@/hooks/use-pointer.web";
 
 it("tracks coarse pointer changes and removes the listener on unmount", () => {
 	let onChange: (event: MediaQueryListEvent) => void = () => {};

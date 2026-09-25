@@ -20,9 +20,9 @@ import { Row } from "@/components/ui/Row";
 import { useAuth } from "@/contexts/AuthContext";
 import { deleteAttachment, uploadAttachment } from "@/data/attachments";
 import type { NodeChanges } from "@/data/nodes";
-import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useOnlineStatus } from "@/hooks/use-online-status";
+import { useCoarsePointer } from "@/hooks/use-pointer";
 import {
 	attachmentAccept,
 	formatBytes,

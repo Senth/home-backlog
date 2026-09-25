@@ -10,7 +10,7 @@ import {
 	View,
 } from "react-native";
 import { type ScrollMetrics, scrollThumb } from "@/components/ui/scroll-thumb";
-import { useFinePointer } from "@/hooks/use-coarse-pointer";
+import { useFinePointer } from "@/hooks/use-pointer";
 import { useAppTheme } from "@/theme";
 import { radius, scrollbar } from "@/theme/tokens";
 
