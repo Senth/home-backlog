@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { Chip } from "react-native-paper";
 import {
 	type FilterContext,
@@ -10,6 +10,7 @@ import {
 	filterWord,
 } from "@/components/board/BoardFilterRow";
 import type { FieldSpec } from "@/components/overview/CardEditForm";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import type { BoardFilter } from "@/models/board-filter";
 import type { CardCondition } from "@/models/filter";
 import { outlinedTouchTarget, space, touchTarget } from "@/theme/tokens";
@@ -150,7 +151,7 @@ export function BoardFilterChips({
 	const count = filter.conditions.length + reach.length;
 
 	return (
-		<ScrollView
+		<SlimScrollView
 			horizontal
 			showsHorizontalScrollIndicator={false}
 			onLayout={(event) => setBox(event.nativeEvent.layout.width)}
@@ -188,6 +189,6 @@ export function BoardFilterChips({
 			) : null}
 			{pills}
 			{reach}
-		</ScrollView>
+		</SlimScrollView>
 	);
 }

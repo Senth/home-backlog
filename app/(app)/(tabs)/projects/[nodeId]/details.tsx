@@ -8,7 +8,7 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, useWindowDimensions, View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import {
 	ActivityIndicator,
 	Appbar,
@@ -39,6 +39,7 @@ import { AppMenu } from "@/components/ui/AppMenu";
 import { AppSheet } from "@/components/ui/AppSheet";
 import { BackAction } from "@/components/ui/BackAction";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { type NodeChanges, updateNode } from "@/data/nodes";
@@ -496,7 +497,7 @@ export default function NodeDetails() {
 					style={{ marginTop: space.xl }}
 				/>
 			) : (
-				<ScrollView
+				<SlimScrollView
 					style={{ flex: 1 }}
 					contentContainerStyle={{
 						padding: space.md,
@@ -572,7 +573,7 @@ export default function NodeDetails() {
 					    explanation rode along here until phase 5 moved it inside
 					    the editors it explains (#237). */}
 					{user === null ? null : <FlipDialog state={flip} uid={user.uid} />}
-				</ScrollView>
+				</SlimScrollView>
 			)}
 
 			{/* The bar at the foot (#237): a card moved without going back to

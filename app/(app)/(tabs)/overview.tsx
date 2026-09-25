@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, useWindowDimensions, View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import {
 	ActivityIndicator,
 	Appbar,
@@ -18,6 +18,7 @@ import { CardActionsMenu } from "@/components/overview/CardActionsMenu";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { BackAction } from "@/components/ui/BackAction";
 import { InstallCard } from "@/components/ui/InstallCard";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
 import { useHome } from "@/contexts/HomeContext";
@@ -349,7 +350,7 @@ export default function Overview() {
 			    the groups — the install offer and the cards — so Overview reads as
 			    sections rather than one block; a board column keeps its own
 			    density and gets no such gap. */}
-			<ScrollView
+			<SlimScrollView
 				contentContainerStyle={{
 					paddingBottom: fabInset,
 					gap: space.lg,
@@ -427,7 +428,7 @@ export default function Overview() {
 						) : null}
 					</>
 				)}
-			</ScrollView>
+			</SlimScrollView>
 
 			{/* The same two footprint caps the board's FAB carries — a share of the
 			    width it floats over, and the words over the glyph below

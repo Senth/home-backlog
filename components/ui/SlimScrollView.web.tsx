@@ -38,8 +38,11 @@ function fadeMask(
 /**
  * The app's scroller on web (#377): the native bar hidden, and a 3px thumb
  * drawn over the content in its place, taking no layout width. The thumb shows
- * while the pointer is over the scroller or focus is inside it. `fadeEdges`
- * fades the content at any edge that has more beyond it.
+ * while the pointer is over the scroller or focus is inside it, and never when
+ * the caller turned the axis's indicator off. `fadeEdges` fades the content at
+ * any edge that has more beyond it. The wrapper takes the caller's `style` and
+ * `ScrollView`'s own flex defaults, so it sizes exactly as the bare scroller
+ * did, `maxHeight` included, and the inner scroller fills it.
  */
 export function SlimScrollView({
 	fadeEdges = false,
@@ -73,7 +76,11 @@ export function SlimScrollView({
 					horizontal ? "horizontal" : "vertical",
 				)
 			: null;
-	const thumb = coarse ? null : geometry?.thumb;
+	const bare =
+		(horizontal
+			? showsHorizontalScrollIndicator
+			: showsVerticalScrollIndicator) === false;
+	const thumb = coarse || bare ? null : geometry?.thumb;
 	const mask =
 		fadeEdges && geometry
 			? fadeMask(Boolean(horizontal), geometry.fade)
@@ -82,7 +89,7 @@ export function SlimScrollView({
 
 	return (
 		<View
-			style={style}
+			style={[{ flexGrow: 1, flexShrink: 1 }, style]}
 			onPointerEnter={() => setHovered(true)}
 			onPointerLeave={() => setHovered(false)}
 			onFocus={() => setFocused(true)}

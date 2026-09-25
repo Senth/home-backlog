@@ -12,7 +12,7 @@
 # Usage:   yarn invariants [--base <ref>]
 # Exit:    0 = all pass, 1 = an invariant failed, 2 = the script could not run
 #
-# Checks 1-6, 8 and 14 through 20 read the whole working tree — tracked files
+# Checks 1-6, 8 and 14 through 21 read the whole working tree — tracked files
 # *and* untracked ones that git would add, because the moment you most want
 # this run is right after writing a new file, and a new file has not been
 # staged yet. A violation is a violation whoever wrote it, and the tree being
@@ -696,6 +696,40 @@ if [[ -n "$hits" ]]; then
 		"A closed Paper Menu focus-scrolls its anchor on mount. Render <AppMenu> instead — components/ui/AppMenu.tsx."
 else
 	report 20 "Menu only via AppMenu" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 21. Every scroller goes through SlimScrollView
+#
+# On the web a bare `ScrollView` or `FlatList` draws the browser's own bar: a
+# grey track with arrows that takes layout width and ignores the theme (#377).
+# components/ui/SlimScrollView*.tsx is the one place that imports either from
+# `react-native`; everything else renders `SlimScrollView` or `SlimFlatList`.
+# Imports span lines, so the whole statement is read, not one line of it.
+# ---------------------------------------------------------------------------
+SCROLL_FILES=()
+for f in "${ALL_TS[@]}"; do
+	[[ "$f" =~ ^components/ui/SlimScrollView(\.web)?\.tsx$ ]] && continue
+	SCROLL_FILES+=("$f")
+done
+hits=$(
+	[[ ${#SCROLL_FILES[@]} -gt 0 ]] && awk '
+		FNR == 1 { start = 0 }
+		/^import[[:space:]]/ { start = FNR; first = $0; block = "" }
+		start { block = block " " $0 }
+		start && /from[[:space:]]+["\047]/ {
+			if (block ~ /from[[:space:]]+["\047]react-native["\047]/ &&
+				block ~ /[^A-Za-z0-9_$](ScrollView|FlatList)[^A-Za-z0-9_$]/)
+				print FILENAME ":" start ":" first
+			start = 0
+		}
+	' "${SCROLL_FILES[@]}"
+)
+if [[ -n "$hits" ]]; then
+	report 21 "SlimScrollView only" FAIL "$hits" \
+		"A bare ScrollView or FlatList draws the browser's native scrollbar. Render <SlimScrollView> or <SlimFlatList> instead — components/ui/SlimScrollView.tsx."
+else
+	report 21 "SlimScrollView only" ok
 fi
 
 # ---------------------------------------------------------------------------

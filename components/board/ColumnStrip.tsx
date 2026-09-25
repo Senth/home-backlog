@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { Chip } from "react-native-paper";
 import { chipKey } from "@/components/board/use-board-drag";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import type { Node, Status } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { outlinedTouchTarget, space } from "@/theme/tokens";
@@ -41,7 +42,7 @@ export function ColumnStrip({
 	const theme = useAppTheme();
 
 	return (
-		<ScrollView
+		<SlimScrollView
 			horizontal
 			showsHorizontalScrollIndicator={false}
 			style={{
@@ -140,6 +141,6 @@ export function ColumnStrip({
 					</View>
 				);
 			})}
-		</ScrollView>
+		</SlimScrollView>
 	);
 }

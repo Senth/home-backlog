@@ -1,7 +1,8 @@
 import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Button, Icon, Text } from "react-native-paper";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import type { Crumb } from "@/hooks/use-ancestors";
 import { useAppTheme } from "@/theme";
 import { icon, space, touchTarget } from "@/theme/tokens";
@@ -124,7 +125,7 @@ export function Breadcrumbs({ crumbs, current, onNavigate }: BreadcrumbsProps) {
 	);
 
 	return (
-		<ScrollView
+		<SlimScrollView
 			horizontal
 			showsHorizontalScrollIndicator={false}
 			accessibilityLabel={t("board.trail")}
@@ -183,6 +184,6 @@ export function Breadcrumbs({ crumbs, current, onNavigate }: BreadcrumbsProps) {
 					{current}
 				</Text>
 			</View>
-		</ScrollView>
+		</SlimScrollView>
 	);
 }

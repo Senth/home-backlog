@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { ScrollView } from "react-native";
 import { BoardFilterChips } from "@/components/board/BoardFilterChips";
 import { fieldSpecs, type Translate } from "@/components/overview/CardEditForm";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import type { BoardFilter } from "@/models/board-filter";
 import type { Member } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
@@ -87,7 +87,7 @@ function renderChips(
 
 /** Drives the two measurements the overflow question is decided by. */
 const measure = (box: number, content: number) => {
-	const scroller = screen.UNSAFE_getByType(ScrollView);
+	const scroller = screen.UNSAFE_getByType(SlimScrollView);
 	fireEvent(scroller, "layout", {
 		nativeEvent: { layout: { width: box } },
 	});

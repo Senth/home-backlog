@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { Fragment, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Animated, ScrollView, View } from "react-native";
+import { Animated, View } from "react-native";
 import {
 	ActivityIndicator,
 	Appbar,
@@ -22,6 +22,7 @@ import {
 import { useCardWrites } from "@/components/overview/use-card-writes";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { BackAction } from "@/components/ui/BackAction";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
 import { useHome } from "@/contexts/HomeContext";
@@ -244,7 +245,7 @@ export default function OverviewEditor() {
 					</Button>
 				</View>
 			) : (
-				<ScrollView
+				<SlimScrollView
 					style={{ flex: 1 }}
 					contentContainerStyle={{ paddingBottom: space.xl }}
 				>
@@ -318,7 +319,7 @@ export default function OverviewEditor() {
 							))}
 						</List.Section>
 					) : null}
-				</ScrollView>
+				</SlimScrollView>
 			)}
 
 			{/* The card itself, off the list and under the hand — the board's own

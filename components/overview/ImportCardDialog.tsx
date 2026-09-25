@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, useWindowDimensions, View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { Button, HelperText, Text, TextInput } from "react-native-paper";
 import { fieldSpecs } from "@/components/overview/CardEditForm";
 import { AppDialog } from "@/components/ui/AppDialog";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import type { CardCondition, CardMode } from "@/models/filter";
 import type { Member } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
@@ -94,7 +95,7 @@ export function ImportCardDialog({
 				</Button>,
 			]}
 		>
-			<ScrollView style={{ maxHeight: height - space.xxl * 4 }}>
+			<SlimScrollView style={{ maxHeight: height - space.xxl * 4 }}>
 				<View style={{ gap: space.md }}>
 					<View>
 						<TextInput
@@ -135,7 +136,7 @@ export function ImportCardDialog({
 						</View>
 					)}
 				</View>
-			</ScrollView>
+			</SlimScrollView>
 		</AppDialog>
 	);
 }

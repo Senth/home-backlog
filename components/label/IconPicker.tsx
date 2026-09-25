@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FlatList, Pressable, useWindowDimensions, View } from "react-native";
+import { Pressable, useWindowDimensions, View } from "react-native";
 import { Appbar, Icon, IconButton, Text, TextInput } from "react-native-paper";
 import { iconColumns, searchIcons } from "@/components/label/icon-search";
 import { PaperIcon } from "@/components/ui/PaperIcon";
+import { SlimFlatList } from "@/components/ui/SlimScrollView";
 import { useAppTheme } from "@/theme";
 import { icon, radius, size, space, touchTargetStyle } from "@/theme/tokens";
 
@@ -79,7 +80,7 @@ export function IconPicker({ value, onSelect, onClose }: IconPickerProps) {
 					{t("labels.iconCount", { count: results.length })}
 				</Text>
 
-				<FlatList
+				<SlimFlatList
 					// `numColumns` may not change on the fly — the key remounts the
 					// list when the view or the column count does.
 					key={`${list ? "list" : "grid"}-${columns}`}

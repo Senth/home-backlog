@@ -1,7 +1,8 @@
 import type { ReactNode, RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, useWindowDimensions, View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { Modal, Portal } from "react-native-paper";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useModalFocus } from "@/hooks/use-modal-focus";
 import { useAppTheme } from "@/theme";
 import { elevation, radius, space } from "@/theme/tokens";
@@ -88,12 +89,12 @@ export function AppSheet({
 			    still fits the window, and the rows scroll under the top edge
 			    instead of past it. `keyboardShouldPersistTaps` keeps a row tap
 			    on a search-plus-list sheet one tap, as `IconPicker` does. */}
-				<ScrollView
+				<SlimScrollView
 					keyboardShouldPersistTaps="handled"
 					style={{ maxHeight: height - space.xxl * 2 }}
 				>
 					{children}
-				</ScrollView>
+				</SlimScrollView>
 			</Modal>
 		</Portal>
 	);
