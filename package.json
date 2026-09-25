@@ -74,7 +74,7 @@
 		"@biomejs/biome": "2.5.13",
 		"@firebase/rules-unit-testing": "^5.0.0",
 		"@playwright/test": "1.63.0",
-		"@testing-library/react-native": "~13",
+		"@testing-library/react-native": "~14.0.0",
 		"@types/jest": "29.5.14",
 		"@types/node": "^26.2.0",
 		"@types/react": "19.3.0",
