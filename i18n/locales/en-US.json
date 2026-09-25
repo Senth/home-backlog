@@ -571,8 +571,6 @@
 		"titleRequired": "A label needs a name",
 		"titleTooLong": "That name is too long",
 		"titleTaken": "A label called that already exists",
-		"iconLabel": "Icon",
-		"changeIcon": "Change",
 		"colorLabel": "Color",
 		"customColor": "Custom color",
 		"onCard": "On a card",

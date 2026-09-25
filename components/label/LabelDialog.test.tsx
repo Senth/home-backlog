@@ -1,4 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+	fireEvent,
+	render,
+	screen,
+	within,
+} from "@testing-library/react-native";
 import { TextInput as RNTextInput } from "react-native";
 import { HelperText, Provider } from "react-native-paper";
 import { LabelDialog } from "@/components/label/LabelDialog";
@@ -102,6 +107,10 @@ describe("LabelDialog", () => {
 	it("creates at the end of the home's set", () => {
 		mockHomes = [{ id: "home-1", labels: [label("l1", { rank: "V0" })] }];
 		renderDialog();
+		expect(
+			screen.getByRole("button", { name: "icons.pick.star" }).props
+				.accessibilityState,
+		).toEqual({ selected: true });
 
 		fireEvent.changeText(nameField(), "Winter");
 		fireEvent.press(screen.getByText("labels.add"));
@@ -177,6 +186,31 @@ describe("LabelDialog", () => {
 		expect(reiconLabel).not.toHaveBeenCalled();
 	});
 
+	it("updates the card preview when a pick changes and saves only the icon once", () => {
+		renderDialog({ label: label("l1") });
+
+		fireEvent.press(
+			screen.getByRole("button", { name: "icons.pick.hammer-wrench" }),
+		);
+		expect(
+			screen.getByRole("button", { name: "icons.pick.hammer-wrench" }).props
+				.accessibilityState,
+		).toEqual({ selected: true });
+		for (const gutter of screen.getAllByTestId("card-gutter")) {
+			expect(
+				within(gutter).getByTestId("hammer-wrench", {
+					includeHiddenElements: true,
+				}),
+			).toBeOnTheScreen();
+		}
+		fireEvent.press(screen.getByText("labels.save"));
+
+		expect(reiconLabel).toHaveBeenCalledTimes(1);
+		expect(reiconLabel).toHaveBeenCalledWith("home-1", "l1", "hammer-wrench");
+		expect(renameLabel).not.toHaveBeenCalled();
+		expect(recolorLabel).not.toHaveBeenCalled();
+	});
+
 	it("deletes from the edit path only, after a confirmation of its own", () => {
 		renderDialog({ label: label("l1") });
 
@@ -201,27 +235,15 @@ describe("LabelDialog", () => {
 		mockHomes = [{ id: "home-1", labels: [] }];
 		renderDialog({ label: label("l1") });
 
-		fireEvent.press(screen.getByText("labels.changeIcon"));
+		fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
 		expect(screen.getByText("labels.iconPickerTitle")).toBeOnTheScreen();
-
-		// A grid cell is a shape with the glyph's name for a label — the first
-		// rendered one answers the round-trip as well as any other.
-		const cell = screen
-			.getAllByRole("button")
-			.find(
-				(element) =>
-					element.props.accessibilityState?.selected === false &&
-					typeof element.props.accessibilityLabel === "string" &&
-					element.props.accessibilityLabel !== "star",
-			);
-		expect(cell).toBeDefined();
-		if (!cell) throw new Error("no unselected grid cell found");
-		// Read the name before pressing: choosing closes the picker, and the
-		// cell's instance dies with it.
-		const chosen = cell.props.accessibilityLabel;
-		fireEvent.press(cell);
+		fireEvent.press(screen.getByRole("button", { name: "home-outline" }));
+		expect(
+			screen.getByRole("button", { name: "icons.more" }).props
+				.accessibilityState,
+		).toEqual({ selected: true });
 
 		fireEvent.press(screen.getByText("labels.save"));
-		expect(reiconLabel).toHaveBeenCalledWith("home-1", "l1", chosen);
+		expect(reiconLabel).toHaveBeenCalledWith("home-1", "l1", "home-outline");
 	});
 });

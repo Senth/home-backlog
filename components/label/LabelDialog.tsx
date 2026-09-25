@@ -15,6 +15,7 @@ import {
 import { CardGutter } from "@/components/board/CardGutter";
 import { ColorSwatches } from "@/components/label/ColorSwatches";
 import { IconPicker } from "@/components/label/IconPicker";
+import { IconQuickPicks } from "@/components/label/IconQuickPicks";
 import { AppDialog, ConfirmDialog } from "@/components/ui/AppDialog";
 import { useHome } from "@/contexts/HomeContext";
 import {
@@ -29,6 +30,7 @@ import {
 	type LabelTitleError,
 	type LabelWithId,
 	labelError,
+	labelIconPicks,
 } from "@/models/label";
 import { type Node, rankAtEnd } from "@/models/node";
 import { darkTheme, defaultLabelHue, lightTheme, useAppTheme } from "@/theme";
@@ -60,8 +62,8 @@ const previewNode: Pick<Node, "priority"> = { priority: "normal" };
  * half is forced to its scheme with Paper's `ThemeProvider`, so the components
  * underneath resolve the same tokens the real board does.
  *
- * The icon row opens the full-screen `IconPicker` in its own portal: a picker
- * opens, is answered, and is gone. Writes queue like every other edit, so
+ * The quick picks change the preview; the search slot opens the full-screen
+ * `IconPicker` in its own portal. Writes queue like every other edit, so
  * saving dismisses at once; a refused write surfaces through the screen's
  * snackbar, the way `renameHome` argues for.
  */
@@ -229,28 +231,14 @@ export function LabelDialog({
 							</HelperText>
 						</View>
 
-						<View
-							style={{
-								flexDirection: "row",
-								alignItems: "center",
-								justifyContent: "space-between",
-							}}
-						>
-							<Text
-								variant="labelLarge"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								{t("labels.iconLabel")}
-							</Text>
-							<Button
-								mode="text"
-								icon={icon}
-								onPress={() => setPickingIcon(true)}
-								contentStyle={{ minHeight: touchTarget }}
-							>
-								{t("labels.changeIcon")}
-							</Button>
-						</View>
+						<IconQuickPicks
+							variant="label"
+							picks={labelIconPicks}
+							value={icon}
+							color={color}
+							onChange={setIcon}
+							onOpenPicker={() => setPickingIcon(true)}
+						/>
 
 						<View style={{ gap: space.sm }}>
 							<Text
