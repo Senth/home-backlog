@@ -88,10 +88,14 @@ export function AppSheet({
 			    handle and the sheet's own padding outside it, the whole sheet
 			    still fits the window, and the rows scroll under the top edge
 			    instead of past it. `keyboardShouldPersistTaps` keeps a row tap
-			    on a search-plus-list sheet one tap, as `IconPicker` does. */}
+			    on a search-plus-list sheet one tap, as `IconPicker` does. The
+			    scroller reaches into the sheet's right padding and pads its
+			    content back by the same amount, so the rows stay where they
+			    were and the 3px thumb (#377) draws in the padding, clear of them. */}
 				<SlimScrollView
 					keyboardShouldPersistTaps="handled"
-					style={{ maxHeight: height - space.xxl * 2 }}
+					style={{ maxHeight: height - space.xxl * 2, marginRight: -space.md }}
+					contentContainerStyle={{ paddingRight: space.md }}
 				>
 					{children}
 				</SlimScrollView>
