@@ -1,25 +1,19 @@
 import { type RefObject, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import {
-	Button,
-	HelperText,
-	Icon,
-	Portal,
-	Text,
-	TextInput,
-} from "react-native-paper";
+import { Button, HelperText, Portal, TextInput } from "react-native-paper";
 import { ColorSwatches } from "@/components/label/ColorSwatches";
 import { IconPicker } from "@/components/label/IconPicker";
+import { IconQuickPicks } from "@/components/label/IconQuickPicks";
 import { AppDialog } from "@/components/ui/AppDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { createLocation, editLocation } from "@/data/locations";
-import { useLocationColors } from "@/hooks/use-location-colors";
 import {
 	defaultLocationColor,
 	defaultLocationIcon,
 	type Location,
 	type LocationTitleError,
+	locationIconPicks,
 	locationTitleError,
 } from "@/models/locations";
 import { rankAtEnd } from "@/models/node";
@@ -41,7 +35,7 @@ interface LocationDialogProps {
 
 /**
  * Creating and editing one place (#205), in one dialog on `LabelDialog`'s
- * shape: the name is read first, the icon second, the color quiet beneath it.
+ * shape: the name is read first, the icon grid second, the color quiet beneath it.
  * One editor for the document — the old rename path is gone, and creating a
  * place opens this same dialog with the defaults filled in, so a place with
  * nothing chosen still saves and still draws the default glyph.
@@ -71,9 +65,6 @@ export function LocationDialog({
 		null,
 	);
 	const [pickingIcon, setPickingIcon] = useState(false);
-	// The preview and the palette row both show the tone the tree will draw
-	// (#328), so a chosen color reads the same in the dialog as on the map.
-	const glyphColor = useLocationColors(color).fill;
 
 	const save = () => {
 		// Trimmed once, here, like the removed rename path did: the stored
@@ -167,32 +158,14 @@ export function LocationDialog({
 							</HelperText>
 						</View>
 
-						<View
-							style={{
-								flexDirection: "row",
-								alignItems: "center",
-								justifyContent: "space-between",
-							}}
-						>
-							<Text
-								variant="labelLarge"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								{t("labels.iconLabel")}
-							</Text>
-							<Button
-								mode="text"
-								onPress={() => setPickingIcon(true)}
-								contentStyle={{ minHeight: touchTarget }}
-								// The glyph is the preview in the chosen color; a string
-								// source would draw it in the button's own text color.
-								icon={({ size }) => (
-									<Icon source={icon} size={size} color={glyphColor} />
-								)}
-							>
-								{t("labels.changeIcon")}
-							</Button>
-						</View>
+						<IconQuickPicks
+							variant="location"
+							picks={locationIconPicks}
+							value={icon}
+							color={color}
+							onChange={setIcon}
+							onOpenPicker={() => setPickingIcon(true)}
+						/>
 
 						<ColorSwatches
 							value={color}

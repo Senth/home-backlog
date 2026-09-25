@@ -88,6 +88,10 @@ function nameField() {
 describe("LocationDialog", () => {
 	it("trims the name on the create path", () => {
 		renderDialog();
+		expect(
+			screen.getByRole("button", { name: "icons.pick.sofa" }).props
+				.accessibilityState,
+		).toEqual({ selected: true });
 
 		fireEvent.changeText(nameField(), "  Garden  ");
 		fireEvent.press(screen.getByText("board.add"));
@@ -138,5 +142,45 @@ describe("LocationDialog", () => {
 			includeHiddenElements: true,
 		});
 		expect(glyph.props.style.backgroundColor).toBe(labelHues.stone.light.ink);
+	});
+
+	it("saves only the quick-picked icon on an existing place", () => {
+		renderDialog({ location: place({ icon: "sofa" }) });
+
+		fireEvent.press(screen.getByRole("button", { name: "icons.pick.bed" }));
+		expect(
+			screen.getByRole("button", { name: "icons.pick.bed" }).props
+				.accessibilityState,
+		).toEqual({ selected: true });
+		fireEvent.press(screen.getByText("labels.save"));
+
+		expect(editLocation).toHaveBeenCalledWith("home-1", "garden", {
+			icon: "bed",
+		});
+	});
+
+	it("returns an off-list glyph from the picker to the ringed search slot", () => {
+		renderDialog({ location: place() });
+		expect(
+			screen.getByRole("button", { name: "icons.more" }).props
+				.accessibilityState,
+		).toEqual({ selected: true });
+
+		fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
+		expect(screen.getByText("labels.iconPickerTitle")).toBeOnTheScreen();
+		fireEvent.press(screen.getByRole("button", { name: "home" }));
+
+		const search = screen.getByRole("button", { name: "icons.more" });
+		expect(search.props.accessibilityState).toEqual({ selected: true });
+		expect(
+			screen.getByTestId("home", { includeHiddenElements: true }),
+		).toBeOnTheScreen();
+		expect(
+			screen.getByTestId("magnify", { includeHiddenElements: true }),
+		).toBeOnTheScreen();
+		fireEvent.press(screen.getByText("labels.save"));
+		expect(editLocation).toHaveBeenCalledWith("home-1", "garden", {
+			icon: "home",
+		});
 	});
 });
