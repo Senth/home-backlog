@@ -10,7 +10,7 @@ import {
 	View,
 } from "react-native";
 import { type ScrollMetrics, scrollThumb } from "@/components/ui/scroll-thumb";
-import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
+import { useFinePointer } from "@/hooks/use-coarse-pointer";
 import { useAppTheme } from "@/theme";
 import { radius, scrollbar } from "@/theme/tokens";
 
@@ -21,7 +21,7 @@ export type SlimScrollViewProps = ScrollViewProps & {
 
 type Size = ScrollMetrics["contentSize"];
 
-const frameRate = 16;
+const frameMs = 16;
 
 /** The fade as an alpha mask: `black` keeps the content whole, `transparent` is an edge with more beyond it. */
 function fadeMask(
@@ -50,7 +50,7 @@ export function SlimScrollView({
 	horizontal,
 	showsVerticalScrollIndicator,
 	showsHorizontalScrollIndicator,
-	scrollEventThrottle = frameRate,
+	scrollEventThrottle = frameMs,
 	onLayout,
 	onContentSizeChange,
 	onScroll,
@@ -58,7 +58,7 @@ export function SlimScrollView({
 	...props
 }: SlimScrollViewProps) {
 	const theme = useAppTheme();
-	const coarse = useCoarsePointer();
+	const fine = useFinePointer();
 	const [layout, setLayout] = useState<Size | null>(null);
 	const [content, setContent] = useState<Size | null>(null);
 	const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -80,7 +80,8 @@ export function SlimScrollView({
 		(horizontal
 			? showsHorizontalScrollIndicator
 			: showsVerticalScrollIndicator) === false;
-	const thumb = coarse || bare ? null : geometry?.thumb;
+	const thumbShown = fine && !bare;
+	const thumb = thumbShown ? geometry?.thumb : null;
 	const mask =
 		fadeEdges && geometry
 			? fadeMask(Boolean(horizontal), geometry.fade)
@@ -100,10 +101,10 @@ export function SlimScrollView({
 				ref={ref}
 				horizontal={horizontal}
 				showsVerticalScrollIndicator={
-					coarse ? showsVerticalScrollIndicator : false
+					fine ? false : showsVerticalScrollIndicator
 				}
 				showsHorizontalScrollIndicator={
-					coarse ? showsHorizontalScrollIndicator : false
+					fine ? false : showsHorizontalScrollIndicator
 				}
 				scrollEventThrottle={scrollEventThrottle}
 				style={{ flexGrow: 1, ...masked }}
@@ -117,14 +118,10 @@ export function SlimScrollView({
 					onContentSizeChange?.(width, height);
 				}}
 				onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
-					const { contentOffset, contentSize, layoutMeasurement } =
-						event.nativeEvent;
-					setOffset({ x: contentOffset.x, y: contentOffset.y });
-					setContent({ width: contentSize.width, height: contentSize.height });
-					setLayout({
-						width: layoutMeasurement.width,
-						height: layoutMeasurement.height,
-					});
+					if (fadeEdges || thumbShown) {
+						const { x, y } = event.nativeEvent.contentOffset;
+						setOffset({ x, y });
+					}
 					onScroll?.(event);
 				}}
 			/>
