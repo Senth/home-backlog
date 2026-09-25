@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import {
 	Appbar,
 	Button,
@@ -20,6 +20,7 @@ import { MembersList } from "@/components/homes/MembersList";
 import { PendingInvites } from "@/components/homes/PendingInvites";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
 import { BackAction } from "@/components/ui/BackAction";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { renameHome } from "@/data/homes";
@@ -105,7 +106,7 @@ export default function ManageHome() {
 				<Appbar.Content title={t("manageHome.title")} />
 			</Appbar.Header>
 
-			<ScrollView
+			<SlimScrollView
 				contentContainerStyle={{
 					padding: space.md,
 					gap: space.lg,
@@ -283,7 +284,7 @@ export default function ManageHome() {
 						) : null}
 					</>
 				)}
-			</ScrollView>
+			</SlimScrollView>
 
 			<Snackbar
 				visible={notice !== null}

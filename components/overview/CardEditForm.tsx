@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import {
 	Button,
 	Chip,
@@ -21,6 +21,7 @@ import {
 import { AppMenu } from "@/components/ui/AppMenu";
 import { CheckListPicker } from "@/components/ui/CheckListPicker";
 import { CheckRow } from "@/components/ui/CheckRow";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { soonInDays } from "@/models/due-date";
 import {
@@ -447,7 +448,7 @@ export function CardEditForm({
 	return (
 		// The form clamp a dialog carried for free: contentWidth.form, the
 		// page-level shape `details` and the manage-home screens take.
-		<ScrollView
+		<SlimScrollView
 			contentContainerStyle={{
 				padding: space.md,
 				paddingBottom: space.xl,
@@ -507,7 +508,7 @@ export function CardEditForm({
 					{t("manageHome.save")}
 				</Button>
 			</View>
-		</ScrollView>
+		</SlimScrollView>
 	);
 }
 

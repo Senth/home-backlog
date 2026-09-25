@@ -1,11 +1,12 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, useWindowDimensions, View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { Button, Snackbar, Surface, Text } from "react-native-paper";
 import type { AuthErrorKey } from "@/auth/errors";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignIn";
 import { BrandMark } from "@/components/ui/BrandMark";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useAppTheme } from "@/theme";
@@ -57,7 +58,7 @@ export default function Login() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<ScrollView
+			<SlimScrollView
 				contentContainerStyle={{
 					flexGrow: 1,
 					alignItems: "center",
@@ -142,7 +143,7 @@ export default function Login() {
 						</Button>
 					</View>
 				</Surface>
-			</ScrollView>
+			</SlimScrollView>
 
 			<Snackbar visible={message !== null} onDismiss={dismiss}>
 				{message ? t(message) : ""}

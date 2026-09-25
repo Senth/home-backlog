@@ -2,7 +2,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
+import { Pressable, useWindowDimensions, View } from "react-native";
 import {
 	ActivityIndicator,
 	Appbar,
@@ -23,6 +23,7 @@ import {
 	useLocationDrag,
 } from "@/components/location/use-location-drag";
 import { BackAction } from "@/components/ui/BackAction";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useHome } from "@/contexts/HomeContext";
 import { locationErrorKey, moveLocation } from "@/data/locations";
 import { useBoardFilter } from "@/hooks/use-board-filter";
@@ -232,7 +233,7 @@ export default function Locations() {
 				<AccountMenu />
 			</Appbar.Header>
 
-			<ScrollView
+			<SlimScrollView
 				contentContainerStyle={{
 					padding: space.md,
 					paddingBottom: fabInset,
@@ -437,7 +438,7 @@ export default function Locations() {
 						gapHeight={gapHeight}
 					/>
 				) : null}
-			</ScrollView>
+			</SlimScrollView>
 
 			{/* The same two footprint caps the board's and Overview's FABs carry:
 			    a share of the width it floats over, and the words over the glyph

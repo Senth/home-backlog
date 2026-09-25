@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, useWindowDimensions, View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import {
 	Appbar,
 	Button,
@@ -16,6 +16,7 @@ import { LabelDialog } from "@/components/label/LabelDialog";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
 import { AppMenu } from "@/components/ui/AppMenu";
 import { BackAction } from "@/components/ui/BackAction";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useHome } from "@/contexts/HomeContext";
 import { reorderLabel } from "@/data/homes";
 import { type LabelWithId, movedRank } from "@/models/label";
@@ -84,7 +85,7 @@ export default function LabelsScreen() {
 				<Appbar.Content title={home?.name ?? ""} />
 			</Appbar.Header>
 
-			<ScrollView
+			<SlimScrollView
 				contentContainerStyle={{
 					padding: space.md,
 					paddingBottom: fabInset,
@@ -145,7 +146,7 @@ export default function LabelsScreen() {
 						))}
 					</View>
 				)}
-			</ScrollView>
+			</SlimScrollView>
 
 			{/* The same two footprint caps every FAB carries: a share of the
 			    width it floats over, and the words over the glyph below

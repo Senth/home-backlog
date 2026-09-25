@@ -11,7 +11,7 @@ import { size, space } from "@/theme/tokens";
  *
  * The board's own gutters and the gaps between columns come out first. There
  * are `n + 1` of them at `space.md`: the two outside edges, and `n - 1` between
- * the columns — which is what `Board.tsx`'s horizontal `ScrollView` really
+ * the columns — which is what `Board.tsx`'s horizontal `SlimScrollView` really
  * lays out, so a wrong count here is a column clipped at the right edge.
  *
  * Clamped at both ends. Below `boardColumnMin` a two-line title stops fitting,

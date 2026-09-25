@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import {
 	Appbar,
 	Button,
@@ -17,6 +17,7 @@ import { displayLabel } from "@/auth/display-name";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { PendingInviteCards } from "@/components/homes/PendingInviteCards";
 import { AppDialog } from "@/components/ui/AppDialog";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { createHome } from "@/data/homes";
@@ -121,7 +122,7 @@ export default function Homes() {
 				<AccountMenu />
 			</Appbar.Header>
 
-			<ScrollView
+			<SlimScrollView
 				contentContainerStyle={{
 					padding: space.md,
 					gap: space.md,
@@ -300,7 +301,7 @@ export default function Homes() {
 						{buildId}
 					</Text>
 				</View>
-			</ScrollView>
+			</SlimScrollView>
 
 			<AppDialog
 				visible={createOpen}

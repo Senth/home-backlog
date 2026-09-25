@@ -2,7 +2,7 @@ import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import {
 	ActivityIndicator,
 	Appbar,
@@ -17,6 +17,7 @@ import {
 import { AppDialog, ConfirmDialog } from "@/components/ui/AppDialog";
 import { BackAction } from "@/components/ui/BackAction";
 import { Row } from "@/components/ui/Row";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { createApiKey, revokeApiKey } from "@/data/api-keys";
 import { useApiKeys } from "@/hooks/use-api-keys";
@@ -123,7 +124,7 @@ export default function Automations() {
 				<Appbar.Content title={t("automations.title")} />
 			</Appbar.Header>
 
-			<ScrollView
+			<SlimScrollView
 				contentContainerStyle={{
 					padding: space.md,
 					gap: space.md,
@@ -197,7 +198,7 @@ export default function Automations() {
 						{t("automations.offlineHint")}
 					</Text>
 				)}
-			</ScrollView>
+			</SlimScrollView>
 
 			{/* The name is required *before* the secret is revealed, because a key
 			    named later is a key never named — and an unnamed key is one nobody

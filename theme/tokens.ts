@@ -306,6 +306,20 @@ export const focusRing = {
 } as const;
 
 /**
+ * The overlay scrollbar every app scroller draws on web (#377). `thumb` is its
+ * thickness: 3px reads as a scroll position without claiming the width a
+ * native bar takes, and it takes no layout width at all. `inset` keeps it off
+ * the scroller's edge, `minLength` keeps a very long list's thumb long enough
+ * to see, and `fade` is how far the content fades at an edge with more beyond.
+ */
+export const scrollbar = {
+	thumb: 3,
+	inset: space.xs,
+	minLength: space.lg,
+	fade: space.xxl,
+} as const;
+
+/**
  * Width below which the layout is treated as a phone. Boards show one column
  * per screen under this, several side by side above it.
  */

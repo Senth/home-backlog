@@ -1,12 +1,13 @@
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { IconButton, Menu, Text } from "react-native-paper";
 import { TitleDialog } from "@/components/board/TitleDialog";
 import { LabelPicker } from "@/components/label/LabelPicker";
 import { BlockerSearchDialog } from "@/components/node/BlockerSearchDialog";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { AppMenu } from "@/components/ui/AppMenu";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import {
@@ -421,7 +422,9 @@ export function CardMenu({
 				   the fallback for the frames before the root page has measured:
 				   layout beats the tap in practice, but the cap must not depend
 				   on winning that race. */
-						<ScrollView style={{ maxHeight: rootPageHeight ?? size.menuPage }}>
+						<SlimScrollView
+							style={{ maxHeight: rootPageHeight ?? size.menuPage }}
+						>
 							{page === "move"
 								? columns.map((status) => (
 										<Menu.Item
@@ -533,7 +536,7 @@ export function CardMenu({
 									)}
 								</>
 							) : null}
-						</ScrollView>
+						</SlimScrollView>
 					)}
 				</View>
 			</AppMenu>

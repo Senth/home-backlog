@@ -45,7 +45,7 @@ jest.mock("firebase/storage", () => ({
 
 let mockOnline = true;
 let mockCoarse = false;
-jest.mock("@/hooks/use-coarse-pointer", () => ({
+jest.mock("@/hooks/use-pointer", () => ({
 	useCoarsePointer: () => mockCoarse,
 }));
 let mockDroppedFiles: (files: File[]) => void;

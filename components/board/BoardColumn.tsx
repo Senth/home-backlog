@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { Button, Text } from "react-native-paper";
 import { BoardCard } from "@/components/board/BoardCard";
 import { DragArea } from "@/components/board/DragArea";
@@ -9,6 +9,7 @@ import {
 	cardKey,
 	columnKey,
 } from "@/components/board/use-board-drag";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import type { Location } from "@/models/locations";
 import type { Node, Status } from "@/models/node";
 import { useAppTheme } from "@/theme";
@@ -299,7 +300,8 @@ export function BoardColumn({
 				style={{ flex: 1 }}
 				collapsable={false}
 			>
-				<ScrollView
+				<SlimScrollView
+					fadeEdges
 					style={{ flex: 1 }}
 					onLayout={(event) => setFrameHeight(event.nativeEvent.layout.height)}
 					onContentSizeChange={(_, height) => setContentHeight(height)}
@@ -429,7 +431,7 @@ export function BoardColumn({
 					    will appear; pinned below the scroll once the column is long
 					    enough to scroll it out of sight. */}
 					{wide && !pinned ? addButton : null}
-				</ScrollView>
+				</SlimScrollView>
 
 				{pinned ? (
 					<View

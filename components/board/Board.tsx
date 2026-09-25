@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Animated, ScrollView, View } from "react-native";
+import { Animated, View } from "react-native";
 import {
 	ActivityIndicator,
 	Button,
@@ -25,6 +25,7 @@ import {
 	useBoardDrag,
 } from "@/components/board/use-board-drag";
 import { fieldSpecs } from "@/components/overview/CardEditForm";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { createNode } from "@/data/nodes";
@@ -719,7 +720,7 @@ export function Board({
 					})}
 				</>
 			) : (
-				<ScrollView
+				<SlimScrollView
 					horizontal
 					style={{ flex: 1 }}
 					contentContainerStyle={{
@@ -752,7 +753,7 @@ export function Board({
 							locations={locations}
 						/>
 					))}
-				</ScrollView>
+				</SlimScrollView>
 			)}
 
 			{/* The edge a held card is resting in, filling as the pane it would

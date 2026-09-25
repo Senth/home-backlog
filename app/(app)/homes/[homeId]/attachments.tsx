@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Image, ScrollView, View } from "react-native";
+import { Image, View } from "react-native";
 import {
 	Appbar,
 	Divider,
@@ -15,6 +15,7 @@ import { urlOf } from "@/components/board/CardThumbnails";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { BackAction } from "@/components/ui/BackAction";
 import { Row } from "@/components/ui/Row";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import {
@@ -112,7 +113,7 @@ export default function AttachmentsInventory() {
 				<Appbar.Content title={home?.name ?? ""} />
 			</Appbar.Header>
 
-			<ScrollView
+			<SlimScrollView
 				contentContainerStyle={{
 					padding: space.md,
 					gap: space.md,
@@ -224,7 +225,7 @@ export default function AttachmentsInventory() {
 						<Divider />
 					</View>
 				)}
-			</ScrollView>
+			</SlimScrollView>
 
 			{confirming === null ? null : (
 				<ConfirmDialog

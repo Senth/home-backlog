@@ -1,8 +1,9 @@
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { Appbar, Text } from "react-native-paper";
 import { BackAction } from "@/components/ui/BackAction";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppTheme } from "@/theme";
 import { contentWidth, space } from "@/theme/tokens";
@@ -49,7 +50,7 @@ export function LegalScreen({ title, intro, sections }: LegalScreenProps) {
 				<Appbar.Content title={title} />
 			</Appbar.Header>
 
-			<ScrollView
+			<SlimScrollView
 				contentContainerStyle={{
 					padding: space.md,
 					gap: space.lg,
@@ -74,7 +75,7 @@ export function LegalScreen({ title, intro, sections }: LegalScreenProps) {
 						))}
 					</View>
 				))}
-			</ScrollView>
+			</SlimScrollView>
 		</View>
 	);
 }

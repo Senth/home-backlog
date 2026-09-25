@@ -1,0 +1,7 @@
+import { ScrollView, View } from "react-native";
+
+export const Screen = () => (
+	<ScrollView>
+		<View />
+	</ScrollView>
+);
