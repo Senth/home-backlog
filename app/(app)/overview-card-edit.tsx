@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
@@ -13,6 +13,7 @@ import { membersOf } from "@/models/home";
 import type { Card, CardScope } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
 import { space, touchTarget } from "@/theme/tokens";
+import { goBack } from "@/utils/navigation";
 
 /**
  * One overview card, added or edited — the form the editor used to open as a
@@ -20,14 +21,13 @@ import { space, touchTarget } from "@/theme/tokens";
  *
  * The card arrives as a `cardId` parameter and is looked up in the one
  * card-config context the whole `(app)` stack shares; no parameter is a new
- * card. Save writes through the same data layer the editor uses and returns
- * to the editor by name — never `router.back()`, which is a dead arrow after
- * a reload or a pasted URL.
+ * card. Save writes through the same data layer the editor uses. Both exits
+ * return to whoever opened the page (Overview's section menu or the editor),
+ * falling back to the editor when there is no history.
  */
 export default function OverviewCardEdit() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
-	const router = useRouter();
 	const { activeHome } = useHome();
 	const { cardId } = useLocalSearchParams<{ cardId?: string }>();
 	const { editorCards, loading, failed, retry } = useDashboardCardsConfig();
@@ -46,12 +46,13 @@ export default function OverviewCardEdit() {
 		cardId === undefined
 			? null
 			: (editorCards.find((each) => each.card.id === cardId) ?? null);
+	const leave = () => goBack("/overview-editor");
 
 	const save = (draft: Card, scope: CardScope) => {
 		if (entry === null) createIn(scope, draft);
 		else if (entry.scope === scope) replaceIn(scope, draft);
 		else moveScope(draft, entry.scope, scope);
-		router.replace("/overview-editor");
+		leave();
 	};
 
 	return (
@@ -59,7 +60,7 @@ export default function OverviewCardEdit() {
 			<Appbar.Header>
 				<BackAction
 					accessibilityLabel={t("overview.cards.editor.title")}
-					onPress={() => router.replace("/overview-editor")}
+					onPress={leave}
 				/>
 				<Appbar.Content
 					title={

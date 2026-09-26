@@ -402,7 +402,7 @@ test("7: a home with no nodes shows the first-run line, and no section headings"
 	await deleteThrowawayHome(page, homeName);
 });
 
-test("8: a section menu's Edit opens that card's own form, not the whole editor (#325)", async ({
+test("8: a section menu's Edit opens that card's form and both exits return to Overview (#325, #371)", async ({
 	page,
 }) => {
 	await gotoOverview(page);
@@ -415,6 +415,20 @@ test("8: a section menu's Edit opens that card's own form, not the whole editor 
 	expect(new URL(page.url()).pathname).toBe("/overview-card-edit");
 	expect(new URL(page.url()).searchParams.get("cardId")).toBe("quickWins");
 	await expect(page.getByTestId("overview-card-edit-title")).toBeVisible();
+	await page
+		.getByRole("button", { name: enUS.overview.cards.editor.title })
+		.click();
+	await page.waitForURL((url) => url.pathname === "/overview");
+
+	await clickMenuItem(
+		page,
+		page.getByTestId("overview-card-menu-quickWins"),
+		enUS.overview.cards.menu.edit,
+	);
+	await expect(page.getByTestId("overview-card-edit-title")).toBeVisible();
+	await page.getByRole("button", { name: enUS.manageHome.save }).click();
+	await page.waitForURL((url) => url.pathname === "/overview");
+	await expect(page.getByTestId("overview-section-quickWins")).toBeVisible();
 });
 
 test("9: going back after opening a card from Overview returns to Overview", async ({
