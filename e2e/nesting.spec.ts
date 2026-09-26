@@ -282,3 +282,66 @@ test("5: a deep link straight to a nested board lands on that board", async ({
 			.getByText(enUS.board.columnEmpty, { exact: true }),
 	).toBeVisible();
 });
+
+test("6: back from a place returns to Locations", async ({ page }) => {
+	const place = `Show the work at Badrummet`;
+	const chip = page.getByTestId("board-filter-pill-locationId");
+	const locations = page.getByRole("tab", { name: enUS.tab.locations });
+	const projects = page.getByRole("tab", { name: enUS.tab.projects });
+
+	await gotoAndSettle(page, ROUTES[2]);
+	await page.getByRole("button", { name: enUS.locations.showCards }).click();
+	await page.getByRole("button", { name: place }).click();
+	await page.waitForURL(/\/projects\?from=locations$/);
+	await expect(chip).toContainText("Badrummet");
+	await expect(
+		page.getByRole("button", { name: enUS.tab.locations }),
+	).toBeVisible();
+	await page.getByText("Renovera badrummet", { exact: true }).click();
+	await page.waitForURL(/\/projects\/[^/?]+$/);
+	await page.getByRole("button", { name: enUS.board.up }).click();
+	await page.waitForURL(/\/projects\?from=locations$/);
+	await expect(chip).toContainText("Badrummet");
+	await expect(
+		page.getByRole("button", { name: enUS.tab.locations }),
+	).toBeVisible();
+
+	await page.goBack();
+	await page.waitForURL(/\/locations$/);
+	await expect(
+		page.getByRole("button", { name: enUS.locations.hideCards }),
+	).toBeVisible();
+
+	await projects.click();
+	await page.waitForURL(/\/projects$/);
+	await expect(chip).toHaveCount(0);
+	await expect(
+		page.getByRole("button", { name: enUS.homes.title }),
+	).toBeVisible();
+
+	await locations.click();
+	await page.getByRole("button", { name: place }).click();
+	await expect(chip).toContainText("Badrummet");
+	await page.getByRole("button", { name: enUS.tab.locations }).click();
+	await page.waitForURL(/\/locations$/);
+
+	await gotoAndSettle(page, ROUTES[2]);
+	await page.getByRole("button", { name: enUS.locations.showCards }).click();
+	await page.locator(CARD, { hasText: "Byt badrumsfläkten" }).click();
+	await page.waitForURL(/\/projects\/[^/]+\/details$/);
+	await page.getByRole("button", { name: enUS.board.up }).click();
+	await page.waitForURL(/\/locations$/);
+
+	await page.goto("/projects?from=locations");
+	await expect(
+		page.getByRole("button", { name: enUS.tab.locations }),
+	).toBeVisible();
+	await page.getByRole("button", { name: enUS.tab.locations }).click();
+	await page.waitForURL(/\/locations$/);
+
+	await gotoAndSettle(page, ROUTES[5]);
+	await projects.click();
+	await expect(
+		page.getByRole("button", { name: enUS.homes.title }),
+	).toBeVisible();
+});

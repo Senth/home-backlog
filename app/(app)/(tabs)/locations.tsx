@@ -98,6 +98,7 @@ export default function Locations() {
 	const [notice, setNotice] = useState<string | null>(null);
 	const [fabHeight, setFabHeight] = useState(0);
 	const openerRef = useRef<View | null>(null);
+	const visitingPlace = useRef(false);
 	const navigation = useNavigation();
 
 	// The drag is the one move a gesture makes, and it writes the same
@@ -122,6 +123,15 @@ export default function Locations() {
 	useEffect(
 		() => navigation.addListener("blur", () => setMove(idleMove)),
 		[navigation],
+	);
+	useEffect(
+		() =>
+			navigation.addListener("focus", () => {
+				if (!visitingPlace.current) return;
+				visitingPlace.current = false;
+				setFilter(null);
+			}),
+		[navigation, setFilter],
 	);
 
 	// Escape and the back gesture answer the same cancel — a mode is not a
@@ -163,12 +173,13 @@ export default function Locations() {
 	 * The tap is the row's reason to exist (#204): the board filtered to this
 	 * place and everything under it — the same reach the row's count answers
 	 * to, so the place delivers the number it promised. This replaces whatever
-	 * filter the member already had, and it persists for a day; the chips on
+	 * filter the member already had, and lasts for this visit; the chips on
 	 * the board make the new state visible at once.
 	 */
 	const openPlace = (location: Location) => {
+		visitingPlace.current = true;
 		setFilter(locationFilter(location.id));
-		router.push("/projects");
+		router.push({ pathname: "/projects", params: { from: "locations" } });
 	};
 
 	/**
