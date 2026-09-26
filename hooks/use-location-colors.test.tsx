@@ -3,12 +3,19 @@ import { Provider } from "react-native-paper";
 import { useLocationColors } from "@/hooks/use-location-colors";
 import {
 	contrast,
+	decomposeCustom,
 	fillFloor,
 	onFloor,
 	parseHex,
 	toHex,
 } from "@/models/label-color";
-import { type AppTheme, darkTheme, labelHues, lightTheme } from "@/theme";
+import {
+	type AppTheme,
+	customColorBands,
+	darkTheme,
+	labelHues,
+	lightTheme,
+} from "@/theme";
 
 function renderColors(color: string, theme: AppTheme = lightTheme) {
 	return renderHook(() => useLocationColors(color), {
@@ -33,16 +40,26 @@ describe("useLocationColors", () => {
 		});
 	});
 
-	it("clamps a custom color against the page, not the card, and derives an on-color that reads on it", () => {
+	it("draws a custom color in the ink band against the page in both schemes", () => {
 		const custom = toHex([0xfe, 0xca, 0xca]);
-		const colors = renderColors(custom);
-
-		expect(colors.fill).not.toBe(custom);
-		expect(
-			contrast(parseHex(colors.fill), parseHex(lightTheme.colors.background)),
-		).toBeGreaterThanOrEqual(fillFloor);
-		expect(
-			contrast(parseHex(colors.fill), parseHex(colors.on)),
-		).toBeGreaterThanOrEqual(onFloor);
+		for (const [scheme, theme] of [
+			["light", lightTheme],
+			["dark", darkTheme],
+		] as const) {
+			const colors = renderColors(custom, theme as AppTheme);
+			const strength = decomposeCustom(
+				colors.fill,
+				customColorBands.ink[scheme],
+				scheme,
+			).strength;
+			expect(strength).toBeGreaterThanOrEqual(0);
+			expect(strength).toBeLessThanOrEqual(1);
+			expect(
+				contrast(parseHex(colors.fill), parseHex(theme.colors.background)),
+			).toBeGreaterThanOrEqual(fillFloor);
+			expect(
+				contrast(parseHex(colors.fill), parseHex(colors.on)),
+			).toBeGreaterThanOrEqual(onFloor);
+		}
 	});
 });

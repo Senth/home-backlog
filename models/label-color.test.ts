@@ -1,82 +1,161 @@
 import {
-	clampLabelColor,
+	composeCustom,
 	contrast,
+	decomposeCustom,
+	drawCustom,
 	fillFloor,
 	isHexColor,
 	onFloor,
 	parseHex,
+	storedFromTyped,
 	toHex,
+	toOklch,
 } from "@/models/label-color";
-import { darkTheme, lightTheme } from "@/theme";
+import { customColorBands, darkTheme, labelHues, lightTheme } from "@/theme";
 
-const lightCard = lightTheme.colors.boardCard;
-const darkCard = darkTheme.colors.boardCard;
-
-/** A color a whisker off the card itself — the closest a picker can come to invisible. */
-function nearCard(card: string): string {
-	const [r, g, b] = parseHex(card);
-	return toHex([Math.min(255, r + 2), g, b]);
-}
-
-/** The deep green of a Tailwind 900 tone — far enough from either card to pass as-is. */
-const deepGreen = toHex([0x14, 0x53, 0x2d]);
-const midGrey = toHex([0x80, 0x80, 0x80]);
-
-describe("clampLabelColor", () => {
-	it("draws a color that already clears the floor against the card untouched", () => {
-		expect(clampLabelColor(deepGreen, "light", lightCard).fill).toBe(deepGreen);
-		expect(clampLabelColor(midGrey, "dark", darkCard).fill).toBe(midGrey);
+describe("custom color bands", () => {
+	it("round-trips in-band colors within one channel step", () => {
+		for (const role of ["fill", "ink"] as const) {
+			const band = customColorBands[role].light;
+			for (const hue of [0, 40, 120, 200, 280]) {
+				const original = composeCustom(
+					{ hue, vividness: 0.4, strength: 0.5 },
+					band,
+				);
+				const again = composeCustom(decomposeCustom(original, band), band);
+				parseHex(again).forEach((channel, index) => {
+					expect(
+						Math.abs(channel - parseHex(original)[index]),
+					).toBeLessThanOrEqual(1);
+				});
+			}
+		}
 	});
 
-	it("darkens a light-scheme color until the dot reads against the card", () => {
-		const { fill } = clampLabelColor(nearCard(lightCard), "light", lightCard);
+	it("puts every preset light fill and ink inside its band without clamping", () => {
+		for (const preset of Object.values(labelHues)) {
+			for (const role of ["fill", "ink"] as const) {
+				const band = customColorBands[role].light;
+				const { L } = toOklch(parseHex(preset.light[role]));
+				expect(L).toBeGreaterThan(band.lo);
+				expect(L).toBeLessThan(band.hi);
+				const strength = decomposeCustom(preset.light[role], band).strength;
+				expect(strength).toBeGreaterThan(0);
+				expect(strength).toBeLessThan(1);
+			}
+		}
+	});
 
+	it("keeps hue, vividness and strength sweeps in gamut and inside every band", () => {
+		for (const role of ["fill", "ink"] as const) {
+			for (const scheme of ["light", "dark"] as const) {
+				const band = customColorBands[role][scheme];
+				const page = (scheme === "light" ? lightTheme : darkTheme).colors
+					.background;
+				for (const hue of [0, 45, 90, 135, 180, 225, 270, 315]) {
+					for (const vividness of [0, 0.5, 1]) {
+						for (const strength of [0, 0.5, 1]) {
+							const parts = { hue, vividness, strength };
+							const color = composeCustom(parts, band, scheme);
+							const { L, C } = toOklch(parseHex(color));
+							expect(isHexColor(color)).toBe(true);
+							expect(C).toBeLessThanOrEqual(band.cap + 0.003);
+							expect(L).toBeGreaterThanOrEqual(band.lo - 0.003);
+							expect(L).toBeLessThanOrEqual(band.hi + 0.003);
+							const drawn = drawCustom(
+								composeCustom(parts, customColorBands[role].light),
+								role,
+								scheme,
+								customColorBands,
+								page,
+							);
+							if (role === "fill") {
+								expect(
+									contrast(parseHex(drawn.fill), parseHex(drawn.on)),
+								).toBeGreaterThanOrEqual(onFloor);
+							} else {
+								expect(
+									contrast(parseHex(drawn.fill), parseHex(page)),
+								).toBeGreaterThanOrEqual(fillFloor);
+							}
+						}
+					}
+				}
+			}
+		}
+	});
+
+	it("keeps custom label dots pastel rather than walking to 3:1 against a card", () => {
+		const { fill, on } = drawCustom(
+			labelHues.blue.light.fill,
+			"fill",
+			"light",
+			customColorBands,
+			lightTheme.colors.background,
+		);
 		expect(
-			contrast(parseHex(fill), parseHex(lightCard)),
-		).toBeGreaterThanOrEqual(fillFloor);
-		expect(contrast(parseHex(fill), parseHex(lightCard))).toBeGreaterThan(
-			contrast(parseHex(nearCard(lightCard)), parseHex(lightCard)),
-		);
-	});
-
-	it("lightens a dark-scheme color until the dot reads against the card", () => {
-		const { fill } = clampLabelColor(nearCard(darkCard), "dark", darkCard);
-
-		expect(contrast(parseHex(fill), parseHex(darkCard))).toBeGreaterThanOrEqual(
-			fillFloor,
-		);
-		expect(contrast(parseHex(fill), parseHex(darkCard))).toBeGreaterThan(
-			contrast(parseHex(nearCard(darkCard)), parseHex(darkCard)),
-		);
-	});
-
-	const cases: [string, string, "light" | "dark", string][] = [
-		["a near-card color in light", nearCard(lightCard), "light", lightCard],
-		["a near-card color in dark", nearCard(darkCard), "dark", darkCard],
-		["a mid grey in light", midGrey, "light", lightCard],
-		["a mid grey in dark", midGrey, "dark", darkCard],
-		["an already-deep color in light", deepGreen, "light", lightCard],
-	];
-	it.each(cases)(
-		"derives an on-color that clears 4.5:1 against the fill for %s",
-		(_label, picked, scheme, card) => {
-			const { fill, on } = clampLabelColor(picked, scheme, card);
-
-			expect(contrast(parseHex(on), parseHex(fill))).toBeGreaterThanOrEqual(
-				onFloor,
-			);
-		},
-	);
-
-	it("answers a color the picker could never have stored, without throwing", () => {
-		// The rules cannot inspect the map's values, so a corrupt string is the
-		// one input this function can meet; it clamps like any other rather than
-		// crashing the board holding it.
-		const { fill, on } = clampLabelColor("not a color", "light", lightCard);
-
-		expect(contrast(parseHex(on), parseHex(fill))).toBeGreaterThanOrEqual(
+			contrast(parseHex(fill), parseHex(lightTheme.colors.boardCard)),
+		).toBeLessThan(fillFloor);
+		expect(contrast(parseHex(fill), parseHex(on))).toBeGreaterThanOrEqual(
 			onFloor,
 		);
+	});
+
+	it("mirrors strongest fill: darkest in light and lightest in dark", () => {
+		const weak = { hue: 120, vividness: 0, strength: 0 };
+		const strong = { ...weak, strength: 1 };
+		for (const scheme of ["light", "dark"] as const) {
+			const band = customColorBands.fill[scheme];
+			const weakL = toOklch(parseHex(composeCustom(weak, band, scheme))).L;
+			const strongL = toOklch(parseHex(composeCustom(strong, band, scheme))).L;
+			if (scheme === "light") expect(strongL).toBeLessThan(weakL);
+			else expect(strongL).toBeGreaterThan(weakL);
+		}
+	});
+
+	it("converts typed dark hex into stored light tone", () => {
+		for (const role of ["fill", "ink"] as const) {
+			const parts = { hue: 40, vividness: 0.6, strength: 0.6 };
+			const dark = composeCustom(parts, customColorBands[role].dark, "dark");
+			const stored = storedFromTyped(dark, role, "dark", customColorBands);
+			const actual = decomposeCustom(stored, customColorBands[role].light);
+			expect(actual.hue).toBeCloseTo(parts.hue, 0);
+			expect(actual.strength).toBeCloseTo(parts.strength, 1);
+			expect(storedFromTyped(stored, role, "light", customColorBands)).toBe(
+				stored,
+			);
+		}
+	});
+
+	it("clamps out-of-band tone but retains hue, and keeps achromatic hue", () => {
+		const band = customColorBands.fill.light;
+		const vivid = toHex([0xff, 0x10, 0x10]);
+		const { hue, strength } = decomposeCustom(vivid, band);
+		expect(hue).toBeGreaterThan(0);
+		expect(strength).toBe(1);
+		expect(
+			decomposeCustom(toHex([0x80, 0x80, 0x80]), band, "light", 132).hue,
+		).toBe(132);
+	});
+
+	it("renders garbage input without throwing in both schemes and roles", () => {
+		for (const role of ["fill", "ink"] as const) {
+			for (const scheme of ["light", "dark"] as const) {
+				const page = (scheme === "light" ? lightTheme : darkTheme).colors
+					.background;
+				const { fill, on } = drawCustom(
+					"not a color",
+					role,
+					scheme,
+					customColorBands,
+					page,
+				);
+				expect(isHexColor(fill)).toBe(true);
+				expect(contrast(parseHex(fill), parseHex(on))).toBeGreaterThanOrEqual(
+					onFloor,
+				);
+			}
+		}
 	});
 });
 

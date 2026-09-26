@@ -177,8 +177,8 @@ function paletteOf(source: unknown): string[] {
  * The label hues of one scheme — the fills and on-colors a preset-hued label
  * dot paints. Custom colors are user data: `models/label-color.ts` derives
  * their rendered fill at draw time from any hex, so they cannot be enumerated
- * here, and the seed carries only preset hues. The clamp that keeps a custom
- * fill legible is unit-tested rather than swept.
+ * here, and the seed carries only preset hues. The band conversion and the
+ * custom ink's page-contrast floor are unit-tested rather than swept.
  */
 function labelColors(scheme: Scheme): string[] {
 	return paletteOf(Object.values(themes.labelHues).map((hue) => hue[scheme]));
