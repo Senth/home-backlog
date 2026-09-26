@@ -10,7 +10,7 @@ import {
 	nodesCollection,
 	runsCollection,
 } from "./firestore.js";
-import { handle } from "./handler.js";
+import { handle, param } from "./handler.js";
 import {
 	idempotencyKeyOf,
 	recordRun,
@@ -29,10 +29,7 @@ import type { ParentFacts } from "./validate.js";
 
 async function bulkCreate(request: Request, response: Response): Promise<void> {
 	const me: ApiCaller = caller(response);
-	const homeId = request.params.homeId;
-	if (!homeId) {
-		throw new ApiError(400, "invalid_path", "Missing homeId in the path.");
-	}
+	const homeId = param(request, "homeId");
 	const home = await homeAccess(me, homeId);
 
 	const nodes = db
