@@ -2,10 +2,16 @@ import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { Icon } from "react-native-paper";
-import { ColorField } from "@/components/ui/ColorField";
+import { CustomColorPicker } from "@/components/label/CustomColorPicker";
 import { useLabelColors } from "@/hooks/use-label-colors";
 import { useLocationColors } from "@/hooks/use-location-colors";
-import { type LabelHueName, labelHues, useAppTheme } from "@/theme";
+import { composeCustom, decomposeCustom } from "@/models/label-color";
+import {
+	customColorBands,
+	type LabelHueName,
+	labelHues,
+	useAppTheme,
+} from "@/theme";
 import { border, icon, radius, size, space, touchTarget } from "@/theme/tokens";
 
 const hueNames = Object.keys(labelHues) as LabelHueName[];
@@ -20,7 +26,7 @@ function useSwatchColors(color: string, variant: "label" | "location") {
 interface ColorSwatchesProps {
 	/** The color exactly as stored — a hue name or a custom hex. */
 	value: string;
-	/** Called with the chosen hue, or the normalized hex once the field holds one. */
+	/** Called with the chosen hue, or the light-band hex once the field holds one. */
 	onChange: (color: string) => void;
 	/**
 	 * Which drawing the swatches preview. Labels are filled dots in a hue's
@@ -31,24 +37,29 @@ interface ColorSwatchesProps {
 	variant?: "label" | "location";
 }
 
-/**
- * The identity palette row (#100): the twelve preset hues, then the custom
- * swatch that opens `ColorField`. LabelDialog draws it beneath the icon and
- * LocationDialog (#205) draws the same row, so both pickers are one
- * implementation — extend this file, never restyle a copy.
- *
- * The custom field is open from the start when the stored color already is a
- * custom one — the field is where its value is visible.
- */
 export function ColorSwatches({
 	value,
 	onChange,
 	variant = "label",
 }: ColorSwatchesProps) {
-	const { t } = useTranslation();
 	const [customOpen, setCustomOpen] = useState(
 		!(value in labelHues) && value !== "",
 	);
+	const role = variant === "label" ? "fill" : "ink";
+	const band = customColorBands[role].light;
+	const previewColor =
+		customOpen && value in labelHues
+			? composeCustom(
+					{
+						...decomposeCustom(
+							labelHues[value as LabelHueName].light[role],
+							band,
+						),
+						strength: 0.5,
+					},
+					band,
+				)
+			: value;
 
 	return (
 		<View style={{ gap: space.sm }}>
@@ -69,18 +80,14 @@ export function ColorSwatches({
 					/>
 				))}
 				<CustomSwatch
-					color={value}
+					color={previewColor}
 					selected={!(value in labelHues)}
-					onOpen={() => setCustomOpen(true)}
+					onOpen={() => setCustomOpen((open) => !open)}
 					variant={variant}
 				/>
 			</View>
 			{customOpen ? (
-				<ColorField
-					label={t("labels.customColor")}
-					value={value}
-					onChange={onChange}
-				/>
+				<CustomColorPicker value={value} onChange={onChange} role={role} />
 			) : null}
 		</View>
 	);

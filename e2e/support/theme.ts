@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import type { CustomBands } from "@/models/label-color";
 
 /**
  * `theme/index.ts`'s palettes, loaded in the Playwright process.
@@ -98,6 +99,7 @@ function loadThemeSource(): {
 		string,
 		Record<"light" | "dark", { fill: string; on: string }>
 	>;
+	customColorBands: CustomBands;
 } {
 	const ts = NODE_REQUIRE("typescript") as typeof import("typescript");
 	const paperThemes = loadPaperThemes();
@@ -135,6 +137,7 @@ function loadThemeSource(): {
 			string,
 			Record<"light" | "dark", { fill: string; on: string }>
 		>;
+		customColorBands: CustomBands;
 	};
 	// `tokens.ts` imports nothing, so the paper-only `require` never fires for
 	// it; its ramp colors are painted by the card face and belong on the
@@ -151,6 +154,8 @@ function loadThemeSource(): {
 }
 
 const themes = loadThemeSource();
+
+export const customColorBands = themes.customColorBands;
 
 /**
  * One named color of a scheme's theme, canonicalised the way the palette is —
