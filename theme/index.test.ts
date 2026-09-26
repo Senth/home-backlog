@@ -50,3 +50,25 @@ describe("every label hue's ink against its own fill", () => {
 		).toBeGreaterThanOrEqual(fillFloor);
 	});
 });
+
+/**
+ * The board's fill rule (#358): column recessed, page in the middle, card
+ * raised, separated by fill alone above `compactBreakpoint` — where neither
+ * the column nor the card draws its hairline. Light shipped the card at
+ * 1.17:1 against the column, which dissolved without the edge; the ramp now
+ * matches the separation dark has always carried (1.43:1), with 1.4 as the
+ * floor both schemes must keep.
+ */
+describe("the board ramp's card-over-column separation", () => {
+	it.each([
+		["light", lightTheme],
+		["dark", darkTheme],
+	])("clears 1.4:1 on fill alone in $name", (_name, theme) => {
+		expect(
+			contrast(
+				parseHex(theme.colors.boardCard),
+				parseHex(theme.colors.boardColumn),
+			),
+		).toBeGreaterThanOrEqual(1.4);
+	});
+});
