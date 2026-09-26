@@ -1,9 +1,4 @@
-import {
-	fireEvent,
-	render,
-	screen,
-	within,
-} from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import { TextInput as RNTextInput } from "react-native";
 import { HelperText, Provider } from "react-native-paper";
 import { LabelDialog } from "@/components/label/LabelDialog";
@@ -186,8 +181,9 @@ describe("LabelDialog", () => {
 		expect(reiconLabel).not.toHaveBeenCalled();
 	});
 
-	it("updates the card preview when a pick changes and saves only the icon once", () => {
+	it("saves the picked icon without rendering a card preview", () => {
 		renderDialog({ label: label("l1") });
+		expect(screen.queryByText("labels.onCard")).toBeNull();
 
 		fireEvent.press(
 			screen.getByRole("button", { name: "icons.pick.hammer-wrench" }),
@@ -196,13 +192,6 @@ describe("LabelDialog", () => {
 			screen.getByRole("button", { name: "icons.pick.hammer-wrench" }).props
 				.accessibilityState,
 		).toEqual({ selected: true });
-		for (const gutter of screen.getAllByTestId("card-gutter")) {
-			expect(
-				within(gutter).getByTestId("hammer-wrench", {
-					includeHiddenElements: true,
-				}),
-			).toBeOnTheScreen();
-		}
 		fireEvent.press(screen.getByText("labels.save"));
 
 		expect(reiconLabel).toHaveBeenCalledTimes(1);
