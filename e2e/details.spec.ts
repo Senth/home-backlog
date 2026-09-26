@@ -301,8 +301,8 @@ test("1: every control on the details screen writes on the spot, and a reload pu
 	// on Paper's outer surface and never reaches the button a person taps. Its
 	// own tap semantics are the proof instead: tapping the selected value
 	// clears it, so the toggle is what tells the reload kept the value.
-	// Scoped to the row's test id: the ✕ beside it now names itself
-	// "Clear Priority", and a name match would find two buttons (#247).
+	// Scoped to the sheet's surface: the details row behind it carries the
+	// same words (#374 took the ✕ away, the scoping is why the tap stays).
 	await page.getByTestId(`field-priority-${nodeId}`).click();
 	await page
 		.getByTestId(`editor-priority-${nodeId}-surface`)

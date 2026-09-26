@@ -479,7 +479,6 @@
 		"labelsChange": "Ändra",
 		"priority": "Prioritet",
 		"effort": "Tidsåtgång",
-		"clearField": "Rensa {{what}}",
 		"notes": "Anteckningar",
 		"notesEdit": "Redigera anteckningen",
 		"saved": "Sparat {{time}}",
