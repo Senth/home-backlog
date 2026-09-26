@@ -1,4 +1,7 @@
-import { columnWidth } from "@/components/board/column-width";
+import {
+	columnWidth,
+	expandedColumnWidth,
+} from "@/components/board/column-width";
 import { size, space } from "@/theme/tokens";
 
 describe("columnWidth", () => {
@@ -31,5 +34,24 @@ describe("columnWidth", () => {
 
 	it("holds the minimum for a board that has not been measured yet", () => {
 		expect(columnWidth(0, 0)).toBe(size.boardColumnMin);
+	});
+});
+
+describe("expandedColumnWidth", () => {
+	it("keeps dividing past the board's maximum", () => {
+		expect(expandedColumnWidth(1920, 4)).toBeGreaterThan(size.boardColumnMax);
+	});
+
+	it("fills the width it is given, gutters and gaps first", () => {
+		const width = expandedColumnWidth(1920, 4);
+		expect(width * 4 + space.md * 5).toBeCloseTo(1920);
+	});
+
+	it("falls back to the minimum when more columns than fit are shown", () => {
+		expect(expandedColumnWidth(1366, 8)).toBe(size.boardColumnMin);
+	});
+
+	it("holds the minimum for a screen that has not been measured yet", () => {
+		expect(expandedColumnWidth(0, 0)).toBe(size.boardColumnMin);
 	});
 });
