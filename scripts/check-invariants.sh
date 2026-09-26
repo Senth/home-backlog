@@ -741,6 +741,7 @@ fi
 # ---------------------------------------------------------------------------
 BACK_FILES=()
 for f in "${ALL_TS[@]}"; do
+	[[ "$f" =~ ^(app|components|hooks|contexts|utils)/ ]] || continue
 	[[ "$f" == utils/navigation.ts ]] && continue
 	BACK_FILES+=("$f")
 done
