@@ -29,33 +29,30 @@ export function useBoardFilter(homeId: string | null): {
 	loading: boolean;
 	/** Sets the filter, or clears it entirely with `null`. */
 	setFilter: (filter: BoardFilter | null) => void;
+	/** Re-reads changes made by another mounted screen. */
+	refresh: () => void;
 } {
 	const [filter, setFilterState] = useState<BoardFilter | null>(null);
 	const [loading, setLoading] = useState(true);
-	// True from the moment this mount's `setFilter` first lands. The read below
-	// can resolve after one — the household cleared the filter while the read
-	// was out — and re-applying the decoded blob would resurrect a filter the
-	// member has just removed, in memory and in storage alike.
-	const touched = useRef(false);
+	const generation = useRef(0);
 
 	// Cleared *during render*, the same way `HomeContext` re-points on a uid
 	// change: an effect runs after the commit, so switching homes would show
 	// the old home's filter on the new home's board for a frame.
 	const [renderedHomeId, setRenderedHomeId] = useState(homeId);
 	if (renderedHomeId !== homeId) {
+		generation.current++;
 		setRenderedHomeId(homeId);
 		setFilterState(null);
 		setLoading(true);
 	}
 
-	useEffect(() => {
+	const refresh = useCallback(() => {
 		if (homeId === null) {
 			setLoading(false);
 			return;
 		}
-		// This read belongs to this home only; a fresh read starts untainted.
-		touched.current = false;
-		let live = true;
+		const readGeneration = ++generation.current;
 		const key = boardFilterKey(homeId);
 
 		AsyncStorage.getItem(key)
@@ -66,17 +63,11 @@ export function useBoardFilter(homeId: string | null): {
 				return null;
 			})
 			.then((raw) => {
-				if (!live) return;
-				if (touched.current) {
-					// A setFilter landed while the read was out: its write is the
-					// newer answer. Loading is the only thing left to end.
-					setLoading(false);
-					return;
-				}
+				if (generation.current !== readGeneration) return;
 				const now = Date.now();
 				const decoded = decodeBoardFilter(raw, new Date(now));
+				setFilterState(decoded);
 				if (decoded !== null) {
-					setFilterState(decoded);
 					// The slide: this mount is a board open, so the expiry moves
 					// out from now — written even when the filter never changes.
 					AsyncStorage.setItem(key, encodeBoardFilter(decoded, now)).catch(
@@ -95,16 +86,20 @@ export function useBoardFilter(homeId: string | null): {
 				}
 				setLoading(false);
 			});
-
-		return () => {
-			live = false;
-		};
 	}, [homeId]);
+
+	useEffect(() => {
+		refresh();
+		return () => {
+			generation.current++;
+		};
+	}, [refresh]);
 
 	const setFilter = useCallback(
 		(next: BoardFilter | null) => {
-			touched.current = true;
+			generation.current++;
 			setFilterState(next);
+			setLoading(false);
 			if (homeId === null) return;
 			const key = boardFilterKey(homeId);
 			const write =
@@ -120,5 +115,5 @@ export function useBoardFilter(homeId: string | null): {
 		[homeId],
 	);
 
-	return { filter, loading, setFilter };
+	return { filter, loading, setFilter, refresh };
 }

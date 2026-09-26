@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
 	type NavigationProp,
 	type ParamListBase,
@@ -23,11 +22,7 @@ import { useBoardNodes } from "@/hooks/use-board-nodes";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useLocations } from "@/hooks/use-locations";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
-import {
-	boardFilterKey,
-	decodeBoardFilter,
-	filterActionVisible,
-} from "@/models/board-filter";
+import { filterActionVisible } from "@/models/board-filter";
 import { membersOf } from "@/models/home";
 import { defaultColumns } from "@/models/node";
 import { useAppTheme } from "@/theme";
@@ -61,7 +56,12 @@ export default function Projects() {
 
 	const homeId = activeHome?.id ?? null;
 	if (from === "locations") placeVisitHomeId = homeId;
-	const { filter, loading: filterLoading, setFilter } = useBoardFilter(homeId);
+	const {
+		filter,
+		loading: filterLoading,
+		setFilter,
+		refresh,
+	} = useBoardFilter(homeId);
 	useFocusEffect(
 		useCallback(() => {
 			if (homeId === null) return;
@@ -70,18 +70,8 @@ export default function Projects() {
 				setFilter(null);
 				return;
 			}
-			let live = true;
-			AsyncStorage.getItem(boardFilterKey(homeId))
-				.then((raw) => {
-					if (live) setFilter(decodeBoardFilter(raw, new Date()));
-				})
-				.catch((reason) =>
-					console.warn("Could not read the board filter:", reason),
-				);
-			return () => {
-				live = false;
-			};
-		}, [from, homeId, setFilter]),
+			refresh();
+		}, [from, homeId, refresh, setFilter]),
 	);
 	useEffect(() => {
 		return navigation.getParent()?.addListener("blur", () => {
