@@ -290,6 +290,8 @@ test("6: back from a place returns to Locations", async ({ page }) => {
 	const projects = page.getByRole("tab", { name: enUS.tab.projects });
 
 	await gotoAndSettle(page, ROUTES[5]);
+	await projects.click();
+	await page.waitForURL(/\/projects$/);
 	await locations.click();
 	await expect(
 		page.getByRole("button", { name: enUS.locations.showCards }),

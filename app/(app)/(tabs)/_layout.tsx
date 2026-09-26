@@ -23,9 +23,10 @@ export default function TabsLayout() {
 	if (!activeHome) return <Redirect href="/homes" />;
 
 	return (
-		// Default firstRoute replaces tab switches on web and sends back to Overview.
+		// Every tab visit, repeats included, is a history entry, so browser back
+		// retraces the taps; "history" would replace a revisit and drop it.
 		<Tabs
-			backBehavior="history"
+			backBehavior="fullHistory"
 			screenOptions={{
 				headerShown: false,
 				tabBarActiveTintColor: theme.colors.primary,
