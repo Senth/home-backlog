@@ -245,6 +245,7 @@ export default function Locations() {
 			</Appbar.Header>
 
 			<SlimScrollView
+				testID="locations-scroll"
 				contentContainerStyle={{
 					padding: space.md,
 					paddingBottom: fabInset,

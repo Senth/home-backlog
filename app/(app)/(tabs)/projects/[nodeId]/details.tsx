@@ -96,7 +96,10 @@ export default function NodeDetails() {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
 	const { width } = useWindowDimensions();
-	const { nodeId } = useLocalSearchParams<{ nodeId: string }>();
+	const { nodeId, from } = useLocalSearchParams<{
+		nodeId: string;
+		from?: string;
+	}>();
 	const { activeHome } = useHome();
 	const { user } = useAuth();
 	const focused = useIsFocused();
@@ -429,7 +432,14 @@ export default function NodeDetails() {
 				    above where you started, with the board you were on gone. */}
 				<BackAction
 					accessibilityLabel={t("board.up")}
-					onPress={() => goBack(boardHref(node?.parentId ?? null), "dismissTo")}
+					onPress={() => {
+						if (from === "locations") {
+							router.dismissTo("/projects");
+							router.navigate("/locations");
+						} else {
+							goBack(boardHref(node?.parentId ?? null), "dismissTo");
+						}
+					}}
 				/>
 				{/* The bar names the screen, not the card — the card face below is
 			    where the card says its own name, and repeating it here left a

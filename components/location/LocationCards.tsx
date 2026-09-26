@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View } from "react-native";
 import { Button, Icon, Text } from "react-native-paper";
 import { BoardCard } from "@/components/board/BoardCard";
-import { boardHref, detailsHref } from "@/components/board/board-href";
+import { boardHref } from "@/components/board/board-href";
 import { cardsAtPlace } from "@/models/location-cards";
 import type { Location } from "@/models/locations";
 import { hasSteps, type Node } from "@/models/node";
@@ -99,7 +99,12 @@ export function LocationCards({
 							hideLocation
 							onOpen={() =>
 								router.push(
-									hasSteps(node) ? boardHref(node.id) : detailsHref(node.id),
+									hasSteps(node)
+										? boardHref(node.id)
+										: {
+												pathname: "/projects/[nodeId]/details",
+												params: { nodeId: node.id, from: "locations" },
+											},
 								)
 							}
 						/>
