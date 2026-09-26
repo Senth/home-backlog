@@ -95,4 +95,45 @@ describe("ChoiceField", () => {
 
 		expect(onChange).not.toHaveBeenCalled();
 	});
+
+	it("draws the not-set row above the values when given a label", () => {
+		renderChoiceField({ notSetLabel: "Not set" });
+
+		const texts = screen.UNSAFE_getAllByType(Text).map((t) => t.props.children);
+		expect(texts).toEqual([
+			"Field",
+			"Not set",
+			"Low",
+			"Normal",
+			"High",
+			"Urgent",
+		]);
+	});
+
+	it("the not-set row is the selected one while the value is null", () => {
+		renderChoiceField({ notSetLabel: "Not set" });
+
+		const pressed = screen
+			.getAllByRole("button")
+			.map((row) => row.props["aria-pressed"]);
+		expect(pressed).toEqual([true, false, false, false, false]);
+	});
+
+	it("tapping the not-set row clears the value", () => {
+		const onChange = jest.fn();
+		renderChoiceField({ value: "high", notSetLabel: "Not set", onChange });
+
+		fireEvent.press(screen.getByText("Not set"));
+
+		expect(onChange).toHaveBeenCalledWith(null);
+	});
+
+	it("tapping the already-selected not-set row does nothing", () => {
+		const onChange = jest.fn();
+		renderChoiceField({ value: null, notSetLabel: "Not set", onChange });
+
+		fireEvent.press(screen.getByText("Not set"));
+
+		expect(onChange).not.toHaveBeenCalled();
+	});
 });
