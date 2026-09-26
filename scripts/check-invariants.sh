@@ -12,7 +12,7 @@
 # Usage:   yarn invariants [--base <ref>]
 # Exit:    0 = all pass, 1 = an invariant failed, 2 = the script could not run
 #
-# Checks 1-6, 8 and 14 through 21 read the whole working tree — tracked files
+# Checks 1-6, 8 and 14 through 22 read the whole working tree — tracked files
 # *and* untracked ones that git would add, because the moment you most want
 # this run is right after writing a new file, and a new file has not been
 # staged yet. A violation is a violation whoever wrote it, and the tree being
@@ -320,9 +320,9 @@ fi
 # 8. Every module in models/ and utils/ has a sibling test — and so does any
 #    hook that hides under components/
 #
-# These directories are domain logic by definition — nothing that is only a
-# one-line wrapper around an SDK call belongs in either. `auth/` is deliberately
-# not in the list: auth/redirect.ts really is that one-line wrapper.
+# These directories are domain logic by definition, except utils/navigation.ts:
+# its one-line SDK call is shared by back arrows and guarded by check 22.
+# `auth/` is deliberately not in the list: auth/redirect.ts is another wrapper.
 #
 # The `use-*.ts` clause is the gap this check used to have. A hook is a domain
 # module wherever it lives, and `components/board/use-board-drag.ts` — a whole
@@ -340,6 +340,7 @@ for f in "${TREE[@]}"; do HAVE["$f"]=1; done
 missing=""
 for f in "${TREE[@]}"; do
 	[[ "$f" =~ ^(models|utils)/ || "$f" =~ ^components/(.*/)?use-[^/]+\.ts$ ]] || continue
+	[[ "$f" == utils/navigation.ts ]] && continue
 	[[ "$f" =~ \.(test|d)\.tsx?$ ]] && continue
 	base="${f%.*}"
 	[[ -n "${HAVE["$base.test.ts"]:-}${HAVE["$base.test.tsx"]:-}" ]] || missing+="$f"$'\n'
@@ -730,6 +731,26 @@ if [[ -n "$hits" ]]; then
 		"A bare ScrollView or FlatList draws the browser's native scrollbar. Render <SlimScrollView> or <SlimFlatList> instead — components/ui/SlimScrollView.tsx."
 else
 	report 21 "SlimScrollView only" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 22. Only utils/navigation.ts decides whether back has history
+#
+# A direct call leaves the arrow dead after a reload. Whole-line comments are
+# ignored so prose about this failure does not trigger the check.
+# ---------------------------------------------------------------------------
+BACK_FILES=()
+for f in "${ALL_TS[@]}"; do
+	[[ "$f" == utils/navigation.ts ]] && continue
+	BACK_FILES+=("$f")
+done
+PATTERN='\b(canGoBack|router\.back)[[:space:]]*\('
+hits=$(scan "${BACK_FILES[@]}" | strip_comments)
+if [[ -n "$hits" ]]; then
+	report 22 "back only via goBack" FAIL "$hits" \
+		"Use goBack from @/utils/navigation instead of calling router.back or canGoBack directly."
+else
+	report 22 "back only via goBack" ok
 fi
 
 # ---------------------------------------------------------------------------

@@ -48,6 +48,7 @@ import {
 	space,
 	touchTarget,
 } from "@/theme/tokens";
+import { goBack } from "@/utils/navigation";
 
 /**
  * The editor: every card on the screen, arranged.
@@ -215,7 +216,7 @@ export default function OverviewEditor() {
 			<Appbar.Header>
 				<BackAction
 					accessibilityLabel={t("common.done")}
-					onPress={() => router.back()}
+					onPress={() => goBack("/overview")}
 				/>
 				<Appbar.Content title={t("overview.cards.editor.title")} />
 				<Appbar.Action

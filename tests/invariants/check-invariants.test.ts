@@ -43,6 +43,7 @@ const CHECKS = [
 	"label glyph named",
 	"Menu only via AppMenu",
 	"SlimScrollView only",
+	"back only via goBack",
 ];
 
 type Case = {
@@ -98,6 +99,15 @@ const CASES: Case[] = [
 	{ name: "label-glyph-named", check: "label glyph named" },
 	{ name: "menu-via-appmenu", check: "Menu only via AppMenu" },
 	{ name: "scroll-via-slim", check: "SlimScrollView only" },
+	{
+		name: "direct-back",
+		check: "back only via goBack",
+		files: async (sandbox) => {
+			const screen = path.join(sandbox, "app", "DirectBack.tsx");
+			await fs.promises.mkdir(path.dirname(screen), { recursive: true });
+			await fs.promises.writeFile(screen, "router.back();\n");
+		},
+	},
 ];
 
 type Run = { code: number; stdout: string; stderr: string };
