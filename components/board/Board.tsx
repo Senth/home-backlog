@@ -828,6 +828,7 @@ export function Board({
 							onOpen={noop}
 							menu={menu(drag.node)}
 							wide={!compact}
+							onColumn={!compact}
 							narrow={narrow}
 							blockers={blockers}
 							ancestorLabelIds={ancestorLabelIds}
