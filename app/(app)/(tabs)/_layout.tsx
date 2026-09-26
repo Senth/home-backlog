@@ -23,7 +23,9 @@ export default function TabsLayout() {
 	if (!activeHome) return <Redirect href="/homes" />;
 
 	return (
+		// Default firstRoute replaces tab switches on web and sends back to Overview.
 		<Tabs
+			backBehavior="history"
 			screenOptions={{
 				headerShown: false,
 				tabBarActiveTintColor: theme.colors.primary,
