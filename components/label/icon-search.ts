@@ -64,9 +64,16 @@ function tierOf(
 	words: string[],
 	keywords: string[],
 ): number {
-	if (words.some((w) => w.startsWith(word))) return 0;
-	if (keywords.some((k) => k.startsWith(word))) return 1;
-	if (name.includes(word) || keywords.some((k) => k.includes(word))) return 2;
+	for (let i = 0; i < words.length; i++) {
+		if (words[i].startsWith(word)) return 0;
+	}
+	for (let i = 0; i < keywords.length; i++) {
+		if (keywords[i].startsWith(word)) return 1;
+	}
+	if (name.includes(word)) return 2;
+	for (let i = 0; i < keywords.length; i++) {
+		if (keywords[i].includes(word)) return 2;
+	}
 	return 3;
 }
 
