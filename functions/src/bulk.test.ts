@@ -1,5 +1,6 @@
 import {
 	type BulkContext,
+	isLocationDocumentId,
 	maxBulkNodes,
 	parseBulkBody,
 	planBulk,
@@ -329,6 +330,43 @@ describe("filing a subtree", () => {
 		]);
 	});
 
+	it("rejects invalid document paths and reports each as a missing place", () => {
+		for (const id of ["", "missing/child", "missing/child/place"]) {
+			expect(isLocationDocumentId(id)).toBe(false);
+		}
+		expect(isLocationDocumentId("kitchen")).toBe(true);
+
+		const error = refusal(() =>
+			plan({
+				nodes: [
+					{ ref: "root", title: "Root", locationId: "" },
+					{
+						ref: "step",
+						parentRef: "root",
+						title: "Step",
+						locationId: "missing/child",
+					},
+				],
+			}),
+		);
+
+		expect(error.status).toBe(400);
+		expect(error.details).toEqual([
+			{
+				index: 0,
+				field: "locationId",
+				code: "location_not_found",
+				message: "No location  in this home.",
+			},
+			{
+				index: 1,
+				field: "locationId",
+				code: "location_not_found",
+				message: "No location missing/child in this home.",
+			},
+		]);
+	});
+
 	it("collects a missing place alongside other node failures", () => {
 		const error = refusal(() =>
 			plan({
@@ -576,6 +614,35 @@ describe("one root", () => {
 
 		expect(error.code).toBe("cycle");
 		expect(error.details?.map((detail) => detail.index)).toEqual([1, 2]);
+	});
+
+	it("collects place and blocker failures on disconnected cycle nodes", () => {
+		const error = refusal(() =>
+			plan({
+				nodes: [
+					{ ref: "root", title: "Root" },
+					{
+						ref: "a",
+						parentRef: "b",
+						title: "A",
+						locationId: "missing",
+						blockedByRefs: ["unknown", "a"],
+					},
+					{ ref: "b", parentRef: "a", title: "B" },
+				],
+			}),
+		);
+
+		expect(error.status).toBe(400);
+		expect(
+			error.details?.map(({ index, field, code }) => ({ index, field, code })),
+		).toEqual([
+			{ index: 1, field: "locationId", code: "location_not_found" },
+			{ index: 1, field: "blockedByRefs", code: "unknown_blocked_by_ref" },
+			{ index: 1, field: "blockedByRefs", code: "blocked_by_self" },
+			{ index: 1, field: "parentRef", code: "cycle" },
+			{ index: 2, field: "parentRef", code: "cycle" },
+		]);
 	});
 });
 

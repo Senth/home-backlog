@@ -5,6 +5,7 @@ import { type ApiCaller, caller, homeAccess, recordWrite } from "./auth.js";
 import {
 	type BulkParentFacts,
 	type BulkPlan,
+	isLocationDocumentId,
 	parseBulkBody,
 	planBulk,
 } from "./bulk.js";
@@ -93,7 +94,10 @@ async function bulkCreate(request: Request, response: Response): Promise<void> {
 		...new Set(
 			payload.nodes
 				.map((node) => node.locationId)
-				.filter((id): id is string => id !== undefined && id !== null),
+				.filter(
+					(id): id is string =>
+						id !== undefined && id !== null && isLocationDocumentId(id),
+				),
 		),
 	];
 	const locationSnapshots =

@@ -102,6 +102,10 @@ export interface BulkParentFacts extends ParentFacts {
 	locationAncestorIds: string[];
 }
 
+export function isLocationDocumentId(id: string): boolean {
+	return id.length > 0 && !id.includes("/");
+}
+
 function fail(details: ApiErrorDetail[]): never {
 	throw new ApiError(
 		400,
@@ -347,6 +351,42 @@ export function planBulk(context: BulkContext): BulkPlan {
 		siblings.push(node);
 		childrenOf.set(node.parentRef, siblings);
 	}
+	const blockersFor = new Map<string, string[]>();
+	for (const node of nodes) {
+		if (
+			node.locationId !== undefined &&
+			node.locationId !== null &&
+			!Object.hasOwn(places, node.locationId)
+		) {
+			details.push({
+				index: node.index,
+				field: "locationId",
+				code: "location_not_found",
+				message: `No location ${node.locationId} in this home.`,
+			});
+		}
+		const blockers = [...(node.blockedBy ?? [])];
+		for (const ref of node.blockedByRefs ?? []) {
+			if (ref === node.ref) {
+				details.push({
+					index: node.index,
+					field: "blockedByRefs",
+					code: "blocked_by_self",
+					message: `Node "${node.ref}" cannot block itself.`,
+				});
+			} else if (!byRef.has(ref)) {
+				details.push({
+					index: node.index,
+					field: "blockedByRefs",
+					code: "unknown_blocked_by_ref",
+					message: `No node in this payload has the ref "${ref}".`,
+				});
+			} else {
+				blockers.push(idFor[ref]);
+			}
+		}
+		blockersFor.set(node.ref, [...new Set(blockers)]);
+	}
 
 	// Breadth-first from the one root. Anything this does not reach is in a cycle
 	// among itself — which would otherwise commit as documents unreachable from
@@ -432,34 +472,6 @@ export function planBulk(context: BulkContext): BulkPlan {
 								locationAncestorIds: [...places[node.locationId]],
 							}
 						: null;
-		if (location === null) {
-			details.push({
-				index: node.index,
-				field: "locationId",
-				code: "location_not_found",
-				message: `No location ${node.locationId} in this home.`,
-			});
-		}
-		const blockers = [...(node.blockedBy ?? [])];
-		for (const ref of node.blockedByRefs ?? []) {
-			if (ref === node.ref) {
-				details.push({
-					index: node.index,
-					field: "blockedByRefs",
-					code: "blocked_by_self",
-					message: `Node "${node.ref}" cannot block itself.`,
-				});
-			} else if (!byRef.has(ref)) {
-				details.push({
-					index: node.index,
-					field: "blockedByRefs",
-					code: "unknown_blocked_by_ref",
-					message: `No node in this payload has the ref "${ref}".`,
-				});
-			} else {
-				blockers.push(idFor[ref]);
-			}
-		}
 
 		const children = childrenOf.get(node.ref) ?? [];
 		const status: Status = node.status ?? "backlog";
@@ -483,7 +495,7 @@ export function planBulk(context: BulkContext): BulkPlan {
 			doneCount: children.filter((child) => child.status === "done").length,
 			dueDate: node.dueDate ?? null,
 			priority: node.priority ?? null,
-			blockedBy: [...new Set(blockers)],
+			blockedBy: blockersFor.get(node.ref) ?? [],
 			labelIds: node.labelIds ?? [],
 			notes: node.notes ?? "",
 			checklist: node.checklist ?? [],
