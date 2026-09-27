@@ -200,6 +200,23 @@ describe("LabelDialog", () => {
 		expect(createLabel).toHaveBeenCalledTimes(1);
 	});
 
+	it("saves after IconPicker discards an invalid hex draft", () => {
+		const onDismiss = jest.fn();
+		renderDialog({ onDismiss });
+		fireEvent.changeText(nameField(), "Winter");
+		fireEvent.press(screen.getByRole("button", { name: "labels.customColor" }));
+		const hexField = screen.UNSAFE_getAllByType(RNTextInput)[1];
+		fireEvent.changeText(hexField, toHex([0xaa, 0xbb, 0xcc]).slice(0, 4));
+		fireEvent.changeText(hexField, "invalid");
+		expect(screen.getByText("labels.colorInvalid")).toBeOnTheScreen();
+		fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
+		fireEvent.press(screen.getByRole("button", { name: "home-outline" }));
+		expect(screen.queryByText("labels.colorInvalid")).toBeNull();
+		fireEvent.press(screen.getByText("labels.add"));
+		expect(createLabel).toHaveBeenCalledTimes(1);
+		expect(onDismiss).toHaveBeenCalledTimes(1);
+	});
+
 	it("saves the picked icon without rendering a card preview", () => {
 		renderDialog({ label: label("l1") });
 		expect(screen.queryByText("labels.onCard")).toBeNull();

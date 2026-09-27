@@ -65,6 +65,7 @@ export function CustomColorPicker({
 	const previousValue = useRef(value);
 	const previousHue = useRef(parts.hue);
 	previousHue.current = parts.hue;
+	useEffect(() => () => onInvalidChange?.(false), [onInvalidChange]);
 
 	useEffect(() => {
 		if (emitted.current === value) {
