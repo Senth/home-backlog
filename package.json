@@ -20,6 +20,7 @@
 		"e2e:report": "playwright show-report .tmp/e2e/report",
 		"emulators": "scripts/dev-stack.sh up --no-web",
 		"emulators:export": "scripts/dev-stack.sh export",
+		"icon-aliases": "node scripts/gen-icon-aliases.mjs",
 		"icon-names": "node scripts/gen-icon-names.mjs",
 		"icons": "python3 scripts/gen-icons.py",
 		"todo": "scripts/sync-todo.sh"
@@ -73,6 +74,7 @@
 		"@axe-core/playwright": "4.13.0",
 		"@biomejs/biome": "2.5.14",
 		"@firebase/rules-unit-testing": "^5.0.0",
+		"@mdi/svg": "7.4.47",
 		"@playwright/test": "1.63.0",
 		"@testing-library/react-native": "~13",
 		"@types/jest": "29.5.14",

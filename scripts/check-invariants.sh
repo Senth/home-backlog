@@ -540,19 +540,23 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 16. functions/src/icon-names.ts matches the installed glyph map
+# 16. The generated icon data matches the installed dependencies
 #
 # The label verbs validate `icon` against a set generated from the installed
-# @expo/vector-icons (#256). A Renovate bump that adds glyphs must not leave
-# the API rejecting an icon the picker offers — the generator regenerates in
-# memory and compares, so a stale committed file fails here.
+# @expo/vector-icons (#256), and the picker searches English aliases generated
+# from @mdi/svg meta.json (#379). A Renovate bump must not leave either file
+# stale — each generator regenerates in memory and compares, so a stale
+# committed file fails here.
 # ---------------------------------------------------------------------------
-icon_check=$(node scripts/gen-icon-names.mjs --check 2>&1)
-if [[ $? -ne 0 ]]; then
-	report 16 "icon names generated" FAIL "$icon_check" \
-		"Run yarn icon-names and commit the regenerated functions/src/icon-names.ts."
+icon_check=""
+for gen in gen-icon-names gen-icon-aliases; do
+	out=$(node "scripts/$gen.mjs" --check 2>&1) || icon_check+="$out"$'\n'
+done
+if [[ -n "$icon_check" ]]; then
+	report 16 "icon data generated" FAIL "${icon_check%$'\n'}" \
+		"Run the yarn script named above and commit what it regenerates."
 else
-	report 16 "icon names generated" ok
+	report 16 "icon data generated" ok
 fi
 
 # ---------------------------------------------------------------------------

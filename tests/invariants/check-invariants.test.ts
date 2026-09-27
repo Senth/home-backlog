@@ -37,7 +37,7 @@ const CHECKS = [
 	"no Appbar.BackAction",
 	"e2e spec budget",
 	"emulators via dev-stack",
-	"icon names generated",
+	"icon data generated",
 	"button hierarchy",
 	"DueChip warning-only",
 	"label glyph named",
@@ -93,7 +93,8 @@ const CASES: Case[] = [
 			await fs.promises.writeFile(rogue, `#!/bin/sh\n${command}\n`);
 		},
 	},
-	{ name: "icon-names", check: "icon names generated" },
+	{ name: "icon-names", check: "icon data generated" },
+	{ name: "icon-aliases", check: "icon data generated" },
 	{ name: "button-hierarchy", check: "button hierarchy" },
 	{ name: "duechip-warning", check: "DueChip warning-only" },
 	{ name: "label-glyph-named", check: "label glyph named" },

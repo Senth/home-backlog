@@ -1,0 +1,2 @@
+console.error("i18n/icon-keywords/en-US.json is stale. Run `yarn icon-aliases`.");
+process.exit(1);
