@@ -22,12 +22,16 @@ const tags = new Map(
 	JSON.parse(readFileSync(META, "utf8")).map((icon) => [icon.name, icon.tags]),
 );
 const aliases = JSON.parse(readFileSync(ALIASES, "utf8"));
-const keywords = existsSync(target)
+const glyphs = Object.keys(JSON.parse(readFileSync(GLYPHMAP, "utf8"))).sort();
+const existing = existsSync(target)
 	? JSON.parse(readFileSync(target, "utf8"))
 	: {};
-const missing = Object.keys(JSON.parse(readFileSync(GLYPHMAP, "utf8")))
-	.filter((name) => !(name in keywords))
-	.sort();
+const keywords = Object.fromEntries(
+	glyphs
+		.filter((name) => name in existing)
+		.map((name) => [name, existing[name]]),
+);
+const missing = glyphs.filter((name) => !(name in keywords));
 
 const prompt = (
 	names,
@@ -65,7 +69,7 @@ const ask = (names) => {
 	const absent = names.filter((name) => typeof batch[name] !== "string");
 	if (extra.length || absent.length) {
 		throw new Error(
-			`missing or non-string: ${absent.join(", ") || "none"}; extra: ${extra.join(", ") || "none"}`,
+			`${absent.length} missing or non-string (${absent.slice(0, 5).join(", ")}), ${extra.length} extra (${extra.slice(0, 5).join(", ")})`,
 		);
 	}
 	return batch;
@@ -80,6 +84,7 @@ const write = () => {
 	writeFileSync(target, `${JSON.stringify(sorted, null, "\t")}\n`);
 };
 
+write();
 console.log(`${missing.length} glyphs missing from ${target}.`);
 for (let start = 0; start < missing.length; start += BATCH) {
 	const names = missing.slice(start, start + BATCH);

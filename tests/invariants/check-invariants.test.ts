@@ -44,6 +44,7 @@ const CHECKS = [
 	"Menu only via AppMenu",
 	"SlimScrollView only",
 	"back only via goBack",
+	"icon keywords per locale",
 ];
 
 type Case = {
@@ -109,6 +110,8 @@ const CASES: Case[] = [
 			await fs.promises.writeFile(screen, "router.back();\n");
 		},
 	},
+	{ name: "icon-keywords-missing", check: "icon keywords per locale" },
+	{ name: "icon-keywords-extra", check: "icon keywords per locale" },
 ];
 
 type Run = { code: number; stdout: string; stderr: string };

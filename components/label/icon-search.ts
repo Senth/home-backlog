@@ -33,6 +33,7 @@ type KeywordFile = Record<string, string>;
 
 const keywordFiles: Record<string, () => Promise<{ default: KeywordFile }>> = {
 	"en-US": () => import("@/i18n/icon-keywords/en-US.json"),
+	"sv-SE": () => import("@/i18n/icon-keywords/sv-SE.json"),
 };
 
 /**

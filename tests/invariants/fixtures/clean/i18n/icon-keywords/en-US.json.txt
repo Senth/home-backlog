@@ -1,0 +1,1 @@
+{ "fridge": "refrigerator kitchen", "microsoft": "" }

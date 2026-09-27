@@ -95,6 +95,48 @@ describe("searchIcons with a keyword index", () => {
 	);
 });
 
+describe("searchIcons over the Swedish keywords", () => {
+	let keywords: Record<string, string[]>;
+
+	beforeAll(async () => {
+		keywords = await loadIconKeywords("sv-SE");
+	});
+
+	it.each([
+		["kök", ["fridge", "stove"]],
+		["kylskåp", ["fridge"]],
+		["säng", ["bed"]],
+		["soffa", ["sofa"]],
+		["dusch", ["shower"]],
+		["toalett", ["toilet"]],
+		["tvättmaskin", ["washing-machine"]],
+		["hammare", ["hammer"]],
+		["såg", ["hand-saw"]],
+		["gräsklippare", ["mower"]],
+		["lampa", ["lamp"]],
+		["element", ["radiator"]],
+		["trädgård", ["flower"]],
+		["trappa", ["stairs"]],
+		["tak", ["home-roof"]],
+	])("%s finds %j by a word prefix", (query, glyphs) => {
+		const results = searchIcons(query, keywords);
+		for (const glyph of glyphs) {
+			expect(results).toContain(glyph);
+			const words = [...glyph.split("-"), ...keywords[glyph]];
+			expect(words.some((word) => word.startsWith(query))).toBe(true);
+		}
+	});
+
+	it("finds fridge from kyl by prefix", () => {
+		expect(searchIcons("kyl", keywords)).toContain("fridge");
+		expect(keywords.fridge.some((word) => word.startsWith("kyl"))).toBe(true);
+	});
+
+	it("keeps the Swedish words out of the en-US index", async () => {
+		expect(searchIcons("kök", await loadIconKeywords("en-US"))).toEqual([]);
+	});
+});
+
 describe("iconColumns", () => {
 	// The brief's three widths: a cell may never undercut the touch target.
 	const widths = [195, 320, 390];
