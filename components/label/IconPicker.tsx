@@ -47,7 +47,16 @@ export function IconPicker({ value, onSelect, onClose }: IconPickerProps) {
 	const [keywords, setKeywords] = useState<IconKeywords>();
 
 	useEffect(() => {
-		loadIconKeywords(i18n.language).then(setKeywords);
+		let live = true;
+		setKeywords(undefined);
+		loadIconKeywords(i18n.language)
+			.then((index) => {
+				if (live) setKeywords(index);
+			})
+			.catch(() => {});
+		return () => {
+			live = false;
+		};
 	}, [i18n.language]);
 
 	const results = useMemo(

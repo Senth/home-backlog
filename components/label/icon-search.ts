@@ -25,6 +25,7 @@ import { space, touchTarget } from "@/theme/tokens";
  */
 const allNames = Object.keys(MaterialCommunityIcons.glyphMap).sort();
 const nameWords = allNames.map((name) => name.split("-"));
+const noKeywords: string[] = [];
 
 /** Glyph name → its keyword words, split once when the index is built. */
 export type IconKeywords = Record<string, string[]>;
@@ -74,13 +75,15 @@ export function searchIcons(query: string, keywords?: IconKeywords): string[] {
 	const needles = query.toLowerCase().split(/\s+/).filter(Boolean);
 	if (needles.length === 0) return allNames;
 	const tiers: string[][] = [[], [], []];
-	allNames.forEach((name, i) => {
-		const own = keywords?.[name] ?? [];
-		const tier = Math.max(
-			...needles.map((word) => tierOf(word, name, nameWords[i], own)),
-		);
+	for (let i = 0; i < allNames.length; i++) {
+		const name = allNames[i];
+		const own = keywords?.[name] ?? noKeywords;
+		let tier = 0;
+		for (let n = 0; n < needles.length && tier < 3; n++) {
+			tier = Math.max(tier, tierOf(needles[n], name, nameWords[i], own));
+		}
 		if (tier < 3) tiers[tier].push(name);
-	});
+	}
 	return tiers.flat();
 }
 
