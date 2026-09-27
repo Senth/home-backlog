@@ -631,6 +631,102 @@ describe("refs", () => {
 	});
 });
 
+describe("blockedByRefs", () => {
+	it("resolves a sibling's ref to its generated id", () => {
+		const result = plan({
+			nodes: [
+				{ ref: "root", title: "Install fan" },
+				{ ref: "buy", parentRef: "root", title: "Order a fan" },
+				{
+					ref: "fit",
+					parentRef: "root",
+					title: "Fit it",
+					blockedByRefs: ["buy"],
+				},
+			],
+		});
+
+		expect(itemFor(result, "fit").blockedBy).toEqual(["id-buy"]);
+	});
+
+	it("merges explicit ids before refs without duplicate ids", () => {
+		const result = plan({
+			nodes: [
+				{
+					ref: "root",
+					title: "Root",
+					blockedBy: ["existing", "id-step"],
+					blockedByRefs: ["step", "step"],
+				},
+				{ ref: "step", parentRef: "root", title: "Step" },
+			],
+		});
+
+		expect(itemFor(result, "root").blockedBy).toEqual(["existing", "id-step"]);
+	});
+
+	it("reports unknown and self refs at their indexes without a plan", () => {
+		const error = refusal(() =>
+			plan({
+				nodes: [
+					{ ref: "root", title: "Root" },
+					{
+						ref: "step",
+						parentRef: "root",
+						title: "Step",
+						blockedByRefs: ["missing", "step"],
+					},
+				],
+			}),
+		);
+
+		expect(error.status).toBe(400);
+		expect(error.details).toEqual([
+			expect.objectContaining({
+				index: 1,
+				field: "blockedByRefs",
+				code: "unknown_blocked_by_ref",
+			}),
+			expect.objectContaining({
+				index: 1,
+				field: "blockedByRefs",
+				code: "blocked_by_self",
+			}),
+		]);
+	});
+
+	it("rejects a non-list and non-string refs at their indexes", () => {
+		const error = refusal(() =>
+			plan({
+				nodes: [
+					{ ref: "root", title: "Root" },
+					{
+						ref: "one",
+						parentRef: "root",
+						title: "One",
+						blockedByRefs: "root",
+					},
+					{ ref: "two", parentRef: "root", title: "Two", blockedByRefs: [1] },
+				],
+			}),
+		);
+
+		expect(error.status).toBe(400);
+		expect(error.details).toEqual([
+			expect.objectContaining({
+				index: 1,
+				field: "blockedByRefs",
+				code: "invalid_type",
+			}),
+			expect.objectContaining({
+				index: 2,
+				field: "blockedByRefs",
+				code: "invalid_type",
+			}),
+		]);
+	});
+});
+
 /**
  * Validated in full before anything is written, so the caller gets every failure
  * at once and can fix and resend. Partial success was rejected: every one of

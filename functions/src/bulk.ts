@@ -57,6 +57,7 @@ export interface BulkNode extends NodeBody {
 	ref: string;
 	/** Another node's `ref`. Absent on exactly one node: the new root. */
 	parentRef: string | null;
+	blockedByRefs?: string[];
 	/** Where this node sat in the request, so an error can point at it. */
 	index: number;
 }
@@ -182,7 +183,24 @@ export function parseBulkBody(body: unknown): BulkPayload {
 				continue;
 			}
 
-			const fields = parseNodeBody(object, "create", ["ref", "parentRef"]);
+			const fields = parseNodeBody(object, "create", [
+				"ref",
+				"parentRef",
+				"blockedByRefs",
+			]);
+			if (
+				"blockedByRefs" in object &&
+				(!Array.isArray(object.blockedByRefs) ||
+					object.blockedByRefs.some((ref) => typeof ref !== "string"))
+			) {
+				details.push({
+					index,
+					field: "blockedByRefs",
+					code: "invalid_type",
+					message: "blockedByRefs must be a list of strings.",
+				});
+				continue;
+			}
 			const ref = object.ref;
 			if (typeof ref !== "string" || ref.length === 0) {
 				details.push({
@@ -204,7 +222,13 @@ export function parseBulkBody(body: unknown): BulkPayload {
 				continue;
 			}
 
-			nodes.push({ ...fields, ref, parentRef, index });
+			nodes.push({
+				...fields,
+				ref,
+				parentRef,
+				blockedByRefs: object.blockedByRefs as string[] | undefined,
+				index,
+			});
 		} catch (error) {
 			if (!(error instanceof ApiError)) throw error;
 			// A single node's own refusal, re-pointed at its position in the array.
@@ -416,6 +440,26 @@ export function planBulk(context: BulkContext): BulkPlan {
 				message: `No location ${node.locationId} in this home.`,
 			});
 		}
+		const blockers = [...(node.blockedBy ?? [])];
+		for (const ref of node.blockedByRefs ?? []) {
+			if (ref === node.ref) {
+				details.push({
+					index: node.index,
+					field: "blockedByRefs",
+					code: "blocked_by_self",
+					message: `Node "${node.ref}" cannot block itself.`,
+				});
+			} else if (!byRef.has(ref)) {
+				details.push({
+					index: node.index,
+					field: "blockedByRefs",
+					code: "unknown_blocked_by_ref",
+					message: `No node in this payload has the ref "${ref}".`,
+				});
+			} else {
+				blockers.push(idFor[ref]);
+			}
+		}
 
 		const children = childrenOf.get(node.ref) ?? [];
 		const status: Status = node.status ?? "backlog";
@@ -439,7 +483,7 @@ export function planBulk(context: BulkContext): BulkPlan {
 			doneCount: children.filter((child) => child.status === "done").length,
 			dueDate: node.dueDate ?? null,
 			priority: node.priority ?? null,
-			blockedBy: node.blockedBy ?? [],
+			blockedBy: [...new Set(blockers)],
 			labelIds: node.labelIds ?? [],
 			notes: node.notes ?? "",
 			checklist: node.checklist ?? [],
