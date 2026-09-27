@@ -85,7 +85,8 @@ export interface BulkContext {
 	/** One generated document id per ref, made by the handler. */
 	idFor: Record<string, string>;
 	/** The existing node the root attaches under, already resolved and readable. */
-	parent: ParentFacts | null;
+	parent: BulkParentFacts | null;
+	places: Record<string, string[]>;
 	/** The rank the new root takes in its column at the attach point. */
 	rootRank: string;
 	createdBy: string;
@@ -93,6 +94,11 @@ export interface BulkContext {
 	memberUids: readonly string[];
 	/** A server timestamp sentinel, or a real date in a test. */
 	now: unknown;
+}
+
+export interface BulkParentFacts extends ParentFacts {
+	locationId: string | null;
+	locationAncestorIds: string[];
 }
 
 function fail(details: ApiErrorDetail[]): never {
@@ -176,20 +182,6 @@ export function parseBulkBody(body: unknown): BulkPayload {
 				continue;
 			}
 
-			// The single-node verbs file work in a place (#246); the bulk planner
-			// does not resolve places, so a payload that named one would be
-			// silently unfiled — refused rather than ignored.
-			if ("locationId" in object || "locationAncestorIds" in object) {
-				details.push({
-					index,
-					field: "locationId" in object ? "locationId" : "locationAncestorIds",
-					code: "locations_unavailable",
-					message:
-						"A bulk create files nothing yet: it cannot check a location id. PATCH each node's locationId afterwards.",
-				});
-				continue;
-			}
-
 			const fields = parseNodeBody(object, "create", ["ref", "parentRef"]);
 			const ref = object.ref;
 			if (typeof ref !== "string" || ref.length === 0) {
@@ -229,7 +221,7 @@ export function parseBulkBody(body: unknown): BulkPayload {
 }
 
 /** The facts a node contributes as a parent to the nodes below it. */
-interface PlannedFacts extends ParentFacts {
+interface PlannedFacts extends BulkParentFacts {
 	depth: number;
 }
 
@@ -237,12 +229,20 @@ interface PlannedFacts extends ParentFacts {
  * Turn a payload into the exact documents to write, or refuse it whole.
  *
  * Pure: no I/O, so the write is a separate step that either commits everything
- * or nothing. Every check here is decidable from the payload plus the four facts
- * the handler read once.
+ * or nothing. Every check here is decidable from the payload and facts
+ * the handler read before planning.
  */
 export function planBulk(context: BulkContext): BulkPlan {
-	const { payload, idFor, parent, rootRank, createdBy, memberUids, now } =
-		context;
+	const {
+		payload,
+		idFor,
+		parent,
+		places,
+		rootRank,
+		createdBy,
+		memberUids,
+		now,
+	} = context;
 	const { nodes } = payload;
 
 	const details: ApiErrorDetail[] = [];
@@ -391,6 +391,31 @@ export function planBulk(context: BulkContext): BulkPlan {
 				: facts.visibility === "private"
 					? [...facts.participantIds]
 					: [];
+		const inheritedLocation = facts ?? parent;
+		const location =
+			node.locationId === undefined
+				? {
+						locationId: inheritedLocation?.locationId ?? null,
+						locationAncestorIds: [
+							...(inheritedLocation?.locationAncestorIds ?? []),
+						],
+					}
+				: node.locationId === null
+					? { locationId: null, locationAncestorIds: [] }
+					: Object.hasOwn(places, node.locationId)
+						? {
+								locationId: node.locationId,
+								locationAncestorIds: [...places[node.locationId]],
+							}
+						: null;
+		if (location === null) {
+			details.push({
+				index: node.index,
+				field: "locationId",
+				code: "location_not_found",
+				message: `No location ${node.locationId} in this home.`,
+			});
+		}
 
 		const children = childrenOf.get(node.ref) ?? [];
 		const status: Status = node.status ?? "backlog";
@@ -401,8 +426,8 @@ export function planBulk(context: BulkContext): BulkPlan {
 			rank,
 			parentId: facts === null ? (parent?.id ?? null) : facts.id,
 			ancestorIds,
-			locationId: null,
-			locationAncestorIds: [],
+			locationId: location?.locationId ?? null,
+			locationAncestorIds: location?.locationAncestorIds ?? [],
 			participantIds,
 			assigneeIds: node.assigneeIds ?? [],
 			visibility,
@@ -447,6 +472,8 @@ export function planBulk(context: BulkContext): BulkPlan {
 			participantIds,
 			columns: [...defaultColumns],
 			ancestorIds,
+			locationId: location?.locationId ?? null,
+			locationAncestorIds: location?.locationAncestorIds ?? [],
 			depth,
 		};
 		factsOf.set(node.ref, own);

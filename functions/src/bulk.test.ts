@@ -5,7 +5,6 @@ import {
 	planBulk,
 } from "./bulk.js";
 import type { ApiError } from "./errors.js";
-import type { ParentFacts } from "./validate.js";
 
 const ME = "uidMarcus";
 const MEMBERS = ["uidMarcus", "uidAnna"];
@@ -20,13 +19,17 @@ function refusal(run: () => unknown): ApiError {
 	throw new Error("Expected this payload to be refused.");
 }
 
-function parentFacts(overrides: Partial<ParentFacts> = {}): ParentFacts {
+function parentFacts(
+	overrides: Partial<NonNullable<BulkContext["parent"]>> = {},
+): NonNullable<BulkContext["parent"]> {
 	return {
 		id: "project",
 		visibility: "shared",
 		participantIds: [],
 		columns: ["backlog", "execution", "done"],
 		ancestorIds: [],
+		locationId: null,
+		locationAncestorIds: [],
 		...overrides,
 	};
 }
@@ -34,9 +37,10 @@ function parentFacts(overrides: Partial<ParentFacts> = {}): ParentFacts {
 function plan(
 	body: unknown,
 	options: {
-		parent?: ParentFacts | null;
+		parent?: BulkContext["parent"];
 		rootRank?: string;
 		memberUids?: readonly string[];
+		places?: Record<string, string[]>;
 	} = {},
 ) {
 	const payload = parseBulkBody(body);
@@ -46,6 +50,7 @@ function plan(
 			payload.nodes.map((node) => [node.ref, `id-${node.ref}`]),
 		),
 		parent: options.parent ?? null,
+		places: options.places ?? {},
 		rootRank: options.rootRank ?? "a0",
 		createdBy: ME,
 		memberUids: options.memberUids ?? MEMBERS,
@@ -181,6 +186,163 @@ describe("a planned subtree", () => {
 
 		expect(itemFor(result, "a").completedAt).toBe(now);
 		expect(itemFor(result, "root").completedAt).toBeNull();
+	});
+});
+
+describe("filing a subtree", () => {
+	it("files the root and its descendants in an explicit place, several levels deep", () => {
+		const result = plan(
+			{
+				nodes: tree.nodes.map((node) =>
+					node.ref === "root" ? { ...node, locationId: "kitchen" } : node,
+				),
+			},
+			{ places: { kitchen: ["house", "floor"] } },
+		);
+
+		for (const item of result.items) {
+			expect(item.data).toMatchObject({
+				locationId: "kitchen",
+				locationAncestorIds: ["house", "floor"],
+			});
+		}
+	});
+
+	it("lets a child override the parent's place and passes the override down", () => {
+		const result = plan(
+			{
+				nodes: tree.nodes.map((node) =>
+					node.ref === "root"
+						? { ...node, locationId: "house" }
+						: node.ref === "buy"
+							? { ...node, locationId: "kitchen" }
+							: node,
+				),
+			},
+			{ places: { house: [], kitchen: ["house"] } },
+		);
+
+		expect(itemFor(result, "book")).toMatchObject({
+			locationId: "house",
+			locationAncestorIds: [],
+		});
+		for (const ref of ["buy", "prices"]) {
+			expect(itemFor(result, ref)).toMatchObject({
+				locationId: "kitchen",
+				locationAncestorIds: ["house"],
+			});
+		}
+	});
+
+	it("unfiles a child and its silent descendants under a filed parent", () => {
+		const result = plan(
+			{
+				nodes: tree.nodes.map((node) =>
+					node.ref === "root"
+						? { ...node, locationId: "house" }
+						: node.ref === "buy"
+							? { ...node, locationId: null }
+							: node,
+				),
+			},
+			{ places: { house: [] } },
+		);
+
+		for (const ref of ["buy", "prices"]) {
+			expect(itemFor(result, ref)).toMatchObject({
+				locationId: null,
+				locationAncestorIds: [],
+			});
+		}
+		expect(itemFor(result, "book").locationId).toBe("house");
+	});
+
+	it("inherits the attach parent's place when the root is silent", () => {
+		const result = plan(tree, {
+			parent: parentFacts({
+				locationId: "kitchen",
+				locationAncestorIds: ["house"],
+			}),
+		});
+
+		for (const item of result.items) {
+			expect(item.data).toMatchObject({
+				locationId: "kitchen",
+				locationAncestorIds: ["house"],
+			});
+		}
+	});
+
+	it("lets the root override or clear the attach parent's place", () => {
+		const parent = parentFacts({
+			locationId: "house",
+			locationAncestorIds: [],
+		});
+		const filed = plan(
+			{ nodes: [{ ref: "root", title: "Root", locationId: "kitchen" }] },
+			{ parent, places: { kitchen: ["house"] } },
+		);
+		const unfiled = plan(
+			{ nodes: [{ ref: "root", title: "Root", locationId: null }] },
+			{ parent },
+		);
+
+		expect(itemFor(filed, "root")).toMatchObject({
+			locationId: "kitchen",
+			locationAncestorIds: ["house"],
+		});
+		expect(itemFor(unfiled, "root")).toMatchObject({
+			locationId: null,
+			locationAncestorIds: [],
+		});
+	});
+
+	it("collects unknown places at every index without planning writes", () => {
+		const error = refusal(() =>
+			plan({
+				nodes: [
+					{ ref: "root", title: "Root", locationId: "missing-one" },
+					{
+						ref: "step",
+						parentRef: "root",
+						title: "Step",
+						locationId: "missing-two",
+					},
+				],
+			}),
+		);
+
+		expect(error.status).toBe(400);
+		expect(error.details).toEqual([
+			{
+				index: 0,
+				field: "locationId",
+				code: "location_not_found",
+				message: "No location missing-one in this home.",
+			},
+			{
+				index: 1,
+				field: "locationId",
+				code: "location_not_found",
+				message: "No location missing-two in this home.",
+			},
+		]);
+	});
+
+	it("collects a missing place alongside other node failures", () => {
+		const error = refusal(() =>
+			plan({
+				nodes: [
+					{ ref: "root", title: "Root", locationId: "missing" },
+					{ ref: "step", parentRef: "root", title: "" },
+				],
+			}),
+		);
+
+		expect(error.details?.map(({ index, code }) => ({ index, code }))).toEqual([
+			{ index: 0, code: "location_not_found" },
+			{ index: 1, code: "title_required" },
+		]);
 	});
 });
 
@@ -501,13 +663,19 @@ describe("per-index errors", () => {
 			plan({
 				nodes: [
 					{ ref: "root", title: "Root" },
-					{ ref: "a", parentRef: "root", title: "A", locationId: "loc-1" },
+					{
+						ref: "a",
+						parentRef: "root",
+						title: "A",
+						locationAncestorIds: ["loc-1"],
+					},
 				],
 			}),
 		);
 
 		expect(error.details?.[0]).toMatchObject({
 			index: 1,
+			field: "locationAncestorIds",
 			code: "locations_unavailable",
 		});
 	});
