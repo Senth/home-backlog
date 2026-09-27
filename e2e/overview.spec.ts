@@ -190,8 +190,12 @@ test("2: a missing config seeds the seven cards once, and a seed removed in the 
 		.click();
 
 	await gotoOverview(page);
+	await expect(
+		page
+			.getByTestId("overview-section-ongoing")
+			.getByText("Byt filter i ventilationen", { exact: true }),
+	).toBeVisible();
 	await expect(page.getByTestId("overview-section-quickWins")).toHaveCount(0);
-	await expect(page.getByTestId("overview-section-ongoing")).toBeVisible();
 
 	// Leave no config behind, the way the seed has none: the next run's first
 	// open re-seeds, which is the path this claim just proved.
@@ -230,6 +234,9 @@ test("3: a root card in In progress appears under Ongoing projects, and leaves t
 	await moveCardTo(page, title, enUS.status.backlog);
 
 	await gotoOverview(page);
+	await expect(
+		ongoing.getByText("Byt filter i ventilationen", { exact: true }),
+	).toBeVisible();
 	await expect(ongoing.getByText(title)).toHaveCount(0);
 });
 
