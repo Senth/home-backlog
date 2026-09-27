@@ -21,6 +21,7 @@
 		"emulators": "scripts/dev-stack.sh up --no-web",
 		"emulators:export": "scripts/dev-stack.sh export",
 		"icon-aliases": "node scripts/gen-icon-aliases.mjs",
+		"icon-keywords": "node scripts/gen-icon-keywords.mjs",
 		"icon-names": "node scripts/gen-icon-names.mjs",
 		"icons": "python3 scripts/gen-icons.py",
 		"todo": "scripts/sync-todo.sh"
