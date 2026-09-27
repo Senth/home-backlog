@@ -37,7 +37,8 @@ means something.
 - **An app that nags.** No badge counts, no red dot on a tab, no urgency banner, no empty
   state that implies you are behind. `size.dot` is a mark that something is there, and it
   stays a mark.
-- No card nested inside a card. No gradient. No emoji. No decorative illustration.
+- No card nested inside a card. No gradient, except a color slider's track. No emoji. No
+  decorative illustration.
 
 ## Where the values live
 
@@ -99,13 +100,10 @@ still have different glyphs, so color is never the only signal.
   is indistinguishable from the card), each with the opposite tone as its on-color. The
   values are `theme/index.ts`'s `labelHues`; this document does not repeat them.
 - **Custom colors are data, not tokens.** A user may pick any color. The app owns its
-  legibility: derive the on-color, and clamp the hue so it clears its contrast floor against
-  `boardCard` in both schemes. Never render a pasted hex unmodified and hope.
-- **A label dot is a mark, not a block.** What holds the way forward safe is
-  `models/label-color.ts`'s clamp: every drawn fill clears `fillFloor` (3:1 against
-  `boardCard`) by the smallest step and never further, and the glyph inside clears
-  `onFloor` (4.5:1). HSL saturation was the wrong ruler for this — a Tailwind-200 pastel
-  reads 100% of it and is still quiet — so the rule is the clamp, not a saturation number.
+  legibility. Custom colors stay inside the presets' OKLCH band per scheme; glyph 4.5:1,
+  inks 3:1.
+- **A label dot is a mark, not a block.** Custom fills sit in the preset lightness band;
+  the glyph's 4.5:1 carries legibility.
 - **Identity means *different*, never *worse* or *sooner*.** A ramp spent on urgency is a ramp
   that can no longer tell two projects apart, which is the whole reason for having it.
 - **Every label has a title**, shown as a tooltip on desktop and on tap on mobile. Any
@@ -443,11 +441,12 @@ reading as the way forward, it is this entry that gets rewritten.
 **Re-measured 2026-09-06 — real colored labels are on a real board (#100).** Measured from
 the tokens, not the eye. The FAB's fill is 1.31:1 against the light page (2.18:1 in dark) and
 its label 11.05:1 (5.85:1) against that fill; a card title is 16.92:1 (10.59:1) against its
-card. A drawn label dot clears exactly `fillFloor` — 3:1 against `boardCard`, the smallest
-step the clamp allows — and lives in a 20px dot inside a 36px gutter, capped at six per card.
-The saturation phrasing above turned out to be the wrong ruler for it: a Tailwind-200 pastel
-reads 100% HSL and is still quiet, so the guard that actually holds the line is the clamp in
-`models/label-color.ts`, and the label rule above now says so. On the axis this entry was
+card. A drawn label dot sits in the preset band, 1.15–1.55:1 against `boardCard`, and lives
+in a 20px dot inside a 36px gutter, capped at six per card. On the axis this entry was
 argued on — what the eye reads as the way forward — the FAB keeps the only large saturated
 block and the loudest label on the screen; the dots are marks at the floor, not blocks.
 **The decision stands.**
+
+### 2026-09-26 — Custom fills drop the 3:1 floor (#337)
+
+Presets sit 1.15–1.55:1 against `boardCard`; the floor made custom dots heavier.

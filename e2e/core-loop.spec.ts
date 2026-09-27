@@ -15,7 +15,9 @@ import {
 	waitForLabelByTitle,
 	waitForNodeIdByTitle,
 } from "@/e2e/support/firestore";
+import { customColorBands } from "@/e2e/support/theme";
 import enUS from "@/i18n/locales/en-US.json";
+import { storedFromTyped } from "@/models/label-color";
 
 /**
  * The Trello part, end to end and nothing else: the FAB, the four columns, and
@@ -193,8 +195,6 @@ test("4: a home grows two labels, and a card carries one", async ({ page }) => {
 		.click();
 	await expect(page.getByText(presetTitle)).toBeVisible();
 
-	// One with a custom color, typed as a hex into the field the pencil
-	// swatch opens. Stored exactly as picked; the clamp happens at draw time.
 	await page.getByRole("button", { name: enUS.labels.newLabel }).click();
 	await page.getByRole("textbox").fill(customTitle);
 	await page.getByRole("button", { name: enUS.labels.customColor }).click();
@@ -206,7 +206,9 @@ test("4: a home grows two labels, and a card carries one", async ({ page }) => {
 
 	const preset = await waitForLabelByTitle(presetTitle);
 	const custom = await waitForLabelByTitle(customTitle);
-	expect(custom.color).toBe("#3366cc");
+	expect(custom.color).toBe(
+		storedFromTyped("#3366cc", "fill", "light", customColorBands),
+	);
 
 	// And one lands on a real card, through the card menu's picker. The dot
 	// this draws is judged by eye; what is proved here is that the write is

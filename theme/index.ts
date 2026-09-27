@@ -123,8 +123,8 @@ const darkBoard = {
  * the dot. Seeded from Tailwind's 200 tone in light and its 900 tone in dark
  * (stone takes its 800 in dark, where 900 is indistinguishable from the card),
  * with the opposite tone as the on-color; every pair clears 4.5:1 in both
- * schemes. Anything else a household wants is a custom color, stored raw and
- * clamped at render by `models/label-color.ts`.
+ * schemes. Anything else a household wants is a custom color, stored as its
+ * light tone and derived in each scheme by `models/label-color.ts`.
  *
  * Each scheme also carries a third tone, **`ink`** (#205): Tailwind's 700 in
  * light and its 300 in dark. A hue is a *fill* — a label dot, with its glyph
@@ -186,6 +186,17 @@ export const labelHues = {
 	stone: {
 		light: { fill: "#E7E5E4", on: "#44403C", ink: "#44403C" },
 		dark: { fill: "#44403C", on: "#E7E5E4", ink: "#D6D3D1" },
+	},
+} as const;
+
+export const customColorBands = {
+	fill: {
+		light: { lo: 0.82, hi: 0.96, cap: 0.122 },
+		dark: { lo: 0.31, hi: 0.47, cap: 0.166 },
+	},
+	ink: {
+		light: { lo: 0.37, hi: 0.6, cap: 0.241 },
+		dark: { lo: 0.74, hi: 0.92, cap: 0.179 },
 	},
 } as const;
 
