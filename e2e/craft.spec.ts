@@ -599,7 +599,6 @@ for (const scheme of ["light", "dark"] as const) {
 			await page.waitForURL(/\/projects\/[^/]+$/);
 			const id = new URL(page.url()).pathname.split("/")[2] as string;
 			await page.goto(`/projects/${id}/details`);
-			await page.waitForLoadState("networkidle");
 			await page
 				.getByText(SEEDED_PROJECT)
 				.first()

@@ -458,7 +458,6 @@ test("3: the bar at the foot steps the card forward and back, jumps it through t
 	const nodeId = await newRootCard(title);
 
 	await page.goto(`/projects/${nodeId}/details`);
-	await page.waitForLoadState("networkidle");
 	await expect(page.getByText(title).first()).toBeVisible({
 		timeout: 30_000,
 	});
@@ -568,7 +567,6 @@ test("4: a card whose board has a non-default column set steps through that set"
 	const { cardId } = await narrowBoardCard();
 
 	await page.goto(`/projects/${cardId}/details`);
-	await page.waitForLoadState("networkidle");
 	await expect(page.getByText(`${PREFIX}narrow card`).first()).toBeVisible({
 		timeout: 30_000,
 	});
@@ -627,7 +625,6 @@ test.describe("at 200% text in sv-SE (#237)", () => {
 			status: "backlog",
 		});
 		await page.goto(`/projects/${nodeId}/details`);
-		await page.waitForLoadState("networkidle");
 		await expect(page.getByText(`${PREFIX}zoomed`).first()).toBeVisible({
 			timeout: 30_000,
 		});

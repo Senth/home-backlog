@@ -13,7 +13,6 @@ export async function createThrowawayHome(
 	homeName: string,
 ): Promise<void> {
 	await page.goto("/homes");
-	await page.waitForLoadState("networkidle");
 	await page.getByRole("button", { name: enUS.homes.create }).click();
 	await page.getByRole("textbox").first().fill(homeName);
 	await page
@@ -37,7 +36,6 @@ export async function deleteThrowawayHome(
 	homeName: string,
 ): Promise<void> {
 	await page.goto("/homes");
-	await page.waitForLoadState("networkidle");
 	await page.getByRole("button", { name: `Manage ${homeName}` }).click();
 	await page.waitForURL(/\/homes\/[^/]+$/);
 	await page.getByRole("button", { name: enUS.manageHome.delete }).click();
@@ -212,21 +210,13 @@ export function translationKeys(
  * Navigates and waits for the app to settle.
  *
  * The splash holds the router until auth resolves, so "the URL changed" is not
- * the same as "the screen is up". Waiting for the network to go quiet is the
- * cheapest proxy that does not need a per-screen selector.
+ * the same as "the screen is up". Each route names its own ready marker.
  */
 export async function gotoAndSettle(page: Page, route: Route): Promise<void> {
 	await page.goto(route.path);
-	await page.waitForLoadState("networkidle");
 
-	// `networkidle` is not enough, and the difference is the whole value of this
-	// suite. Firestore delivers over a long-lived WebChannel that never makes the
-	// network go quiet, so the page is "idle" while the board still shows its
-	// empty state. An earlier version of this file asserted against that empty
-	// state and passed — measuring a spinner and reporting it as a screen.
-	//
-	// So every route names something that only exists once its data has arrived,
-	// and we wait for that instead.
+	// Firestore's long-lived WebChannel cannot prove the page is ready.
+	// Wait for data, not networkidle or the board's transient empty state.
 	await readyLocator(page, route).first().waitFor({
 		state: "visible",
 		timeout: 30_000,

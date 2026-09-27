@@ -2,11 +2,18 @@ import type { Request, Response, Router } from "express";
 import { FieldValue } from "firebase-admin/firestore";
 import { visibleTo } from "./api-nodes.js";
 import { type ApiCaller, caller, homeAccess, recordWrite } from "./auth.js";
-import { type BulkPlan, parseBulkBody, planBulk } from "./bulk.js";
+import {
+	type BulkParentFacts,
+	type BulkPlan,
+	isLocationDocumentId,
+	parseBulkBody,
+	planBulk,
+} from "./bulk.js";
 import { ApiError } from "./errors.js";
 import {
 	db,
 	homesCollection,
+	locationsCollection,
 	nodesCollection,
 	runsCollection,
 } from "./firestore.js";
@@ -18,7 +25,6 @@ import {
 	replayResponse,
 } from "./idempotency.js";
 import { rankAfter, type Status } from "./node.js";
-import type { ParentFacts } from "./validate.js";
 
 /**
  * `POST /v1/homes/{h}/nodes:bulk` — one agent run, one new subtree, one commit.
@@ -54,7 +60,7 @@ async function bulkCreate(request: Request, response: Response): Promise<void> {
 
 	const payload = parseBulkBody(request.body);
 
-	let parent: ParentFacts | null = null;
+	let parent: BulkParentFacts | null = null;
 	if (payload.parentId !== null) {
 		const snapshot = await nodes.doc(payload.parentId).get();
 		if (!snapshot.exists || !visibleTo(snapshot.data() ?? {}, me.uid)) {
@@ -75,8 +81,45 @@ async function bulkCreate(request: Request, response: Response): Promise<void> {
 			ancestorIds: Array.isArray(data.ancestorIds)
 				? (data.ancestorIds as string[])
 				: [],
+			locationId:
+				data.locationId === null || typeof data.locationId === "string"
+					? (data.locationId as string | null)
+					: null,
+			locationAncestorIds: Array.isArray(data.locationAncestorIds)
+				? (data.locationAncestorIds as string[])
+				: [],
 		};
 	}
+	const locationIds = [
+		...new Set(
+			payload.nodes
+				.map((node) => node.locationId)
+				.filter(
+					(id): id is string =>
+						id !== undefined && id !== null && isLocationDocumentId(id),
+				),
+		),
+	];
+	const locationSnapshots =
+		locationIds.length === 0
+			? []
+			: await db.getAll(
+					...locationIds.map((id) =>
+						db
+							.collection(homesCollection)
+							.doc(homeId)
+							.collection(locationsCollection)
+							.doc(id),
+					),
+				);
+	const places = Object.fromEntries(
+		locationSnapshots
+			.filter((snapshot) => snapshot.exists)
+			.map((snapshot) => {
+				const ancestorIds = snapshot.get("ancestorIds");
+				return [snapshot.id, Array.isArray(ancestorIds) ? ancestorIds : []];
+			}),
+	);
 
 	const rootStatus: Status =
 		payload.nodes.find((node) => node.parentRef === null)?.status ?? "backlog";
@@ -97,6 +140,7 @@ async function bulkCreate(request: Request, response: Response): Promise<void> {
 			payload.nodes.map((node) => [node.ref, nodes.doc().id]),
 		),
 		parent,
+		places,
 		rootRank,
 		createdBy: me.uid,
 		memberUids: home.memberUids,

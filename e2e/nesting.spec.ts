@@ -112,7 +112,6 @@ async function openBoard(
 	readyText: string,
 ): Promise<void> {
 	await page.goto(`/projects/${nodeId}`);
-	await page.waitForLoadState("networkidle");
 	await expect(page.getByText(readyText).first()).toBeVisible({
 		timeout: 30_000,
 	});

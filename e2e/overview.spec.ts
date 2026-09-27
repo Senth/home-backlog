@@ -100,7 +100,6 @@ async function deleteDashboardConfig(uid: string): Promise<void> {
  */
 async function gotoOverview(page: Page): Promise<void> {
 	await page.goto("/overview");
-	await page.waitForLoadState("networkidle");
 	await page
 		.getByRole("button", { name: enUS.overview.add })
 		.waitFor({ state: "visible", timeout: 30_000 });
@@ -126,7 +125,6 @@ test("1: the app opens on Overview, and Overview is the first tab", async ({
 	page,
 }) => {
 	await page.goto("/");
-	await page.waitForLoadState("networkidle");
 	await page
 		.getByRole("button", { name: enUS.overview.add })
 		.waitFor({ state: "visible", timeout: 30_000 });
@@ -192,8 +190,12 @@ test("2: a missing config seeds the seven cards once, and a seed removed in the 
 		.click();
 
 	await gotoOverview(page);
+	await expect(
+		page
+			.getByTestId("overview-section-ongoing")
+			.getByText("Byt filter i ventilationen", { exact: true }),
+	).toBeVisible();
 	await expect(page.getByTestId("overview-section-quickWins")).toHaveCount(0);
-	await expect(page.getByTestId("overview-section-ongoing")).toBeVisible();
 
 	// Leave no config behind, the way the seed has none: the next run's first
 	// open re-seeds, which is the path this claim just proved.
@@ -232,6 +234,9 @@ test("3: a root card in In progress appears under Ongoing projects, and leaves t
 	await moveCardTo(page, title, enUS.status.backlog);
 
 	await gotoOverview(page);
+	await expect(
+		ongoing.getByText("Byt filter i ventilationen", { exact: true }),
+	).toBeVisible();
 	await expect(ongoing.getByText(title)).toHaveCount(0);
 });
 

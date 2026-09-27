@@ -1,11 +1,11 @@
 import {
 	type BulkContext,
+	isLocationDocumentId,
 	maxBulkNodes,
 	parseBulkBody,
 	planBulk,
 } from "./bulk.js";
 import type { ApiError } from "./errors.js";
-import type { ParentFacts } from "./validate.js";
 
 const ME = "uidMarcus";
 const MEMBERS = ["uidMarcus", "uidAnna"];
@@ -20,13 +20,17 @@ function refusal(run: () => unknown): ApiError {
 	throw new Error("Expected this payload to be refused.");
 }
 
-function parentFacts(overrides: Partial<ParentFacts> = {}): ParentFacts {
+function parentFacts(
+	overrides: Partial<NonNullable<BulkContext["parent"]>> = {},
+): NonNullable<BulkContext["parent"]> {
 	return {
 		id: "project",
 		visibility: "shared",
 		participantIds: [],
 		columns: ["backlog", "execution", "done"],
 		ancestorIds: [],
+		locationId: null,
+		locationAncestorIds: [],
 		...overrides,
 	};
 }
@@ -34,9 +38,10 @@ function parentFacts(overrides: Partial<ParentFacts> = {}): ParentFacts {
 function plan(
 	body: unknown,
 	options: {
-		parent?: ParentFacts | null;
+		parent?: BulkContext["parent"];
 		rootRank?: string;
 		memberUids?: readonly string[];
+		places?: Record<string, string[]>;
 	} = {},
 ) {
 	const payload = parseBulkBody(body);
@@ -46,6 +51,7 @@ function plan(
 			payload.nodes.map((node) => [node.ref, `id-${node.ref}`]),
 		),
 		parent: options.parent ?? null,
+		places: options.places ?? {},
 		rootRank: options.rootRank ?? "a0",
 		createdBy: ME,
 		memberUids: options.memberUids ?? MEMBERS,
@@ -181,6 +187,200 @@ describe("a planned subtree", () => {
 
 		expect(itemFor(result, "a").completedAt).toBe(now);
 		expect(itemFor(result, "root").completedAt).toBeNull();
+	});
+});
+
+describe("filing a subtree", () => {
+	it("files the root and its descendants in an explicit place, several levels deep", () => {
+		const result = plan(
+			{
+				nodes: tree.nodes.map((node) =>
+					node.ref === "root" ? { ...node, locationId: "kitchen" } : node,
+				),
+			},
+			{ places: { kitchen: ["house", "floor"] } },
+		);
+
+		for (const item of result.items) {
+			expect(item.data).toMatchObject({
+				locationId: "kitchen",
+				locationAncestorIds: ["house", "floor"],
+			});
+		}
+	});
+
+	it("lets a child override the parent's place and passes the override down", () => {
+		const result = plan(
+			{
+				nodes: tree.nodes.map((node) =>
+					node.ref === "root"
+						? { ...node, locationId: "house" }
+						: node.ref === "buy"
+							? { ...node, locationId: "kitchen" }
+							: node,
+				),
+			},
+			{ places: { house: [], kitchen: ["house"] } },
+		);
+
+		expect(itemFor(result, "book")).toMatchObject({
+			locationId: "house",
+			locationAncestorIds: [],
+		});
+		for (const ref of ["buy", "prices"]) {
+			expect(itemFor(result, ref)).toMatchObject({
+				locationId: "kitchen",
+				locationAncestorIds: ["house"],
+			});
+		}
+	});
+
+	it("unfiles a child and its silent descendants under a filed parent", () => {
+		const result = plan(
+			{
+				nodes: tree.nodes.map((node) =>
+					node.ref === "root"
+						? { ...node, locationId: "house" }
+						: node.ref === "buy"
+							? { ...node, locationId: null }
+							: node,
+				),
+			},
+			{ places: { house: [] } },
+		);
+
+		for (const ref of ["buy", "prices"]) {
+			expect(itemFor(result, ref)).toMatchObject({
+				locationId: null,
+				locationAncestorIds: [],
+			});
+		}
+		expect(itemFor(result, "book").locationId).toBe("house");
+	});
+
+	it("inherits the attach parent's place when the root is silent", () => {
+		const result = plan(tree, {
+			parent: parentFacts({
+				locationId: "kitchen",
+				locationAncestorIds: ["house"],
+			}),
+		});
+
+		for (const item of result.items) {
+			expect(item.data).toMatchObject({
+				locationId: "kitchen",
+				locationAncestorIds: ["house"],
+			});
+		}
+	});
+
+	it("lets the root override or clear the attach parent's place", () => {
+		const parent = parentFacts({
+			locationId: "house",
+			locationAncestorIds: [],
+		});
+		const filed = plan(
+			{ nodes: [{ ref: "root", title: "Root", locationId: "kitchen" }] },
+			{ parent, places: { kitchen: ["house"] } },
+		);
+		const unfiled = plan(
+			{ nodes: [{ ref: "root", title: "Root", locationId: null }] },
+			{ parent },
+		);
+
+		expect(itemFor(filed, "root")).toMatchObject({
+			locationId: "kitchen",
+			locationAncestorIds: ["house"],
+		});
+		expect(itemFor(unfiled, "root")).toMatchObject({
+			locationId: null,
+			locationAncestorIds: [],
+		});
+	});
+
+	it("collects unknown places at every index without planning writes", () => {
+		const error = refusal(() =>
+			plan({
+				nodes: [
+					{ ref: "root", title: "Root", locationId: "missing-one" },
+					{
+						ref: "step",
+						parentRef: "root",
+						title: "Step",
+						locationId: "missing-two",
+					},
+				],
+			}),
+		);
+
+		expect(error.status).toBe(400);
+		expect(error.details).toEqual([
+			{
+				index: 0,
+				field: "locationId",
+				code: "location_not_found",
+				message: "No location missing-one in this home.",
+			},
+			{
+				index: 1,
+				field: "locationId",
+				code: "location_not_found",
+				message: "No location missing-two in this home.",
+			},
+		]);
+	});
+
+	it("rejects invalid document paths and reports each as a missing place", () => {
+		for (const id of ["", "missing/child", "missing/child/place"]) {
+			expect(isLocationDocumentId(id)).toBe(false);
+		}
+		expect(isLocationDocumentId("kitchen")).toBe(true);
+
+		const error = refusal(() =>
+			plan({
+				nodes: [
+					{ ref: "root", title: "Root", locationId: "" },
+					{
+						ref: "step",
+						parentRef: "root",
+						title: "Step",
+						locationId: "missing/child",
+					},
+				],
+			}),
+		);
+
+		expect(error.status).toBe(400);
+		expect(error.details).toEqual([
+			{
+				index: 0,
+				field: "locationId",
+				code: "location_not_found",
+				message: "No location  in this home.",
+			},
+			{
+				index: 1,
+				field: "locationId",
+				code: "location_not_found",
+				message: "No location missing/child in this home.",
+			},
+		]);
+	});
+
+	it("collects a missing place alongside other node failures", () => {
+		const error = refusal(() =>
+			plan({
+				nodes: [
+					{ ref: "root", title: "Root", locationId: "missing" },
+					{ ref: "step", parentRef: "root", title: "" },
+				],
+			}),
+		);
+
+		expect(error.details?.map(({ index, code }) => ({ index, code }))).toEqual([
+			{ index: 0, code: "location_not_found" },
+			{ index: 1, code: "title_required" },
+		]);
 	});
 });
 
@@ -415,6 +615,35 @@ describe("one root", () => {
 		expect(error.code).toBe("cycle");
 		expect(error.details?.map((detail) => detail.index)).toEqual([1, 2]);
 	});
+
+	it("collects place and blocker failures on disconnected cycle nodes", () => {
+		const error = refusal(() =>
+			plan({
+				nodes: [
+					{ ref: "root", title: "Root" },
+					{
+						ref: "a",
+						parentRef: "b",
+						title: "A",
+						locationId: "missing",
+						blockedByRefs: ["unknown", "a"],
+					},
+					{ ref: "b", parentRef: "a", title: "B" },
+				],
+			}),
+		);
+
+		expect(error.status).toBe(400);
+		expect(
+			error.details?.map(({ index, field, code }) => ({ index, field, code })),
+		).toEqual([
+			{ index: 1, field: "locationId", code: "location_not_found" },
+			{ index: 1, field: "blockedByRefs", code: "unknown_blocked_by_ref" },
+			{ index: 1, field: "blockedByRefs", code: "blocked_by_self" },
+			{ index: 1, field: "parentRef", code: "cycle" },
+			{ index: 2, field: "parentRef", code: "cycle" },
+		]);
+	});
 });
 
 describe("refs", () => {
@@ -469,6 +698,102 @@ describe("refs", () => {
 	});
 });
 
+describe("blockedByRefs", () => {
+	it("resolves a sibling's ref to its generated id", () => {
+		const result = plan({
+			nodes: [
+				{ ref: "root", title: "Install fan" },
+				{ ref: "buy", parentRef: "root", title: "Order a fan" },
+				{
+					ref: "fit",
+					parentRef: "root",
+					title: "Fit it",
+					blockedByRefs: ["buy"],
+				},
+			],
+		});
+
+		expect(itemFor(result, "fit").blockedBy).toEqual(["id-buy"]);
+	});
+
+	it("merges explicit ids before refs without duplicate ids", () => {
+		const result = plan({
+			nodes: [
+				{
+					ref: "root",
+					title: "Root",
+					blockedBy: ["existing", "id-step"],
+					blockedByRefs: ["step", "step"],
+				},
+				{ ref: "step", parentRef: "root", title: "Step" },
+			],
+		});
+
+		expect(itemFor(result, "root").blockedBy).toEqual(["existing", "id-step"]);
+	});
+
+	it("reports unknown and self refs at their indexes without a plan", () => {
+		const error = refusal(() =>
+			plan({
+				nodes: [
+					{ ref: "root", title: "Root" },
+					{
+						ref: "step",
+						parentRef: "root",
+						title: "Step",
+						blockedByRefs: ["missing", "step"],
+					},
+				],
+			}),
+		);
+
+		expect(error.status).toBe(400);
+		expect(error.details).toEqual([
+			expect.objectContaining({
+				index: 1,
+				field: "blockedByRefs",
+				code: "unknown_blocked_by_ref",
+			}),
+			expect.objectContaining({
+				index: 1,
+				field: "blockedByRefs",
+				code: "blocked_by_self",
+			}),
+		]);
+	});
+
+	it("rejects a non-list and non-string refs at their indexes", () => {
+		const error = refusal(() =>
+			plan({
+				nodes: [
+					{ ref: "root", title: "Root" },
+					{
+						ref: "one",
+						parentRef: "root",
+						title: "One",
+						blockedByRefs: "root",
+					},
+					{ ref: "two", parentRef: "root", title: "Two", blockedByRefs: [1] },
+				],
+			}),
+		);
+
+		expect(error.status).toBe(400);
+		expect(error.details).toEqual([
+			expect.objectContaining({
+				index: 1,
+				field: "blockedByRefs",
+				code: "invalid_type",
+			}),
+			expect.objectContaining({
+				index: 2,
+				field: "blockedByRefs",
+				code: "invalid_type",
+			}),
+		]);
+	});
+});
+
 /**
  * Validated in full before anything is written, so the caller gets every failure
  * at once and can fix and resend. Partial success was rejected: every one of
@@ -501,13 +826,19 @@ describe("per-index errors", () => {
 			plan({
 				nodes: [
 					{ ref: "root", title: "Root" },
-					{ ref: "a", parentRef: "root", title: "A", locationId: "loc-1" },
+					{
+						ref: "a",
+						parentRef: "root",
+						title: "A",
+						locationAncestorIds: ["loc-1"],
+					},
 				],
 			}),
 		);
 
 		expect(error.details?.[0]).toMatchObject({
 			index: 1,
+			field: "locationAncestorIds",
 			code: "locations_unavailable",
 		});
 	});
