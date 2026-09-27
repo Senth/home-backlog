@@ -1,7 +1,7 @@
 ---
 name: home-backlog-api
 description: Read and write a Home Backlog board over REST — nested kanban nodes where a project, a task and a subtask are the same thing at different depths. Use when asked to research, break down, file or re-prioritise home-improvement work for a household, or when a prompt mentions Home Backlog, hb.senth.org, or an API key beginning hb_. Covers bearer auth, the node verbs, the atomic bulk create that writes a whole subtree in one undoable call, and the Overview dashboard card config.
-api-version: 2.1.0
+api-version: 2.2.0
 ---
 
 # Home Backlog API
@@ -158,16 +158,27 @@ Nodes reference each other by a `ref` you choose, valid only inside the request.
 node has no `parentRef`, and that one is the new root. The optional top-level `parentId`
 attaches that root under a node that already exists.
 
+Set `locationId` on any node to file it at one of the home's places. Omit it to inherit the
+parent's place, including on the root, which inherits the attach parent's place when the
+request has a top-level `parentId`. Descendants inherit unless they set their own
+`locationId`. An unknown place rejects the request with a per-index `location_not_found`
+detail in the `400` response.
+
+Use `blockedByRefs` to make a node wait on another node in this payload. Each value must be
+another node's `ref`; the API resolves refs to node ids before writing. A node cannot block
+itself.
+
 ```json
 {
   "nodes": [
     { "ref": "root", "title": "Replace the bathroom extractor fan", "status": "next_up",
+      "locationId": "bathroom-id",
       "effort": "evening",
       "notes": "The current one is loud and barely clears the mirror." },
     { "ref": "spec",  "parentRef": "root", "title": "Measure the duct and the opening" },
-    { "ref": "buy",   "parentRef": "root", "title": "Order a quieter fan",
-      "blockedBy": [] },
-    { "ref": "fit",   "parentRef": "root", "title": "Fit it and test the run-on timer" },
+    { "ref": "buy",   "parentRef": "root", "title": "Order a quieter fan" },
+    { "ref": "fit",   "parentRef": "root", "title": "Fit it and test the run-on timer",
+      "blockedByRefs": ["buy"] },
     { "ref": "specA", "parentRef": "spec", "title": "Check whether it vents to the soffit" }
   ]
 }
@@ -438,9 +449,10 @@ filed work you did not file.
 | `effort` | ✅ | Shown in the app. `quick`, `hours`, `evening`, `weekend`, `multi_week`, or `null`. |
 | `assigneeIds` | ✅ | Shown in the app. Who is doing this card. Uids from `GET /v1/homes`. |
 | `parentId` | ✅ | Structure. On `POST` it places the node; on `PATCH` it moves the subtree. |
-| `locationId` | ✅ | Filing work in a place (#246): the id of one of the home's places, which the **Locations** verbs above list and create. On `POST` an omitted `locationId` inherits the parent's place and `null` unfiles; on `PATCH` only what you send is written, `null` unfiles. A place that does not exist answers `404 location_not_found`. Rendered in the app as the place's leaf name on the card footer and the detail screen. |
+| `locationId` | ✅ | Filing work in a place (#246): the id of one of the home's places, which the **Locations** verbs above list and create. On `POST` an omitted `locationId` inherits the parent's place and `null` unfiles; on bulk create it can be set per node, and omitted nodes inherit their parent's place. An unknown place answers `404 location_not_found` on `POST` and adds a per-index `location_not_found` detail to the bulk create's `400`. On `PATCH` only what you send is written, `null` unfiles. Rendered in the app as the place's leaf name on the card footer and the detail screen. |
 | `visibility` | ✅ on create, at the top level only | Shown in the app. `shared` or `private`. |
 | `blockedBy` | ✅ | Rendered in the app as *Waiting*: the app derives the state from the blockers' statuses, and nothing auto-clears it — a done blocker stops holding cards, and reopening one re-blocks them. Writing a private node's id into a shared card's list leaves the other members a row they cannot read and can remove. |
+| `blockedByRefs` | ✅ bulk only | Node refs from this payload that block this node; the API resolves them to ids before writing. A node cannot block itself. |
 | `labelIds` | ✅ | The card's labels, as ids of the home's label definitions — at most **6**. Rendered as colored dots beside the card. The definitions behind the ids are the **Labels** verbs above: list them there, and create one before you write its id onto a card. A card naming a gone id renders as nothing and stays updatable. |
 | `checklist` | ✅ | **Stored, no screen yet.** Up to 200 items. Nothing renders it today. |
 | `locationAncestorIds` | ❌ | Derived from the place `locationId` names, so sending it is refused rather than ignored. |
@@ -455,9 +467,6 @@ it helps you, but do not expect a person to see it.
 
 ## What this API cannot do yet
 
-- **Filing work in a place, in bulk.** The node verbs take `locationId` (#246), but the
-  bulk node create does not: a payload naming one is refused rather than ignored, since
-  the planner does not resolve places. File each node with a follow-up `PATCH`.
 - **Restoring a removed built-in card as a seed.** A seed the household removed stays
   removed — recreate the card with `POST` (it will not carry its `seedId`, and the app
   will keep listing it under *Removed originals*), or restore it in the app, where the
