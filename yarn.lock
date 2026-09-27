@@ -469,6 +469,13 @@
     "@babel/helper-plugin-utils" "^7.29.7"
     "@babel/traverse" "^7.29.7"
 
+"@babel/plugin-transform-dynamic-import@^7.29.7":
+  version "7.29.7"
+  resolved "https://registry.yarnpkg.com/@babel/plugin-transform-dynamic-import/-/plugin-transform-dynamic-import-7.29.7.tgz#a83a6faec5bab5b619adf9d0eac6c1c270123c2a"
+  integrity sha512-giOlEm/EFjfjr+te9NsdjkUo2v4f8rS/SXPumRVHAtbNcyNlvtREkU1dZzaIDclNpnaVhlCqRdFKhJBjBikzLg==
+  dependencies:
+    "@babel/helper-plugin-utils" "^7.29.7"
+
 "@babel/plugin-transform-export-namespace-from@^7.25.9":
   version "7.29.7"
   resolved "https://registry.yarnpkg.com/@babel/plugin-transform-export-namespace-from/-/plugin-transform-export-namespace-from-7.29.7.tgz#d6014f45cec61d7691335c6c9804204bee801d51"

@@ -1,8 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, useWindowDimensions, View } from "react-native";
 import { Appbar, Icon, IconButton, Text, TextInput } from "react-native-paper";
-import { iconColumns, searchIcons } from "@/components/label/icon-search";
+import {
+	type IconKeywords,
+	iconColumns,
+	loadIconKeywords,
+	searchIcons,
+} from "@/components/label/icon-search";
 import { PaperIcon } from "@/components/ui/PaperIcon";
 import { SlimFlatList } from "@/components/ui/SlimScrollView";
 import { useAppTheme } from "@/theme";
@@ -29,17 +34,26 @@ interface IconPickerProps {
  * The grid is virtualised (`FlatList`) and the search filters the sorted name
  * list — see `icon-search.ts` — so seven thousand glyphs cost one scroll
  * window, and the result count sits quietly under the field so a narrowed
- * search says what it found.
+ * search says what it found. The keyword index loads on mount; until it
+ * lands the search runs on names alone, with no indicator (#379).
  */
 export function IconPicker({ value, onSelect, onClose }: IconPickerProps) {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
 	const { width } = useWindowDimensions();
 
 	const [query, setQuery] = useState("");
 	const [list, setList] = useState(false);
+	const [keywords, setKeywords] = useState<IconKeywords>();
 
-	const results = useMemo(() => searchIcons(query), [query]);
+	useEffect(() => {
+		loadIconKeywords(i18n.language).then(setKeywords);
+	}, [i18n.language]);
+
+	const results = useMemo(
+		() => searchIcons(query, keywords),
+		[query, keywords],
+	);
 	const columns = iconColumns(width);
 
 	return (
