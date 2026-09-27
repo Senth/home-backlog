@@ -58,6 +58,7 @@ export function LabelDialog({
 	const [title, setTitle] = useState(label?.title ?? "");
 	const [icon, setIcon] = useState(label?.icon ?? defaultLabelIcon);
 	const [color, setColor] = useState(label?.color ?? defaultLabelHue);
+	const [colorInvalid, setColorInvalid] = useState(false);
 	const [titleProblem, setTitleProblem] = useState<LabelTitleError | null>(
 		null,
 	);
@@ -68,6 +69,7 @@ export function LabelDialog({
 	const labels = homes.find((home) => home.id === homeId)?.labels ?? [];
 
 	const save = () => {
+		if (colorInvalid) return;
 		const problem = labelError(title, labels, label?.id ?? null);
 		if (problem !== null) {
 			setTitleProblem(problem);
@@ -201,7 +203,11 @@ export function LabelDialog({
 							>
 								{t("labels.colorLabel")}
 							</Text>
-							<ColorSwatches value={color} onChange={setColor} />
+							<ColorSwatches
+								value={color}
+								onChange={setColor}
+								onInvalidChange={setColorInvalid}
+							/>
 						</View>
 					</View>
 				</AppDialog>

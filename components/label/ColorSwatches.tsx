@@ -28,6 +28,7 @@ interface ColorSwatchesProps {
 	value: string;
 	/** Called with the chosen hue, or the light-band hex once the field holds one. */
 	onChange: (color: string) => void;
+	onInvalidChange?: (invalid: boolean) => void;
 	/**
 	 * Which drawing the swatches preview. Labels are filled dots in a hue's
 	 * `fill` tone; locations are bare glyphs in its `ink` tone, and a custom
@@ -40,6 +41,7 @@ interface ColorSwatchesProps {
 export function ColorSwatches({
 	value,
 	onChange,
+	onInvalidChange,
 	variant = "label",
 }: ColorSwatchesProps) {
 	const [customOpen, setCustomOpen] = useState(
@@ -75,19 +77,30 @@ export function ColorSwatches({
 						key={hue}
 						hue={hue}
 						selected={value === hue}
-						onSelect={() => onChange(hue)}
+						onSelect={() => {
+							onInvalidChange?.(false);
+							onChange(hue);
+						}}
 						variant={variant}
 					/>
 				))}
 				<CustomSwatch
 					color={previewColor}
 					selected={!(value in labelHues)}
-					onOpen={() => setCustomOpen((open) => !open)}
+					onOpen={() => {
+						if (customOpen) onInvalidChange?.(false);
+						setCustomOpen(!customOpen);
+					}}
 					variant={variant}
 				/>
 			</View>
 			{customOpen ? (
-				<CustomColorPicker value={value} onChange={onChange} role={role} />
+				<CustomColorPicker
+					value={value}
+					onChange={onChange}
+					onInvalidChange={onInvalidChange}
+					role={role}
+				/>
 			) : null}
 		</View>
 	);

@@ -4,6 +4,7 @@ import { Provider } from "react-native-paper";
 import { LocationDialog } from "@/components/location/LocationDialog";
 import { PaperIcon } from "@/components/ui/PaperIcon";
 import { createLocation, editLocation } from "@/data/locations";
+import { toHex } from "@/models/label-color";
 import type { Location } from "@/models/locations";
 import { labelHues, lightTheme } from "@/theme";
 
@@ -125,6 +126,25 @@ describe("LocationDialog", () => {
 		fireEvent.press(screen.getByText("labels.save"));
 
 		expect(editLocation).not.toHaveBeenCalled();
+	});
+
+	it("keeps the dialog open and writes nothing while the custom color draft is invalid", () => {
+		const onDismiss = jest.fn();
+		renderDialog({ location: place(), onDismiss });
+		fireEvent.press(screen.getByRole("button", { name: "labels.customColor" }));
+		const hexField = screen.UNSAFE_getAllByType(RNTextInput)[1];
+		const valid = toHex([0xaa, 0xbb, 0xcc]).slice(0, 4);
+		fireEvent.changeText(hexField, valid);
+		fireEvent.changeText(hexField, `${valid}d`);
+		expect(screen.getByText("labels.colorInvalid")).toBeOnTheScreen();
+		fireEvent.press(screen.getByText("labels.save"));
+		expect(onDismiss).not.toHaveBeenCalled();
+		expect(editLocation).not.toHaveBeenCalled();
+		fireEvent.press(screen.getByRole("button", { name: "labels.hue.red" }));
+		fireEvent.press(screen.getByText("labels.save"));
+		expect(editLocation).toHaveBeenCalledWith("home-1", "garden", {
+			color: "red",
+		});
 	});
 
 	it("paints the palette swatches in the ink tone the tree will draw", () => {

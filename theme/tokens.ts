@@ -113,6 +113,7 @@ export const size = {
 	labelDot: 20,
 	sliderTrack: 12,
 	sliderThumb: 24,
+	sliderLabel: 96,
 	/**
 	 * The card's left gutter (#100), which carries the priority glyph and the
 	 * label dots. Narrowed below `cardGutterBreakpoint`, where the same 36px is

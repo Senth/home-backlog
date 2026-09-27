@@ -61,12 +61,14 @@ export function LocationDialog({
 	const [title, setTitle] = useState(location?.title ?? "");
 	const [icon, setIcon] = useState(location?.icon ?? defaultLocationIcon);
 	const [color, setColor] = useState(location?.color ?? defaultLocationColor);
+	const [colorInvalid, setColorInvalid] = useState(false);
 	const [titleProblem, setTitleProblem] = useState<LocationTitleError | null>(
 		null,
 	);
 	const [pickingIcon, setPickingIcon] = useState(false);
 
 	const save = () => {
+		if (colorInvalid) return;
 		// Trimmed once, here, like the removed rename path did: the stored
 		// title has no leading or trailing spaces, and the change detection
 		// below compares like with like.
@@ -170,6 +172,7 @@ export function LocationDialog({
 						<ColorSwatches
 							value={color}
 							onChange={setColor}
+							onInvalidChange={setColorInvalid}
 							variant="location"
 						/>
 					</View>

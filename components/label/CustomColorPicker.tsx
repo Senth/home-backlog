@@ -15,17 +15,19 @@ import {
 	toHex,
 } from "@/models/label-color";
 import { customColorBands, labelHues, useAppTheme } from "@/theme";
-import { radius, size, space } from "@/theme/tokens";
+import { radius, size, space, touchTarget } from "@/theme/tokens";
 
 interface CustomColorPickerProps {
 	value: string;
 	onChange: (color: string) => void;
+	onInvalidChange?: (invalid: boolean) => void;
 	role: Role;
 }
 
 export function CustomColorPicker({
 	value,
 	onChange,
+	onInvalidChange,
 	role,
 }: CustomColorPickerProps) {
 	const { t } = useTranslation();
@@ -57,6 +59,7 @@ export function CustomColorPicker({
 	const color = drawn(stored);
 	const [draft, setDraft] = useState(color);
 	const [adjusted, setAdjusted] = useState(false);
+	const [width, setWidth] = useState<number | null>(null);
 	const focused = useRef(false);
 	const emitted = useRef<string | null>(null);
 	const previousValue = useRef(value);
@@ -92,6 +95,7 @@ export function CustomColorPicker({
 		setParts(next);
 		setDraft(drawn(hex));
 		setAdjusted(false);
+		onInvalidChange?.(false);
 		emitted.current = hex;
 		onChange(hex);
 	};
@@ -99,8 +103,10 @@ export function CustomColorPicker({
 		setDraft(next);
 		if (!isHexColor(next)) {
 			setAdjusted(false);
+			onInvalidChange?.(true);
 			return;
 		}
+		onInvalidChange?.(false);
 		const hex = storedFromTyped(next, role, scheme, customColorBands);
 		setParts(decomposeCustom(next, band, scheme, parts.hue));
 		setAdjusted(toHex(parseHex(next)) !== drawn(hex));
@@ -136,24 +142,32 @@ export function CustomColorPicker({
 			stops: stops(9, (strength) => ({ ...parts, strength })),
 		},
 	];
+	const stacked = width !== null && width < size.sliderLabel + touchTarget;
 
 	return (
-		<View style={{ gap: space.sm }}>
+		<View
+			onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+			style={{ gap: space.sm, opacity: width === null ? 0 : 1 }}
+		>
 			{rows.map((row) => (
 				<View
 					key={row.name}
-					style={{ flexDirection: "row", alignItems: "center" }}
+					style={{
+						flexDirection: stacked ? "column" : "row",
+						alignItems: stacked ? "stretch" : "center",
+						gap: stacked ? space.xs : space.none,
+					}}
 				>
 					<Text
 						variant="bodyMedium"
 						style={{
-							width: size.brandMark,
+							...(stacked ? {} : { width: size.sliderLabel }),
 							color: theme.colors.onSurfaceVariant,
 						}}
 					>
 						{row.name}
 					</Text>
-					<View style={{ flex: 1 }}>
+					<View style={stacked ? { width: "100%" } : { flex: 1 }}>
 						<GradientSlider
 							label={row.name}
 							value={row.value}

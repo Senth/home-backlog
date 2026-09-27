@@ -10,6 +10,7 @@ import {
 	renameLabel,
 } from "@/data/homes";
 import type { LabelWithId } from "@/models/label";
+import { toHex } from "@/models/label-color";
 import { defaultLabelHue, lightTheme } from "@/theme";
 
 jest.mock("react-i18next", () => ({
@@ -179,6 +180,24 @@ describe("LabelDialog", () => {
 		expect(renameLabel).not.toHaveBeenCalled();
 		expect(recolorLabel).not.toHaveBeenCalled();
 		expect(reiconLabel).not.toHaveBeenCalled();
+	});
+
+	it("keeps the dialog open and writes nothing while the custom color draft is invalid", () => {
+		const onDismiss = jest.fn();
+		renderDialog({ onDismiss });
+		fireEvent.changeText(nameField(), "Winter");
+		fireEvent.press(screen.getByRole("button", { name: "labels.customColor" }));
+		const hexField = screen.UNSAFE_getAllByType(RNTextInput)[1];
+		const valid = toHex([0xaa, 0xbb, 0xcc]).slice(0, 4);
+		fireEvent.changeText(hexField, valid);
+		fireEvent.changeText(hexField, `${valid}d`);
+		expect(screen.getByText("labels.colorInvalid")).toBeOnTheScreen();
+		fireEvent.press(screen.getByText("labels.add"));
+		expect(onDismiss).not.toHaveBeenCalled();
+		expect(createLabel).not.toHaveBeenCalled();
+		fireEvent.changeText(hexField, valid);
+		fireEvent.press(screen.getByText("labels.add"));
+		expect(createLabel).toHaveBeenCalledTimes(1);
 	});
 
 	it("saves the picked icon without rendering a card preview", () => {
