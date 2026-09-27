@@ -168,6 +168,7 @@ describe("LocationDialog", () => {
 
 	it("paints the palette swatches in the ink tone the tree will draw", () => {
 		renderDialog();
+		expect(screen.getByText("labels.colorLabel")).toBeOnTheScreen();
 
 		const swatch = screen.getByLabelText("labels.hue.stone");
 		const dot = swatch.props.children[0];

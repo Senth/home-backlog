@@ -3,7 +3,7 @@ import { Platform, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { useAppTheme } from "@/theme";
-import { border, radius, size, touchTarget } from "@/theme/tokens";
+import { border, radius, size, space, touchTarget } from "@/theme/tokens";
 
 interface GradientSliderProps {
 	value: number;
@@ -15,6 +15,7 @@ interface GradientSliderProps {
 }
 
 const clamp = (next: number) => Math.max(0, Math.min(1, next));
+const thumbDiameter = size.sliderThumb + space.xs;
 
 export function GradientSlider({
 	value,
@@ -32,11 +33,9 @@ export function GradientSlider({
 	const gesture = useMemo(() => {
 		const setPosition = (x: number) => {
 			const { width: measuredWidth, onChange: change } = current.current;
-			if (measuredWidth > size.sliderThumb) {
+			if (measuredWidth > thumbDiameter) {
 				change(
-					clamp(
-						(x - size.sliderThumb / 2) / (measuredWidth - size.sliderThumb),
-					),
+					clamp((x - thumbDiameter / 2) / (measuredWidth - thumbDiameter)),
 				);
 			}
 		};
@@ -93,11 +92,24 @@ export function GradientSlider({
 					if (event.nativeEvent.actionName === "decrement")
 						onChange(clamp(value - 0.01));
 				}}
-				{...(Platform.OS === "web" ? { tabIndex: 0, onKeyDown } : {})}
+				{...(Platform.OS === "web"
+					? {
+							tabIndex: 0,
+							onKeyDown,
+							"aria-valuemin": 0,
+							"aria-valuemax": 100,
+							"aria-valuenow": Math.round(value * 100),
+							"aria-valuetext": valueText,
+						}
+					: {})}
 				onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
 				style={{ minHeight: touchTarget, justifyContent: "center" }}
 			>
-				<Svg width="100%" height={size.sliderTrack} accessible={false}>
+				<Svg
+					width="100%"
+					height={size.sliderTrack}
+					{...(Platform.OS === "web" ? { "aria-hidden": true } : {})}
+				>
 					<Defs>
 						<LinearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
 							{stops.map((color, index) => (
@@ -112,7 +124,8 @@ export function GradientSlider({
 					<Rect
 						width="100%"
 						height="100%"
-						rx={radius.full}
+						rx={size.sliderTrack / 2}
+						ry={size.sliderTrack / 2}
 						fill={`url(#${gradientId})`}
 					/>
 				</Svg>
@@ -120,15 +133,28 @@ export function GradientSlider({
 					pointerEvents="none"
 					style={{
 						position: "absolute",
-						left: clamp(value) * Math.max(width - size.sliderThumb, 0),
-						width: size.sliderThumb,
-						height: size.sliderThumb,
+						left: clamp(value) * Math.max(width - thumbDiameter, 0),
+						width: thumbDiameter,
+						height: thumbDiameter,
 						borderRadius: radius.full,
 						borderWidth: border.hairline,
-						borderColor: theme.colors.surface,
-						backgroundColor: thumbColor,
+						borderColor: theme.colors.outline,
+						backgroundColor: theme.dark
+							? theme.colors.onSurface
+							: theme.colors.surface,
+						alignItems: "center",
+						justifyContent: "center",
 					}}
-				/>
+				>
+					<View
+						style={{
+							width: size.sliderThumb - space.xs,
+							height: size.sliderThumb - space.xs,
+							borderRadius: radius.full,
+							backgroundColor: thumbColor,
+						}}
+					/>
+				</View>
 			</View>
 		</GestureDetector>
 	);

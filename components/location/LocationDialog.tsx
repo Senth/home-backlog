@@ -1,7 +1,13 @@
 import { type RefObject, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { Button, HelperText, Portal, TextInput } from "react-native-paper";
+import {
+	Button,
+	HelperText,
+	Portal,
+	Text,
+	TextInput,
+} from "react-native-paper";
 import { ColorSwatches } from "@/components/label/ColorSwatches";
 import { IconPicker } from "@/components/label/IconPicker";
 import { IconQuickPicks } from "@/components/label/IconQuickPicks";
@@ -169,12 +175,20 @@ export function LocationDialog({
 							onOpenPicker={() => setPickingIcon(true)}
 						/>
 
-						<ColorSwatches
-							value={color}
-							onChange={setColor}
-							onInvalidChange={setColorInvalid}
-							variant="location"
-						/>
+						<View style={{ gap: space.sm }}>
+							<Text
+								variant="labelLarge"
+								style={{ color: theme.colors.onSurfaceVariant }}
+							>
+								{t("labels.colorLabel")}
+							</Text>
+							<ColorSwatches
+								value={color}
+								onChange={setColor}
+								onInvalidChange={setColorInvalid}
+								variant="location"
+							/>
+						</View>
 					</View>
 				</AppDialog>
 			)}

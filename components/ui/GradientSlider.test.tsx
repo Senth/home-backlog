@@ -25,13 +25,18 @@ function slider(value: number, onChange = jest.fn()) {
 describe("GradientSlider", () => {
 	it("reports its accessible value", () => {
 		slider(0.5);
-		expect(
-			screen.getByRole("adjustable", { name: "Hue" }).props.accessibilityValue,
-		).toEqual({
+		const control = screen.getByRole("adjustable", { name: "Hue" });
+		expect(control.props.accessibilityValue).toEqual({
 			min: 0,
 			max: 100,
 			now: 50,
 			text: "Halfway",
+		});
+		expect(control.props).toMatchObject({
+			"aria-valuemin": 0,
+			"aria-valuemax": 100,
+			"aria-valuenow": 50,
+			"aria-valuetext": "Halfway",
 		});
 	});
 
