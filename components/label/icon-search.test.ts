@@ -1,5 +1,9 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { iconColumns, searchIcons } from "@/components/label/icon-search";
+import {
+	iconColumns,
+	loadIconKeywords,
+	searchIcons,
+} from "@/components/label/icon-search";
 import { space, touchTarget } from "@/theme/tokens";
 
 const names = Object.keys(MaterialCommunityIcons.glyphMap).sort();
@@ -42,6 +46,94 @@ describe("searchIcons", () => {
 
 	it("folds case", () => {
 		expect(searchIcons("HOME")).toEqual(searchIcons("home"));
+	});
+});
+
+describe("searchIcons with a keyword index", () => {
+	it("tiers name prefix, then keyword prefix, then substring, each alphabetical", () => {
+		const keywords = {
+			microwave: ["stove"],
+			kettle: ["stovetop"],
+			fireplace: ["woodstove"],
+			campfire: ["campstove"],
+		};
+		expect(searchIcons("stove", keywords)).toEqual([
+			"stove",
+			"kettle",
+			"microwave",
+			"campfire",
+			"fireplace",
+		]);
+	});
+
+	it("needs every query word to hit", () => {
+		const results = searchIcons("fridge kitchen", { fridge: ["kitchen"] });
+		expect(results).toEqual(["fridge"]);
+	});
+
+	it("puts an icon in the worst tier any of its words reached", () => {
+		const results = searchIcons("fridge o", { fridge: ["food"] });
+		const at = (name: string) => results.indexOf(name);
+		expect(at("fridge-outline")).toBeLessThan(at("fridge"));
+		expect(at("fridge")).toBeLessThan(at("fridge-bottom"));
+		expect(results).not.toContain("fridge-alert");
+		expect(searchIcons("fridge o")).not.toContain("fridge");
+	});
+
+	it("does not fold ö to o", () => {
+		const keywords = { fridge: ["kylskåp", "kök"] };
+		expect(searchIcons("kök", keywords)).toEqual(["fridge"]);
+		expect(searchIcons("kok", keywords)).toEqual([]);
+	});
+
+	it.each(["en-US", "sv-SE"])(
+		"finds fridge for kitchen through the %s index",
+		async (locale) => {
+			const keywords = await loadIconKeywords(locale);
+			expect(searchIcons("kitchen", keywords)).toContain("fridge");
+		},
+	);
+});
+
+describe("searchIcons over the Swedish keywords", () => {
+	let keywords: Record<string, string[]>;
+
+	beforeAll(async () => {
+		keywords = await loadIconKeywords("sv-SE");
+	});
+
+	it.each([
+		["kök", ["fridge", "stove"]],
+		["kylskåp", ["fridge"]],
+		["säng", ["bed"]],
+		["soffa", ["sofa"]],
+		["dusch", ["shower"]],
+		["toalett", ["toilet"]],
+		["tvättmaskin", ["washing-machine"]],
+		["hammare", ["hammer"]],
+		["såg", ["hand-saw"]],
+		["gräsklippare", ["mower"]],
+		["lampa", ["lamp"]],
+		["element", ["radiator"]],
+		["trädgård", ["flower"]],
+		["trappa", ["stairs"]],
+		["tak", ["home-roof"]],
+	])("%s finds %j by a word prefix", (query, glyphs) => {
+		const results = searchIcons(query, keywords);
+		for (const glyph of glyphs) {
+			expect(results).toContain(glyph);
+			const words = [...glyph.split("-"), ...keywords[glyph]];
+			expect(words.some((word) => word.startsWith(query))).toBe(true);
+		}
+	});
+
+	it("finds fridge from kyl by prefix", () => {
+		expect(searchIcons("kyl", keywords)).toContain("fridge");
+		expect(keywords.fridge.some((word) => word.startsWith("kyl"))).toBe(true);
+	});
+
+	it("keeps the Swedish words out of the en-US index", async () => {
+		expect(searchIcons("kök", await loadIconKeywords("en-US"))).toEqual([]);
 	});
 });
 

@@ -37,13 +37,14 @@ const CHECKS = [
 	"no Appbar.BackAction",
 	"e2e spec budget",
 	"emulators via dev-stack",
-	"icon names generated",
+	"icon data generated",
 	"button hierarchy",
 	"DueChip warning-only",
 	"label glyph named",
 	"Menu only via AppMenu",
 	"SlimScrollView only",
 	"back only via goBack",
+	"icon keywords per locale",
 ];
 
 type Case = {
@@ -93,7 +94,8 @@ const CASES: Case[] = [
 			await fs.promises.writeFile(rogue, `#!/bin/sh\n${command}\n`);
 		},
 	},
-	{ name: "icon-names", check: "icon names generated" },
+	{ name: "icon-names", check: "icon data generated" },
+	{ name: "icon-aliases", check: "icon data generated" },
 	{ name: "button-hierarchy", check: "button hierarchy" },
 	{ name: "duechip-warning", check: "DueChip warning-only" },
 	{ name: "label-glyph-named", check: "label glyph named" },
@@ -108,6 +110,8 @@ const CASES: Case[] = [
 			await fs.promises.writeFile(screen, "router.back();\n");
 		},
 	},
+	{ name: "icon-keywords-missing", check: "icon keywords per locale" },
+	{ name: "icon-keywords-extra", check: "icon keywords per locale" },
 ];
 
 type Run = { code: number; stdout: string; stderr: string };
