@@ -1,9 +1,4 @@
-import {
-	fireEvent,
-	render,
-	screen,
-	within,
-} from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import { TextInput as RNTextInput } from "react-native";
 import { HelperText, Provider } from "react-native-paper";
 import { LabelDialog } from "@/components/label/LabelDialog";
@@ -15,6 +10,7 @@ import {
 	renameLabel,
 } from "@/data/homes";
 import type { LabelWithId } from "@/models/label";
+import { toHex } from "@/models/label-color";
 import { defaultLabelHue, lightTheme } from "@/theme";
 
 jest.mock("react-i18next", () => ({
@@ -186,8 +182,44 @@ describe("LabelDialog", () => {
 		expect(reiconLabel).not.toHaveBeenCalled();
 	});
 
-	it("updates the card preview when a pick changes and saves only the icon once", () => {
+	it("keeps the dialog open and writes nothing while the custom color draft is invalid", () => {
+		const onDismiss = jest.fn();
+		renderDialog({ onDismiss });
+		fireEvent.changeText(nameField(), "Winter");
+		fireEvent.press(screen.getByRole("button", { name: "labels.customColor" }));
+		const hexField = screen.UNSAFE_getAllByType(RNTextInput)[1];
+		const valid = toHex([0xaa, 0xbb, 0xcc]).slice(0, 4);
+		fireEvent.changeText(hexField, valid);
+		fireEvent.changeText(hexField, `${valid}d`);
+		expect(screen.getByText("labels.colorInvalid")).toBeOnTheScreen();
+		fireEvent.press(screen.getByText("labels.add"));
+		expect(onDismiss).not.toHaveBeenCalled();
+		expect(createLabel).not.toHaveBeenCalled();
+		fireEvent.changeText(hexField, valid);
+		fireEvent.press(screen.getByText("labels.add"));
+		expect(createLabel).toHaveBeenCalledTimes(1);
+	});
+
+	it("saves after IconPicker discards an invalid hex draft", () => {
+		const onDismiss = jest.fn();
+		renderDialog({ onDismiss });
+		fireEvent.changeText(nameField(), "Winter");
+		fireEvent.press(screen.getByRole("button", { name: "labels.customColor" }));
+		const hexField = screen.UNSAFE_getAllByType(RNTextInput)[1];
+		fireEvent.changeText(hexField, toHex([0xaa, 0xbb, 0xcc]).slice(0, 4));
+		fireEvent.changeText(hexField, "invalid");
+		expect(screen.getByText("labels.colorInvalid")).toBeOnTheScreen();
+		fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
+		fireEvent.press(screen.getByRole("button", { name: "home-outline" }));
+		expect(screen.queryByText("labels.colorInvalid")).toBeNull();
+		fireEvent.press(screen.getByText("labels.add"));
+		expect(createLabel).toHaveBeenCalledTimes(1);
+		expect(onDismiss).toHaveBeenCalledTimes(1);
+	});
+
+	it("saves the picked icon without rendering a card preview", () => {
 		renderDialog({ label: label("l1") });
+		expect(screen.queryByText("labels.onCard")).toBeNull();
 
 		fireEvent.press(
 			screen.getByRole("button", { name: "icons.pick.hammer-wrench" }),
@@ -196,13 +228,6 @@ describe("LabelDialog", () => {
 			screen.getByRole("button", { name: "icons.pick.hammer-wrench" }).props
 				.accessibilityState,
 		).toEqual({ selected: true });
-		for (const gutter of screen.getAllByTestId("card-gutter")) {
-			expect(
-				within(gutter).getByTestId("hammer-wrench", {
-					includeHiddenElements: true,
-				}),
-			).toBeOnTheScreen();
-		}
 		fireEvent.press(screen.getByText("labels.save"));
 
 		expect(reiconLabel).toHaveBeenCalledTimes(1);

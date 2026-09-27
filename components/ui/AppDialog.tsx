@@ -2,6 +2,7 @@ import type { ReactNode, RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, type View } from "react-native";
 import { Button, Dialog, Portal, Text } from "react-native-paper";
+import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useModalFocus } from "@/hooks/use-modal-focus";
 import { useAppTheme } from "@/theme";
 import { contentWidth, space, touchTarget } from "@/theme/tokens";
@@ -52,7 +53,7 @@ export function AppDialog({
 	returnFocusTo,
 }: AppDialogProps) {
 	const { t } = useTranslation();
-	const { width } = useWindowDimensions();
+	const { width, height } = useWindowDimensions();
 
 	useModalFocus(visible, `${testID}-surface`, onDismiss, {
 		returnFocusTo,
@@ -73,7 +74,18 @@ export function AppDialog({
 				}}
 			>
 				<Dialog.Title>{title}</Dialog.Title>
-				<Dialog.Content>{children}</Dialog.Content>
+				<Dialog.Content>
+					<SlimScrollView
+						keyboardShouldPersistTaps="handled"
+						style={{
+							maxHeight: height - space.xxl * 5,
+							marginRight: -space.md,
+						}}
+						contentContainerStyle={{ paddingRight: space.md }}
+					>
+						{children}
+					</SlimScrollView>
+				</Dialog.Content>
 				<Dialog.Actions style={{ gap: space.md, flexWrap: "wrap" }}>
 					{actions}
 				</Dialog.Actions>

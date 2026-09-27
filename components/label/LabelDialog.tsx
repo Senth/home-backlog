@@ -4,15 +4,11 @@ import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import {
 	Button,
-	Card,
 	HelperText,
-	Icon,
 	Portal,
 	Text,
 	TextInput,
-	ThemeProvider,
 } from "react-native-paper";
-import { CardGutter } from "@/components/board/CardGutter";
 import { ColorSwatches } from "@/components/label/ColorSwatches";
 import { IconPicker } from "@/components/label/IconPicker";
 import { IconQuickPicks } from "@/components/label/IconQuickPicks";
@@ -32,9 +28,9 @@ import {
 	labelError,
 	labelIconPicks,
 } from "@/models/label";
-import { type Node, rankAtEnd } from "@/models/node";
-import { darkTheme, defaultLabelHue, lightTheme, useAppTheme } from "@/theme";
-import { icon, space, touchTarget } from "@/theme/tokens";
+import { rankAtEnd } from "@/models/node";
+import { defaultLabelHue, useAppTheme } from "@/theme";
+import { space, touchTarget } from "@/theme/tokens";
 
 interface LabelDialogProps {
 	homeId: string;
@@ -47,26 +43,6 @@ interface LabelDialogProps {
 	returnFocusTo?: RefObject<View | null>;
 }
 
-/** The gutter's sample card: a priority is all the gutter reads off a node. */
-const previewNode: Pick<Node, "priority"> = { priority: "normal" };
-
-/**
- * Creating and editing one label (#100), in one shape — nothing moves between
- * the two: the preview, the name, the icon and the color hold their places,
- * and only the actions row grows a Delete on the edit path.
- *
- * The live preview is the point of the dialog. A hue picked from a row of
- * swatches says nothing about what it does to a card, so both schemes render
- * the settled card face — the real gutter, priority, hairline and label glyph
- * included — and every keystroke and pick lands in the preview at once. Each
- * half is forced to its scheme with Paper's `ThemeProvider`, so the components
- * underneath resolve the same tokens the real board does.
- *
- * The quick picks change the preview; the search slot opens the full-screen
- * `IconPicker` in its own portal. Writes queue like every other edit, so
- * saving dismisses at once; a refused write surfaces through the screen's
- * snackbar, the way `renameHome` argues for.
- */
 export function LabelDialog({
 	homeId,
 	label,
@@ -82,6 +58,7 @@ export function LabelDialog({
 	const [title, setTitle] = useState(label?.title ?? "");
 	const [icon, setIcon] = useState(label?.icon ?? defaultLabelIcon);
 	const [color, setColor] = useState(label?.color ?? defaultLabelHue);
+	const [colorInvalid, setColorInvalid] = useState(false);
 	const [titleProblem, setTitleProblem] = useState<LabelTitleError | null>(
 		null,
 	);
@@ -91,16 +68,8 @@ export function LabelDialog({
 
 	const labels = homes.find((home) => home.id === homeId)?.labels ?? [];
 
-	/** The label as it is being drawn — what the preview and the gutter read. */
-	const draft: LabelWithId = {
-		id: label?.id ?? "draft",
-		title: title.trim() === "" ? t("labels.previewFallback") : title,
-		icon,
-		color,
-		rank: label?.rank ?? "a0",
-	};
-
 	const save = () => {
+		if (colorInvalid) return;
 		const problem = labelError(title, labels, label?.id ?? null);
 		if (problem !== null) {
 			setTitleProblem(problem);
@@ -200,19 +169,6 @@ export function LabelDialog({
 					]}
 				>
 					<View style={{ gap: space.lg }}>
-						<View style={{ gap: space.sm }}>
-							<Text
-								variant="labelLarge"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								{t("labels.onCard")}
-							</Text>
-							<View style={{ flexDirection: "row", gap: space.sm }}>
-								<SchemePreview scheme="light" label={draft} />
-								<SchemePreview scheme="dark" label={draft} />
-							</View>
-						</View>
-
 						<View>
 							<TextInput
 								mode="outlined"
@@ -247,7 +203,11 @@ export function LabelDialog({
 							>
 								{t("labels.colorLabel")}
 							</Text>
-							<ColorSwatches value={color} onChange={setColor} />
+							<ColorSwatches
+								value={color}
+								onChange={setColor}
+								onInvalidChange={setColorInvalid}
+							/>
 						</View>
 					</View>
 				</AppDialog>
@@ -266,72 +226,6 @@ export function LabelDialog({
 					returnFocusTo={deleteAnchor}
 				/>
 			) : null}
-		</View>
-	);
-}
-
-interface SchemePreviewProps {
-	scheme: "light" | "dark";
-	label: LabelWithId;
-}
-
-/**
- * One half of the preview: the settled card face, forced to a scheme. The
- * crumbs, the title and the gutter are the real components, so the preview
- * cannot drift from the board — a change to the card face is a change here.
- */
-function SchemePreview({ scheme, label }: SchemePreviewProps) {
-	const { t } = useTranslation();
-	const theme = scheme === "light" ? lightTheme : darkTheme;
-
-	return (
-		<View style={{ flex: 1, gap: space.xs }}>
-			<Text
-				variant="labelMedium"
-				style={{ color: theme.colors.onSurfaceVariant, textAlign: "center" }}
-			>
-				{scheme === "light"
-					? t("labels.previewLight")
-					: t("labels.previewDark")}
-			</Text>
-			<ThemeProvider theme={theme}>
-				<Card
-					mode="outlined"
-					style={{
-						backgroundColor: theme.colors.boardCard,
-						borderColor: theme.colors.boardCardBorder,
-					}}
-				>
-					<View style={{ flexDirection: "row", minHeight: touchTarget }}>
-						<CardGutter node={previewNode} labels={[label]} />
-						<View
-							style={{
-								flex: 1,
-								paddingTop: space.sm,
-								paddingBottom: space.sm,
-								paddingHorizontal: space.sm,
-							}}
-						>
-							<Text
-								variant="labelMedium"
-								numberOfLines={1}
-								style={{ color: theme.colors.onCardMuted }}
-							>
-								{t("labels.previewCrumbFirst")}
-								<Icon
-									source="chevron-right"
-									size={icon.sm}
-									color={theme.colors.onCardMuted}
-								/>
-								{t("labels.previewCrumbSecond")}
-							</Text>
-							<Text variant="bodyLarge" style={{ marginTop: space.xs }}>
-								{t("labels.previewTitle")}
-							</Text>
-						</View>
-					</View>
-				</Card>
-			</ThemeProvider>
 		</View>
 	);
 }

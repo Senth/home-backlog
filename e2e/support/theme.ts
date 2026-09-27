@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import type { CustomBands } from "@/models/label-color";
 
 /**
  * `theme/index.ts`'s palettes, loaded in the Playwright process.
@@ -98,6 +99,7 @@ function loadThemeSource(): {
 		string,
 		Record<"light" | "dark", { fill: string; on: string }>
 	>;
+	customColorBands: CustomBands;
 } {
 	const ts = NODE_REQUIRE("typescript") as typeof import("typescript");
 	const paperThemes = loadPaperThemes();
@@ -135,6 +137,7 @@ function loadThemeSource(): {
 			string,
 			Record<"light" | "dark", { fill: string; on: string }>
 		>;
+		customColorBands: CustomBands;
 	};
 	// `tokens.ts` imports nothing, so the paper-only `require` never fires for
 	// it; its ramp colors are painted by the card face and belong on the
@@ -151,6 +154,8 @@ function loadThemeSource(): {
 }
 
 const themes = loadThemeSource();
+
+export const customColorBands = themes.customColorBands;
 
 /**
  * One named color of a scheme's theme, canonicalised the way the palette is —
@@ -177,8 +182,8 @@ function paletteOf(source: unknown): string[] {
  * The label hues of one scheme — the fills and on-colors a preset-hued label
  * dot paints. Custom colors are user data: `models/label-color.ts` derives
  * their rendered fill at draw time from any hex, so they cannot be enumerated
- * here, and the seed carries only preset hues. The clamp that keeps a custom
- * fill legible is unit-tested rather than swept.
+ * here, and the seed carries only preset hues. The band conversion and the
+ * custom ink's page-contrast floor are unit-tested rather than swept.
  */
 function labelColors(scheme: Scheme): string[] {
 	return paletteOf(Object.values(themes.labelHues).map((hue) => hue[scheme]));
