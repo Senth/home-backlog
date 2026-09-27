@@ -1,5 +1,6 @@
 // padding: 16 here is prose, not a style object.
 // See issue #101 for why this rule exists.
+// `router.back()` and `canGoBack()` here are prose, not calls.
 /*
  * Worked example: 9 + 30 + 9 = 48.
  */

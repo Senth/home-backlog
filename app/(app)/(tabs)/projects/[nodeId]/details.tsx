@@ -68,6 +68,7 @@ import {
 	space,
 	touchTargetStyle,
 } from "@/theme/tokens";
+import { goBack } from "@/utils/navigation";
 
 /** The field editor a row has open. Its sheet mounts only while open. */
 type Editor =
@@ -95,7 +96,10 @@ export default function NodeDetails() {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
 	const { width } = useWindowDimensions();
-	const { nodeId } = useLocalSearchParams<{ nodeId: string }>();
+	const { nodeId, from } = useLocalSearchParams<{
+		nodeId: string;
+		from?: string;
+	}>();
 	const { activeHome } = useHome();
 	const { user } = useAuth();
 	const focused = useIsFocused();
@@ -421,23 +425,21 @@ export default function NodeDetails() {
 				// names an absence, and no palette entry could replace it.
 				style={{ backgroundColor: "transparent" }}
 			>
-				{/* Wherever you came from, and never a dead arrow.
-				    `router.back()` alone is the trap the board hit: on a screen
-				    reached by a reload, a bookmark or a shared link there is no
-				    history, and it becomes a no-op that logs "GO_BACK was not handled
-				    by any navigator". `canGoBack()` is exactly that test.
-				    The parent board alone is a different failure: these details are
+				{/* The parent board alone is a different failure: these details are
 				    reachable from the board's *own* app-bar action, where the stack is
 				    [parent, board X, details X] — so dismissing to the parent pops
 				    board X as well, and tapping the mark then back lands you a level
 				    above where you started, with the board you were on gone. */}
 				<BackAction
 					accessibilityLabel={t("board.up")}
-					onPress={() =>
-						router.canGoBack()
-							? router.back()
-							: router.dismissTo(boardHref(node?.parentId ?? null))
-					}
+					onPress={() => {
+						if (from === "locations") {
+							router.dismissTo("/projects");
+							router.navigate("/locations");
+						} else {
+							goBack(boardHref(node?.parentId ?? null), "dismissTo");
+						}
+					}}
 				/>
 				{/* The bar names the screen, not the card — the card face below is
 			    where the card says its own name, and repeating it here left a

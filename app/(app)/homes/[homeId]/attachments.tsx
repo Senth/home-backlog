@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Image, View } from "react-native";
@@ -47,11 +47,11 @@ import {
 	space,
 	touchTargetStyle,
 } from "@/theme/tokens";
+import { goBack } from "@/utils/navigation";
 
 export default function AttachmentsInventory() {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
-	const router = useRouter();
 	const { homeId } = useLocalSearchParams<{ homeId: string }>();
 	const { user } = useAuth();
 	const { homes } = useHome();
@@ -104,11 +104,7 @@ export default function AttachmentsInventory() {
 			<Appbar.Header>
 				<BackAction
 					accessibilityLabel={t("manageHome.title")}
-					onPress={() =>
-						router.canGoBack()
-							? router.back()
-							: router.replace(`/homes/${homeId}`)
-					}
+					onPress={() => goBack(`/homes/${homeId}`)}
 				/>
 				<Appbar.Content title={home?.name ?? ""} />
 			</Appbar.Header>

@@ -76,7 +76,7 @@ export default function LabelsScreen() {
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
 			<Appbar.Header>
 				{/* Back to the manage screen this was opened from, by name and
-				    never `router.back()` — a reload or a pasted URL has no history
+				    never a history-dependent back — a reload or a pasted URL has no history
 				    and would leave a dead arrow. */}
 				<BackAction
 					accessibilityLabel={t("manageHome.title")}

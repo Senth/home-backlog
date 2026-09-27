@@ -1,5 +1,4 @@
 import * as Clipboard from "expo-clipboard";
-import { useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
@@ -26,6 +25,7 @@ import { type ApiKey, type KeyNameError, keyNameError } from "@/models/api-key";
 import { formatElapsed } from "@/models/relative-time";
 import { useAppTheme } from "@/theme";
 import { contentWidth, radius, space, touchTarget } from "@/theme/tokens";
+import { goBack } from "@/utils/navigation";
 
 const createDialogTestID = "create-api-key-dialog";
 const secretDialogTestID = "api-key-secret-dialog";
@@ -49,7 +49,6 @@ const revokeDialogTestID = "revoke-api-key-dialog";
 export default function Automations() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
-	const router = useRouter();
 	const online = useOnlineStatus();
 	const { user } = useAuth();
 	const { keys, loading } = useApiKeys(user?.uid ?? null);
@@ -110,16 +109,9 @@ export default function Automations() {
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
 			<Appbar.Header>
-				{/* Named rather than `router.back()`: this screen is reachable with no
-				    in-app history — a reload, a bookmark, a pasted URL — and there
-				    `back()` is a no-op that leaves the arrow dead. */}
 				<BackAction
 					accessibilityLabel={t("tab.projects")}
-					onPress={() =>
-						router.canGoBack()
-							? router.back()
-							: router.replace("/(app)/(tabs)/projects")
-					}
+					onPress={() => goBack("/(app)/(tabs)/projects")}
 				/>
 				<Appbar.Content title={t("automations.title")} />
 			</Appbar.Header>

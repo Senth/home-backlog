@@ -94,7 +94,7 @@ export default function ManageHome() {
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
 			<Appbar.Header>
-				{/* Up to "My homes", never `router.back()`. This screen is reachable
+				{/* Up to "My homes", never a history-dependent back. This screen is reachable
 				    with no in-app history — a reload, a bookmark, a pasted URL — and
 				    there `back()` is a no-op that logs "GO_BACK was not handled by
 				    any navigator" and leaves the arrow dead. The destination is the
