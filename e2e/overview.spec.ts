@@ -100,7 +100,6 @@ async function deleteDashboardConfig(uid: string): Promise<void> {
  */
 async function gotoOverview(page: Page): Promise<void> {
 	await page.goto("/overview");
-	await page.waitForLoadState("networkidle");
 	await page
 		.getByRole("button", { name: enUS.overview.add })
 		.waitFor({ state: "visible", timeout: 30_000 });
@@ -126,7 +125,6 @@ test("1: the app opens on Overview, and Overview is the first tab", async ({
 	page,
 }) => {
 	await page.goto("/");
-	await page.waitForLoadState("networkidle");
 	await page
 		.getByRole("button", { name: enUS.overview.add })
 		.waitFor({ state: "visible", timeout: 30_000 });
