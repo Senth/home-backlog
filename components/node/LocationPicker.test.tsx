@@ -21,6 +21,7 @@ function location(
 	id: string,
 	title: string,
 	ancestorIds: string[] = [],
+	icon = "crosshairs-gps",
 ): Location {
 	return {
 		id,
@@ -28,7 +29,7 @@ function location(
 		parentId: ancestorIds.at(-1) ?? null,
 		ancestorIds,
 		rank: id,
-		icon: "crosshairs-gps",
+		icon,
 		color: "stone",
 		createdAt: null,
 		createdBy: "uid-a",
@@ -73,9 +74,9 @@ function node(locationId: string | null): Node {
 }
 
 const tree = [
-	location("house", "House"),
-	location("basement", "Basement", ["house"]),
-	location("hallway", "Hallway", ["house", "basement"]),
+	location("house", "House", [], "home"),
+	location("basement", "Basement", ["house"], "stairs"),
+	location("hallway", "Hallway", ["house", "basement"], "door-open"),
 ];
 
 function renderPicker(
@@ -109,6 +110,24 @@ describe("LocationPicker", () => {
 			screen.getByRole("checkbox", { name: "Basement" }).props
 				.accessibilityState,
 		).toMatchObject({ checked: false });
+	});
+
+	it("reads as fill rows led by each place's own glyph, not checkboxes (#394)", () => {
+		renderPicker(node("hallway"), () => {}, "hallway");
+
+		// The sheet's one selection style (#314): no tick drawn on any row,
+		// and every row leads with the glyph its place carries in the tree.
+		expect(
+			screen.UNSAFE_queryAllByProps({ source: "checkbox-marked" }),
+		).toHaveLength(0);
+		expect(
+			screen.UNSAFE_queryAllByProps({ source: "checkbox-blank-outline" }),
+		).toHaveLength(0);
+		expect(screen.UNSAFE_getAllByProps({ source: "home" })).toHaveLength(1);
+		expect(screen.UNSAFE_getAllByProps({ source: "stairs" })).toHaveLength(1);
+		expect(screen.UNSAFE_getAllByProps({ source: "door-open" })).toHaveLength(
+			1,
+		);
 	});
 
 	it("shows the full path as a trail under a filed row", () => {

@@ -6,6 +6,7 @@ import { Button, Icon, Text, TextInput } from "react-native-paper";
 import { AppSheet } from "@/components/ui/AppSheet";
 import { CheckRow } from "@/components/ui/CheckRow";
 import type { NodeChanges } from "@/data/nodes";
+import { useLocationColors } from "@/hooks/use-location-colors";
 import { foldTitle } from "@/models/fold-title";
 import type { Location } from "@/models/locations";
 import type { Node } from "@/models/node";
@@ -15,12 +16,12 @@ import { icon, space, touchTarget } from "@/theme/tokens";
 interface LocationPickerProps {
 	/** The home's location tree, read by the screen and handed down. */
 	locations: readonly Location[];
-	/** The card being filed — the row ticked is the place it sits in. */
+	/** The card being filed — the row filled in is the place it sits in. */
 	node: Node;
 	/**
 	 * The place the card answers to (#290) — its own, or the nearest one an
-	 * ancestor passes down. It is the row the tick sits on; the write still
-	 * names the card's own field, so the trail's answer shows through the
+	 * ancestor passes down. It is the row filled in; the write still names
+	 * the card's own field, so the trail's answer shows through the
 	 * moment the card's own place comes off.
 	 */
 	effectiveLocationId: string | null;
@@ -37,12 +38,15 @@ interface LocationPickerProps {
  * The rows are the whole location tree, flat, because locations count in tens;
  * what tells two same-named rooms apart is the trail under the row — the
  * place's full path as breadcrumbs, the same chevron-separated line every
- * trail in the app draws. A tap writes the place's id and its stored path in
- * one write; tapping the card's own ticked row unfiles the card, the way a
- * selected priority chip clears itself — and the tick an ancestor's place
- * holds (#290) is named as inherited, with no write of its own to take. The
- * writes go through the screen's `save`, so the card's own listener moves the
- * tick and the row's value — no local state.
+ * trail in the app draws. Each row leads with the place's own glyph in its
+ * hue (#394) — the same mark the tree and the card footer draw for it — and
+ * selection is the shared fill presentation (#314), not a checkbox. A tap
+ * writes the place's id and its stored path in one write; tapping the card's
+ * own selected row unfiles the card, the way a selected priority chip clears
+ * itself — and the place an ancestor's card passes down (#290) is named as
+ * inherited, with no write of its own to take. The writes go through the
+ * screen's `save`, so the card's own listener moves the selection and the
+ * row's value — no local state.
  */
 export function LocationPicker({
 	locations,
@@ -53,7 +57,6 @@ export function LocationPicker({
 	testID,
 }: LocationPickerProps) {
 	const { t } = useTranslation();
-	const theme = useAppTheme();
 	const [text, setText] = useState("");
 
 	const needle = foldTitle(text.trim());
@@ -74,8 +77,8 @@ export function LocationPicker({
 				locationAncestorIds: [...location.ancestorIds],
 			});
 		}
-		// The inherited row: ticked above this card's own field, so there is
-		// nothing here to clear and nothing to pin.
+		// The inherited row: filled in above this card's own field, so there
+		// is nothing here to clear and nothing to pin.
 	};
 
 	return (
@@ -121,24 +124,15 @@ export function LocationPicker({
 					) : null}
 
 					{visible.map((location) => {
-						const ticked = location.id === effectiveLocationId;
-						const inherited = ticked && location.id !== node.locationId;
+						const checked = location.id === effectiveLocationId;
+						const inherited = checked && location.id !== node.locationId;
 						return (
 							<View key={location.id}>
-								<CheckRow
-									label={location.title}
-									checked={ticked}
+								<LocationOption
+									location={location}
+									checked={checked}
+									inherited={inherited}
 									onPress={() => toggle(location)}
-									right={
-										inherited ? (
-											<Text
-												variant="bodySmall"
-												style={{ color: theme.colors.onSurfaceVariant }}
-											>
-												{t("detail.locationInherited")}
-											</Text>
-										) : undefined
-									}
 								/>
 								<LocationTrail location={location} byId={byId} />
 							</View>
@@ -147,6 +141,49 @@ export function LocationPicker({
 				</View>
 			</View>
 		</AppSheet>
+	);
+}
+
+/**
+ * One place in the picker: the shared fill presentation (#314) instead of a
+ * checkbox, led by the place's own glyph in its hue — the mark the tree and
+ * the card footer draw for the same place (#394). The name carries the
+ * accessibility of the glyph, the way every row with an identity mark here
+ * does.
+ */
+function LocationOption({
+	location,
+	checked,
+	inherited,
+	onPress,
+}: {
+	location: Location;
+	checked: boolean;
+	inherited: boolean;
+	onPress: () => void;
+}) {
+	const { t } = useTranslation();
+	const theme = useAppTheme();
+	const tone = useLocationColors(location.color).fill;
+
+	return (
+		<CheckRow
+			label={location.title}
+			checked={checked}
+			onPress={onPress}
+			fill
+			left={<Icon source={location.icon} size={icon.md} color={tone} />}
+			right={
+				inherited ? (
+					<Text
+						variant="bodySmall"
+						style={{ color: theme.colors.onSurfaceVariant }}
+					>
+						{t("detail.locationInherited")}
+					</Text>
+				) : undefined
+			}
+		/>
 	);
 }
 
@@ -175,8 +212,9 @@ function LocationTrail({
 				flexWrap: "wrap",
 				alignItems: "center",
 				columnGap: space.xs,
-				// Under the title, past the tick — the row's own second line.
-				paddingLeft: icon.md + space.md,
+				// Under the title, past the glyph — the fill row's side padding,
+				// its leading mark, then its gap. The row's own second line.
+				paddingLeft: space.md + icon.md + space.sm,
 				paddingBottom: space.xs,
 			}}
 		>
