@@ -1,11 +1,17 @@
-import * as Clipboard from "expo-clipboard";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Button, Surface, Text } from "react-native-paper";
 import { useAppTheme } from "@/theme";
-import { elevation, radius, space, touchTarget } from "@/theme/tokens";
+import {
+	contentWidth,
+	elevation,
+	radius,
+	space,
+	touchTarget,
+} from "@/theme/tokens";
 import { buildId } from "@/utils/build-info";
+import { copyText } from "@/utils/copy-text.web";
 import {
 	type TimingRow,
 	timingMarkdown,
@@ -79,7 +85,7 @@ export function LaunchTimingOverlay() {
 	};
 
 	const copy = () => {
-		Clipboard.setStringAsync(timingMarkdown(rows, header)).then(
+		copyText(timingMarkdown(rows, header)).then(
 			(copied) => setCopyFailed(!copied),
 			() => setCopyFailed(true),
 		);
@@ -93,6 +99,8 @@ export function LaunchTimingOverlay() {
 				top: space.xxl + space.lg,
 				left: space.md,
 				right: space.md,
+				maxWidth: contentWidth.form,
+				marginHorizontal: "auto",
 				padding: space.md,
 				gap: space.sm,
 				borderRadius: radius.md,
