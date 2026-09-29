@@ -3,6 +3,7 @@ import { SplashScreen } from "@/components/ui/SplashScreen";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardCardsProvider } from "@/contexts/DashboardCardsContext";
 import { HomeProvider, useHome } from "@/contexts/HomeContext";
+import { markLaunch } from "@/utils/launch-timing";
 
 /**
  * The signed-in half of the app, and the gate that keeps it that way.
@@ -40,6 +41,7 @@ function HomeGate() {
 	const { loading } = useHome();
 
 	if (loading) return <SplashScreen />;
+	markLaunch("router");
 
 	// One set of card-config listeners above both routes that read them:
 	// Overview stays mounted under the editor, and a second subscription

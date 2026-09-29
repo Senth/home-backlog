@@ -661,5 +661,12 @@
 		"title": "Installera Home Backlog",
 		"body": "Lägg till appen på hemskärmen så öppnas den i helskärm och fungerar offline.",
 		"action": "Installera"
+	},
+	"debug": {
+		"timing": {
+			"title": "Starttider",
+			"copy": "Kopiera",
+			"close": "Stäng"
+		}
 	}
 }

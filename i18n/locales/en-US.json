@@ -661,5 +661,12 @@
 		"title": "Install Home Backlog",
 		"body": "Add it to your home screen so it opens full screen and works offline.",
 		"action": "Install"
+	},
+	"debug": {
+		"timing": {
+			"title": "Launch timing",
+			"copy": "Copy",
+			"close": "Close"
+		}
 	}
 }

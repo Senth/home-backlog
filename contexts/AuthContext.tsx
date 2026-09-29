@@ -17,6 +17,7 @@ import {
 import { type AuthErrorKey, mapAuthError } from "@/auth/errors";
 import { consumeRedirectResult } from "@/auth/redirect";
 import { auth } from "@/config/firebase";
+import { markLaunch } from "@/utils/launch-timing";
 
 interface AuthContextType {
 	user: User | null;
@@ -102,10 +103,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		await firebaseSignOut(auth);
 	}, []);
 
+	const loading = !sessionResolved || !redirectResolved;
+	if (!loading) markLaunch("auth");
+
 	const value = useMemo(
 		() => ({
 			user,
-			loading: !sessionResolved || !redirectResolved,
+			loading,
 			redirectError,
 			dismissRedirectError,
 			signInWithGoogle,
@@ -113,8 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		}),
 		[
 			user,
-			sessionResolved,
-			redirectResolved,
+			loading,
 			redirectError,
 			dismissRedirectError,
 			signInWithGoogle,

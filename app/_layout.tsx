@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PaperProvider } from "react-native-paper";
+import { LaunchTimingOverlay } from "@/components/ui/LaunchTimingOverlay";
 import { OfflineBar } from "@/components/ui/OfflineBar";
 import { PaperIcon } from "@/components/ui/PaperIcon";
 import { SplashScreen } from "@/components/ui/SplashScreen";
@@ -26,6 +27,9 @@ import { UpdateBanner } from "@/components/ui/UpdateBanner";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { darkTheme, lightTheme, useAppTheme } from "@/theme";
+import { markLaunch } from "@/utils/launch-timing";
+
+markLaunch("bundle");
 
 function AuthGate() {
 	const { loading } = useAuth();
@@ -64,6 +68,10 @@ function AuthGate() {
 		};
 	}, []);
 
+	if (fontsReady) markLaunch("font");
+	const ready = !loading && fontsReady;
+	if (ready) markLaunch("splash");
+
 	// Where you are sent is decided by the two group layouts and by
 	// `app/index.tsx`, declaratively during render. This gate only decides
 	// *whether the router exists yet* — the splash replaces it rather than
@@ -76,8 +84,9 @@ function AuthGate() {
 	return (
 		<View style={{ flex: 1 }}>
 			<OfflineBar />
-			{loading || !fontsReady ? <SplashScreen /> : <Slot />}
+			{ready ? <Slot /> : <SplashScreen />}
 			<UpdateBanner />
+			<LaunchTimingOverlay />
 		</View>
 	);
 }

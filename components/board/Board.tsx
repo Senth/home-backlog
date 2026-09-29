@@ -65,6 +65,7 @@ import {
 	space,
 	touchTarget,
 } from "@/theme/tokens";
+import { markLaunch } from "@/utils/launch-timing";
 
 interface BoardProps {
 	homeId: string;
@@ -186,6 +187,7 @@ export function Board({
 	// docs/DESIGN.md § Motion: with the query on, the drag does everything but
 	// move on its own — no lift, no edge fill, and the spring in the hook.
 	const reduced = useReducedMotion();
+	if (!loading) markLaunch("content");
 
 	const [boardWidth, setBoardWidth] = useState(0);
 	const [fabHeight, setFabHeight] = useState(0);

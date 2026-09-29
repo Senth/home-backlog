@@ -20,6 +20,7 @@ import { isQueryAnswer, subscribeWithRetry } from "@/data/live-query";
 import { isOnline } from "@/hooks/use-online-status";
 import { resolveActiveHomeId } from "@/models/active-home";
 import { emailHash, type Home, type Role } from "@/models/home";
+import { markLaunch } from "@/utils/launch-timing";
 
 /**
  * Which homes I am in, and which one I am looking at.
@@ -257,12 +258,15 @@ export function HomeProvider({
 		}
 	}, [homes, user, uid]);
 
+	const loading = !homesLoaded || !storedLoaded;
+	if (!loading) markLaunch("homes");
+
 	const value = useMemo(
 		() => ({
 			homes,
 			activeHome,
 			myRole: activeHome?.members[uid] ?? null,
-			loading: !homesLoaded || !storedLoaded,
+			loading,
 			failed: homesFailed,
 			retry,
 			retrying,
@@ -272,10 +276,9 @@ export function HomeProvider({
 			homes,
 			activeHome,
 			uid,
-			homesLoaded,
+			loading,
 			homesFailed,
 			retrying,
-			storedLoaded,
 			retry,
 			setActiveHome,
 		],
