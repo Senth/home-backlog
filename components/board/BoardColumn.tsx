@@ -218,9 +218,10 @@ export function BoardColumn({
 				borderStyle: "dashed",
 				// The shape of the card that is in the air: `boardCard`, the same
 				// fill the card face carries, so the hole in the column is the card
-				// missing from it rather than a third shade. Its idle edge is the
-				// card's edge too — `outlineVariant` was 1.4:1 against the recessed
-				// column and simply vanished there.
+				// missing from it rather than a third shade. The idle edge stays a
+				// drawn one — a drop target has to read as "put it here" before the
+				// pointer arrives, and `outlineVariant` was 1.4:1 against the
+				// recessed column and simply vanished there.
 				backgroundColor: theme.colors.boardCard,
 				borderColor:
 					gapAt === null ? theme.colors.boardCardBorder : theme.colors.primary,
@@ -253,9 +254,11 @@ export function BoardColumn({
 				// Side by side it must not: `flex` on a row child would stretch its
 				// *width*, and the columns stretch to full height already.
 				flex: wide ? undefined : 1,
-				// Side by side, a column needs an edge or the board reads as one
-				// undifferentiated field of cards. A full-width pane does not: the
-				// strip above it already says which column you are on.
+				// Side by side, the recessed fill is the column's edge: deep enough
+				// that the raised card clears it on fill alone (#358), so neither
+				// surface draws a hairline over its fill. A full-width pane carries
+				// no fill — the strip above it already says which column you are on,
+				// and the card keeps its edge there.
 				//
 				// Recessed rather than raised: the column is the darkest surface on
 				// the board, the page sits above it and a card above that. In dark
@@ -263,8 +266,6 @@ export function BoardColumn({
 				// color as the page, so the board read dark → grey → dark with the
 				// card *below* the thing it sat on.
 				backgroundColor: wide ? theme.colors.boardColumn : undefined,
-				borderWidth: wide ? border.hairline : undefined,
-				borderColor: wide ? theme.colors.boardCardBorder : undefined,
 				borderRadius: wide ? radius.md : radius.none,
 				paddingTop: wide ? space.md : space.none,
 			}}
@@ -363,6 +364,7 @@ export function BoardColumn({
 										onOpen={() => onOpen(node)}
 										menu={renderMenu?.(node)}
 										wide={wide}
+										onColumn={wide}
 										narrow={narrow}
 										blockers={blockers}
 										ancestorLabelIds={ancestorLabelIds}
@@ -376,6 +378,7 @@ export function BoardColumn({
 											onOpen={() => onOpen(node)}
 											menu={renderMenu?.(node)}
 											wide={wide}
+											onColumn={wide}
 											narrow={narrow}
 											blockers={blockers}
 											ancestorLabelIds={ancestorLabelIds}

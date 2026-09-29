@@ -93,7 +93,12 @@ const darkElevation = {
  * headroom over the 4.5:1 floor `e2e/craft.spec.ts` enforces.
  */
 const lightBoard = {
-	boardColumn: "#E4EEE6",
+	// Deep enough that `boardCard` clears it 1.43:1 on fill alone — the same
+	// separation dark ships — so above `compactBreakpoint` neither the column
+	// nor the card draws a hairline over its fill (#358): fill is the board's
+	// only separation technique. Still ~1.42:1 below the page, so the recess
+	// reads, and the column's `primary` add button keeps a 3:1 pairing.
+	boardColumn: "#CADACD",
 	boardCard: "#F8FFFA",
 	// Darker than its dark-scheme twin, and deliberately: the light card fill is
 	// within 1.01:1 of the light page, so below `compactBreakpoint` — where the

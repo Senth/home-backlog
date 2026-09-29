@@ -48,6 +48,15 @@ interface BoardCardProps {
 	 */
 	wide?: boolean;
 	/**
+	 * The card stands on the board column's recessed fill, so the fill is the
+	 * separation and the outlined edge stands down — `boardCardBorder` is the
+	 * card's edge only where a fill cannot do the job: below
+	 * `compactBreakpoint`, where the column carries no fill, and everywhere the
+	 * card sits on the page (#358). The board passes it, the same rule `wide`
+	 * follows: the card does not measure itself.
+	 */
+	onColumn?: boolean;
+	/**
 	 * Below `cardGutterBreakpoint` (#100): the left gutter narrows, the right
 	 * gutter disappears, the menu floats in the card's top-right corner, and the
 	 * people and the step count join the content as a trailing line. A 390px
@@ -193,6 +202,7 @@ export function BoardCard({
 	onOpen,
 	menu,
 	wide = false,
+	onColumn = false,
 	narrow = false,
 	blockers = noBlockers,
 	path,
@@ -328,7 +338,7 @@ export function BoardCard({
 
 	return (
 		<Card
-			mode="outlined"
+			mode={onColumn ? "contained" : "outlined"}
 			testID={cardTestID}
 			onPress={onOpen}
 			accessibilityHint={
@@ -344,6 +354,9 @@ export function BoardCard({
 			// the outlined card's hairline itself, in whatever `borderColor` this
 			// style carries — a `borderWidth` here would put a second, coincident
 			// border on the surface underneath it and inset the content by a pixel.
+			// On the column's fill the card is `contained` instead: the fill alone
+			// separates there, and a hairline over a fill is the edge the contract
+			// reserves for where a fill cannot do the job (#358).
 			style={{
 				backgroundColor: theme.colors.boardCard,
 				borderColor: theme.colors.boardCardBorder,
