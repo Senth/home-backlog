@@ -48,6 +48,7 @@ import {
 	space,
 	touchTarget,
 } from "@/theme/tokens";
+import { markLaunch } from "@/utils/launch-timing";
 
 /**
  * What is going on, without opening a board: an ordered list of the home's
@@ -185,6 +186,7 @@ export default function Overview() {
 	// others are silent.
 	const loading =
 		roots.loading && pool.loading && done.loading && configLoading;
+	if (!loading) markLaunch("content");
 	const anyLoading =
 		roots.loading || pool.loading || done.loading || configLoading;
 	const failed = roots.failed || pool.failed || done.failed || configFailed;
