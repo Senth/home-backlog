@@ -166,6 +166,46 @@ describe("useBoardFilter", () => {
 		board.unmount();
 	});
 
+	it("refresh reads another screen's filter without undoing a later edit", async () => {
+		const board = openBoard();
+		await waitFor(() => expect(board.result.current.loading).toBe(false));
+		const otherScreen = openBoard();
+		await waitFor(() => expect(otherScreen.result.current.loading).toBe(false));
+		act(() => otherScreen.result.current.setFilter(priorityFilter));
+
+		act(() => board.result.current.refresh());
+		await waitFor(() =>
+			expect(board.result.current.filter).toEqual(priorityFilter),
+		);
+		act(() => otherScreen.result.current.setFilter(null));
+		act(() => board.result.current.refresh());
+		await waitFor(() => expect(board.result.current.filter).toBeNull());
+		act(() => otherScreen.result.current.setFilter(priorityFilter));
+
+		let release!: (raw: string | null) => void;
+		jest.mocked(AsyncStorage.getItem).mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					release = resolve;
+				}),
+		);
+		act(() => board.result.current.refresh());
+		act(() => board.result.current.setFilter(null));
+		await act(async () =>
+			release(
+				JSON.stringify({
+					v: 1,
+					savedAt: t0,
+					...priorityFilter,
+				}),
+			),
+		);
+		expect(board.result.current.filter).toBeNull();
+		expect(mockStore[key]).toBeUndefined();
+		otherScreen.unmount();
+		board.unmount();
+	});
+
 	it("switching homes re-points: each home holds its own filter", async () => {
 		mockStore[boardFilterKey("stugan")] = JSON.stringify({
 			v: 1,

@@ -12,7 +12,7 @@ import {
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { BoardCard } from "@/components/board/BoardCard";
 import { boardHref, detailsHref } from "@/components/board/board-href";
-import { columnWidth } from "@/components/board/column-width";
+import { expandedColumnWidth } from "@/components/board/column-width";
 import { TitleDialog } from "@/components/board/TitleDialog";
 import { CardActionsMenu } from "@/components/overview/CardActionsMenu";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
@@ -147,8 +147,10 @@ export default function Overview() {
 	);
 
 	// Above the breakpoint the sections flow and wrap, each a column the board
-	// would recognize — the board's own dividing arithmetic, clamped at the
-	// same two ends. Below it, one full-width stack as ever.
+	// would recognize — the board's own dividing arithmetic, floored at the
+	// same minimum but with no ceiling: the sections expand across the whole
+	// desktop width instead of stopping at the board's maximum and leaving the
+	// right side empty (#348). Below it, one full-width stack as ever.
 	const flowing = width >= compactBreakpoint;
 	// The cards' gutters give their room back below `cardGutterBreakpoint`
 	// (#100) — a 390px phone at 200% text is a 195px viewport, and there the
@@ -156,7 +158,7 @@ export default function Overview() {
 	const narrow = width < cardGutterBreakpoint;
 	// A failed pair nulls its card's section, so the width divides by what
 	// actually renders, not by what is configured.
-	const sectionWidth = columnWidth(
+	const sectionWidth = expandedColumnWidth(
 		width,
 		cards.filter(
 			(card) =>
@@ -404,9 +406,10 @@ export default function Overview() {
 								style={{
 									flexDirection: "row",
 									flexWrap: "wrap",
-									// The same gutters `columnWidth` divides with — the pair
-									// at the edges and the gaps between — so the sections
-									// really are columns of the board's shape.
+									// The same gutters `expandedColumnWidth` divides
+									// with — the pair at the edges and the gaps
+									// between — so the sections really are columns
+									// of the board's shape.
 									gap: space.md,
 									paddingHorizontal: space.md,
 								}}

@@ -4,6 +4,7 @@ import { Provider } from "react-native-paper";
 import { LocationDialog } from "@/components/location/LocationDialog";
 import { PaperIcon } from "@/components/ui/PaperIcon";
 import { createLocation, editLocation } from "@/data/locations";
+import { toHex } from "@/models/label-color";
 import type { Location } from "@/models/locations";
 import { labelHues, lightTheme } from "@/theme";
 
@@ -127,8 +128,47 @@ describe("LocationDialog", () => {
 		expect(editLocation).not.toHaveBeenCalled();
 	});
 
+	it("keeps the dialog open and writes nothing while the custom color draft is invalid", () => {
+		const onDismiss = jest.fn();
+		renderDialog({ location: place(), onDismiss });
+		fireEvent.press(screen.getByRole("button", { name: "labels.customColor" }));
+		const hexField = screen.UNSAFE_getAllByType(RNTextInput)[1];
+		const valid = toHex([0xaa, 0xbb, 0xcc]).slice(0, 4);
+		fireEvent.changeText(hexField, valid);
+		fireEvent.changeText(hexField, `${valid}d`);
+		expect(screen.getByText("labels.colorInvalid")).toBeOnTheScreen();
+		fireEvent.press(screen.getByText("labels.save"));
+		expect(onDismiss).not.toHaveBeenCalled();
+		expect(editLocation).not.toHaveBeenCalled();
+		fireEvent.press(screen.getByRole("button", { name: "labels.hue.red" }));
+		fireEvent.press(screen.getByText("labels.save"));
+		expect(editLocation).toHaveBeenCalledWith("home-1", "garden", {
+			color: "red",
+		});
+	});
+
+	it("saves after IconPicker discards an invalid hex draft", () => {
+		const onDismiss = jest.fn();
+		renderDialog({ location: place(), onDismiss });
+		fireEvent.press(screen.getByRole("button", { name: "labels.customColor" }));
+		const hexField = screen.UNSAFE_getAllByType(RNTextInput)[1];
+		fireEvent.changeText(hexField, toHex([0xaa, 0xbb, 0xcc]).slice(0, 4));
+		fireEvent.changeText(hexField, "invalid");
+		expect(screen.getByText("labels.colorInvalid")).toBeOnTheScreen();
+		fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
+		fireEvent.press(screen.getByRole("button", { name: "home" }));
+		expect(screen.queryByText("labels.colorInvalid")).toBeNull();
+		fireEvent.press(screen.getByText("labels.save"));
+		expect(editLocation).toHaveBeenCalledWith("home-1", "garden", {
+			icon: "home",
+			color: expect.any(String),
+		});
+		expect(onDismiss).toHaveBeenCalledTimes(1);
+	});
+
 	it("paints the palette swatches in the ink tone the tree will draw", () => {
 		renderDialog();
+		expect(screen.getByText("labels.colorLabel")).toBeOnTheScreen();
 
 		const swatch = screen.getByLabelText("labels.hue.stone");
 		const dot = swatch.props.children[0];

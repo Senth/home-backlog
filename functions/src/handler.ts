@@ -4,10 +4,10 @@ import { ApiError } from "./errors.js";
 /**
  * An async route, wrapped so that a rejection reaches the error middleware.
  *
- * Express 4 does not await a handler, so an `async` route that throws leaves the
- * request hanging until it times out — with no response, no log and nothing in
- * the envelope. Every handler in this package is async, so every one of them
- * goes through this.
+ * Express awaits a handler that returns a promise, so an `async` route that
+ * throws already reaches the error middleware; this wrapper keeps that
+ * guarantee at the one place routes are registered. Every handler in this
+ * package is async, so every one of them goes through this.
  */
 export function handle(
 	route: (request: Request, response: Response) => Promise<void>,

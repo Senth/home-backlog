@@ -1,0 +1,1 @@
+{ "fridge": "kylskåp kök", "microsoft": "", "stove": "spis kök" }

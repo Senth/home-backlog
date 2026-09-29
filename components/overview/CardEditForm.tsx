@@ -663,14 +663,13 @@ function SheetBody({
 					draft.seedId === null ? undefined : t(seedTitleKeys[draft.seedId])
 				}
 			/>
-			<HelperText type="error" visible={titleProblem !== null}>
-				{titleProblem === null ? "" : t(titleProblem)}
+			<HelperText type={titleProblem !== null ? "error" : "info"} visible>
+				{titleProblem !== null
+					? t(titleProblem)
+					: draft.seedId !== null && (draft.title ?? "") === ""
+						? t("overview.cards.edit.followsDefault")
+						: ""}
 			</HelperText>
-			{draft.seedId !== null && (draft.title ?? "") === "" ? (
-				<HelperText type="info" visible>
-					{t("overview.cards.edit.followsDefault")}
-				</HelperText>
-			) : null}
 
 			{/* One field, one row — the board filter sheet's own pattern, so
 				    the two read as one product. The row names the field and

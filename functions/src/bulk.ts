@@ -57,6 +57,7 @@ export interface BulkNode extends NodeBody {
 	ref: string;
 	/** Another node's `ref`. Absent on exactly one node: the new root. */
 	parentRef: string | null;
+	blockedByRefs?: string[];
 	/** Where this node sat in the request, so an error can point at it. */
 	index: number;
 }
@@ -85,7 +86,8 @@ export interface BulkContext {
 	/** One generated document id per ref, made by the handler. */
 	idFor: Record<string, string>;
 	/** The existing node the root attaches under, already resolved and readable. */
-	parent: ParentFacts | null;
+	parent: BulkParentFacts | null;
+	places: Record<string, string[]>;
 	/** The rank the new root takes in its column at the attach point. */
 	rootRank: string;
 	createdBy: string;
@@ -93,6 +95,15 @@ export interface BulkContext {
 	memberUids: readonly string[];
 	/** A server timestamp sentinel, or a real date in a test. */
 	now: unknown;
+}
+
+export interface BulkParentFacts extends ParentFacts {
+	locationId: string | null;
+	locationAncestorIds: string[];
+}
+
+export function isLocationDocumentId(id: string): boolean {
+	return id.length > 0 && !id.includes("/");
 }
 
 function fail(details: ApiErrorDetail[]): never {
@@ -176,21 +187,24 @@ export function parseBulkBody(body: unknown): BulkPayload {
 				continue;
 			}
 
-			// The single-node verbs file work in a place (#246); the bulk planner
-			// does not resolve places, so a payload that named one would be
-			// silently unfiled — refused rather than ignored.
-			if ("locationId" in object || "locationAncestorIds" in object) {
+			const fields = parseNodeBody(object, "create", [
+				"ref",
+				"parentRef",
+				"blockedByRefs",
+			]);
+			if (
+				"blockedByRefs" in object &&
+				(!Array.isArray(object.blockedByRefs) ||
+					object.blockedByRefs.some((ref) => typeof ref !== "string"))
+			) {
 				details.push({
 					index,
-					field: "locationId" in object ? "locationId" : "locationAncestorIds",
-					code: "locations_unavailable",
-					message:
-						"A bulk create files nothing yet: it cannot check a location id. PATCH each node's locationId afterwards.",
+					field: "blockedByRefs",
+					code: "invalid_type",
+					message: "blockedByRefs must be a list of strings.",
 				});
 				continue;
 			}
-
-			const fields = parseNodeBody(object, "create", ["ref", "parentRef"]);
 			const ref = object.ref;
 			if (typeof ref !== "string" || ref.length === 0) {
 				details.push({
@@ -212,7 +226,13 @@ export function parseBulkBody(body: unknown): BulkPayload {
 				continue;
 			}
 
-			nodes.push({ ...fields, ref, parentRef, index });
+			nodes.push({
+				...fields,
+				ref,
+				parentRef,
+				blockedByRefs: object.blockedByRefs as string[] | undefined,
+				index,
+			});
 		} catch (error) {
 			if (!(error instanceof ApiError)) throw error;
 			// A single node's own refusal, re-pointed at its position in the array.
@@ -229,7 +249,7 @@ export function parseBulkBody(body: unknown): BulkPayload {
 }
 
 /** The facts a node contributes as a parent to the nodes below it. */
-interface PlannedFacts extends ParentFacts {
+interface PlannedFacts extends BulkParentFacts {
 	depth: number;
 }
 
@@ -237,12 +257,20 @@ interface PlannedFacts extends ParentFacts {
  * Turn a payload into the exact documents to write, or refuse it whole.
  *
  * Pure: no I/O, so the write is a separate step that either commits everything
- * or nothing. Every check here is decidable from the payload plus the four facts
- * the handler read once.
+ * or nothing. Every check here is decidable from the payload and facts
+ * the handler read before planning.
  */
 export function planBulk(context: BulkContext): BulkPlan {
-	const { payload, idFor, parent, rootRank, createdBy, memberUids, now } =
-		context;
+	const {
+		payload,
+		idFor,
+		parent,
+		places,
+		rootRank,
+		createdBy,
+		memberUids,
+		now,
+	} = context;
 	const { nodes } = payload;
 
 	const details: ApiErrorDetail[] = [];
@@ -323,6 +351,42 @@ export function planBulk(context: BulkContext): BulkPlan {
 		siblings.push(node);
 		childrenOf.set(node.parentRef, siblings);
 	}
+	const blockersFor = new Map<string, string[]>();
+	for (const node of nodes) {
+		if (
+			node.locationId !== undefined &&
+			node.locationId !== null &&
+			!Object.hasOwn(places, node.locationId)
+		) {
+			details.push({
+				index: node.index,
+				field: "locationId",
+				code: "location_not_found",
+				message: `No location ${node.locationId} in this home.`,
+			});
+		}
+		const blockers = [...(node.blockedBy ?? [])];
+		for (const ref of node.blockedByRefs ?? []) {
+			if (ref === node.ref) {
+				details.push({
+					index: node.index,
+					field: "blockedByRefs",
+					code: "blocked_by_self",
+					message: `Node "${node.ref}" cannot block itself.`,
+				});
+			} else if (!byRef.has(ref)) {
+				details.push({
+					index: node.index,
+					field: "blockedByRefs",
+					code: "unknown_blocked_by_ref",
+					message: `No node in this payload has the ref "${ref}".`,
+				});
+			} else {
+				blockers.push(idFor[ref]);
+			}
+		}
+		blockersFor.set(node.ref, [...new Set(blockers)]);
+	}
 
 	// Breadth-first from the one root. Anything this does not reach is in a cycle
 	// among itself — which would otherwise commit as documents unreachable from
@@ -391,6 +455,23 @@ export function planBulk(context: BulkContext): BulkPlan {
 				: facts.visibility === "private"
 					? [...facts.participantIds]
 					: [];
+		const inheritedLocation = facts ?? parent;
+		const location =
+			node.locationId === undefined
+				? {
+						locationId: inheritedLocation?.locationId ?? null,
+						locationAncestorIds: [
+							...(inheritedLocation?.locationAncestorIds ?? []),
+						],
+					}
+				: node.locationId === null
+					? { locationId: null, locationAncestorIds: [] }
+					: Object.hasOwn(places, node.locationId)
+						? {
+								locationId: node.locationId,
+								locationAncestorIds: [...places[node.locationId]],
+							}
+						: null;
 
 		const children = childrenOf.get(node.ref) ?? [];
 		const status: Status = node.status ?? "backlog";
@@ -401,8 +482,8 @@ export function planBulk(context: BulkContext): BulkPlan {
 			rank,
 			parentId: facts === null ? (parent?.id ?? null) : facts.id,
 			ancestorIds,
-			locationId: null,
-			locationAncestorIds: [],
+			locationId: location?.locationId ?? null,
+			locationAncestorIds: location?.locationAncestorIds ?? [],
 			participantIds,
 			assigneeIds: node.assigneeIds ?? [],
 			visibility,
@@ -414,7 +495,7 @@ export function planBulk(context: BulkContext): BulkPlan {
 			doneCount: children.filter((child) => child.status === "done").length,
 			dueDate: node.dueDate ?? null,
 			priority: node.priority ?? null,
-			blockedBy: node.blockedBy ?? [],
+			blockedBy: blockersFor.get(node.ref) ?? [],
 			labelIds: node.labelIds ?? [],
 			notes: node.notes ?? "",
 			checklist: node.checklist ?? [],
@@ -447,6 +528,8 @@ export function planBulk(context: BulkContext): BulkPlan {
 			participantIds,
 			columns: [...defaultColumns],
 			ancestorIds,
+			locationId: location?.locationId ?? null,
+			locationAncestorIds: location?.locationAncestorIds ?? [],
 			depth,
 		};
 		factsOf.set(node.ref, own);

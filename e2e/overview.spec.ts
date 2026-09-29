@@ -100,7 +100,6 @@ async function deleteDashboardConfig(uid: string): Promise<void> {
  */
 async function gotoOverview(page: Page): Promise<void> {
 	await page.goto("/overview");
-	await page.waitForLoadState("networkidle");
 	await page
 		.getByRole("button", { name: enUS.overview.add })
 		.waitFor({ state: "visible", timeout: 30_000 });
@@ -126,7 +125,6 @@ test("1: the app opens on Overview, and Overview is the first tab", async ({
 	page,
 }) => {
 	await page.goto("/");
-	await page.waitForLoadState("networkidle");
 	await page
 		.getByRole("button", { name: enUS.overview.add })
 		.waitFor({ state: "visible", timeout: 30_000 });
@@ -192,8 +190,12 @@ test("2: a missing config seeds the seven cards once, and a seed removed in the 
 		.click();
 
 	await gotoOverview(page);
+	await expect(
+		page
+			.getByTestId("overview-section-ongoing")
+			.getByText("Byt filter i ventilationen", { exact: true }),
+	).toBeVisible();
 	await expect(page.getByTestId("overview-section-quickWins")).toHaveCount(0);
-	await expect(page.getByTestId("overview-section-ongoing")).toBeVisible();
 
 	// Leave no config behind, the way the seed has none: the next run's first
 	// open re-seeds, which is the path this claim just proved.
@@ -232,6 +234,9 @@ test("3: a root card in In progress appears under Ongoing projects, and leaves t
 	await moveCardTo(page, title, enUS.status.backlog);
 
 	await gotoOverview(page);
+	await expect(
+		ongoing.getByText("Byt filter i ventilationen", { exact: true }),
+	).toBeVisible();
 	await expect(ongoing.getByText(title)).toHaveCount(0);
 });
 
@@ -402,7 +407,7 @@ test("7: a home with no nodes shows the first-run line, and no section headings"
 	await deleteThrowawayHome(page, homeName);
 });
 
-test("8: a section menu's Edit opens that card's own form, not the whole editor (#325)", async ({
+test("8: a section menu's Edit opens that card's form and both exits return to Overview (#325, #371)", async ({
 	page,
 }) => {
 	await gotoOverview(page);
@@ -415,6 +420,20 @@ test("8: a section menu's Edit opens that card's own form, not the whole editor 
 	expect(new URL(page.url()).pathname).toBe("/overview-card-edit");
 	expect(new URL(page.url()).searchParams.get("cardId")).toBe("quickWins");
 	await expect(page.getByTestId("overview-card-edit-title")).toBeVisible();
+	await page
+		.getByRole("button", { name: enUS.overview.cards.editor.title })
+		.click();
+	await page.waitForURL((url) => url.pathname === "/overview");
+
+	await clickMenuItem(
+		page,
+		page.getByTestId("overview-card-menu-quickWins"),
+		enUS.overview.cards.menu.edit,
+	);
+	await expect(page.getByTestId("overview-card-edit-title")).toBeVisible();
+	await page.getByRole("button", { name: enUS.manageHome.save }).click();
+	await page.waitForURL((url) => url.pathname === "/overview");
+	await expect(page.getByTestId("overview-section-quickWins")).toBeVisible();
 });
 
 test("9: going back after opening a card from Overview returns to Overview", async ({

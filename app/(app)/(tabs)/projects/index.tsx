@@ -1,5 +1,11 @@
-import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import {
+	type NavigationProp,
+	type ParamListBase,
+	useFocusEffect,
+	useNavigation,
+} from "@react-navigation/native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Appbar, Snackbar } from "react-native-paper";
@@ -20,6 +26,9 @@ import { filterActionVisible } from "@/models/board-filter";
 import { membersOf } from "@/models/home";
 import { defaultColumns } from "@/models/node";
 import { useAppTheme } from "@/theme";
+import { goBack } from "@/utils/navigation";
+
+let placeVisitHomeId: string | null = null;
 
 /**
  * The board you land on: every root-level card.
@@ -38,11 +47,40 @@ export default function Projects() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const router = useRouter();
+	const navigation = useNavigation<NavigationProp<ParamListBase>>();
+	const { from } = useLocalSearchParams<{ from?: string }>();
+	const fromLocations = useRef(false);
+	if (from === "locations") fromLocations.current = true;
 	const { activeHome } = useHome();
 	const notice = useGoneNotice();
 
 	const homeId = activeHome?.id ?? null;
-	const { filter, loading: filterLoading, setFilter } = useBoardFilter(homeId);
+	if (from === "locations") placeVisitHomeId = homeId;
+	const {
+		filter,
+		loading: filterLoading,
+		setFilter,
+		refresh,
+	} = useBoardFilter(homeId);
+	useFocusEffect(
+		useCallback(() => {
+			if (homeId === null) return;
+			if (from !== "locations" && placeVisitHomeId === homeId) {
+				placeVisitHomeId = null;
+				setFilter(null);
+				return;
+			}
+			refresh();
+		}, [from, homeId, refresh, setFilter]),
+	);
+	useEffect(() => {
+		return navigation.getParent()?.addListener("blur", () => {
+			if (!fromLocations.current) return;
+			fromLocations.current = false;
+			navigation.setParams({ from: undefined });
+			setFilter(null);
+		});
+	}, [navigation, setFilter]);
 	// The reach the stored filter names (D2): this board's children, or
 	// everything below them — the pool pair and the done pair (Q1), filtered
 	// on the trail. Nothing on the board reads the filter before this: the
@@ -76,8 +114,12 @@ export default function Projects() {
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
 			<Appbar.Header>
 				<BackAction
-					accessibilityLabel={t("homes.title")}
-					onPress={() => router.push("/homes")}
+					accessibilityLabel={t(
+						from === "locations" ? "tab.locations" : "homes.title",
+					)}
+					onPress={() =>
+						from === "locations" ? goBack("/locations") : router.push("/homes")
+					}
 				/>
 				<Appbar.Content title={activeHome?.name ?? ""} />
 				{showFilterAction ? (

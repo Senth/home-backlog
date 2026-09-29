@@ -12,7 +12,7 @@
 # Usage:   yarn invariants [--base <ref>]
 # Exit:    0 = all pass, 1 = an invariant failed, 2 = the script could not run
 #
-# Checks 1-6, 8 and 14 through 21 read the whole working tree — tracked files
+# Checks 1-6, 8 and 14 through 23 read the whole working tree — tracked files
 # *and* untracked ones that git would add, because the moment you most want
 # this run is right after writing a new file, and a new file has not been
 # staged yet. A violation is a violation whoever wrote it, and the tree being
@@ -320,9 +320,9 @@ fi
 # 8. Every module in models/ and utils/ has a sibling test — and so does any
 #    hook that hides under components/
 #
-# These directories are domain logic by definition — nothing that is only a
-# one-line wrapper around an SDK call belongs in either. `auth/` is deliberately
-# not in the list: auth/redirect.ts really is that one-line wrapper.
+# These directories are domain logic by definition, except utils/navigation.ts:
+# its one-line SDK call is shared by back arrows and guarded by check 22.
+# `auth/` is deliberately not in the list: auth/redirect.ts is another wrapper.
 #
 # The `use-*.ts` clause is the gap this check used to have. A hook is a domain
 # module wherever it lives, and `components/board/use-board-drag.ts` — a whole
@@ -340,6 +340,7 @@ for f in "${TREE[@]}"; do HAVE["$f"]=1; done
 missing=""
 for f in "${TREE[@]}"; do
 	[[ "$f" =~ ^(models|utils)/ || "$f" =~ ^components/(.*/)?use-[^/]+\.ts$ ]] || continue
+	[[ "$f" == utils/navigation.ts ]] && continue
 	[[ "$f" =~ \.(test|d)\.tsx?$ ]] && continue
 	base="${f%.*}"
 	[[ -n "${HAVE["$base.test.ts"]:-}${HAVE["$base.test.tsx"]:-}" ]] || missing+="$f"$'\n'
@@ -539,19 +540,23 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 16. functions/src/icon-names.ts matches the installed glyph map
+# 16. The generated icon data matches the installed dependencies
 #
 # The label verbs validate `icon` against a set generated from the installed
-# @expo/vector-icons (#256). A Renovate bump that adds glyphs must not leave
-# the API rejecting an icon the picker offers — the generator regenerates in
-# memory and compares, so a stale committed file fails here.
+# @expo/vector-icons (#256), and the picker searches English aliases generated
+# from @mdi/svg meta.json (#379). A Renovate bump must not leave either file
+# stale — each generator regenerates in memory and compares, so a stale
+# committed file fails here.
 # ---------------------------------------------------------------------------
-icon_check=$(node scripts/gen-icon-names.mjs --check 2>&1)
-if [[ $? -ne 0 ]]; then
-	report 16 "icon names generated" FAIL "$icon_check" \
-		"Run yarn icon-names and commit the regenerated functions/src/icon-names.ts."
+icon_check=""
+for gen in gen-icon-names gen-icon-aliases; do
+	out=$(node "scripts/$gen.mjs" --check 2>&1) || icon_check+="$out"$'\n'
+done
+if [[ -n "$icon_check" ]]; then
+	report 16 "icon data generated" FAIL "${icon_check%$'\n'}" \
+		"Run the yarn script named above and commit what it regenerates."
 else
-	report 16 "icon names generated" ok
+	report 16 "icon data generated" ok
 fi
 
 # ---------------------------------------------------------------------------
@@ -730,6 +735,56 @@ if [[ -n "$hits" ]]; then
 		"A bare ScrollView or FlatList draws the browser's native scrollbar. Render <SlimScrollView> or <SlimFlatList> instead — components/ui/SlimScrollView.tsx."
 else
 	report 21 "SlimScrollView only" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 22. Only utils/navigation.ts decides whether back has history
+#
+# A direct call leaves the arrow dead after a reload. Whole-line comments are
+# ignored so prose about this failure does not trigger the check.
+# ---------------------------------------------------------------------------
+BACK_FILES=()
+for f in "${ALL_TS[@]}"; do
+	[[ "$f" =~ ^(app|components|hooks|contexts|utils)/ ]] || continue
+	[[ "$f" == utils/navigation.ts ]] && continue
+	BACK_FILES+=("$f")
+done
+PATTERN='\b(canGoBack|router\.back)[[:space:]]*\('
+hits=$(scan "${BACK_FILES[@]}" | strip_comments)
+if [[ -n "$hits" ]]; then
+	report 22 "back only via goBack" FAIL "$hits" \
+		"Use goBack from @/utils/navigation instead of calling router.back or canGoBack directly."
+else
+	report 22 "back only via goBack" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 23. Every UI locale has icon keywords for exactly the installed glyphs
+#
+# The icon picker searches the active locale's keywords (#379). Each locale in
+# i18n/locales/ other than en-US needs i18n/icon-keywords/<locale>.json with
+# the same key set as en-US.json, which check 16 already holds equal to the
+# installed glyphmap. A missing glyph is a word search cannot find, and an
+# extra one is a glyph that left the set.
+# ---------------------------------------------------------------------------
+keyword_check=""
+glyphs=$(jq -r 'keys[]' i18n/icon-keywords/en-US.json 2>/dev/null)
+for f in i18n/locales/*.json; do
+	locale=$(basename "$f" .json)
+	[[ "$locale" == en-US ]] && continue
+	file="i18n/icon-keywords/$locale.json"
+	keys=$(jq -r 'keys[]' "$file" 2>/dev/null)
+	missing=$(comm -23 <(echo "$glyphs") <(echo "$keys") | grep -c .)
+	extra=$(comm -13 <(echo "$glyphs") <(echo "$keys") | grep -c .)
+	if [[ "$missing" -gt 0 || "$extra" -gt 0 ]]; then
+		keyword_check+="$file: $missing missing, $extra extra. Run \`yarn icon-keywords $locale\`."$'\n'
+	fi
+done
+if [[ -n "$keyword_check" ]]; then
+	report 23 "icon keywords per locale" FAIL "${keyword_check%$'\n'}" \
+		"The key set must equal i18n/icon-keywords/en-US.json, which is the installed glyphmap."
+else
+	report 23 "icon keywords per locale" ok
 fi
 
 # ---------------------------------------------------------------------------

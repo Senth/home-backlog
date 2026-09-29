@@ -301,8 +301,8 @@ test("1: every control on the details screen writes on the spot, and a reload pu
 	// on Paper's outer surface and never reaches the button a person taps. Its
 	// own tap semantics are the proof instead: tapping the selected value
 	// clears it, so the toggle is what tells the reload kept the value.
-	// Scoped to the row's test id: the ✕ beside it now names itself
-	// "Clear Priority", and a name match would find two buttons (#247).
+	// Scoped to the sheet's surface: the details row behind it carries the
+	// same words (#374 took the ✕ away, the scoping is why the tap stays).
 	await page.getByTestId(`field-priority-${nodeId}`).click();
 	await page
 		.getByTestId(`editor-priority-${nodeId}-surface`)
@@ -458,7 +458,6 @@ test("3: the bar at the foot steps the card forward and back, jumps it through t
 	const nodeId = await newRootCard(title);
 
 	await page.goto(`/projects/${nodeId}/details`);
-	await page.waitForLoadState("networkidle");
 	await expect(page.getByText(title).first()).toBeVisible({
 		timeout: 30_000,
 	});
@@ -568,7 +567,6 @@ test("4: a card whose board has a non-default column set steps through that set"
 	const { cardId } = await narrowBoardCard();
 
 	await page.goto(`/projects/${cardId}/details`);
-	await page.waitForLoadState("networkidle");
 	await expect(page.getByText(`${PREFIX}narrow card`).first()).toBeVisible({
 		timeout: 30_000,
 	});
@@ -627,7 +625,6 @@ test.describe("at 200% text in sv-SE (#237)", () => {
 			status: "backlog",
 		});
 		await page.goto(`/projects/${nodeId}/details`);
-		await page.waitForLoadState("networkidle");
 		await expect(page.getByText(`${PREFIX}zoomed`).first()).toBeVisible({
 			timeout: 30_000,
 		});

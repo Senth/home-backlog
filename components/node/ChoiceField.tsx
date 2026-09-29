@@ -20,6 +20,12 @@ interface ChoiceFieldProps<T extends string> {
 	adornment?: (value: T) => ReactNode;
 	/** `false` where there is no "not set" to clear to: a retap is a no-op. */
 	clearable?: boolean;
+	/**
+	 * An explicit "not set" row drawn above the values (#374), selected while
+	 * `value` is null — the discoverable route back, for the retap alone is a
+	 * gesture nobody finds.
+	 */
+	notSetLabel?: string;
 }
 
 /**
@@ -47,10 +53,10 @@ interface ChoiceFieldProps<T extends string> {
  * a curated board a priority is one member's judgement of another member's
  * Saturday.
  *
- * **Tapping the selected value clears it.** Neither field has a "none" row,
- * because a row that means "not set" is indistinguishable from the absence of a
- * selection — and there has to be a way back to unset, or a value people set
- * once is a value they learn not to set at all.
+ * **Tapping the selected value clears it**, and there has to be a way back
+ * to unset, or a value people set once is a value they learn not to set at
+ * all. A field that passes `notSetLabel` draws that way back as its own
+ * row above the values (#374); without it the retap is the only route.
  */
 export function ChoiceField<T extends string>({
 	label,
@@ -60,8 +66,52 @@ export function ChoiceField<T extends string>({
 	onChange,
 	adornment,
 	clearable = true,
+	notSetLabel,
 }: ChoiceFieldProps<T>) {
 	const theme = useAppTheme();
+
+	const row = (
+		key: string,
+		candidate: T | null,
+		text: string,
+		mark?: ReactNode,
+	) => {
+		const selected = candidate === value;
+
+		return (
+			<Pressable
+				key={key}
+				accessibilityRole="button"
+				onPress={() => {
+					if (!selected) onChange(candidate);
+					else if (clearable && candidate !== null) onChange(null);
+				}}
+				// `aria-pressed`, not `accessibilityState`: React Native Web
+				// 0.21 does not forward the object form, so the selected row
+				// would reach the DOM as a plain button and a screen reader
+				// could not tell which priority was set.
+				aria-pressed={selected}
+				style={{
+					flexDirection: "row",
+					alignItems: "center",
+					gap: space.sm,
+					...fillRowContainer(selected, theme.colors.secondaryContainer),
+				}}
+			>
+				{mark === undefined ? null : mark}
+				<Text
+					variant="labelLarge"
+					style={
+						selected
+							? fillRowLabel(theme.colors.onSecondaryContainer)
+							: undefined
+					}
+				>
+					{text}
+				</Text>
+			</Pressable>
+		);
+	};
 
 	return (
 		<View style={{ gap: space.sm }}>
@@ -72,43 +122,15 @@ export function ChoiceField<T extends string>({
 				{label}
 			</Text>
 			<View style={{ gap: space.xs }}>
-				{values.map((candidate) => {
-					const selected = candidate === value;
-
-					return (
-						<Pressable
-							key={candidate}
-							accessibilityRole="button"
-							onPress={() => {
-								if (!selected) onChange(candidate);
-								else if (clearable) onChange(null);
-							}}
-							// `aria-pressed`, not `accessibilityState`: React Native Web
-							// 0.21 does not forward the object form, so the selected row
-							// would reach the DOM as a plain button and a screen reader
-							// could not tell which priority was set.
-							aria-pressed={selected}
-							style={{
-								flexDirection: "row",
-								alignItems: "center",
-								gap: space.sm,
-								...fillRowContainer(selected, theme.colors.secondaryContainer),
-							}}
-						>
-							{adornment === undefined ? null : adornment(candidate)}
-							<Text
-								variant="labelLarge"
-								style={
-									selected
-										? fillRowLabel(theme.colors.onSecondaryContainer)
-										: undefined
-								}
-							>
-								{labelFor(candidate)}
-							</Text>
-						</Pressable>
-					);
-				})}
+				{notSetLabel === undefined ? null : row("not-set", null, notSetLabel)}
+				{values.map((candidate) =>
+					row(
+						candidate,
+						candidate,
+						labelFor(candidate),
+						adornment?.(candidate),
+					),
+				)}
 			</View>
 		</View>
 	);

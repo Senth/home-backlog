@@ -1,11 +1,12 @@
 import { useRouter } from "expo-router";
 import { Fragment, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Animated, View } from "react-native";
+import { Animated, useWindowDimensions, View } from "react-native";
 import {
 	ActivityIndicator,
 	Appbar,
 	Button,
+	FAB,
 	List,
 	Snackbar,
 	Surface,
@@ -39,12 +40,15 @@ import {
 } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
 import {
+	denseBreakpoint,
 	drag as dragTokens,
 	elevation,
+	fab as fabTokens,
 	radius,
 	space,
 	touchTarget,
 } from "@/theme/tokens";
+import { goBack } from "@/utils/navigation";
 
 /**
  * The editor: every card on the screen, arranged.
@@ -67,6 +71,7 @@ export default function OverviewEditor() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const router = useRouter();
+	const { width } = useWindowDimensions();
 	const { user } = useAuth();
 	const { activeHome } = useHome();
 
@@ -85,6 +90,13 @@ export default function OverviewEditor() {
 	const [removing, setRemoving] = useState<EditorCard | null>(null);
 	const [importing, setImporting] = useState(false);
 	const [notice, setNotice] = useState<string | null>(null);
+	const [fabHeight, setFabHeight] = useState(0);
+
+	// Measured, not assumed: the FAB names its action in words, so it is taller
+	// in Swedish and taller again at 200% text. `space.xxl` is only the value for
+	// the single frame before it has laid itself out — the same reserve the
+	// board and Overview keep under their own FABs.
+	const fabInset = fabHeight > 0 ? fabHeight + space.md + space.md : space.xxl;
 
 	const members = useMemo(
 		() => (activeHome === null ? [] : membersOf(activeHome)),
@@ -204,7 +216,7 @@ export default function OverviewEditor() {
 			<Appbar.Header>
 				<BackAction
 					accessibilityLabel={t("common.done")}
-					onPress={() => router.back()}
+					onPress={() => goBack("/overview")}
 				/>
 				<Appbar.Content title={t("overview.cards.editor.title")} />
 				<Appbar.Action
@@ -212,12 +224,6 @@ export default function OverviewEditor() {
 					accessibilityLabel={t("overview.cards.editor.import")}
 					style={{ width: touchTarget, height: touchTarget }}
 					onPress={() => setImporting(true)}
-				/>
-				<Appbar.Action
-					icon="plus"
-					accessibilityLabel={t("overview.cards.editor.add")}
-					style={{ width: touchTarget, height: touchTarget }}
-					onPress={() => router.push("/overview-card-edit")}
 				/>
 			</Appbar.Header>
 
@@ -247,7 +253,7 @@ export default function OverviewEditor() {
 			) : (
 				<SlimScrollView
 					style={{ flex: 1 }}
-					contentContainerStyle={{ paddingBottom: space.xl }}
+					contentContainerStyle={{ paddingBottom: fabInset }}
 				>
 					<View
 						ref={drag.register(listKey)}
@@ -321,6 +327,23 @@ export default function OverviewEditor() {
 					) : null}
 				</SlimScrollView>
 			)}
+
+			{/* The same two footprint caps every FAB carries: a share of the
+			    width it floats over, and the words over the glyph below
+			    `denseBreakpoint`. The list's bottom inset above keeps the last
+			    row clear of it. */}
+			<FAB
+				icon={width < denseBreakpoint ? undefined : "plus"}
+				label={t("overview.cards.editor.add")}
+				onPress={() => router.push("/overview-card-edit")}
+				onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
+				style={{
+					position: "absolute",
+					right: space.md,
+					bottom: space.md,
+					maxWidth: width * fabTokens.widthShare,
+				}}
+			/>
 
 			{/* The card itself, off the list and under the hand — the board's own
 			    overlay, over the same frozen list and gap. */}
