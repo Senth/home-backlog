@@ -28,14 +28,17 @@ export function timingRows(
 ): TimingRow[] {
 	const times = new Map(entries.map((entry) => [entry.name, entry.startTime]));
 	let last = 0;
-	return launchMarks.flatMap((name) => {
-		const time = times.get(`launch:${name}`);
-		if (time === undefined) return [];
-		const at = Math.round(time);
-		const row = { name, at, step: at - last };
-		last = at;
-		return [row];
-	});
+	return launchMarks
+		.flatMap((name) => {
+			const time = times.get(`launch:${name}`);
+			return time === undefined ? [] : [{ name, at: Math.round(time) }];
+		})
+		.sort((a, b) => a.at - b.at)
+		.map(({ name, at }) => {
+			const row = { name, at, step: at - last };
+			last = at;
+			return row;
+		});
 }
 
 export function timingMarkdown(rows: TimingRow[], header: string) {

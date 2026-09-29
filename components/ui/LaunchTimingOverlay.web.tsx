@@ -31,6 +31,7 @@ export function LaunchTimingOverlay() {
 	const theme = useAppTheme();
 	const [header, setHeader] = useState<string | null>(null);
 	const [rows, setRows] = useState<TimingRow[]>([]);
+	const [copyFailed, setCopyFailed] = useState(false);
 
 	useEffect(() => {
 		if (new URLSearchParams(location.search).get("debug") === "timing") {
@@ -64,20 +65,23 @@ export function LaunchTimingOverlay() {
 		textAlign: "right" as const,
 	};
 	const columns = [
-		{ key: "name", head: "mark", style: mono },
-		{ key: "at", head: "at", style: numeric },
-		{ key: "step", head: "+step", style: numeric },
+		{ key: "name", head: t("debug.timing.mark"), style: mono },
+		{ key: "at", head: t("debug.timing.at"), style: numeric },
+		{ key: "step", head: t("debug.timing.step"), style: numeric },
 	] as const;
 
 	const close = () => {
 		localStorage.removeItem(flagKey);
+		const url = new URL(location.href);
+		url.searchParams.delete("debug");
+		history.replaceState(history.state, "", url);
 		setHeader(null);
 	};
 
 	const copy = () => {
-		Clipboard.setStringAsync(timingMarkdown(rows, header)).catch(
-			(reason: unknown) =>
-				console.error("Could not copy the launch timing:", reason),
+		Clipboard.setStringAsync(timingMarkdown(rows, header)).then(
+			(copied) => setCopyFailed(!copied),
+			() => setCopyFailed(true),
 		);
 	};
 
@@ -121,6 +125,11 @@ export function LaunchTimingOverlay() {
 			<Text variant="bodySmall" style={mono}>
 				{header}
 			</Text>
+			{copyFailed && (
+				<Text variant="bodySmall" style={{ color: ink }}>
+					{t("debug.timing.copyFailed")}
+				</Text>
+			)}
 			<View style={{ flexDirection: "row", gap: space.md }}>
 				{columns.map(({ key, head, style }) => (
 					<View key={key} style={key === "name" ? { flex: 1 } : null}>

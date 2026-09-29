@@ -666,7 +666,11 @@
 		"timing": {
 			"title": "Starttider",
 			"copy": "Kopiera",
-			"close": "Stäng"
+			"close": "Stäng",
+			"copyFailed": "Kunde inte kopiera",
+			"mark": "märke",
+			"at": "vid",
+			"step": "+steg"
 		}
 	}
 }

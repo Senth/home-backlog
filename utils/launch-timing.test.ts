@@ -32,6 +32,22 @@ describe("timingRows", () => {
 		expect(rows[2]).toEqual({ name: "splash", at: 820, step: 220 });
 	});
 
+	it("orders marks that fire out of launch order by when they fired", () => {
+		const rows = timingRows([
+			entry("html", 40),
+			entry("auth", 900),
+			entry("font", 700),
+			entry("splash", 950),
+		]);
+
+		expect(rows).toEqual([
+			{ name: "html", at: 40, step: 40 },
+			{ name: "font", at: 700, step: 660 },
+			{ name: "auth", at: 900, step: 200 },
+			{ name: "splash", at: 950, step: 50 },
+		]);
+	});
+
 	it("ignores marks that are not launch marks", () => {
 		expect(
 			timingRows([{ name: "other", startTime: 5 }, entry("html", 10)]),
