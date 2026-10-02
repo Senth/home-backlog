@@ -21,7 +21,7 @@ export function InstallCard() {
 			</Card.Content>
 			<Card.Actions>
 				<Button
-					mode="outlined"
+					mode="text"
 					onPress={promptInstall}
 					contentStyle={{ minHeight: touchTarget }}
 				>

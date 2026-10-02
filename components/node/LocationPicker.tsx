@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions, View } from "react-native";
+import { View } from "react-native";
 import { Button, Icon, Text, TextInput } from "react-native-paper";
 import { AppSheet } from "@/components/ui/AppSheet";
 import { CheckRow } from "@/components/ui/CheckRow";
@@ -11,7 +11,7 @@ import { foldTitle } from "@/models/fold-title";
 import type { Location } from "@/models/locations";
 import type { Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { denseBreakpoint, icon, space, touchTarget } from "@/theme/tokens";
+import { icon, space, touchTarget } from "@/theme/tokens";
 
 interface LocationPickerProps {
 	/** The home's location tree, read by the screen and handed down. */
@@ -57,7 +57,6 @@ export function LocationPicker({
 	testID,
 }: LocationPickerProps) {
 	const { t } = useTranslation();
-	const { width } = useWindowDimensions();
 	const [text, setText] = useState("");
 
 	const needle = foldTitle(text.trim());
@@ -85,22 +84,16 @@ export function LocationPicker({
 	return (
 		<AppSheet visible onDismiss={onDismiss} testID={testID}>
 			<View style={{ gap: space.md }}>
-				<View
-					style={{
-						flexDirection: "row",
-						flexWrap: "wrap",
-						alignItems: "center",
-					}}
-				>
-					<Text variant="titleMedium" style={{ flexGrow: 1 }}>
+				<View style={{ flexDirection: "row", alignItems: "center" }}>
+					<Text variant="titleMedium" style={{ flex: 1 }}>
 						{t("detail.location")}
 					</Text>
 					{/* The locations tab is where the tree is curated; the picker is
-					    where it is spent. Adding a place goes there, so the sheet goes
-					    with the tap. */}
+					    where it is spent. Navigation is dismissal's work, so the sheet
+					    goes with the tap. */}
 					<Button
-						mode="outlined"
-						icon={width < denseBreakpoint ? undefined : "plus"}
+						mode="text"
+						icon="plus"
 						onPress={() => {
 							onDismiss();
 							router.push("/locations");

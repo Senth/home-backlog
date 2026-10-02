@@ -148,9 +148,9 @@ export function ConfirmDialog({
 				</Button>,
 				<Button
 					key="confirm"
-					mode={destructive ? "text" : "contained-tonal"}
+					mode="text"
 					onPress={onConfirm}
-					textColor={destructive ? theme.colors.error : undefined}
+					textColor={destructive ? theme.colors.error : theme.colors.primary}
 					contentStyle={{ minHeight: touchTarget }}
 				>
 					{confirmLabel}

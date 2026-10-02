@@ -208,7 +208,6 @@ export function PeopleSection({
 								})}
 							</Hint>
 							<Action
-								mode="outlined"
 								icon="account-remove-outline"
 								onPress={() =>
 									onSave({
@@ -282,7 +281,6 @@ export function WhoSeesStepNote({
 			<Header>{t("detail.whoSeesStep")}</Header>
 			<Hint>{t("detail.whoSeesStepBody")}</Hint>
 			<Action
-				mode="text"
 				icon="account-multiple-outline"
 				onPress={() => router.push(detailsHref(rootId))}
 			>
@@ -311,18 +309,16 @@ function Hint({ children }: { children: string }) {
 /** The action a hint offers, left-aligned under it and never full width. */
 function Action({
 	children,
-	mode,
 	icon,
 	onPress,
 }: {
 	children: string;
-	mode: "outlined" | "text";
 	icon: string;
 	onPress: () => void;
 }) {
 	return (
 		<Button
-			mode={mode}
+			mode="text"
 			icon={icon}
 			onPress={onPress}
 			style={{ alignSelf: "flex-start" }}

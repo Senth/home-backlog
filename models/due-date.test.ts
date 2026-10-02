@@ -1,7 +1,6 @@
 import {
 	dayDifference,
 	dueState,
-	formatCalendarDay,
 	formatDueElapsed,
 	fromCalendarDay,
 	showsDue,
@@ -136,15 +135,6 @@ describe("fromCalendarDay", () => {
 	it("has no answer for something that is not a calendar day", () => {
 		expect(fromCalendarDay("2026-09")).toBeNull();
 		expect(fromCalendarDay("")).toBeNull();
-	});
-});
-
-describe("formatCalendarDay", () => {
-	it("keeps the year and locale order when room is narrow", () => {
-		expect(formatCalendarDay("2026-09-30", "en-US", true)).toBe("9/30/2026");
-		expect(formatCalendarDay("2026-09-30", "sv-SE", true)).toBe("2026-09-30");
-		expect(formatCalendarDay("2026-09-30", "en-US")).toBe("September 30, 2026");
-		expect(formatCalendarDay("invalid", "en-US", true)).toBe("invalid");
 	});
 });
 

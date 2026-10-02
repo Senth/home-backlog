@@ -82,21 +82,12 @@ export function fromCalendarDay(dueDate: string): Date | null {
  * one the other two formatters carry. The fallback is the stored string, which
  * is already a date a human can read.
  */
-export function formatCalendarDay(
-	dueDate: string,
-	locale: string,
-	narrow = false,
-): string {
+export function formatCalendarDay(dueDate: string, locale: string): string {
 	const date = fromCalendarDay(dueDate);
 	if (date === null) return dueDate;
 
 	try {
-		return new Intl.DateTimeFormat(
-			locale,
-			narrow
-				? { year: "numeric", month: "numeric", day: "numeric" }
-				: { dateStyle: "long" },
-		).format(date);
+		return new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(date);
 	} catch {
 		return dueDate;
 	}

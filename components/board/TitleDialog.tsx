@@ -98,7 +98,7 @@ export function TitleDialog({
 				</Button>,
 				<Button
 					key="confirm"
-					mode="contained-tonal"
+					mode="text"
 					onPress={submit}
 					contentStyle={{ minHeight: touchTarget }}
 				>

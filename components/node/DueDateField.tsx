@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions, View } from "react-native";
+import { View } from "react-native";
 import { Button, Text } from "react-native-paper";
 import {
 	DatePickerModal,
@@ -14,7 +14,7 @@ import {
 	toCalendarDay,
 } from "@/models/due-date";
 import { useAppTheme } from "@/theme";
-import { denseBreakpoint, space, touchTarget } from "@/theme/tokens";
+import { space, touchTarget } from "@/theme/tokens";
 
 /**
  * The picker keeps its own translations, keyed by whatever string is handed to
@@ -51,8 +51,6 @@ interface DueDateFieldProps {
 export function DueDateField({ label, value, onChange }: DueDateFieldProps) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
-	const { width } = useWindowDimensions();
-	const narrow = width < denseBreakpoint;
 
 	const [picking, setPicking] = useState(false);
 
@@ -65,35 +63,25 @@ export function DueDateField({ label, value, onChange }: DueDateFieldProps) {
 				{label}
 			</Text>
 			<View
-				style={{
-					flexDirection: "row",
-					flexWrap: "wrap",
-					alignItems: "center",
-					gap: space.sm,
-				}}
+				style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
 			>
 				<Button
 					mode="outlined"
-					icon={narrow ? undefined : "calendar"}
+					icon="calendar"
 					onPress={() => setPicking(true)}
-					style={{ maxWidth: "100%" }}
 					contentStyle={{ minHeight: touchTarget }}
-					accessibilityLabel={
-						value === null
-							? t("detail.addDate")
-							: formatCalendarDay(value, i18n.language)
-					}
+					style={{ flexShrink: 1 }}
 				>
 					{value === null
 						? t("detail.addDate")
-						: formatCalendarDay(value, i18n.language, narrow)}
+						: formatCalendarDay(value, i18n.language)}
 				</Button>
 				{/* Only once there is something to clear. A permanently visible Clear
 				    on an empty field is a control that does nothing, on the screen
 				    that exists to be uncluttered. */}
 				{value === null ? null : (
 					<Button
-						mode="outlined"
+						mode="text"
 						onPress={() => onChange(null)}
 						textColor={theme.colors.onSurfaceVariant}
 						contentStyle={{ minHeight: touchTarget }}

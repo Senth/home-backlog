@@ -304,19 +304,17 @@ export function BoardFilterSheet({
 						})}
 					</View>
 
-					{/* Clear is outlined with muted text; Done stays text. The rows
+					{/* Clear and Done, quiet, the picker footer's own shape: the rows
 					    are the sheet's work and this footer must not compete. */}
 					<View
 						style={{
 							flexDirection: "row",
-							flexWrap: "wrap",
-							gap: space.sm,
 							justifyContent: "space-between",
 							alignItems: "center",
 						}}
 					>
 						<Button
-							mode="outlined"
+							mode="text"
 							onPress={() => onChange(null)}
 							textColor={theme.colors.onSurfaceVariant}
 							contentStyle={{ minHeight: touchTarget }}

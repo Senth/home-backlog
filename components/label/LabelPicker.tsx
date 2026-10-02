@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { type RefObject, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions, type View } from "react-native";
+import type { View } from "react-native";
 import { Button, HelperText } from "react-native-paper";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
 import {
@@ -11,7 +11,7 @@ import {
 import { applyLabel, removeLabel } from "@/data/nodes";
 import { type LabelWithId, maxLabelsPerNode } from "@/models/label";
 import type { Node } from "@/models/node";
-import { denseBreakpoint, touchTarget } from "@/theme/tokens";
+import { touchTarget } from "@/theme/tokens";
 
 interface LabelPickerProps {
 	homeId: string;
@@ -54,7 +54,6 @@ export function LabelPicker({
 	returnFocusTo,
 }: LabelPickerProps) {
 	const { t } = useTranslation();
-	const { width } = useWindowDimensions();
 	const [failed, setFailed] = useState(false);
 
 	const atCap = node.labelIds.length >= maxLabelsPerNode;
@@ -93,8 +92,8 @@ export function LabelPicker({
 			title={t("labels.title")}
 			headerAction={
 				<Button
-					mode="outlined"
-					icon={width < denseBreakpoint ? undefined : "plus"}
+					mode="text"
+					icon="plus"
 					onPress={() => {
 						onDismiss();
 						router.push(`/homes/${homeId}/labels`);

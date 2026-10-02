@@ -303,13 +303,13 @@ test("PeopleSection JSX comment does not hide Action's Button", async () => {
 		path.join(__dirname, "..", "..", "components", "node", "PeopleSection.tsx"),
 		"utf8",
 	);
-	const withoutMode = source.replace("<Button\n\t\t\tmode={mode}", "<Button");
+	const withoutMode = source.replace('<Button\n\t\t\tmode="text"', "<Button");
 	expect(withoutMode).not.toBe(source);
 	const screen = path.join(sandbox, "components", "PeopleSection.tsx");
 	await fs.promises.writeFile(screen, withoutMode);
 	const result = await run(sandbox);
 	expect(statuses(result.stdout).get("button mode stated")).toBe("FAIL");
-	expect(result.stderr).toContain("components/PeopleSection.tsx:324:");
+	expect(result.stderr).toContain("components/PeopleSection.tsx:320:");
 }, 20000);
 
 test("a bare --base is a usage error, not a hang", async () => {
