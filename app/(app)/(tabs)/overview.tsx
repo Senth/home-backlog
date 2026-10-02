@@ -40,6 +40,7 @@ import {
 import { type Card, cardRows, seedTitleKeys } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
 import {
+	appBarStackBreakpoint,
 	border,
 	cardGutterBreakpoint,
 	compactBreakpoint,
@@ -336,7 +337,7 @@ export default function Overview() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header>
+			<Appbar.Header mode={width < appBarStackBreakpoint ? "medium" : "small"}>
 				<BackAction
 					accessibilityLabel={t("homes.title")}
 					onPress={() => router.push("/homes")}

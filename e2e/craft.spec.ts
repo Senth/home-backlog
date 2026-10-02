@@ -988,7 +988,7 @@ test("14: the desktop column header, card title and add button are unclipped", a
 	).toEqual([]);
 });
 
-test("21: the app bar still shows the screen's name at 200%, in this locale", async ({
+test("21: the app bar still shows its name at 200%, in this locale", async ({
 	page,
 }, testInfo) => {
 	test.skip(
@@ -996,32 +996,78 @@ test("21: the app bar still shows the screen's name at 200%, in this locale", as
 		"the 200% claim pins a 195px window; the desktop project would re-measure it identically",
 	);
 
-	// Three 48dp targets and the bar's padding claim ~192px of the row whatever
-	// the text size, and `phoneZoomed` is a 195px window — so a single-line bar
-	// had three pixels left for the title and the screen lost its name. Below
-	// `appBarStackBreakpoint` the title takes a line of its own instead.
+	await page.setViewportSize(VIEWPORTS.phoneZoomed);
+	const copy = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
+	await gotoAndSettle(page, {
+		path: "/overview",
+		ready: { key: "overview.ongoing.title" },
+	});
+	const appBarTitleWidth = async (title: string): Promise<number> =>
+		page.evaluate((name) => {
+			const titles = Array.from(
+				document.querySelectorAll('[data-testid="appbar-content-title-text"]'),
+			)
+				.filter((node) => node.textContent === name)
+				.map((node) => node.getBoundingClientRect())
+				.filter((box) => box.top < 200)
+				.map((box) => Math.round(box.width));
+			return Math.max(0, ...titles);
+		}, title);
+	const titleWidth = async (title: string): Promise<number> =>
+		page.evaluate((name) => {
+			const titles = Array.from(document.querySelectorAll("*"))
+				.filter((node) => node.textContent === name)
+				.map((node) => node.getBoundingClientRect())
+				.filter((box) => box.top < 200)
+				.map((box) => Math.round(box.width));
+			return Math.max(0, ...titles);
+		}, title);
+	const noHorizontalOverflow = async () => {
+		const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+			scrollWidth: document.documentElement.scrollWidth,
+			clientWidth: document.documentElement.clientWidth,
+		}));
+		expect(scrollWidth, "document horizontal overflow").toBeLessThanOrEqual(
+			clientWidth,
+		);
+	};
+	expect(
+		await appBarTitleWidth("Huset"),
+		"Overview app bar title at 200%",
+	).toBeGreaterThan(120);
+	await expect(
+		page.getByRole("button", { name: copy.homes.title, exact: true }),
+	).toBeVisible();
+	await expect(
+		page.getByRole("button", {
+			name: copy.overview.cards.editor.title,
+			exact: true,
+		}),
+	).toBeVisible();
+	await expect(page.getByTestId("account-menu-trigger")).toBeVisible();
+	await noHorizontalOverflow();
+
+	for (const viewport of [VIEWPORTS.phone, { width: 1280, height: 900 }]) {
+		await page.setViewportSize(viewport);
+		expect(
+			await appBarTitleWidth("Huset"),
+			`Overview title at ${viewport.width}px`,
+		).toBeGreaterThan(120);
+		await noHorizontalOverflow();
+	}
+
 	await page.setViewportSize(VIEWPORTS.phoneZoomed);
 	await gotoAndSettle(page, BOARD);
 	await page.getByText(SEEDED_PROJECT).first().click();
 	await page.waitForURL(/\/projects\/[^/]+$/);
 	const id = new URL(page.url()).pathname.split("/")[2] as string;
 
-	const titleWidth = async (): Promise<number> =>
-		page.evaluate((title) => {
-			const inBar = Array.from(document.querySelectorAll("*"))
-				.filter((node) => node.textContent === title)
-				.map((node) => node.getBoundingClientRect())
-				.filter((box) => box.top < 200)
-				.map((box) => Math.round(box.width));
-			return Math.max(0, ...inBar);
-		}, SEEDED_PROJECT);
-
 	await page.getByText(SEEDED_PROJECT).first().waitFor();
-	const onBoard = await titleWidth();
+	const onBoard = await titleWidth(SEEDED_PROJECT);
 
 	await page.goto(`/projects/${id}/details`);
 	await page.getByText(SEEDED_PROJECT).first().waitFor();
-	const onDetails = await titleWidth();
+	const onDetails = await titleWidth(SEEDED_PROJECT);
 
 	// Room for the name, not merely a non-zero box: an ellipsis on its own is
 	// the failure this claim is about.
