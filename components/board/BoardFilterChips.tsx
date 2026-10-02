@@ -13,7 +13,12 @@ import type { FieldSpec } from "@/components/overview/CardEditForm";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import type { BoardFilter } from "@/models/board-filter";
 import type { CardCondition } from "@/models/filter";
-import { outlinedTouchTarget, space, touchTarget } from "@/theme/tokens";
+import {
+	gutter,
+	outlinedTouchTarget,
+	space,
+	touchTarget,
+} from "@/theme/tokens";
 
 /**
  * Why the pills' label carries the row's height: the chip's `minHeight` grows
@@ -32,6 +37,7 @@ const pillText = {
 
 interface BoardFilterChipsProps {
 	filter: BoardFilter;
+	compact: boolean;
 	/** Removes one condition — or, for the reach pill, drops back to this board. */
 	onChange: (next: BoardFilter | null) => void;
 	/** Opens the sheet the pills summarize — a pill's tap is a shortcut in. */
@@ -59,6 +65,7 @@ interface BoardFilterChipsProps {
  */
 export function BoardFilterChips({
 	filter,
+	compact,
 	onChange,
 	onOpen,
 	specs,
@@ -161,7 +168,7 @@ export function BoardFilterChips({
 				flexDirection: "row",
 				alignItems: "center",
 				gap: space.sm,
-				paddingHorizontal: space.md,
+				paddingHorizontal: compact ? gutter.compact : gutter.wide,
 				paddingBottom: space.sm,
 			}}
 		>

@@ -5,7 +5,7 @@ import { chipKey } from "@/components/board/use-board-drag";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import type { Node, Status } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { outlinedTouchTarget, space } from "@/theme/tokens";
+import { gutter, outlinedTouchTarget, space } from "@/theme/tokens";
 
 interface ColumnStripProps {
 	columns: readonly Status[];
@@ -56,7 +56,7 @@ export function ColumnStrip({
 			}}
 			contentContainerStyle={{
 				gap: space.sm,
-				paddingHorizontal: space.md,
+				paddingHorizontal: gutter.compact,
 				paddingBottom: space.sm,
 			}}
 		>

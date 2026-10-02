@@ -71,6 +71,7 @@ function renderChips(
 		// Light theme: the pills read against the page, which is where they sit.
 		<BoardFilterChips
 			filter={next}
+			compact={false}
 			onChange={onChange}
 			onOpen={onOpen}
 			specs={fieldSpecs([me], locations, labels, t, "open")}
@@ -216,6 +217,7 @@ describe("BoardFilterChips", () => {
 		screen.rerender(
 			<BoardFilterChips
 				filter={five}
+				compact={false}
 				onChange={jest.fn()}
 				onOpen={jest.fn()}
 				specs={fieldSpecs([me], locations, labels, t, "open")}
