@@ -817,9 +817,15 @@ button_modes=$(
 							jsxText = 0
 							if (open) i += length("<Button") - 1
 						}
-						else if (jsxText && c == "{") { jsxText = 0; jsxExpr = 1; jsxBase = jsxDepth }
+						else if (jsxText && c == "{") { jsxText = 0; jsxExpr++; jsxBaseAt[jsxExpr] = jsxBase; jsxBase = jsxDepth }
 						else if (jsxExpr && c == "{") jsxExpr++
-						else if (jsxExpr && c == "}") { if (--jsxExpr == 0) { jsxBase = 0; jsxText = jsxDepth > 0 } }
+						else if (jsxExpr && c == "}") {
+							if (jsxExpr in jsxBaseAt) {
+								jsxBase = jsxBaseAt[jsxExpr]; delete jsxBaseAt[jsxExpr]
+								jsxText = jsxDepth > jsxBase
+							}
+							jsxExpr--
+						}
 						else if (!jsxText && (c == "\"" || c == "\047" || c == "`")) outerQuote = c
 					} else if (quote) {
 						if (escaped) escaped = 0

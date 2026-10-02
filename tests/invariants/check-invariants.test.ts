@@ -279,6 +279,7 @@ test.each([
 	["{/* A step's editor\n    explains this. */}\n<Button />", false],
 	["<Text>It's ready</Text><Button />", false],
 	['<Text>It\'s ready</Text><Button mode="text" />', true],
+	['<View>{ready ? <Text>{value}</Text> : "<Button />"}</View>', true],
 	[
 		'{/* A step\'s editor\n    <Button /> is an example. */}\n<Button mode="text" />',
 		true,
