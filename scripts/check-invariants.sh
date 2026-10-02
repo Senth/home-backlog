@@ -798,7 +798,11 @@ button_modes=$(
 			{
 				for (i = 1; i <= length($0); i++) {
 					c = substr($0, i, 1)
-					if (!open) {
+					if (jsxComment) {
+						if (substr($0, i, 3) == "*/}") { jsxComment = 0; i += 2 }
+					} else if (!open && !outerQuote && substr($0, i, 3) == "{/*") {
+						jsxComment = 1; i += 2
+					} else if (!open) {
 						if (outerQuote) {
 							if (outerEscape) outerEscape = 0
 							else if (c == "\\") outerEscape = 1

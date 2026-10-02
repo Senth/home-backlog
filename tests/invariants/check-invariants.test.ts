@@ -274,6 +274,13 @@ test.each([
 	['<Button mode="text" /><Button />', false],
 	['"<Button />"', true],
 	["<IconButton />", true],
+	["{/* A step's editor explains this. */}<Button />", false],
+	['{/* A step\'s editor explains this. */}<Button mode="text" />', true],
+	["{/* A step's editor\n    explains this. */}\n<Button />", false],
+	[
+		'{/* A step\'s editor\n    <Button /> is an example. */}\n<Button mode="text" />',
+		true,
+	],
 ])(
 	"button mode scanner: %s",
 	async (tag, valid) => {
@@ -290,6 +297,20 @@ test.each([
 	},
 	20000,
 );
+
+test("PeopleSection JSX comment does not hide Action's Button", async () => {
+	const source = await fs.promises.readFile(
+		path.join(__dirname, "..", "..", "components", "node", "PeopleSection.tsx"),
+		"utf8",
+	);
+	const withoutMode = source.replace("<Button\n\t\t\tmode={mode}", "<Button");
+	expect(withoutMode).not.toBe(source);
+	const screen = path.join(sandbox, "components", "PeopleSection.tsx");
+	await fs.promises.writeFile(screen, withoutMode);
+	const result = await run(sandbox);
+	expect(statuses(result.stdout).get("button mode stated")).toBe("FAIL");
+	expect(result.stderr).toContain("components/PeopleSection.tsx:324:");
+}, 20000);
 
 test("a bare --base is a usage error, not a hang", async () => {
 	const result = await run(sandbox, ["--base"]);
