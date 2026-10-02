@@ -1,0 +1,11 @@
+import { Button, Text } from "react-native-paper";
+
+export const Screen = () => (
+	<>
+		<Text>It's ready</Text>
+		<Button
+			onPress={() => {}}
+		>mode="text"
+		</Button>
+	</>
+);

@@ -266,8 +266,16 @@ and every row's controls as dimmed.
 
 - **Buttons, four levels.** `contained` is the one primary action on a surface — and the FAB
   *is* that action wherever there is one, so a screen with a FAB has no contained button.
-  `contained-tonal` is the affirmative in a dialog. `outlined` is every other real action.
-  `text` is dismissal and navigation only. Two contained buttons on one surface is a finding.
+  `text` is the default draw for actions introduced by this rule, including affirmations and
+  dismissals. Existing `contained-tonal` buttons remain for load-failure retries, moving a
+  location, and saving a label or location; existing `outlined` buttons remain for the board's
+  filtered-empty action, location-tree controls, overview-card sorting, column navigation,
+  date picking, touch attachment choices, and launch-timing copy. Do not add a border or fill
+  to promote a button: the FAB and the contained action carry the emphasis. Two contained
+  buttons on one surface is a finding. Destructive actions in `theme.colors.error` stay
+  `text`, even when disabled: the danger zone actions, destructive `ConfirmDialog` confirm,
+  and the label dialog's *Delete*.
+  Every `<Button>` states its `mode` (invariant 24).
 - **The FAB keeps `primaryContainer` and its extended label**, and what it must not take is
   room: at most `fab.widthShare` of the width it is laid out in, and below `denseBreakpoint`
   the plus glyph yields so the label wraps and the words stay — the label names the

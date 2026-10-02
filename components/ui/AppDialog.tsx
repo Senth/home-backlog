@@ -139,6 +139,7 @@ export function ConfirmDialog({
 			actions={[
 				<Button
 					key="cancel"
+					mode="text"
 					onPress={onDismiss}
 					textColor={theme.colors.onSurfaceVariant}
 					contentStyle={{ minHeight: touchTarget }}
@@ -147,6 +148,7 @@ export function ConfirmDialog({
 				</Button>,
 				<Button
 					key="confirm"
+					mode="text"
 					onPress={onConfirm}
 					textColor={destructive ? theme.colors.error : theme.colors.primary}
 					contentStyle={{ minHeight: touchTarget }}

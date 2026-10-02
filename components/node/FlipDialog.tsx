@@ -109,6 +109,7 @@ export function FlipDialog({ state, uid }: { state: FlipState; uid: string }) {
 					? [
 							<Button
 								key="close"
+								mode="text"
 								onPress={close}
 								textColor={theme.colors.onSurfaceVariant}
 								contentStyle={{ minHeight: touchTarget }}
@@ -117,6 +118,7 @@ export function FlipDialog({ state, uid }: { state: FlipState; uid: string }) {
 							</Button>,
 							<Button
 								key="retry"
+								mode="text"
 								onPress={() => run(flip, uid)}
 								contentStyle={{ minHeight: touchTarget }}
 							>

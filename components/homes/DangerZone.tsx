@@ -65,6 +65,7 @@ export function DangerZone({ home, myUid, onError }: DangerZoneProps) {
 		<View style={{ gap: space.sm }}>
 			<Button
 				ref={leaveButtonRef}
+				mode="text"
 				icon="exit-to-app"
 				onPress={() => setConfirmLeave(true)}
 				disabled={trapped}
@@ -87,6 +88,7 @@ export function DangerZone({ home, myUid, onError }: DangerZoneProps) {
 
 			<Button
 				ref={deleteButtonRef}
+				mode="text"
 				icon="delete-outline"
 				onPress={() => setConfirmDelete(true)}
 				disabled={!alone}

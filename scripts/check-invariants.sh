@@ -12,7 +12,7 @@
 # Usage:   yarn invariants [--base <ref>]
 # Exit:    0 = all pass, 1 = an invariant failed, 2 = the script could not run
 #
-# Checks 1-6, 8 and 14 through 23 read the whole working tree — tracked files
+# Checks 1-6, 8 and 14 through 24 read the whole working tree — tracked files
 # *and* untracked ones that git would add, because the moment you most want
 # this run is right after writing a new file, and a new file has not been
 # staged yet. A violation is a violation whoever wrote it, and the tree being
@@ -785,6 +785,73 @@ if [[ -n "$keyword_check" ]]; then
 		"The key set must equal i18n/icon-keywords/en-US.json, which is the installed glyphmap."
 else
 	report 23 "icon keywords per locale" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 24. Every Paper Button states its mode in the opening tag
+# ---------------------------------------------------------------------------
+button_modes=$(
+	for f in "${SRC[@]}"; do
+		[[ "$f" =~ \.test\.tsx?$ ]] && continue
+		awk '
+			/^[[:space:]]*(\/\/|\*|\/\*)/ { next }
+			{
+				for (i = 1; i <= length($0); i++) {
+					c = substr($0, i, 1)
+					if (jsxComment) {
+						if (substr($0, i, 3) == "*/}") { jsxComment = 0; i += 2 }
+					} else if (!open && !otherTag && !outerQuote && substr($0, i, 3) == "{/*") {
+						jsxComment = 1; i += 2
+					} else if (!open && !otherTag) {
+						if (outerQuote) {
+							if (outerEscape) outerEscape = 0
+							else if (c == "\\") outerEscape = 1
+							else if (c == outerQuote) outerQuote = ""
+						} else if (substr($0, i, 2) == "<>") { jsxDepth++; jsxText = 1; i++ }
+						else if (substr($0, i, 3) == "</>") { jsxDepth--; jsxText = jsxDepth > jsxBase; i += 2 }
+						else if (substr($0, i) ~ /^<\/?[A-Za-z][A-Za-z0-9_.:-]*([[:space:]\/>]|$)/) {
+							open = substr($0, i) ~ /^<Button([[:space:]\/>]|$)/
+							otherTag = !open; closing = substr($0, i, 2) == "</"
+							if (open) { start = FNR; first = $0; tag = " " }
+							depth = 0; quote = ""; escaped = 0
+							jsxText = 0
+							if (open) i += length("<Button") - 1
+						}
+						else if (jsxText && c == "{") { jsxText = 0; jsxExpr++; jsxBaseAt[jsxExpr] = jsxBase; jsxBase = jsxDepth }
+						else if (jsxExpr && c == "{") jsxExpr++
+						else if (jsxExpr && c == "}") {
+							if (jsxExpr in jsxBaseAt) {
+								jsxBase = jsxBaseAt[jsxExpr]; delete jsxBaseAt[jsxExpr]
+								jsxText = jsxDepth > jsxBase
+							}
+							jsxExpr--
+						}
+						else if (!jsxText && (c == "\"" || c == "\047" || c == "`")) outerQuote = c
+					} else if (quote) {
+						if (escaped) escaped = 0
+						else if (c == "\\") escaped = 1
+						else if (c == quote) quote = ""
+					} else if (c == "\"" || c == "\047" || c == "`") quote = c
+					else if (c == "{") { depth++; tag = tag " " }
+					else if (c == "}") { depth--; tag = tag " " }
+					else if (depth == 0 && c == ">") {
+						if (open && tag !~ /[[:space:]]mode[[:space:]]*=/) print FILENAME ":" start ":" first
+						if (closing) jsxDepth--
+						else if (substr($0, i - 1, 1) != "/") jsxDepth++
+						jsxText = jsxDepth > jsxBase
+						open = 0; otherTag = 0
+					} else if (open && depth == 0) tag = tag c
+				}
+				if (open && depth == 0) tag = tag " "
+			}
+		' "$f"
+	done
+)
+if [[ -n "$button_modes" ]]; then
+	report 24 "button mode stated" FAIL "$button_modes" \
+		"Every <Button> states its mode; Paper's default is not a choice (docs/DESIGN.md § Components)."
+else
+	report 24 "button mode stated" ok
 fi
 
 # ---------------------------------------------------------------------------

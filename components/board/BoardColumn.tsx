@@ -192,6 +192,7 @@ export function BoardColumn({
 
 	const addButton = (
 		<Button
+			mode="text"
 			icon="plus"
 			onPress={onAdd}
 			contentStyle={{ minHeight: touchTarget }}

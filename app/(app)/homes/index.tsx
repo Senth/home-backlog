@@ -312,6 +312,7 @@ export default function Homes() {
 				actions={[
 					<Button
 						key="cancel"
+						mode="text"
 						onPress={closeCreate}
 						textColor={theme.colors.onSurfaceVariant}
 						contentStyle={{ minHeight: touchTarget }}
@@ -320,6 +321,7 @@ export default function Homes() {
 					</Button>,
 					<Button
 						key="create"
+						mode="text"
 						onPress={submitCreate}
 						loading={saving}
 						disabled={saving}

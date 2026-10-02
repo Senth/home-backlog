@@ -204,6 +204,7 @@ export default function Automations() {
 				actions={[
 					<Button
 						key="cancel"
+						mode="text"
 						onPress={closeCreate}
 						textColor={theme.colors.onSurfaceVariant}
 						contentStyle={{ minHeight: touchTarget }}
@@ -212,6 +213,7 @@ export default function Automations() {
 					</Button>,
 					<Button
 						key="create"
+						mode="text"
 						onPress={submitCreate}
 						loading={saving}
 						disabled={saving || name.trim().length === 0}
@@ -249,6 +251,7 @@ export default function Automations() {
 				actions={[
 					<Button
 						key="copy"
+						mode="text"
 						icon="content-copy"
 						onPress={copyToken}
 						contentStyle={{ minHeight: touchTarget }}

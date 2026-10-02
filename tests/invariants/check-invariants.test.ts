@@ -39,6 +39,7 @@ const CHECKS = [
 	"emulators via dev-stack",
 	"icon data generated",
 	"button hierarchy",
+	"button mode stated",
 	"DueChip warning-only",
 	"label glyph named",
 	"Menu only via AppMenu",
@@ -97,6 +98,7 @@ const CASES: Case[] = [
 	{ name: "icon-names", check: "icon data generated" },
 	{ name: "icon-aliases", check: "icon data generated" },
 	{ name: "button-hierarchy", check: "button hierarchy" },
+	{ name: "button-mode", check: "button mode stated" },
 	{ name: "duechip-warning", check: "DueChip warning-only" },
 	{ name: "label-glyph-named", check: "label glyph named" },
 	{ name: "menu-via-appmenu", check: "Menu only via AppMenu" },
@@ -257,6 +259,60 @@ test("comment-only mentions are stripped, not violations", async () => {
 	for (const [name, status] of statuses(result.stdout)) {
 		expect(`${name}: ${status}`).toBe(`${name}: ok`);
 	}
+}, 20000);
+
+test.each([
+	["<Button />", false],
+	["<Button\n  onPress={() => {}}\n/>", false],
+	['<Button accessibilityLabel="label mode=text" />', false],
+	['<Button icon={"label mode=outlined"} />', false],
+	['<Button data={{ mode: "text" }} />', false],
+	['<Button disabled={count > 0} mode="outlined" />', true],
+	['<Button mode =\n  {count > 0 ? "text" : "outlined"} />', true],
+	['<Button mode={destructive ? "text" : "outlined"} />', true],
+	['<Button\n  mode={destructive ? "text" : "outlined"}\n/>', true],
+	['<Button mode="text" /><Button />', false],
+	['"<Button />"', true],
+	["<IconButton />", true],
+	["{/* A step's editor explains this. */}<Button />", false],
+	['{/* A step\'s editor explains this. */}<Button mode="text" />', true],
+	["{/* A step's editor\n    explains this. */}\n<Button />", false],
+	["<Text>It's ready</Text><Button />", false],
+	['<Text>It\'s ready</Text><Button mode="text" />', true],
+	['<View>{ready ? <Text>{value}</Text> : "<Button />"}</View>', true],
+	[
+		'{/* A step\'s editor\n    <Button /> is an example. */}\n<Button mode="text" />',
+		true,
+	],
+])(
+	"button mode scanner: %s",
+	async (tag, valid) => {
+		const screen = path.join(sandbox, "components", "ButtonCases.tsx");
+		await fs.promises.writeFile(
+			screen,
+			`export const Screen = () => (${tag});\n`,
+		);
+		const result = await run(sandbox);
+		expect(statuses(result.stdout).get("button mode stated")).toBe(
+			valid ? "ok" : "FAIL",
+		);
+		expect(result.code).toBe(valid ? 0 : 1);
+	},
+	20000,
+);
+
+test("PeopleSection JSX comment does not hide Action's Button", async () => {
+	const source = await fs.promises.readFile(
+		path.join(__dirname, "..", "..", "components", "node", "PeopleSection.tsx"),
+		"utf8",
+	);
+	const withoutMode = source.replace('<Button\n\t\t\tmode="text"', "<Button");
+	expect(withoutMode).not.toBe(source);
+	const screen = path.join(sandbox, "components", "PeopleSection.tsx");
+	await fs.promises.writeFile(screen, withoutMode);
+	const result = await run(sandbox);
+	expect(statuses(result.stdout).get("button mode stated")).toBe("FAIL");
+	expect(result.stderr).toContain("components/PeopleSection.tsx:320:");
 }, 20000);
 
 test("a bare --base is a usage error, not a hang", async () => {

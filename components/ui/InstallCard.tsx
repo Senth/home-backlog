@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Button, Card, Text } from "react-native-paper";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
-import { space } from "@/theme/tokens";
+import { space, touchTarget } from "@/theme/tokens";
 
 /**
  * Offers the PWA install once the browser has said it is possible. Renders
@@ -20,7 +20,13 @@ export function InstallCard() {
 				<Text variant="bodyMedium">{t("install.body")}</Text>
 			</Card.Content>
 			<Card.Actions>
-				<Button onPress={promptInstall}>{t("install.action")}</Button>
+				<Button
+					mode="text"
+					onPress={promptInstall}
+					contentStyle={{ minHeight: touchTarget }}
+				>
+					{t("install.action")}
+				</Button>
 			</Card.Actions>
 		</Card>
 	);

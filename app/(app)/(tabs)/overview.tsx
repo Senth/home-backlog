@@ -615,6 +615,7 @@ function CardSection({
 			    different issue. */}
 			{more > 0 || expanded ? (
 				<Button
+					mode="text"
 					onPress={() => setExpanded(!expanded)}
 					contentStyle={{ minHeight: touchTarget }}
 					style={{ alignSelf: "flex-start" }}

@@ -89,6 +89,7 @@ export function TitleDialog({
 			actions={[
 				<Button
 					key="cancel"
+					mode="text"
 					onPress={onDismiss}
 					textColor={theme.colors.onSurfaceVariant}
 					contentStyle={{ minHeight: touchTarget }}
@@ -97,6 +98,7 @@ export function TitleDialog({
 				</Button>,
 				<Button
 					key="confirm"
+					mode="text"
 					onPress={submit}
 					contentStyle={{ minHeight: touchTarget }}
 				>
