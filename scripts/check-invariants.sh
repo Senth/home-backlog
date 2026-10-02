@@ -795,18 +795,33 @@ button_modes=$(
 		[[ "$f" =~ \.test\.tsx?$ ]] && continue
 		awk '
 			/^[[:space:]]*(\/\/|\*|\/\*)/ { next }
-			/<Button([[:space:]>]|$)/ { open = 1; start = FNR; first = $0; tag = "" }
-			open {
-				line = $0
-				if (FNR == start) sub(/^.*<Button/, "<Button", line)
-				gsub(/=>/, "", line)
-				closing = index(line, ">")
-				if (closing) line = substr(line, 1, closing - 1)
-				tag = tag " " line
-				if (closing) {
-					if (tag !~ /[[:space:]]mode[[:space:]]*=/) print FILENAME ":" start ":" first
-					open = 0
+			{
+				for (i = 1; i <= length($0); i++) {
+					c = substr($0, i, 1)
+					if (!open) {
+						if (outerQuote) {
+							if (outerEscape) outerEscape = 0
+							else if (c == "\\") outerEscape = 1
+							else if (c == outerQuote) outerQuote = ""
+						} else if (c == "\"" || c == "\047" || c == "`") outerQuote = c
+						else if (substr($0, i) ~ /^<Button([[:space:]/>]|$)/) {
+							open = 1; start = FNR; first = $0; tag = " "
+							depth = 0; quote = ""; escaped = 0
+							i += length("<Button") - 1
+						}
+					} else if (quote) {
+						if (escaped) escaped = 0
+						else if (c == "\\") escaped = 1
+						else if (c == quote) quote = ""
+					} else if (c == "\"" || c == "\047" || c == "`") quote = c
+					else if (c == "{") { depth++; tag = tag " " }
+					else if (c == "}") { depth--; tag = tag " " }
+					else if (depth == 0 && c == ">") {
+						if (tag !~ /[[:space:]]mode[[:space:]]*=/) print FILENAME ":" start ":" first
+						open = 0
+					} else if (depth == 0) tag = tag c
 				}
+				if (open && depth == 0) tag = tag " "
 			}
 		' "$f"
 	done

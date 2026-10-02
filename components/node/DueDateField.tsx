@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { Button, Text } from "react-native-paper";
 import {
 	DatePickerModal,
@@ -14,7 +14,7 @@ import {
 	toCalendarDay,
 } from "@/models/due-date";
 import { useAppTheme } from "@/theme";
-import { space, touchTarget } from "@/theme/tokens";
+import { denseBreakpoint, space, touchTarget } from "@/theme/tokens";
 
 /**
  * The picker keeps its own translations, keyed by whatever string is handed to
@@ -51,6 +51,8 @@ interface DueDateFieldProps {
 export function DueDateField({ label, value, onChange }: DueDateFieldProps) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
+	const { width } = useWindowDimensions();
+	const narrow = width < denseBreakpoint;
 
 	const [picking, setPicking] = useState(false);
 
@@ -72,13 +74,19 @@ export function DueDateField({ label, value, onChange }: DueDateFieldProps) {
 			>
 				<Button
 					mode="outlined"
-					icon="calendar"
+					icon={narrow ? undefined : "calendar"}
 					onPress={() => setPicking(true)}
+					style={{ maxWidth: "100%" }}
 					contentStyle={{ minHeight: touchTarget }}
+					accessibilityLabel={
+						value === null
+							? t("detail.addDate")
+							: formatCalendarDay(value, i18n.language)
+					}
 				>
 					{value === null
 						? t("detail.addDate")
-						: formatCalendarDay(value, i18n.language)}
+						: formatCalendarDay(value, i18n.language, narrow)}
 				</Button>
 				{/* Only once there is something to clear. A permanently visible Clear
 				    on an empty field is a control that does nothing, on the screen

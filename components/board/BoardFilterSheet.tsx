@@ -309,6 +309,8 @@ export function BoardFilterSheet({
 					<View
 						style={{
 							flexDirection: "row",
+							flexWrap: "wrap",
+							gap: space.sm,
 							justifyContent: "space-between",
 							alignItems: "center",
 						}}
