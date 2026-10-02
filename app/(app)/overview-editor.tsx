@@ -315,7 +315,7 @@ export default function OverviewEditor() {
 									onPress={() => restore(seed)}
 									right={() => (
 										<Button
-											mode="text"
+											mode="outlined"
 											onPress={() => restore(seed)}
 											contentStyle={{ minHeight: touchTarget }}
 										>

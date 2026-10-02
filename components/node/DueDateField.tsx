@@ -63,14 +63,18 @@ export function DueDateField({ label, value, onChange }: DueDateFieldProps) {
 				{label}
 			</Text>
 			<View
-				style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
+				style={{
+					flexDirection: "row",
+					flexWrap: "wrap",
+					alignItems: "center",
+					gap: space.sm,
+				}}
 			>
 				<Button
 					mode="outlined"
 					icon="calendar"
 					onPress={() => setPicking(true)}
 					contentStyle={{ minHeight: touchTarget }}
-					style={{ flexShrink: 1 }}
 				>
 					{value === null
 						? t("detail.addDate")
@@ -81,7 +85,7 @@ export function DueDateField({ label, value, onChange }: DueDateFieldProps) {
 				    that exists to be uncluttered. */}
 				{value === null ? null : (
 					<Button
-						mode="text"
+						mode="outlined"
 						onPress={() => onChange(null)}
 						textColor={theme.colors.onSurfaceVariant}
 						contentStyle={{ minHeight: touchTarget }}

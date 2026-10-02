@@ -105,9 +105,15 @@ export function CheckListPicker({
 		>
 			<View style={{ gap: space.md }}>
 				{title !== undefined || headerAction !== undefined ? (
-					<View style={{ flexDirection: "row", alignItems: "center" }}>
+					<View
+						style={{
+							flexDirection: "row",
+							flexWrap: "wrap",
+							alignItems: "center",
+						}}
+					>
 						{title !== undefined ? (
-							<Text variant="titleMedium" style={{ flex: 1 }}>
+							<Text variant="titleMedium" style={{ flexGrow: 1 }}>
 								{title}
 							</Text>
 						) : null}
@@ -152,9 +158,8 @@ export function CheckListPicker({
 
 				{note}
 
-				{/* Clear and Done, quiet: both are text buttons, and Clear takes
-				    the muted tier — the rows are the surface's work, and the
-				    footer must not compete with them. */}
+				{/* Clear is outlined with muted text; Done stays text. The rows
+				    are the surface's work, and the footer must not compete. */}
 				<View
 					style={{
 						flexDirection: "row",
@@ -163,7 +168,7 @@ export function CheckListPicker({
 					}}
 				>
 					<Button
-						mode="text"
+						mode="outlined"
 						onPress={() => onChange([])}
 						textColor={theme.colors.onSurfaceVariant}
 						contentStyle={{ minHeight: touchTarget }}

@@ -174,7 +174,7 @@ function PendingInviteCard({
 			<Card.Actions>
 				<Button
 					ref={declineRef}
-					mode="text"
+					mode="outlined"
 					onPress={() => setConfirming(true)}
 					disabled={busy || !online}
 					textColor={theme.colors.onSurfaceVariant}
