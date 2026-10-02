@@ -191,10 +191,11 @@ export function BoardColumn({
 
 	const addButton = (
 		<Button
-			mode="text"
+			mode="outlined"
 			icon="plus"
 			onPress={onAdd}
 			contentStyle={{ minHeight: touchTarget }}
+			style={{ borderColor: theme.colors.outlineVariant }}
 		>
 			{t("board.addTo", { column: label })}
 		</Button>
