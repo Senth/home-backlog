@@ -534,6 +534,7 @@ export function Board({
 			{filterSet && filter !== null && onChangeFilter !== undefined ? (
 				<BoardFilterChips
 					filter={filter}
+					compact={compact}
 					onChange={onChangeFilter}
 					onOpen={() => onOpenFilter?.()}
 					specs={fieldSpecs(members, noLocations, homeLabels, t, "open")}

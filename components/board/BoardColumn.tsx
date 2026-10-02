@@ -16,6 +16,7 @@ import { useAppTheme } from "@/theme";
 import {
 	border,
 	drag as dragTokens,
+	gutter,
 	radius,
 	space,
 	touchTarget,
@@ -324,10 +325,7 @@ export function BoardColumn({
 					}}
 					contentContainerStyle={{
 						gap: space.sm,
-						// One gutter in both layouts: a pane spans the screen and needs
-						// its own margin, and a column now has an edge for its cards to
-						// stand clear of.
-						paddingHorizontal: space.md,
+						paddingHorizontal: wide ? gutter.wide : gutter.compact,
 						// Clear of the FAB, which floats over the bottom-right corner of
 						// a pane. Above the breakpoint there is no FAB and the default
 						// stands: room under the add row rather than a card hard

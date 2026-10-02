@@ -20,6 +20,8 @@ export const space = {
 	xxl: 48,
 } as const;
 
+export const gutter = { compact: space.sm, wide: space.md } as const;
+
 /** Corner radii. `full` is a large number rather than a percentage because
  *  React Native has no `border-radius: 50%`. */
 export const radius = {
