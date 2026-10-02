@@ -219,6 +219,9 @@ the job of the surface rather than by taste:
   `space.sm` within a group and `space.md` between. One step of separation, not two.
 - **Reading and filling-in surfaces** — a node's details, a form, a dialog — take `space.md`
   within and `space.lg` between.
+- **Page gutter** — `gutter.compact` is `space.sm` below `compactBreakpoint`, and `gutter.wide`
+  is `space.md` at and above it; section cards and dividers align to the gutter, with headings
+  inset by `space.sm`.
 
 A reviewer cites which job the surface is doing. **Content clamps rather than stretching:**
 `contentWidth.form` for a form, `.dialog` and `.snackbar` for the two Paper components that

@@ -45,6 +45,7 @@ import {
 	compactBreakpoint,
 	denseBreakpoint,
 	fab as fabTokens,
+	gutter,
 	space,
 	touchTarget,
 } from "@/theme/tokens";
@@ -350,14 +351,10 @@ export default function Overview() {
 				<AccountMenu />
 			</Appbar.Header>
 
-			{/* Per-route proximity: this screen gets the air. `space.lg` between
-			    the groups — the install offer and the cards — so Overview reads as
-			    sections rather than one block; a board column keeps its own
-			    density and gets no such gap. */}
 			<SlimScrollView
 				contentContainerStyle={{
 					paddingBottom: fabInset,
-					gap: space.lg,
+					gap: space.md,
 				}}
 			>
 				{/* The install offer belongs on whatever the app opens on, and that is
@@ -403,24 +400,17 @@ export default function Overview() {
 							   renders. */
 							<LoadFailed onRetry={pool.retry} />
 						) : null}
-						{flowing ? (
-							<View
-								style={{
-									flexDirection: "row",
-									flexWrap: "wrap",
-									// The same gutters `expandedColumnWidth` divides
-									// with — the pair at the edges and the gaps
-									// between — so the sections really are columns
-									// of the board's shape.
+						<View
+							style={[
+								{
 									gap: space.md,
-									paddingHorizontal: space.md,
-								}}
-							>
-								{sections}
-							</View>
-						) : (
-							sections
-						)}
+									paddingHorizontal: flowing ? gutter.wide : gutter.compact,
+								},
+								flowing && { flexDirection: "row", flexWrap: "wrap" },
+							]}
+						>
+							{sections}
+						</View>
 						{done.failed ? (
 							/* The done pair is the completed card's alone, so its failure
 							   is said where that card would have been. */
@@ -568,7 +558,7 @@ function CardSection({
 					variant="titleMedium"
 					style={{
 						flex: 1,
-						paddingHorizontal: space.md,
+						paddingHorizontal: space.sm,
 						paddingVertical: space.sm,
 					}}
 				>
@@ -578,15 +568,10 @@ function CardSection({
 				{menu}
 			</View>
 
-			{/* The section's floor, inset to the cards' own padding so it lines
-			    up with what sits under it — a boundary the stack and the flowing
-			    layout both get, and the only reason a wrapped section reads as
-			    one thing rather than a heading over loose cards. */}
 			<View
 				style={{
 					height: border.hairline,
 					backgroundColor: theme.colors.outlineVariant,
-					marginHorizontal: space.md,
 					marginBottom: space.sm,
 				}}
 			/>
@@ -596,7 +581,7 @@ function CardSection({
 					variant="bodyMedium"
 					style={{
 						color: theme.colors.onSurfaceVariant,
-						paddingHorizontal: space.md,
+						paddingHorizontal: space.sm,
 					}}
 				>
 					{emptyLine}
