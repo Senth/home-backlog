@@ -118,7 +118,7 @@ export function FlipDialog({ state, uid }: { state: FlipState; uid: string }) {
 							</Button>,
 							<Button
 								key="retry"
-								mode="text"
+								mode="contained-tonal"
 								onPress={() => run(flip, uid)}
 								contentStyle={{ minHeight: touchTarget }}
 							>

@@ -213,7 +213,7 @@ export default function Automations() {
 					</Button>,
 					<Button
 						key="create"
-						mode="text"
+						mode="contained-tonal"
 						onPress={submitCreate}
 						loading={saving}
 						disabled={saving || name.trim().length === 0}
@@ -251,7 +251,7 @@ export default function Automations() {
 				actions={[
 					<Button
 						key="copy"
-						mode="text"
+						mode="contained-tonal"
 						icon="content-copy"
 						onPress={copyToken}
 						contentStyle={{ minHeight: touchTarget }}
@@ -260,7 +260,7 @@ export default function Automations() {
 					</Button>,
 					<Button
 						key="done"
-						mode="contained"
+						mode="text"
 						onPress={() => setToken(null)}
 						contentStyle={{ minHeight: touchTarget }}
 					>

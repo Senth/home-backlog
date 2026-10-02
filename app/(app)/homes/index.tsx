@@ -321,7 +321,7 @@ export default function Homes() {
 					</Button>,
 					<Button
 						key="create"
-						mode="text"
+						mode="contained-tonal"
 						onPress={submitCreate}
 						loading={saving}
 						disabled={saving}
