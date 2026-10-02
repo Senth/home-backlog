@@ -800,19 +800,27 @@ button_modes=$(
 					c = substr($0, i, 1)
 					if (jsxComment) {
 						if (substr($0, i, 3) == "*/}") { jsxComment = 0; i += 2 }
-					} else if (!open && !outerQuote && substr($0, i, 3) == "{/*") {
+					} else if (!open && !otherTag && !outerQuote && substr($0, i, 3) == "{/*") {
 						jsxComment = 1; i += 2
-					} else if (!open) {
+					} else if (!open && !otherTag) {
 						if (outerQuote) {
 							if (outerEscape) outerEscape = 0
 							else if (c == "\\") outerEscape = 1
 							else if (c == outerQuote) outerQuote = ""
-						} else if (c == "\"" || c == "\047" || c == "`") outerQuote = c
-						else if (substr($0, i) ~ /^<Button([[:space:]/>]|$)/) {
-							open = 1; start = FNR; first = $0; tag = " "
+						} else if (substr($0, i, 2) == "<>") { jsxDepth++; jsxText = 1; i++ }
+						else if (substr($0, i, 3) == "</>") { jsxDepth--; jsxText = jsxDepth > jsxBase; i += 2 }
+						else if (substr($0, i) ~ /^<\/?[A-Za-z][A-Za-z0-9_.:-]*([[:space:]\/>]|$)/) {
+							open = substr($0, i) ~ /^<Button([[:space:]\/>]|$)/
+							otherTag = !open; closing = substr($0, i, 2) == "</"
+							if (open) { start = FNR; first = $0; tag = " " }
 							depth = 0; quote = ""; escaped = 0
-							i += length("<Button") - 1
+							jsxText = 0
+							if (open) i += length("<Button") - 1
 						}
+						else if (jsxText && c == "{") { jsxText = 0; jsxExpr = 1; jsxBase = jsxDepth }
+						else if (jsxExpr && c == "{") jsxExpr++
+						else if (jsxExpr && c == "}") { if (--jsxExpr == 0) { jsxBase = 0; jsxText = jsxDepth > 0 } }
+						else if (!jsxText && (c == "\"" || c == "\047" || c == "`")) outerQuote = c
 					} else if (quote) {
 						if (escaped) escaped = 0
 						else if (c == "\\") escaped = 1
@@ -821,9 +829,12 @@ button_modes=$(
 					else if (c == "{") { depth++; tag = tag " " }
 					else if (c == "}") { depth--; tag = tag " " }
 					else if (depth == 0 && c == ">") {
-						if (tag !~ /[[:space:]]mode[[:space:]]*=/) print FILENAME ":" start ":" first
-						open = 0
-					} else if (depth == 0) tag = tag c
+						if (open && tag !~ /[[:space:]]mode[[:space:]]*=/) print FILENAME ":" start ":" first
+						if (closing) jsxDepth--
+						else if (substr($0, i - 1, 1) != "/") jsxDepth++
+						jsxText = jsxDepth > jsxBase
+						open = 0; otherTag = 0
+					} else if (open && depth == 0) tag = tag c
 				}
 				if (open && depth == 0) tag = tag " "
 			}
