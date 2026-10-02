@@ -265,6 +265,13 @@ and every row's controls as dimmed.
   *is* that action wherever there is one, so a screen with a FAB has no contained button.
   `contained-tonal` is the affirmative in a dialog. `outlined` is every other real action.
   `text` is dismissal and navigation only. Two contained buttons on one surface is a finding.
+  Classify by the label: creating or changing something is a real action even if its handler
+  only navigates or closes a sheet; "go there", "show more" and "close" are navigation or
+  dismissal. Destructive actions in `theme.colors.error` stay `text`, even when disabled:
+  the danger zone actions, destructive `ConfirmDialog` confirm, and the label dialog's *Delete*.
+  The column add row is `outlined` with an `outlineVariant` border, the one outlined button
+  quieted because it repeats in every column of a scanning surface and the FAB already carries
+  the action. Every `<Button>` states its `mode`; Paper's default is not a choice (invariant 24).
 - **The FAB keeps `primaryContainer` and its extended label**, and what it must not take is
   room: at most `fab.widthShare` of the width it is laid out in, and below `denseBreakpoint`
   the plus glyph yields so the label wraps and the words stay — the label names the

@@ -12,7 +12,7 @@
 # Usage:   yarn invariants [--base <ref>]
 # Exit:    0 = all pass, 1 = an invariant failed, 2 = the script could not run
 #
-# Checks 1-6, 8 and 14 through 23 read the whole working tree — tracked files
+# Checks 1-6, 8 and 14 through 24 read the whole working tree — tracked files
 # *and* untracked ones that git would add, because the moment you most want
 # this run is right after writing a new file, and a new file has not been
 # staged yet. A violation is a violation whoever wrote it, and the tree being
@@ -785,6 +785,37 @@ if [[ -n "$keyword_check" ]]; then
 		"The key set must equal i18n/icon-keywords/en-US.json, which is the installed glyphmap."
 else
 	report 23 "icon keywords per locale" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 24. Every Paper Button states its mode in the opening tag
+# ---------------------------------------------------------------------------
+button_modes=$(
+	for f in "${SRC[@]}"; do
+		[[ "$f" =~ \.test\.tsx?$ ]] && continue
+		awk '
+			/^[[:space:]]*(\/\/|\*|\/\*)/ { next }
+			/<Button([[:space:]>]|$)/ { open = 1; start = FNR; first = $0; tag = "" }
+			open {
+				line = $0
+				if (FNR == start) sub(/^.*<Button/, "<Button", line)
+				gsub(/=>/, "", line)
+				closing = index(line, ">")
+				if (closing) line = substr(line, 1, closing - 1)
+				tag = tag " " line
+				if (closing) {
+					if (tag !~ /[[:space:]]mode[[:space:]]*=/) print FILENAME ":" start ":" first
+					open = 0
+				}
+			}
+		' "$f"
+	done
+)
+if [[ -n "$button_modes" ]]; then
+	report 24 "button mode stated" FAIL "$button_modes" \
+		"Every <Button> states its mode; Paper's default is not a choice (docs/DESIGN.md § Components)."
+else
+	report 24 "button mode stated" ok
 fi
 
 # ---------------------------------------------------------------------------

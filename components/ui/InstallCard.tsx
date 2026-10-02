@@ -20,7 +20,9 @@ export function InstallCard() {
 				<Text variant="bodyMedium">{t("install.body")}</Text>
 			</Card.Content>
 			<Card.Actions>
-				<Button onPress={promptInstall}>{t("install.action")}</Button>
+				<Button mode="text" onPress={promptInstall}>
+					{t("install.action")}
+				</Button>
 			</Card.Actions>
 		</Card>
 	);

@@ -139,6 +139,7 @@ export function Breadcrumbs({ crumbs, current, onNavigate }: BreadcrumbsProps) {
 			}}
 		>
 			<Button
+				mode="text"
 				compact
 				onPress={() => onNavigate(null)}
 				contentStyle={{ minHeight: touchTarget }}
@@ -154,6 +155,7 @@ export function Breadcrumbs({ crumbs, current, onNavigate }: BreadcrumbsProps) {
 					{separator}
 					{crumb.node ? (
 						<Button
+							mode="text"
 							compact
 							onPress={() => onNavigate(crumb.id)}
 							contentStyle={{ minHeight: touchTarget }}

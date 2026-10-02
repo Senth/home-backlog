@@ -81,6 +81,7 @@ export function DueDateField({ label, value, onChange }: DueDateFieldProps) {
 				    that exists to be uncluttered. */}
 				{value === null ? null : (
 					<Button
+						mode="text"
 						onPress={() => onChange(null)}
 						textColor={theme.colors.onSurfaceVariant}
 						contentStyle={{ minHeight: touchTarget }}

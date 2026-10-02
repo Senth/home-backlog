@@ -152,6 +152,7 @@ export function LabelDialog({
 								]),
 						<Button
 							key="cancel"
+							mode="text"
 							onPress={onDismiss}
 							textColor={theme.colors.onSurfaceVariant}
 							contentStyle={{ minHeight: touchTarget }}
