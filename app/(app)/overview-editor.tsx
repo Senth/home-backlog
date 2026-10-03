@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { Fragment, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Animated, useWindowDimensions, View } from "react-native";
@@ -210,6 +210,8 @@ export default function OverviewEditor() {
 	});
 
 	const removed = removedSeeds(editorCards.map((entry) => entry.card));
+
+	if (activeHome === null) return <Redirect href="/homes" />;
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
