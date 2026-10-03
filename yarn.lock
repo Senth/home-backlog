@@ -4618,13 +4618,11 @@ jest-environment-node@^29.7.0:
     jest-mock "^29.7.0"
     jest-util "^29.7.0"
 
-jest-expo@~55:
-  version "55.0.22"
-  resolved "https://registry.yarnpkg.com/jest-expo/-/jest-expo-55.0.22.tgz#0eab59fee359bce3a9c57a8f58915afb20158934"
-  integrity sha512-p7D5w/6DozHPOD25gcWnW5FEArqY5PlguRv84rlt3JXXILDlK+aYVSGGgIWTk0tYPE4RWQ68pMLXmtqZr9moKg==
+jest-expo@~57.0.0:
+  version "57.0.5"
+  resolved "https://registry.yarnpkg.com/jest-expo/-/jest-expo-57.0.5.tgz#149c0b57cc309614ea2ceb39ce622b6dcb19155a"
+  integrity sha512-U08fwjaDBwnnbKnZcOA0WQbHfKqOWTCGku+IdCaekrLZmfbbZr3P1WqEsXHo6ntidQ3DmW+TT6G1aOp+ChYfKA==
   dependencies:
-    "@expo/config" "~55.0.21"
-    "@expo/json-file" "^10.0.15"
     "@jest/create-cache-key-function" "^29.2.1"
     "@jest/globals" "^29.2.1"
     babel-jest "^29.2.1"
@@ -4634,7 +4632,7 @@ jest-expo@~55:
     jest-watch-typeahead "2.2.1"
     json5 "^2.2.3"
     lodash "^4.17.19"
-    react-test-renderer "19.2.0"
+    react-test-renderer "19.2.3"
     server-only "^0.0.1"
     stacktrace-js "^2.0.2"
 
@@ -5959,15 +5957,10 @@ react-is@^18.0.0:
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-18.3.1.tgz#e83557dc12eae63a99e003a46388b1dcbb44db7e"
   integrity sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==
 
-react-is@^19.1.0, react-is@^19.3.0:
+react-is@^19.1.0, react-is@^19.2.3, react-is@^19.3.0:
   version "19.3.0"
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-19.3.0.tgz#716028d67e9993d23a2d353c6d08a3c1ef2bbeb4"
   integrity sha512-UpMYezM4v5/18F28aC66AEsjXIgE02kyEMH6yLdgLXu/UTfa1Ntwck/nNLrbqJsEXW7gPb0coNO9FQse9WTovA==
-
-react-is@^19.2.0:
-  version "19.2.8"
-  resolved "https://registry.yarnpkg.com/react-is/-/react-is-19.2.8.tgz#09826f9fbc187bc668e3e5c62edc001f804d5018"
-  integrity sha512-s5un28nYxKJw5gvUHyW5PCC28CvBqLu9r3cWgzHT4Vo/5fqqkFcdRYsGcKf50WMPpjjFZS5d76fn3YCo2njKwQ==
 
 react-native-gesture-handler@~2.33.0:
   version "2.33.0"
@@ -6138,12 +6131,12 @@ react-style-singleton@^2.2.2, react-style-singleton@^2.2.3:
     get-nonce "^1.0.0"
     tslib "^2.0.0"
 
-react-test-renderer@19.2.0:
-  version "19.2.0"
-  resolved "https://registry.yarnpkg.com/react-test-renderer/-/react-test-renderer-19.2.0.tgz#5c9782b4a4ba0630a77d7ce092779fdf9ccde209"
-  integrity sha512-zLCFMHFE9vy/w3AxO0zNxy6aAupnCuLSVOJYDe/Tp+ayGI1f2PLQsFVPANSD42gdSbmYx5oN+1VWDhcXtq7hAQ==
+react-test-renderer@19.2.3:
+  version "19.2.3"
+  resolved "https://registry.yarnpkg.com/react-test-renderer/-/react-test-renderer-19.2.3.tgz#d20f5193867c98b2df9e13b4e72bb83f311f6a43"
+  integrity sha512-TMR1LnSFiWZMJkCgNf5ATSvAheTT2NvKIwiVwdBPHxjBI7n/JbWd4gaZ16DVd9foAXdvDz+sB5yxZTwMjPRxpw==
   dependencies:
-    react-is "^19.2.0"
+    react-is "^19.2.3"
     scheduler "^0.27.0"
 
 react-test-renderer@19.3.0:
