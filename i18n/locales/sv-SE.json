@@ -110,7 +110,7 @@
 		"add": "Lägg till plats",
 		"addUnder": "Lägg till under…",
 		"moveUnder": "Flytta under…",
-		"moveUnderTop": "Högsta nivå",
+		"moveUnderTop": "Högsta nivån",
 		"moveBar": "Välj vart {{name}} ska hamna",
 		"moveConfirm": "Flytta {{name}} under {{destination}}",
 		"moveHere": "Flytta hit",
@@ -149,7 +149,7 @@
 		"loadFailed": "Kunde inte ladda dina hem. Kontrollera din anslutning.",
 		"create": "Skapa ett nytt hem",
 		"nameLabel": "Namn",
-		"nameHint": "Det ni själva kallar det — ”Huset”, ”Stugan”.",
+		"nameHint": "Vad ni kallar det hemma — ”Huset”, ”Stugan”.",
 		"defaultName": "{{name}}s hem",
 		"createAction": "Skapa",
 		"nameRequired": "Ge hemmet ett namn.",
@@ -229,9 +229,9 @@
 		"root": "Projekt",
 		"up": "En nivå upp",
 		"loadFailed": "Kunde inte ladda den här tavlan. Kontrollera din anslutning.",
-		"allHidden": "Allt här är någons eget projekt. Öppna filtret för att se det.",
-		"hiddenHere_one": "1 till här är någons eget projekt. Öppna filtret för att se det.",
-		"hiddenHere_other": "{{count}} fler här är någons egna projekt. Öppna filtret för att se dem.",
+		"allHidden": "Allt här är någon annans eget projekt. Öppna filtret för att se det.",
+		"hiddenHere_one": "Ett projekt till här är någon annans eget. Öppna filtret för att se det.",
+		"hiddenHere_other": "{{count}} fler här är någon annans egna projekt. Öppna filtret för att se dem.",
 		"columnEmpty": "Inget här",
 		"columnChip": "{{column}} · {{count}}",
 		"columnChipA11y_one": "{{column}}, {{count}} kort",
@@ -267,7 +267,7 @@
 		"positionAfter": "Efter {{title}}",
 		"moveUnder": "Flytta in under…",
 		"moveUnderUp": "En nivå upp",
-		"moveUnderTop": "Toppnivån",
+		"moveUnderTop": "Högsta nivån",
 		"movedUnder": "Flyttad in under {{title}}",
 		"rename": "Byt namn",
 		"renameTitle": "Byt namn på kortet",
@@ -326,7 +326,7 @@
 		},
 		"cards": {
 			"title": {
-				"quickWins": "Snabbfixat",
+				"quickWins": "Snabbfixar",
 				"aFewHours": "Några timmar",
 				"needsSplitting": "Behöver delas upp",
 				"needsEstimate": "Saknar tidsuppskattning"
@@ -355,7 +355,7 @@
 				},
 				"hiddenBadge": "Dold",
 				"mode": {
-					"open": "Ej klara",
+					"open": "Inte klara",
 					"done": "Färdiga",
 					"openDescription": "Kort som ingen har bockat av än.",
 					"doneDescription": "Kort som är avbockade, senast först."
@@ -422,9 +422,9 @@
 				"inApp": "I appen",
 				"withNotes": "Har anteckningar",
 				"noNotes": "Utan anteckningar",
-				"attachments": "Foton",
-				"withAttachments": "Har foton",
-				"noAttachments": "Utan foton",
+				"attachments": "Bilder och filer",
+				"withAttachments": "Har bilder och filer",
+				"noAttachments": "Utan bilder och filer",
 				"checklist": "Checklista",
 				"withChecklist": "Har en checklista",
 				"noChecklist": "Utan checklista",
@@ -495,7 +495,7 @@
 		"waitingSearchEmpty": "Inga kort matchar",
 		"waitingSearchCapped": "Visar de första {{count}} — begränsa sökningen",
 		"blockerDone": "Klar",
-		"blockerCycle": "Skulle skapa en cykel",
+		"blockerCycle": "Det kortet väntar redan på det här.",
 		"blockerGone": "Det kortet är borta.",
 		"pickedCount_one": "{{count}} valda",
 		"pickedCount_other": "{{count}} valda",
@@ -547,7 +547,7 @@
 		"attachmentsModeChange": "Ändra hur kortet visar sina bilder",
 		"attachmentsModeSheet": "Hur kortet visar sina bilder",
 		"attachmentsQuota": "Hemmet har slut på utrymme för bilagor.",
-		"attachmentsInventoryOpen": "Öppna översikten"
+		"attachmentsInventoryOpen": "Öppna listan"
 	},
 	"labels": {
 		"capReached": "Ett kort kan ha som mest {{count}} etiketter.",
@@ -600,7 +600,7 @@
 		"iconSearchEmpty": "Inga ikoner matchar. Testa ett kortare ord.",
 		"viewGrid": "Visa som rutnät",
 		"viewList": "Visa som lista",
-		"colorInvalid": "Använd en färg som #A32E28 — steg och sex siffror."
+		"colorInvalid": "Använd en färg som #A32E28 — en fyrkant och sex tecken."
 	},
 	"icons": {
 		"more": "Fler ikoner",

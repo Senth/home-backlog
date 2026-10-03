@@ -422,9 +422,9 @@
 				"inApp": "In the app",
 				"withNotes": "Has notes",
 				"noNotes": "No notes",
-				"attachments": "Photos",
-				"withAttachments": "Has photos",
-				"noAttachments": "No photos",
+				"attachments": "Images & files",
+				"withAttachments": "Has images & files",
+				"noAttachments": "No images & files",
 				"checklist": "Checklist",
 				"withChecklist": "Has a checklist",
 				"noChecklist": "No checklist",
@@ -495,7 +495,7 @@
 		"waitingSearchEmpty": "No cards match",
 		"waitingSearchCapped": "Showing the first {{count}} — refine the search",
 		"blockerDone": "Done",
-		"blockerCycle": "Would create a cycle",
+		"blockerCycle": "That card is already waiting on this one.",
 		"blockerGone": "That card is gone.",
 		"pickedCount_one": "{{count}} picked",
 		"pickedCount_other": "{{count}} picked",
@@ -547,7 +547,7 @@
 		"attachmentsModeChange": "Change how the card shows its pictures",
 		"attachmentsModeSheet": "How the card shows its pictures",
 		"attachmentsQuota": "The home is out of attachment space.",
-		"attachmentsInventoryOpen": "Open the inventory"
+		"attachmentsInventoryOpen": "Open the list"
 	},
 	"labels": {
 		"capReached": "A card can carry at most {{count}} labels.",
