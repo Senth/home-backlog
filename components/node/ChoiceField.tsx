@@ -11,6 +11,7 @@ interface ChoiceFieldProps<T extends string> {
 	value: T | null;
 	values: readonly T[];
 	labelFor: (value: T) => string;
+	descriptionFor?: (value: T) => string;
 	onChange: (value: T | null) => void;
 	/**
 	 * A leading mark per row — the ramp dot priority draws and effort omits.
@@ -63,6 +64,7 @@ export function ChoiceField<T extends string>({
 	value,
 	values,
 	labelFor,
+	descriptionFor,
 	onChange,
 	adornment,
 	clearable = true,
@@ -75,8 +77,19 @@ export function ChoiceField<T extends string>({
 		candidate: T | null,
 		text: string,
 		mark?: ReactNode,
+		description?: string,
 	) => {
 		const selected = candidate === value;
+		const rowLabel = (
+			<Text
+				variant="labelLarge"
+				style={
+					selected ? fillRowLabel(theme.colors.onSecondaryContainer) : undefined
+				}
+			>
+				{text}
+			</Text>
+		);
 
 		return (
 			<Pressable
@@ -96,19 +109,27 @@ export function ChoiceField<T extends string>({
 					alignItems: "center",
 					gap: space.sm,
 					...fillRowContainer(selected, theme.colors.secondaryContainer),
+					paddingVertical: description === undefined ? undefined : space.sm,
 				}}
 			>
 				{mark === undefined ? null : mark}
-				<Text
-					variant="labelLarge"
-					style={
-						selected
-							? fillRowLabel(theme.colors.onSecondaryContainer)
-							: undefined
-					}
-				>
-					{text}
-				</Text>
+				{description === undefined ? (
+					rowLabel
+				) : (
+					<View style={{ flex: 1 }}>
+						{rowLabel}
+						<Text
+							variant="bodySmall"
+							style={{
+								color: selected
+									? theme.colors.onSecondaryContainer
+									: theme.colors.onSurfaceVariant,
+							}}
+						>
+							{description}
+						</Text>
+					</View>
+				)}
 			</Pressable>
 		);
 	};
@@ -129,6 +150,7 @@ export function ChoiceField<T extends string>({
 						candidate,
 						labelFor(candidate),
 						adornment?.(candidate),
+						descriptionFor?.(candidate),
 					),
 				)}
 			</View>

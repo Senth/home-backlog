@@ -338,6 +338,7 @@
 			},
 			"editor": {
 				"title": "Edit cards",
+				"intro": "These are your cards. Only the ones shared with everyone in {{home}} change anyone else's Overview.",
 				"add": "Add card",
 				"import": "Import card",
 				"importPaste": "Paste a shared card",
@@ -346,12 +347,16 @@
 				"removed": "Removed originals",
 				"restore": "Restore",
 				"scope": {
-					"global": "All homes",
-					"home": "Home",
-					"shared": "Everyone",
-					"globalDescription": "The card follows you to every home.",
-					"homeDescription": "The card shows only in this home, and only for you.",
-					"sharedDescription": "The card shows for everyone in the home."
+					"header": "Who sees this card?",
+					"global": "Only me, in every home",
+					"home": "Only me, in {{home}}",
+					"shared": "Everyone in {{home}}",
+					"globalDescription": "Only you see it, in every home you belong to.",
+					"homeDescription": "Only you see it, and only in {{home}}.",
+					"sharedDescription": "Everyone in {{home}} sees it. A change here changes it for all of them, and anyone can hide it just for themselves.",
+					"globalShort": "Only me · every home",
+					"homeShort": "Only me · {{home}}",
+					"sharedShort": "Everyone in {{home}}"
 				},
 				"hiddenBadge": "Hidden",
 				"mode": {

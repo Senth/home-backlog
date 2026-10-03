@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import {
 	Button,
 	Chip,
@@ -18,6 +18,7 @@ import {
 	pickerConditionFromIds,
 	pickerValueFor,
 } from "@/components/board/BoardFilterRow";
+import { ChoiceField } from "@/components/node/ChoiceField";
 import { AppMenu } from "@/components/ui/AppMenu";
 import { CheckListPicker } from "@/components/ui/CheckListPicker";
 import { CheckRow } from "@/components/ui/CheckRow";
@@ -52,6 +53,7 @@ import {
 import { useAppTheme } from "@/theme";
 import {
 	contentWidth,
+	denseBreakpoint,
 	outlinedTouchTarget,
 	segmentedLabelLineHeight,
 	space,
@@ -300,6 +302,7 @@ interface CardEditFormProps {
 	card: Card | null;
 	/** The card's scope, which is where it is stored rather than a field. */
 	scope: "global" | "home" | "shared";
+	homeName: string | undefined;
 	/** The home's members, for the two people fields. */
 	members: readonly Member[];
 	/** The home's locations, for the location picker. */
@@ -396,6 +399,7 @@ const SORT_LABELS: Record<SortField, string> = {
 export function CardEditForm({
 	card,
 	scope: initialScope,
+	homeName,
 	members,
 	locations,
 	labels,
@@ -462,6 +466,7 @@ export function CardEditForm({
 					uid={user?.uid ?? ""}
 					draft={draft}
 					scope={scope}
+					homeName={homeName}
 					fields={fields}
 					members={members}
 					locations={locations}
@@ -517,6 +522,7 @@ interface SheetBodyProps {
 	uid: string;
 	draft: Card;
 	scope: "global" | "home" | "shared";
+	homeName: string | undefined;
 	fields: FieldSpec[];
 	/** The home's members, places and labels, for the rows' words and glyphs. */
 	members: readonly Member[];
@@ -548,13 +554,14 @@ interface SheetBodyProps {
 
 /**
  * The form groups. One group per row: the mode and its sentence, the scope
- * and its sentence, the title, the conditions and their one open field, the
- * sort, the two row budgets, and the hide-when-empty checkbox.
+ * rows and their descriptions, the title, the conditions and their one open
+ * field, the sort, the two row budgets, and the hide-when-empty checkbox.
  */
 function SheetBody({
 	uid,
 	draft,
 	scope,
+	homeName,
 	fields,
 	members,
 	locations,
@@ -575,6 +582,7 @@ function SheetBody({
 }: SheetBodyProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
+	const { width } = useWindowDimensions();
 
 	const fieldsCtx: FilterContext = {
 		uid,
@@ -588,22 +596,42 @@ function SheetBody({
 	return (
 		<View style={{ gap: space.lg }}>
 			<View>
-				<SegmentedButtons
-					value={draft.kind}
-					onValueChange={(value) => onMode(value as CardMode)}
-					buttons={[
-						{
-							value: "open",
-							label: t("overview.cards.editor.mode.open"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-						{
-							value: "done",
-							label: t("overview.cards.editor.mode.done"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-					]}
-				/>
+				{width < denseBreakpoint ? (
+					<View
+						style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}
+					>
+						{(["open", "done"] as const).map((mode) => (
+							<Chip
+								key={mode}
+								mode={draft.kind === mode ? "flat" : "outlined"}
+								selected={draft.kind === mode}
+								showSelectedCheck={false}
+								aria-pressed={draft.kind === mode}
+								onPress={() => onMode(mode)}
+								style={{ minHeight: outlinedTouchTarget }}
+							>
+								{t(`overview.cards.editor.mode.${mode}`)}
+							</Chip>
+						))}
+					</View>
+				) : (
+					<SegmentedButtons
+						value={draft.kind}
+						onValueChange={(value) => onMode(value as CardMode)}
+						buttons={[
+							{
+								value: "open",
+								label: t("overview.cards.editor.mode.open"),
+								labelStyle: { lineHeight: segmentedLabelLineHeight },
+							},
+							{
+								value: "done",
+								label: t("overview.cards.editor.mode.done"),
+								labelStyle: { lineHeight: segmentedLabelLineHeight },
+							},
+						]}
+					/>
+				)}
 				{/* The sentence is what keeps the two segmented controls from
 					    reading as one five-way choice: each says what its own
 					    choice means, and the pair stays two decisions. */}
@@ -617,35 +645,23 @@ function SheetBody({
 				</Text>
 			</View>
 
-			<View>
-				<SegmentedButtons
-					value={scope}
-					onValueChange={(value) => onScope(value as typeof scope)}
-					buttons={[
-						{
-							value: "global",
-							label: t("overview.cards.editor.scope.global"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-						{
-							value: "home",
-							label: t("overview.cards.editor.scope.home"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-						{
-							value: "shared",
-							label: t("overview.cards.editor.scope.shared"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-					]}
-				/>
-				<Text
-					variant="bodySmall"
-					style={{ color: theme.colors.onSurfaceVariant }}
-				>
-					{t(`overview.cards.editor.scope.${scope}Description`)}
-				</Text>
-			</View>
+			<ChoiceField
+				label={t("overview.cards.editor.scope.header")}
+				value={scope}
+				values={["global", "home", "shared"] as const}
+				labelFor={(value) =>
+					t(`overview.cards.editor.scope.${value}`, { home: homeName })
+				}
+				descriptionFor={(value) =>
+					t(`overview.cards.editor.scope.${value}Description`, {
+						home: homeName,
+					})
+				}
+				onChange={(value) => {
+					if (value !== null) onScope(value);
+				}}
+				clearable={false}
+			/>
 
 			<TextInput
 				mode="outlined"

@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from "expo-router";
+import { Redirect, useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
@@ -38,6 +38,8 @@ export default function OverviewCardEdit() {
 		() => (activeHome === null ? [] : membersOf(activeHome)),
 		[activeHome],
 	);
+
+	if (activeHome === null) return <Redirect href="/homes" />;
 
 	// Until the config has answered, the lookup cannot say "new card" — it
 	// would mount the form as an add and a later answer could not fix the
@@ -98,6 +100,7 @@ export default function OverviewCardEdit() {
 				<CardEditForm
 					card={entry?.card ?? null}
 					scope={entry?.scope ?? "global"}
+					homeName={activeHome?.name}
 					members={members}
 					locations={locations}
 					labels={activeHome?.labels ?? []}

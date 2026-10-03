@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { Fragment, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Animated, useWindowDimensions, View } from "react-native";
@@ -40,6 +40,7 @@ import {
 } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
 import {
+	appBarStackBreakpoint,
 	denseBreakpoint,
 	drag as dragTokens,
 	elevation,
@@ -65,7 +66,7 @@ import { goBack } from "@/utils/navigation";
  * map rewritten, a shared card is its own document — so all of it queues
  * offline like any other write. Import is clipboard-local: the pasted string
  * is decoded before anything is written, and the card it makes is the
- * importer's own, in All homes — scope is the editor's to move.
+ * importer's own, only me, in every home — scope is the editor's to move.
  */
 export default function OverviewEditor() {
 	const { t } = useTranslation();
@@ -211,9 +212,11 @@ export default function OverviewEditor() {
 
 	const removed = removedSeeds(editorCards.map((entry) => entry.card));
 
+	if (activeHome === null) return <Redirect href="/homes" />;
+
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header>
+			<Appbar.Header mode={width < appBarStackBreakpoint ? "medium" : "small"}>
 				<BackAction
 					accessibilityLabel={t("common.done")}
 					onPress={() => goBack("/overview")}
@@ -255,6 +258,16 @@ export default function OverviewEditor() {
 					style={{ flex: 1 }}
 					contentContainerStyle={{ paddingBottom: fabInset }}
 				>
+					<Text
+						variant="bodyMedium"
+						style={{
+							color: theme.colors.onSurfaceVariant,
+							paddingHorizontal: space.md,
+							paddingTop: space.md,
+						}}
+					>
+						{t("overview.cards.editor.intro", { home: activeHome?.name })}
+					</Text>
 					<View
 						ref={drag.register(listKey)}
 						collapsable={false}
@@ -470,6 +483,7 @@ function EditorRow({
 	onRemove,
 }: EditorRowProps) {
 	const { t } = useTranslation();
+	const { activeHome } = useHome();
 	const { card, scope, hidden } = entry;
 
 	const row = (
@@ -493,7 +507,7 @@ function EditorRow({
 					(card.seedId !== null ? t(seedTitleKeys[card.seedId]) : card.id)
 				}
 				titleNumberOfLines={2}
-				description={`${t(`overview.cards.editor.scope.${scope}`)}${
+				description={`${t(`overview.cards.editor.scope.${scope}Short`, { home: activeHome?.name })}${
 					hidden ? ` · ${t("overview.cards.editor.hiddenBadge")}` : ""
 				}`}
 				style={{ minHeight: touchTarget }}

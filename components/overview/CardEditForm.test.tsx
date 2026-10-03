@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import type { ReactNode } from "react";
+import * as ReactNative from "react-native";
 
 // Paper's inputs read the theme its provider carries.
 import { Provider } from "react-native-paper";
@@ -7,6 +8,7 @@ import { CardEditForm } from "@/components/overview/CardEditForm";
 import { AuthProvider } from "@/contexts/AuthContext";
 import type { LabelWithId } from "@/models/label";
 import { lightTheme } from "@/theme";
+import { denseBreakpoint } from "@/theme/tokens";
 
 /**
  * The real tree: `app/_layout.tsx` mounts `AuthProvider` inside
@@ -59,6 +61,7 @@ const renderForm = (onSave = jest.fn()) =>
 				<CardEditForm
 					card={null}
 					scope="home"
+					homeName="Huset"
 					members={[]}
 					locations={[]}
 					labels={labels}
@@ -69,6 +72,33 @@ const renderForm = (onSave = jest.fn()) =>
 	);
 
 describe("CardEditForm", () => {
+	afterEach(() => jest.restoreAllMocks());
+
+	it("the narrow mode choices switch the fields and save the chosen mode", () => {
+		jest.spyOn(ReactNative, "useWindowDimensions").mockReturnValue({
+			...ReactNative.Dimensions.get("window"),
+			width: denseBreakpoint - 1,
+		});
+		const onSave = jest.fn();
+		renderForm(onSave);
+
+		fireEvent.press(screen.getByText("overview.cards.editor.mode.done"));
+		expect(screen.queryByText("overview.cards.field.status")).toBeNull();
+		expect(screen.queryByText("overview.cards.field.completedAt")).toBeTruthy();
+		fireEvent.press(screen.getByText("overview.cards.editor.mode.open"));
+		expect(screen.queryByText("overview.cards.field.completedAt")).toBeNull();
+		expect(screen.queryByText("overview.cards.field.status")).toBeTruthy();
+		fireEvent.changeText(
+			screen.getByTestId("overview-card-edit-title"),
+			"Open jobs",
+		);
+		fireEvent.press(screen.getByText("manageHome.save"));
+		expect(onSave).toHaveBeenCalledWith(
+			expect.objectContaining({ kind: "open", conditions: [] }),
+			"home",
+		);
+	});
+
 	/**
 	 * #229 closed: a blank card plus one tap on *Färdiga* is the whole
 	 * Recently done card — the mode selector seeds the window, the order and
@@ -269,19 +299,47 @@ describe("CardEditForm", () => {
 		).toBeTruthy();
 	});
 
-	it("says where each scope stores the card, all three of them", () => {
-		renderForm();
+	it("shows all scope descriptions and saves the selected scope without clearing on retap", () => {
+		const onSave = jest.fn();
+		renderForm(onSave);
 
-		expect(
-			screen.getByText("overview.cards.editor.scope.homeDescription"),
-		).toBeTruthy();
-		fireEvent.press(screen.getByText("overview.cards.editor.scope.global"));
-		expect(
-			screen.getByText("overview.cards.editor.scope.globalDescription"),
-		).toBeTruthy();
-		fireEvent.press(screen.getByText("overview.cards.editor.scope.shared"));
-		expect(
-			screen.getByText("overview.cards.editor.scope.sharedDescription"),
-		).toBeTruthy();
+		expect(screen.getByText("overview.cards.editor.scope.header")).toBeTruthy();
+		const scopes = ["global", "home", "shared"] as const;
+		const scopeRows = () =>
+			scopes.map((scope) =>
+				screen.getByRole("button", {
+					name: new RegExp(`overview\\.cards\\.editor\\.scope\\.${scope}:`),
+				}),
+			);
+
+		for (const scope of scopes) {
+			expect(
+				screen.getByText(
+					`overview.cards.editor.scope.${scope}Description:{"home":"Huset"}`,
+				),
+			).toBeTruthy();
+		}
+		expect(scopeRows().map((row) => row.props["aria-pressed"])).toEqual([
+			false,
+			true,
+			false,
+		]);
+		fireEvent.changeText(
+			screen.getByTestId("overview-card-edit-title"),
+			"My card",
+		);
+
+		for (const [index, scope] of scopes.entries()) {
+			fireEvent.press(scopeRows()[index]);
+			fireEvent.press(scopeRows()[index]);
+			expect(scopeRows().map((row) => row.props["aria-pressed"])).toEqual(
+				scopes.map((candidate) => candidate === scope),
+			);
+			fireEvent.press(screen.getByText("manageHome.save"));
+			expect(onSave).toHaveBeenLastCalledWith(
+				expect.objectContaining({ title: "My card" }),
+				scope,
+			);
+		}
 	});
 });

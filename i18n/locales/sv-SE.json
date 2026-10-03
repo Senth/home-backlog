@@ -338,6 +338,7 @@
 			},
 			"editor": {
 				"title": "Redigera kort",
+				"intro": "Det här är dina kort. Bara de som delas med alla i {{home}} ändrar någon annans översikt.",
 				"add": "Lägg till kort",
 				"import": "Importera kort",
 				"importPaste": "Klistra in ett delat kort",
@@ -346,12 +347,16 @@
 				"removed": "Borttagna original",
 				"restore": "Återställ",
 				"scope": {
-					"global": "Alla hem",
-					"home": "Hem",
-					"shared": "Alla här",
-					"globalDescription": "Kortet följer med till alla dina hem.",
-					"homeDescription": "Kortet syns bara i det här hemmet, och bara för dig.",
-					"sharedDescription": "Kortet syns för alla i hemmet."
+					"header": "Vem ser kortet?",
+					"global": "Bara jag, i alla hem",
+					"home": "Bara jag, i {{home}}",
+					"shared": "Alla i {{home}}",
+					"globalDescription": "Bara du ser det, i alla hem du är med i.",
+					"homeDescription": "Bara du ser det, och bara i {{home}}.",
+					"sharedDescription": "Alla i {{home}} ser det. Ändrar du det ändras det för alla, och var och en kan dölja det för sig själv.",
+					"globalShort": "Bara jag · alla hem",
+					"homeShort": "Bara jag · {{home}}",
+					"sharedShort": "Alla i {{home}}"
 				},
 				"hiddenBadge": "Dold",
 				"mode": {
