@@ -16,7 +16,7 @@ import { space, touchTarget } from "@/theme/tokens";
 
 /**
  * Import a card someone shared as text: paste the string, see what it says,
- * add it. The card lands in All homes; moving it between scopes is the
+ * add it. The card lands in the global scope; moving it between scopes is the
  * editor's job, one open away from the snackbar. The decode is the model's
  * own `importCard`, so an invalid string is one plain sentence — never a
  * stack trace — and the preview is the card the Add will actually create,
