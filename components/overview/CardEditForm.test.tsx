@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import type { ReactNode } from "react";
+import * as ReactNative from "react-native";
 
 // Paper's inputs read the theme its provider carries.
 import { Provider } from "react-native-paper";
@@ -7,6 +8,7 @@ import { CardEditForm } from "@/components/overview/CardEditForm";
 import { AuthProvider } from "@/contexts/AuthContext";
 import type { LabelWithId } from "@/models/label";
 import { lightTheme } from "@/theme";
+import { denseBreakpoint } from "@/theme/tokens";
 
 /**
  * The real tree: `app/_layout.tsx` mounts `AuthProvider` inside
@@ -70,6 +72,33 @@ const renderForm = (onSave = jest.fn()) =>
 	);
 
 describe("CardEditForm", () => {
+	afterEach(() => jest.restoreAllMocks());
+
+	it("the narrow mode choices switch the fields and save the chosen mode", () => {
+		jest.spyOn(ReactNative, "useWindowDimensions").mockReturnValue({
+			...ReactNative.Dimensions.get("window"),
+			width: denseBreakpoint - 1,
+		});
+		const onSave = jest.fn();
+		renderForm(onSave);
+
+		fireEvent.press(screen.getByText("overview.cards.editor.mode.done"));
+		expect(screen.queryByText("overview.cards.field.status")).toBeNull();
+		expect(screen.queryByText("overview.cards.field.completedAt")).toBeTruthy();
+		fireEvent.press(screen.getByText("overview.cards.editor.mode.open"));
+		expect(screen.queryByText("overview.cards.field.completedAt")).toBeNull();
+		expect(screen.queryByText("overview.cards.field.status")).toBeTruthy();
+		fireEvent.changeText(
+			screen.getByTestId("overview-card-edit-title"),
+			"Open jobs",
+		);
+		fireEvent.press(screen.getByText("manageHome.save"));
+		expect(onSave).toHaveBeenCalledWith(
+			expect.objectContaining({ kind: "open", conditions: [] }),
+			"home",
+		);
+	});
+
 	/**
 	 * #229 closed: a blank card plus one tap on *Färdiga* is the whole
 	 * Recently done card — the mode selector seeds the window, the order and

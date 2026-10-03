@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import {
 	Button,
 	Chip,
@@ -53,6 +53,7 @@ import {
 import { useAppTheme } from "@/theme";
 import {
 	contentWidth,
+	denseBreakpoint,
 	outlinedTouchTarget,
 	segmentedLabelLineHeight,
 	space,
@@ -581,6 +582,7 @@ function SheetBody({
 }: SheetBodyProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
+	const { width } = useWindowDimensions();
 
 	const fieldsCtx: FilterContext = {
 		uid,
@@ -594,22 +596,42 @@ function SheetBody({
 	return (
 		<View style={{ gap: space.lg }}>
 			<View>
-				<SegmentedButtons
-					value={draft.kind}
-					onValueChange={(value) => onMode(value as CardMode)}
-					buttons={[
-						{
-							value: "open",
-							label: t("overview.cards.editor.mode.open"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-						{
-							value: "done",
-							label: t("overview.cards.editor.mode.done"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-					]}
-				/>
+				{width < denseBreakpoint ? (
+					<View
+						style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}
+					>
+						{(["open", "done"] as const).map((mode) => (
+							<Chip
+								key={mode}
+								mode={draft.kind === mode ? "flat" : "outlined"}
+								selected={draft.kind === mode}
+								showSelectedCheck={false}
+								aria-pressed={draft.kind === mode}
+								onPress={() => onMode(mode)}
+								style={{ minHeight: outlinedTouchTarget }}
+							>
+								{t(`overview.cards.editor.mode.${mode}`)}
+							</Chip>
+						))}
+					</View>
+				) : (
+					<SegmentedButtons
+						value={draft.kind}
+						onValueChange={(value) => onMode(value as CardMode)}
+						buttons={[
+							{
+								value: "open",
+								label: t("overview.cards.editor.mode.open"),
+								labelStyle: { lineHeight: segmentedLabelLineHeight },
+							},
+							{
+								value: "done",
+								label: t("overview.cards.editor.mode.done"),
+								labelStyle: { lineHeight: segmentedLabelLineHeight },
+							},
+						]}
+					/>
+				)}
 				{/* The sentence is what keeps the two segmented controls from
 					    reading as one five-way choice: each says what its own
 					    choice means, and the pair stays two decisions. */}
