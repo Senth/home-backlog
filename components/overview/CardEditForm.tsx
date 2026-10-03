@@ -18,6 +18,7 @@ import {
 	pickerConditionFromIds,
 	pickerValueFor,
 } from "@/components/board/BoardFilterRow";
+import { ChoiceField } from "@/components/node/ChoiceField";
 import { AppMenu } from "@/components/ui/AppMenu";
 import { CheckListPicker } from "@/components/ui/CheckListPicker";
 import { CheckRow } from "@/components/ui/CheckRow";
@@ -300,6 +301,7 @@ interface CardEditFormProps {
 	card: Card | null;
 	/** The card's scope, which is where it is stored rather than a field. */
 	scope: "global" | "home" | "shared";
+	homeName: string | undefined;
 	/** The home's members, for the two people fields. */
 	members: readonly Member[];
 	/** The home's locations, for the location picker. */
@@ -396,6 +398,7 @@ const SORT_LABELS: Record<SortField, string> = {
 export function CardEditForm({
 	card,
 	scope: initialScope,
+	homeName,
 	members,
 	locations,
 	labels,
@@ -462,6 +465,7 @@ export function CardEditForm({
 					uid={user?.uid ?? ""}
 					draft={draft}
 					scope={scope}
+					homeName={homeName}
 					fields={fields}
 					members={members}
 					locations={locations}
@@ -517,6 +521,7 @@ interface SheetBodyProps {
 	uid: string;
 	draft: Card;
 	scope: "global" | "home" | "shared";
+	homeName: string | undefined;
 	fields: FieldSpec[];
 	/** The home's members, places and labels, for the rows' words and glyphs. */
 	members: readonly Member[];
@@ -548,13 +553,14 @@ interface SheetBodyProps {
 
 /**
  * The form groups. One group per row: the mode and its sentence, the scope
- * and its sentence, the title, the conditions and their one open field, the
- * sort, the two row budgets, and the hide-when-empty checkbox.
+ * rows and their descriptions, the title, the conditions and their one open
+ * field, the sort, the two row budgets, and the hide-when-empty checkbox.
  */
 function SheetBody({
 	uid,
 	draft,
 	scope,
+	homeName,
 	fields,
 	members,
 	locations,
@@ -617,35 +623,23 @@ function SheetBody({
 				</Text>
 			</View>
 
-			<View>
-				<SegmentedButtons
-					value={scope}
-					onValueChange={(value) => onScope(value as typeof scope)}
-					buttons={[
-						{
-							value: "global",
-							label: t("overview.cards.editor.scope.global"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-						{
-							value: "home",
-							label: t("overview.cards.editor.scope.home"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-						{
-							value: "shared",
-							label: t("overview.cards.editor.scope.shared"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-					]}
-				/>
-				<Text
-					variant="bodySmall"
-					style={{ color: theme.colors.onSurfaceVariant }}
-				>
-					{t(`overview.cards.editor.scope.${scope}Description`)}
-				</Text>
-			</View>
+			<ChoiceField
+				label={t("overview.cards.editor.scope.header")}
+				value={scope}
+				values={["global", "home", "shared"] as const}
+				labelFor={(value) =>
+					t(`overview.cards.editor.scope.${value}`, { home: homeName })
+				}
+				descriptionFor={(value) =>
+					t(`overview.cards.editor.scope.${value}Description`, {
+						home: homeName,
+					})
+				}
+				onChange={(value) => {
+					if (value !== null) onScope(value);
+				}}
+				clearable={false}
+			/>
 
 			<TextInput
 				mode="outlined"

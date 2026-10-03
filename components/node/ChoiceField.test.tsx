@@ -1,4 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+	fireEvent,
+	render,
+	screen,
+	within,
+} from "@testing-library/react-native";
 import { View } from "react-native";
 import { Provider, Text } from "react-native-paper";
 import { ChoiceField } from "@/components/node/ChoiceField";
@@ -51,6 +56,26 @@ describe("ChoiceField", () => {
 		fireEvent.press(screen.getByText("Normal"));
 
 		expect(onChange).toHaveBeenCalledWith("normal");
+	});
+
+	it("shows every description inside its selectable row", () => {
+		const onChange = jest.fn();
+		renderChoiceField({
+			value: "high",
+			onChange,
+			descriptionFor: (value) => `${labels[value]} description`,
+		});
+
+		for (const value of values) {
+			const row = screen.getByRole("button", {
+				name: new RegExp(`^${labels[value]}`),
+			});
+			const description = within(row).getByText(`${labels[value]} description`);
+			fireEvent.press(description);
+			expect(onChange).toHaveBeenLastCalledWith(
+				value === "high" ? null : value,
+			);
+		}
 	});
 
 	it("tapping the selected row clears it", () => {

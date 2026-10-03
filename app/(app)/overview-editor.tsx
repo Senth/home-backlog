@@ -470,6 +470,7 @@ function EditorRow({
 	onRemove,
 }: EditorRowProps) {
 	const { t } = useTranslation();
+	const { activeHome } = useHome();
 	const { card, scope, hidden } = entry;
 
 	const row = (
@@ -493,7 +494,7 @@ function EditorRow({
 					(card.seedId !== null ? t(seedTitleKeys[card.seedId]) : card.id)
 				}
 				titleNumberOfLines={2}
-				description={`${t(`overview.cards.editor.scope.${scope}`)}${
+				description={`${t(`overview.cards.editor.scope.${scope}`, { home: activeHome?.name })}${
 					hidden ? ` · ${t("overview.cards.editor.hiddenBadge")}` : ""
 				}`}
 				style={{ minHeight: touchTarget }}

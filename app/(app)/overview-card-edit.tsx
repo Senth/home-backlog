@@ -98,6 +98,7 @@ export default function OverviewCardEdit() {
 				<CardEditForm
 					card={entry?.card ?? null}
 					scope={entry?.scope ?? "global"}
+					homeName={activeHome?.name}
 					members={members}
 					locations={locations}
 					labels={activeHome?.labels ?? []}

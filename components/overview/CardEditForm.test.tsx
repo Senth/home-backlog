@@ -59,6 +59,7 @@ const renderForm = (onSave = jest.fn()) =>
 				<CardEditForm
 					card={null}
 					scope="home"
+					homeName="Huset"
 					members={[]}
 					locations={[]}
 					labels={labels}
@@ -269,19 +270,47 @@ describe("CardEditForm", () => {
 		).toBeTruthy();
 	});
 
-	it("says where each scope stores the card, all three of them", () => {
-		renderForm();
+	it("shows all scope descriptions and saves the selected scope without clearing on retap", () => {
+		const onSave = jest.fn();
+		renderForm(onSave);
 
-		expect(
-			screen.getByText("overview.cards.editor.scope.homeDescription"),
-		).toBeTruthy();
-		fireEvent.press(screen.getByText("overview.cards.editor.scope.global"));
-		expect(
-			screen.getByText("overview.cards.editor.scope.globalDescription"),
-		).toBeTruthy();
-		fireEvent.press(screen.getByText("overview.cards.editor.scope.shared"));
-		expect(
-			screen.getByText("overview.cards.editor.scope.sharedDescription"),
-		).toBeTruthy();
+		expect(screen.getByText("overview.cards.editor.scope.header")).toBeTruthy();
+		const scopes = ["global", "home", "shared"] as const;
+		const scopeRows = () =>
+			scopes.map((scope) =>
+				screen.getByRole("button", {
+					name: new RegExp(`overview\\.cards\\.editor\\.scope\\.${scope}:`),
+				}),
+			);
+
+		for (const scope of scopes) {
+			expect(
+				screen.getByText(
+					`overview.cards.editor.scope.${scope}Description:{"home":"Huset"}`,
+				),
+			).toBeTruthy();
+		}
+		expect(scopeRows().map((row) => row.props["aria-pressed"])).toEqual([
+			false,
+			true,
+			false,
+		]);
+		fireEvent.changeText(
+			screen.getByTestId("overview-card-edit-title"),
+			"My card",
+		);
+
+		for (const [index, scope] of scopes.entries()) {
+			fireEvent.press(scopeRows()[index]);
+			fireEvent.press(scopeRows()[index]);
+			expect(scopeRows().map((row) => row.props["aria-pressed"])).toEqual(
+				scopes.map((candidate) => candidate === scope),
+			);
+			fireEvent.press(screen.getByText("manageHome.save"));
+			expect(onSave).toHaveBeenLastCalledWith(
+				expect.objectContaining({ title: "My card" }),
+				scope,
+			);
+		}
 	});
 });
