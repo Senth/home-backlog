@@ -331,6 +331,7 @@ export const scrollbar = {
 export const compactBreakpoint = 720;
 
 /**
+ * Used only by `AppHeader`.
  * Below this, an app bar puts its title on its own line.
  *
  * A back arrow, an overflow and the account menu are three 48dp targets, and
