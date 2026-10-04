@@ -371,6 +371,8 @@ describe("deleteLocation", () => {
 describe("locationErrorKey", () => {
 	it.each([
 		[{ code: "subtree-too-large" }, "error.subtreeTooLarge"],
+		[{ code: "target-gone" }, "error.targetGone"],
+		[{ code: "move-own-subtree" }, "error.moveOwnSubtree"],
 		[{ code: "permission-denied" }, "error.saveFailed"],
 		[new Error("boom"), "error.saveFailed"],
 		[null, "error.saveFailed"],

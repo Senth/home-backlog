@@ -313,6 +313,7 @@ describe("classifyReplayError", () => {
 		[{ code: "move-visibility" }, { refused: "error.moveVisibility" }],
 		[{ code: "subtree-too-large" }, { refused: "error.subtreeTooLarge" }],
 		[{ code: "target-not-found" }, { refused: "error.saveFailed" }],
+		[{ code: "target-gone" }, { refused: "error.targetGone" }],
 		[{ code: "permission-denied" }, { refused: "error.saveFailed" }],
 		[new TypeError("Programming error"), { refused: "error.saveFailed" }],
 		[null, { refused: "error.saveFailed" }],

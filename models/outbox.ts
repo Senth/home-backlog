@@ -170,6 +170,7 @@ export type ErrorKey =
 	| "error.moveOwnSubtree"
 	| "error.moveVisibility"
 	| "error.subtreeTooLarge"
+	| "error.targetGone"
 	| "error.saveFailed";
 
 export function classifyReplayError(
@@ -187,6 +188,7 @@ export function classifyReplayError(
 	if (code === "subject-not-found" || code === "already-at-target")
 		return "drop";
 	if (code === "move-own-subtree") return { refused: "error.moveOwnSubtree" };
+	if (code === "target-gone") return { refused: "error.targetGone" };
 	if (code === "move-visibility") return { refused: "error.moveVisibility" };
 	if (code === "subtree-too-large") return { refused: "error.subtreeTooLarge" };
 	return { refused: "error.saveFailed" };

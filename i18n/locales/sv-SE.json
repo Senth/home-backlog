@@ -223,6 +223,7 @@
 		"moveVisibility": "Ett privat kort kan inte ligga i ett delat projekt, eller tvärtom.",
 		"offline": "Du är offline. Du måste vara uppkopplad för att logga in.",
 		"subtreeTooLarge": "Den platsen har för mycket under sig för att ändras på en gång. Flytta eller ta bort den i mindre delar.",
+		"targetGone": "Det du ville flytta till har tagits bort. Välj vart du vill flytta i stället.",
 		"saveFailed": "Det gick inte att spara. Försök igen."
 	},
 	"board": {

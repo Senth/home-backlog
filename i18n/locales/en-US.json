@@ -223,6 +223,7 @@
 		"moveVisibility": "A private card cannot live inside a shared project, or the other way around.",
 		"offline": "You are offline. Signing in needs a connection.",
 		"subtreeTooLarge": "That location has too much under it to change in one go. Move or delete it in smaller pieces.",
+		"targetGone": "The destination was deleted. Choose somewhere else to move it.",
 		"saveFailed": "Could not save that. Please try again."
 	},
 	"board": {
