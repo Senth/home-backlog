@@ -217,6 +217,8 @@
 		}
 	},
 	"outbox": {
+		"waitingCount_one": "{{count}} väntar på att synkas",
+		"waitingCount_other": "{{count}} väntar på att synkas",
 		"waiting": "Väntar på att synkas",
 		"pendingChanges_one": "{{count}} ändring väntar på anslutning",
 		"pendingChanges_other": "{{count}} ändringar väntar på anslutning",

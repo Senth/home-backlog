@@ -1,7 +1,8 @@
 import type { DocumentData, Query } from "firebase/firestore";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
+import { useOutbox } from "@/contexts/OutboxContext";
 import {
 	participatingDoneQuery,
 	participatingPoolQuery,
@@ -16,6 +17,7 @@ import {
 	usePairedListener,
 } from "@/hooks/use-paired-listener";
 import type { CardCondition } from "@/models/filter";
+import { hiddenNodeIds } from "@/models/outbox";
 import {
 	doneWindow,
 	doneWithinDays,
@@ -48,6 +50,7 @@ export function useOverview(homeId: string | null): {
 	done: PairedResult;
 } {
 	const { user } = useAuth();
+	const { intents } = useOutbox();
 	const uid = user?.uid ?? null;
 	const { cards } = useDashboardCardsConfig();
 	// Only the done pair carries a `now`, so only it moves when the day does.
@@ -94,7 +97,17 @@ export function useOverview(homeId: string | null): {
 		window,
 	);
 
-	return { roots, pool, done };
+	const [rootNodes, poolNodes, doneNodes] = useMemo(() => {
+		const hidden = hiddenNodeIds(intents, homeId ?? "");
+		return [roots.nodes, pool.nodes, done.nodes].map((nodes) =>
+			nodes.filter((node) => !hidden.has(node.id)),
+		);
+	}, [intents, homeId, roots.nodes, pool.nodes, done.nodes]);
+	return {
+		roots: { ...roots, nodes: rootNodes },
+		pool: { ...pool, nodes: poolNodes },
+		done: { ...done, nodes: doneNodes },
+	};
 }
 
 /**

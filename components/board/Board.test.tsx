@@ -5,6 +5,23 @@ import { Provider, TextInput } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { ReactTestInstance } from "react-test-renderer";
 import { Board } from "@/components/board/Board";
+
+jest.mock("@/contexts/OutboxContext", () => ({
+	useOutbox: () => ({
+		intents: [],
+		submit: jest.fn(
+			async (_intent: unknown, runOnline: () => Promise<void>) => {
+				await runOnline();
+				return "saved";
+			},
+		),
+		undo: jest.fn(),
+	}),
+}));
+jest.mock("@/data/outbox-store", () => ({
+	intentMetadata: jest.fn(() => ({ id: "intent-1" })),
+}));
+
 import { DragArea } from "@/components/board/DragArea";
 import { createNode } from "@/data/nodes";
 import type { BoardFilter } from "@/models/board-filter";

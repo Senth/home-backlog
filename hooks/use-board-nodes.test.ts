@@ -10,6 +10,15 @@ import {
 import { subtreeNodes, useBoardNodes } from "@/hooks/use-board-nodes";
 import type { Node } from "@/models/node";
 import { defaultColumns } from "@/models/node";
+import type { Intent } from "@/models/outbox";
+
+let mockIntents: Intent[] = [];
+jest.mock("@/contexts/OutboxContext", () => ({
+	useOutbox: () => ({ intents: mockIntents }),
+}));
+beforeEach(() => {
+	mockIntents = [];
+});
 
 jest.mock("@/contexts/AuthContext", () => ({
 	useAuth: () => ({ user: { uid: "uid-me" } }),
@@ -87,6 +96,62 @@ const node = (id: string, ancestorIds: string[]): Node => ({
 });
 
 describe("useBoardNodes", () => {
+	it.each(["board", "subtree"] as const)(
+		"hides queued moves and deletes at %s reach but preserves raw pool",
+		(reach) => {
+			const entries = [
+				node("moved", ["board-1"]),
+				node("deleted", ["board-1"]),
+				node("kept", ["board-1"]),
+				node("other-home", ["board-1"]),
+			];
+			const base = {
+				homeId: "home-1",
+				queuedAt: 1,
+				title: "Subject",
+				sourceParentId: "board-1",
+				sourceAncestorIds: [],
+			};
+			mockIntents = [
+				{
+					...base,
+					id: "move",
+					kind: "reparentNode",
+					nodeId: "moved",
+					parentId: "away",
+					rank: "V0",
+				},
+				{ ...base, id: "delete", kind: "deleteNode", nodeId: "deleted" },
+				{
+					...base,
+					homeId: "other",
+					id: "other",
+					kind: "deleteNode",
+					nodeId: "other-home",
+				},
+			];
+			jest.mocked(usePairedListener).mockReturnValue({
+				nodes: entries,
+				loading: false,
+				failed: false,
+				retry: jest.fn(),
+			});
+			const hook = renderHook(() => useBoardNodes("home-1", "board-1", reach));
+			expect(hook.result.current.nodes.map((each) => each.id)).toEqual(
+				reach === "board"
+					? ["kept", "other-home"]
+					: ["kept", "kept", "other-home", "other-home"],
+			);
+			expect(hook.result.current.pool.some((each) => each.id === "moved")).toBe(
+				true,
+			);
+			mockIntents = [];
+			hook.rerender(undefined);
+			expect(
+				hook.result.current.nodes.some((each) => each.id === "moved"),
+			).toBe(true);
+		},
+	);
 	it("this-board reach builds the board pair and nothing else", () => {
 		renderHook(() => useBoardNodes("home-1", "board-1", "board"));
 

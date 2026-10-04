@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOutbox } from "@/contexts/OutboxContext";
 import {
 	participatingDoneQuery,
 	participatingPoolQuery,
@@ -10,6 +12,7 @@ import { useNodes } from "@/hooks/use-nodes";
 import { useOverviewPair } from "@/hooks/use-overview";
 import type { BoardReach } from "@/models/board-filter";
 import { compareNodes, type Node } from "@/models/node";
+import { hiddenNodeIds } from "@/models/outbox";
 import { doneWithinDays } from "@/models/overview";
 
 /**
@@ -43,6 +46,7 @@ export function useBoardNodes(
 	retry: () => void;
 } {
 	const { user } = useAuth();
+	const { intents } = useOutbox();
 	const uid = user?.uid ?? null;
 	// Only the done pair carries a `now`, so only it moves when the day does —
 	// the same turnover rule Overview's done pair runs on.
@@ -76,9 +80,25 @@ export function useBoardNodes(
 		reach === "subtree",
 	);
 
+	const visibleNodes = useMemo(() => {
+		const hidden = hiddenNodeIds(intents, homeId ?? "");
+		const candidates =
+			reach === "board"
+				? board.nodes
+				: subtreeNodes([...poolPair.nodes, ...donePair.nodes], parentId);
+		return candidates.filter((node) => !hidden.has(node.id));
+	}, [
+		intents,
+		homeId,
+		reach,
+		board.nodes,
+		poolPair.nodes,
+		donePair.nodes,
+		parentId,
+	]);
 	if (reach === "board") {
 		return {
-			nodes: board.nodes,
+			nodes: visibleNodes,
 			pool: board.nodes,
 			loading: board.loading,
 			failed: board.failed,
@@ -88,7 +108,7 @@ export function useBoardNodes(
 
 	const pool = [...poolPair.nodes, ...donePair.nodes];
 	return {
-		nodes: subtreeNodes(pool, parentId),
+		nodes: visibleNodes,
 		pool,
 		loading: poolPair.loading || donePair.loading,
 		// Either pair failing makes the answer incomplete, the same rule one

@@ -217,6 +217,8 @@
 		}
 	},
 	"outbox": {
+		"waitingCount_one": "{{count}} waiting to sync",
+		"waitingCount_other": "{{count}} waiting to sync",
 		"waiting": "Waiting to sync",
 		"pendingChanges_one": "{{count}} change waiting for a connection",
 		"pendingChanges_other": "{{count}} changes waiting for a connection",
