@@ -312,7 +312,11 @@ test("PeopleSection JSX comment does not hide Action's Button", async () => {
 	await fs.promises.writeFile(screen, withoutMode);
 	const result = await run(sandbox);
 	expect(statuses(result.stdout).get("button mode stated")).toBe("FAIL");
-	expect(result.stderr).toContain("components/PeopleSection.tsx:320:");
+	const buttonLine =
+		withoutMode.split("\n").findIndex((line) => line.trim() === "<Button") + 1;
+	expect(result.stderr).toContain(
+		`components/PeopleSection.tsx:${buttonLine}:`,
+	);
 }, 20000);
 
 test("a bare --base is a usage error, not a hang", async () => {

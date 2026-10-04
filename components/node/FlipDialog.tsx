@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Text } from "react-native-paper";
+import { View } from "react-native";
+import { Button, Icon, Text } from "react-native-paper";
 import { AppDialog } from "@/components/ui/AppDialog";
+import { useOutbox } from "@/contexts/OutboxContext";
 import { type FlipProgress, flipVisibility } from "@/data/nodes";
+import { intentMetadata, type OutboxIntent } from "@/data/outbox-store";
 import type { Node, Visibility } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { touchTarget } from "@/theme/tokens";
+import { icon, space, touchTarget } from "@/theme/tokens";
 
 const progressTestID = "visibility-progress-dialog";
 
@@ -43,29 +46,63 @@ interface Flip {
  * - **walking away from a failure is survivable**: cards keep the old
  *   visibility, degraded and honest, and `subtreeOf()`'s union means they can
  *   never orphan.
- *
- * The caller disables its own control offline rather than letting this fail
- * after the fact.
  */
 export function useFlip(homeId: string) {
+	const { intents, submit, undo } = useOutbox();
 	const [flip, setFlip] = useState<Flip | null>(null);
 	const [progress, setProgress] = useState<FlipProgress | null>(null);
 	const [failed, setFailed] = useState(false);
 
-	const start = async (next: Flip, uid: string) => {
-		setFlip(next);
+	const pendingFor = (nodeId: string) =>
+		intents.find(
+			(intent): intent is Extract<OutboxIntent, { kind: "flipVisibility" }> =>
+				intent.kind === "flipVisibility" &&
+				intent.homeId === homeId &&
+				intent.nodeId === nodeId,
+		);
+	const close = () => {
+		setFlip(null);
+		setProgress(null);
 		setFailed(false);
-		setProgress({ done: 0, total: 0 });
+	};
 
+	const start = async (next: Flip, uid: string) => {
 		try {
-			await flipVisibility(homeId, next.node, next.target, uid, {
-				participantIds: next.participantIds,
-				onProgress: setProgress,
-			});
-			setFlip(null);
-			setProgress(null);
+			const pending = pendingFor(next.node.id);
+			if (
+				next.participantIds === undefined &&
+				pending &&
+				pending.target !== next.target &&
+				next.target === next.node.visibility
+			) {
+				await undo(pending.id);
+			} else {
+				await submit(
+					{
+						...intentMetadata(homeId, next.node),
+						kind: "flipVisibility",
+						nodeId: next.node.id,
+						target: next.target,
+						...(next.participantIds === undefined
+							? {}
+							: { participantIds: [...next.participantIds] }),
+					},
+					async () => {
+						setFlip(next);
+						setFailed(false);
+						setProgress({ done: 0, total: 0 });
+						await flipVisibility(homeId, next.node, next.target, uid, {
+							participantIds: next.participantIds,
+							onProgress: setProgress,
+						});
+					},
+				);
+			}
+			close();
 		} catch (reason) {
 			console.error("Could not change who can see this project:", reason);
+			setFlip(next);
+			setProgress((current) => current ?? { done: 0, total: 0 });
 			setFailed(true);
 		}
 	};
@@ -74,19 +111,50 @@ export function useFlip(homeId: string) {
 		flip,
 		progress,
 		failed,
+		pendingFor,
 		/** Begin, or begin again after a failure — the retry re-reads the subtree. */
 		run: (next: Flip, uid: string) => {
 			void start(next, uid);
 		},
-		close: () => {
-			setFlip(null);
-			setProgress(null);
-			setFailed(false);
-		},
+		close,
 	};
 }
 
 export type FlipState = ReturnType<typeof useFlip>;
+
+export function FlipWaiting({
+	state,
+	nodeId,
+}: {
+	state: FlipState;
+	nodeId: string;
+}) {
+	const { t } = useTranslation();
+	const theme = useAppTheme();
+	const pending = state.pendingFor(nodeId);
+	if (!pending) return null;
+	return (
+		<View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
+			<Icon
+				source="cloud-upload-outline"
+				size={icon.sm}
+				color={theme.colors.onSurfaceVariant}
+			/>
+			<Text
+				variant="bodySmall"
+				style={{ color: theme.colors.onSurfaceVariant, flexShrink: 1 }}
+			>
+				{t(
+					pending.participantIds !== undefined
+						? "outbox.pendingParticipants"
+						: pending.target === "private"
+							? "outbox.pendingPrivate"
+							: "outbox.pendingShared",
+				)}
+			</Text>
+		</View>
+	);
+}
 
 /** What `useFlip` puts on the screen. Renders nothing until a flip is running. */
 export function FlipDialog({ state, uid }: { state: FlipState; uid: string }) {

@@ -217,6 +217,9 @@
 		}
 	},
 	"outbox": {
+		"pendingPrivate": "Changes to private when you're back online.",
+		"pendingShared": "Changes to everyone in the home when you're back online.",
+		"pendingParticipants": "Who's in it changes when you're back online.",
 		"waitingCount_one": "{{count}} waiting to sync",
 		"waitingCount_other": "{{count}} waiting to sync",
 		"waiting": "Waiting to sync",

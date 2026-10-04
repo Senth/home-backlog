@@ -217,6 +217,9 @@
 		}
 	},
 	"outbox": {
+		"pendingPrivate": "Ändras till privat när du är online igen.",
+		"pendingShared": "Alla i hemmet får se det när du är online igen.",
+		"pendingParticipants": "Vilka som är med ändras när du är online igen.",
 		"waitingCount_one": "{{count}} väntar på att synkas",
 		"waitingCount_other": "{{count}} väntar på att synkas",
 		"waiting": "Väntar på att synkas",

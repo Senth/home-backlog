@@ -2,10 +2,9 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Chip, Text } from "react-native-paper";
-import type { FlipState } from "@/components/node/FlipDialog";
+import { type FlipState, FlipWaiting } from "@/components/node/FlipDialog";
 import { WhoSeesProjectNote } from "@/components/node/PeopleSection";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
-import { useOnlineStatus } from "@/hooks/use-online-status";
 import { formatList } from "@/i18n/format-list";
 import type { Member } from "@/models/home";
 import { hasSteps, type Node, type Visibility } from "@/models/node";
@@ -46,10 +45,6 @@ interface VisibilityFieldProps {
  *   while its participants are set. The permission really does change; the
  *   observable outcome does not, and saying only the first would be a promise
  *   the other member's board immediately breaks.
- *
- * Offline the control is disabled with a hint, the pattern `Move under…` and
- * `Delete` already use: queuing a flip optimistically would show a private
- * project that is not private yet.
  */
 export function VisibilityField({
 	node,
@@ -59,9 +54,9 @@ export function VisibilityField({
 }: VisibilityFieldProps) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
-	const online = useOnlineStatus();
 
 	const [confirming, setConfirming] = useState<Visibility | null>(null);
+	const pending = flip.pendingFor(node.id);
 
 	const nameOf = (member: Member) => member.displayName || t("members.unknown");
 
@@ -147,12 +142,13 @@ export function VisibilityField({
 							mode={selected ? "flat" : "outlined"}
 							selected={selected}
 							showSelectedCheck={false}
-							disabled={!online}
-							// The one it is already on is not an action. Unlike priority
-							// and effort there is no way back to unset: every node has a
-							// visibility, and one of the two is always true.
 							onPress={() => {
 								if (!selected) setConfirming(choice);
+								else if (pending && pending.target !== choice)
+									flip.run(
+										{ node, target: choice, title: titleFor(choice) },
+										uid,
+									);
 							}}
 							// See `ChoiceField`: the object form is not forwarded by React
 							// Native Web, and Paper's chip is a `<button>`.
@@ -168,14 +164,7 @@ export function VisibilityField({
 					);
 				})}
 			</View>
-			{online ? null : (
-				<Text
-					variant="bodySmall"
-					style={{ color: theme.colors.onSurfaceVariant }}
-				>
-					{t("board.offlineHint")}
-				</Text>
-			)}
+			<FlipWaiting state={flip} nodeId={node.id} />
 
 			{/* What the participants list is *for* — the rule that used to sit on
 			    the screen under these controls, now in the editor it explains. */}
