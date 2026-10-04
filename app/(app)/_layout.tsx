@@ -3,6 +3,7 @@ import { SplashScreen } from "@/components/ui/SplashScreen";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardCardsProvider } from "@/contexts/DashboardCardsContext";
 import { HomeProvider, useHome } from "@/contexts/HomeContext";
+import { OutboxProvider } from "@/contexts/OutboxContext";
 import { markLaunch } from "@/utils/launch-timing";
 
 /**
@@ -25,7 +26,9 @@ export default function AppLayout() {
 
 	return (
 		<HomeProvider user={user}>
-			<HomeGate />
+			<OutboxProvider key={user.uid}>
+				<HomeGate />
+			</OutboxProvider>
 		</HomeProvider>
 	);
 }

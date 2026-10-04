@@ -217,12 +217,19 @@
 			"empty": "Ingen automation har skrivit här."
 		}
 	},
+	"outbox": {
+		"refusedMoveCycle": "Kunde inte flytta {{name}}: {{target}} flyttades inuti den medan du var offline.",
+		"refusedTargetGone": "Kunde inte flytta {{name}}: {{target}} togs bort medan du var offline.",
+		"refusedOther": "Kunde inte synka {{name}}. {{reason}}",
+		"andMore_one": "och {{count}} till",
+		"andMore_other": "och {{count}} till"
+	},
 	"error": {
 		"googleSignIn": "Kunde inte logga in med Google. Försök igen.",
-		"moveOwnSubtree": "Det kortet kan inte flyttas under sig självt eller ett av sina egna kort.",
+		"moveOwnSubtree": "Det går inte att flytta något under sig självt eller något som ligger inuti det.",
 		"moveVisibility": "Ett privat kort kan inte ligga i ett delat projekt, eller tvärtom.",
 		"offline": "Du är offline. Du måste vara uppkopplad för att logga in.",
-		"subtreeTooLarge": "Den platsen har för mycket under sig för att ändras på en gång. Flytta eller ta bort den i mindre delar.",
+		"subtreeTooLarge": "Det finns för mycket inuti för att ändra allt på en gång. Flytta eller ta bort det i mindre delar.",
 		"targetGone": "Det du ville flytta till har tagits bort. Välj vart du vill flytta i stället.",
 		"saveFailed": "Det gick inte att spara. Försök igen."
 	},
