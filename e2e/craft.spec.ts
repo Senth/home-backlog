@@ -1005,7 +1005,7 @@ test("21: the app bar still shows its name at 200%, in this locale", async ({
 	const appBarTitleWidth = async (title: string): Promise<number> =>
 		page.evaluate((name) => {
 			const titles = Array.from(
-				document.querySelectorAll('[data-testid="appbar-content-title-text"]'),
+				document.querySelectorAll('[data-testid="app-header-title"]'),
 			)
 				.filter((node) => node.textContent === name)
 				.map((node) => node.getBoundingClientRect())

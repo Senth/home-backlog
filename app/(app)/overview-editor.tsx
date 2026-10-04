@@ -22,6 +22,7 @@ import {
 } from "@/components/overview/use-card-list-drag";
 import { useCardWrites } from "@/components/overview/use-card-writes";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,7 +41,6 @@ import {
 } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
 import {
-	appBarStackBreakpoint,
 	denseBreakpoint,
 	drag as dragTokens,
 	elevation,
@@ -216,19 +216,22 @@ export default function OverviewEditor() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header mode={width < appBarStackBreakpoint ? "medium" : "small"}>
-				<BackAction
-					accessibilityLabel={t("common.done")}
-					onPress={() => goBack("/overview")}
-				/>
-				<Appbar.Content title={t("overview.cards.editor.title")} />
+			<AppHeader
+				title={t("overview.cards.editor.title")}
+				leading={
+					<BackAction
+						accessibilityLabel={t("common.done")}
+						onPress={() => goBack("/overview")}
+					/>
+				}
+			>
 				<Appbar.Action
 					icon="import"
 					accessibilityLabel={t("overview.cards.editor.import")}
 					style={{ width: touchTarget, height: touchTarget }}
 					onPress={() => setImporting(true)}
 				/>
-			</Appbar.Header>
+			</AppHeader>
 
 			{loading ? (
 				<ActivityIndicator

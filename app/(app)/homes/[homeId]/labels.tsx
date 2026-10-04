@@ -3,7 +3,6 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View } from "react-native";
 import {
-	Appbar,
 	Button,
 	FAB,
 	IconButton,
@@ -14,6 +13,7 @@ import {
 } from "react-native-paper";
 import { LabelDialog } from "@/components/label/LabelDialog";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { AppMenu } from "@/components/ui/AppMenu";
 import { BackAction } from "@/components/ui/BackAction";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
@@ -74,16 +74,18 @@ export default function LabelsScreen() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header>
-				{/* Back to the manage screen this was opened from, by name and
-				    never a history-dependent back — a reload or a pasted URL has no history
-				    and would leave a dead arrow. */}
-				<BackAction
-					accessibilityLabel={t("manageHome.title")}
-					onPress={() => router.replace(`/homes/${homeId}`)}
-				/>
-				<Appbar.Content title={home?.name ?? ""} />
-			</Appbar.Header>
+			{/* Back to the manage screen this was opened from, by name and
+			    never a history-dependent back — a reload or a pasted URL has no history
+			    and would leave a dead arrow. */}
+			<AppHeader
+				title={home?.name ?? ""}
+				leading={
+					<BackAction
+						accessibilityLabel={t("manageHome.title")}
+						onPress={() => router.replace(`/homes/${homeId}`)}
+					/>
+				}
+			/>
 
 			<SlimScrollView
 				contentContainerStyle={{

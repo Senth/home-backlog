@@ -2,8 +2,8 @@ import { useIsFocused } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions, View } from "react-native";
-import { ActivityIndicator, Appbar, Snackbar } from "react-native-paper";
+import { View } from "react-native";
+import { ActivityIndicator, Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
 import {
@@ -13,6 +13,7 @@ import {
 import { BoardMenu } from "@/components/board/BoardMenu";
 import { Breadcrumbs } from "@/components/board/Breadcrumbs";
 import { boardHref, goneHref } from "@/components/board/board-href";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
 import { useAncestors } from "@/hooks/use-ancestors";
@@ -26,7 +27,7 @@ import { filterActionVisible } from "@/models/board-filter";
 import { membersOf } from "@/models/home";
 import { effectiveLocation } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { appBarStackBreakpoint, space } from "@/theme/tokens";
+import { space } from "@/theme/tokens";
 import { goBack } from "@/utils/navigation";
 
 const noAncestors: string[] = [];
@@ -116,11 +117,6 @@ export default function NodeBoard() {
 		activeHome?.labels.length ?? 0,
 		locations.length,
 	);
-	// The predicate is uniform at every depth and *bites* only where participants
-	// exist, which is roots — a shared descendant carries none, and a private one
-	// carries the root's, which include me or I could not have read it.
-	const { width } = useWindowDimensions();
-
 	// Where "up" is once the card itself has stopped existing. Remembered while
 	// it still does, because a deleted card cannot say who its parent was.
 	const parentId = useRef<string | null>(null);
@@ -147,23 +143,24 @@ export default function NodeBoard() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header
-				// Three 48dp targets and the bar's padding leave a narrow screen no
-				// room for a title — see `appBarStackBreakpoint`.
-				mode={width < appBarStackBreakpoint ? "medium" : "small"}
+			{/* Back to wherever the push came from, or to the parent board
+			    with no history. Dismissing on back could skip the source board. */}
+			{/* The label names where the arrow *goes*, which is the parent card
+			    at every depth but one — not "Projects". */}
+			{/* No `subtitle`: Paper renders it only outside Material 3, so the
+			    home's name lives on the root board's app bar and one crumb away
+			    — the first crumb goes there. */}
+			<AppHeader
+				title={node?.title ?? ""}
+				leading={
+					<BackAction
+						accessibilityLabel={t("board.up")}
+						onPress={() =>
+							goBack(boardHref(node?.parentId ?? null), "dismissTo")
+						}
+					/>
+				}
 			>
-				{/* Back to wherever the push came from, or to the parent board
-				    with no history. Dismissing on back could skip the source board. */}
-				{/* The label names where the arrow *goes*, which is the parent card
-				    at every depth but one — not "Projects". */}
-				<BackAction
-					accessibilityLabel={t("board.up")}
-					onPress={() => goBack(boardHref(node?.parentId ?? null), "dismissTo")}
-				/>
-				{/* No `subtitle`: Paper renders it only outside Material 3, so the
-				    home's name lives on the root board's app bar and one crumb away
-				    — the first crumb goes there. */}
-				<Appbar.Content title={node?.title ?? ""} />
 				{showFilterAction ? (
 					<BoardFilterAction
 						set={
@@ -176,7 +173,7 @@ export default function NodeBoard() {
 				) : null}
 				{node !== null ? <BoardMenu homeId={homeId} node={node} /> : null}
 				<AccountMenu />
-			</Appbar.Header>
+			</AppHeader>
 
 			<Breadcrumbs
 				crumbs={crumbs}

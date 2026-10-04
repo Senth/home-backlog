@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import {
-	Appbar,
 	Button,
 	Divider,
 	HelperText,
@@ -19,6 +18,7 @@ import { InviteForm } from "@/components/homes/InviteForm";
 import { MembersList } from "@/components/homes/MembersList";
 import { PendingInvites } from "@/components/homes/PendingInvites";
 import { LabelGlyph } from "@/components/label/LabelGlyph";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -93,18 +93,20 @@ export default function ManageHome() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header>
-				{/* Up to "My homes", never a history-dependent back. This screen is reachable
-				    with no in-app history — a reload, a bookmark, a pasted URL — and
-				    there `back()` is a no-op that logs "GO_BACK was not handled by
-				    any navigator" and leaves the arrow dead. The destination is the
-				    same either way, so name it. */}
-				<BackAction
-					accessibilityLabel={t("homes.title")}
-					onPress={() => router.replace("/homes")}
-				/>
-				<Appbar.Content title={t("manageHome.title")} />
-			</Appbar.Header>
+			{/* Up to "My homes", never a history-dependent back. This screen is reachable
+			    with no in-app history — a reload, a bookmark, a pasted URL — and
+			    there `back()` is a no-op that logs "GO_BACK was not handled by
+			    any navigator" and leaves the arrow dead. The destination is the
+			    same either way, so name it. */}
+			<AppHeader
+				title={t("manageHome.title")}
+				leading={
+					<BackAction
+						accessibilityLabel={t("homes.title")}
+						onPress={() => router.replace("/homes")}
+					/>
+				}
+			/>
 
 			<SlimScrollView
 				contentContainerStyle={{

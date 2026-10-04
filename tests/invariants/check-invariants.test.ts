@@ -35,6 +35,7 @@ const CHECKS = [
 	"skill.md version",
 	"t() keys exist",
 	"no Appbar.BackAction",
+	"no raw Appbar.Header",
 	"e2e spec budget",
 	"emulators via dev-stack",
 	"icon data generated",
@@ -74,6 +75,7 @@ const CASES: Case[] = [
 	{ name: "console-filter", check: "one console filter" },
 	{ name: "skill-version", check: "skill.md version" },
 	{ name: "appbar-backaction", check: "no Appbar.BackAction" },
+	{ name: "appbar-header", check: "no raw Appbar.Header" },
 	{
 		name: "e2e-budget",
 		check: "e2e spec budget",

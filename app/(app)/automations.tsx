@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import {
 	ActivityIndicator,
-	Appbar,
 	Button,
 	Divider,
 	HelperText,
@@ -14,6 +13,7 @@ import {
 	TextInput,
 } from "react-native-paper";
 import { AppDialog, ConfirmDialog } from "@/components/ui/AppDialog";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { Row } from "@/components/ui/Row";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
@@ -108,13 +108,15 @@ export default function Automations() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header>
-				<BackAction
-					accessibilityLabel={t("tab.projects")}
-					onPress={() => goBack("/(app)/(tabs)/projects")}
-				/>
-				<Appbar.Content title={t("automations.title")} />
-			</Appbar.Header>
+			<AppHeader
+				title={t("automations.title")}
+				leading={
+					<BackAction
+						accessibilityLabel={t("tab.projects")}
+						onPress={() => goBack("/(app)/(tabs)/projects")}
+					/>
+				}
+			/>
 
 			<SlimScrollView
 				contentContainerStyle={{

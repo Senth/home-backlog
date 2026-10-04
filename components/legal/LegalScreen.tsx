@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { Appbar, Text } from "react-native-paper";
+import { Text } from "react-native-paper";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,15 +33,17 @@ export function LegalScreen({ title, intro, sections }: LegalScreenProps) {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header>
-				<BackAction
-					accessibilityLabel={t("common.back")}
-					onPress={() =>
-						goBack(user ? "/(app)/(tabs)/overview" : "/(auth)/login")
-					}
-				/>
-				<Appbar.Content title={title} />
-			</Appbar.Header>
+			<AppHeader
+				title={title}
+				leading={
+					<BackAction
+						accessibilityLabel={t("common.back")}
+						onPress={() =>
+							goBack(user ? "/(app)/(tabs)/overview" : "/(auth)/login")
+						}
+					/>
+				}
+			/>
 
 			<SlimScrollView
 				contentContainerStyle={{

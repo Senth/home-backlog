@@ -86,6 +86,8 @@ export const size = {
 	avatarXs: 24,
 	avatarSm: 32,
 	avatarMd: 48,
+	appBarSmall: 64,
+	appBarMedium: 112,
 	brandMark: 96,
 	attachmentButtonMin: 144,
 	/**
