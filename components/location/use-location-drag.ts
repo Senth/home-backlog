@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Animated, type View } from "react-native";
+import { useOutbox } from "@/contexts/OutboxContext";
 import { moveLocation } from "@/data/locations";
+import { intentMetadata, type OutboxIntent } from "@/data/outbox-store";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { Box } from "@/models/drag";
 import {
@@ -40,6 +42,7 @@ export interface LocationDragOptions {
 	/** The screen says "put back" when a drop lands on nothing usable. */
 	onPutBack: () => void;
 	onError: (reason: unknown) => void;
+	onQueued: (intent: OutboxIntent) => void;
 }
 
 export interface LocationDrag {
@@ -84,8 +87,10 @@ export function useLocationDrag({
 	locations,
 	onPutBack,
 	onError,
+	onQueued,
 }: LocationDragOptions): LocationDrag {
 	const reduced = useReducedMotion();
+	const { submit } = useOutbox();
 
 	const [session, setSession] = useState<Session | null>(null);
 
@@ -250,11 +255,23 @@ export function useLocationDrag({
 			}
 
 			clear();
-			moveLocation(homeId, held.location, plan.parent, plan.rank).catch(
-				onError,
-			);
+			const intent: OutboxIntent = {
+				...intentMetadata(homeId, held.location),
+				kind: "moveLocation",
+				locationId: held.location.id,
+				parentId: plan.parent?.id ?? null,
+				targetTitle: plan.parent?.title,
+				rank: plan.rank,
+			};
+			void submit(intent, () =>
+				moveLocation(homeId, held.location, plan.parent, plan.rank),
+			)
+				.then((result) => {
+					if (result === "queued") onQueued(intent);
+				})
+				.catch(onError);
 		},
-		[clear, homeId, locations, onError, onPutBack, settle],
+		[clear, homeId, locations, onError, onPutBack, onQueued, settle, submit],
 	);
 	const cancel = useCallback(() => {
 		grabbed.current++;

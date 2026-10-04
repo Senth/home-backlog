@@ -133,7 +133,6 @@
 		"emptyTitle": "Add the places around your home",
 		"emptyBody": "The garden, the basement, the cabin — build the tree now, file work in it later.",
 		"actions": "Location actions",
-		"dragOffline": "Offline — dragging a place needs a connection.",
 		"putBack": "Put back where it was."
 	},
 	"homes": {
@@ -218,6 +217,12 @@
 		}
 	},
 	"outbox": {
+		"waiting": "Waiting to sync",
+		"pendingChanges_one": "{{count}} change waiting for a connection",
+		"pendingChanges_other": "{{count}} changes waiting for a connection",
+		"queuedMove": "{{name}} moves under {{target}} when you're back online.",
+		"queuedMoveTop": "{{name}} moves to the top level when you're back online.",
+		"queuedDelete": "{{name}} will be deleted when you're back online.",
 		"refusedMoveCycle": "Couldn't move {{name}}: {{target}} was moved inside it while you were offline.",
 		"refusedTargetGone": "Couldn't move {{name}}: {{target}} was deleted while you were offline.",
 		"refusedOther": "Couldn't sync {{name}}. {{reason}}",

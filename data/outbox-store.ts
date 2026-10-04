@@ -1,8 +1,28 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { collection, doc } from "firebase/firestore";
 import { Platform } from "react-native";
+import { db } from "@/config/firebase";
 import type { Intent } from "@/models/outbox";
 
 export type OutboxIntent = Intent & { targetTitle?: string };
+
+export function intentMetadata(
+	homeId: string,
+	subject: {
+		title: string;
+		parentId: string | null;
+		ancestorIds: readonly string[];
+	},
+) {
+	return {
+		id: doc(collection(db, "outbox")).id,
+		homeId,
+		queuedAt: Date.now(),
+		title: subject.title,
+		sourceParentId: subject.parentId,
+		sourceAncestorIds: [...subject.ancestorIds],
+	};
+}
 
 const pending = new Map<string, Promise<unknown>>();
 

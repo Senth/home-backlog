@@ -6,8 +6,10 @@ import {
 	useLocationDrag,
 } from "@/components/location/use-location-drag";
 import { moveLocation } from "@/data/locations";
+import type { OutboxIntent } from "@/data/outbox-store";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { Location } from "@/models/locations";
+import { projectLocations } from "@/models/outbox";
 
 /**
  * `models/location-drag.ts` decides *where* a dropped place lands and is
@@ -18,6 +20,21 @@ import type { Location } from "@/models/locations";
 
 jest.mock("@/data/locations", () => ({
 	moveLocation: jest.fn(() => Promise.resolve()),
+}));
+
+const mockSubmit = jest.fn();
+jest.mock("@/contexts/OutboxContext", () => ({
+	useOutbox: () => ({ submit: mockSubmit }),
+}));
+jest.mock("@/data/outbox-store", () => ({
+	intentMetadata: (homeId: string, subject: Location) => ({
+		id: "intent-1",
+		homeId,
+		queuedAt: 1,
+		title: subject.title,
+		sourceParentId: subject.parentId,
+		sourceAncestorIds: subject.ancestorIds,
+	}),
 }));
 
 jest.mock("@/hooks/use-reduced-motion", () => ({
@@ -76,6 +93,7 @@ function tree_() {
 function screen() {
 	const onPutBack = jest.fn();
 	const onError = jest.fn();
+	const onQueued = jest.fn();
 	const locations = tree_();
 
 	const view = renderHook(
@@ -85,6 +103,7 @@ function screen() {
 				locations: props.locations,
 				onPutBack,
 				onError,
+				onQueued,
 			}),
 		{ initialProps: { locations } },
 	);
@@ -115,12 +134,18 @@ function screen() {
 		},
 	});
 
-	return { view, onPutBack, onError, measured, gesture };
+	return { view, onPutBack, onError, onQueued, measured, gesture };
 }
 
 beforeEach(() => {
 	jest.useFakeTimers();
 	reducedMotion.mockReturnValue(false);
+	mockSubmit.mockImplementation(
+		async (_intent: OutboxIntent, runOnline: () => Promise<void>) => {
+			await runOnline();
+			return "saved";
+		},
+	);
 });
 
 afterEach(() => {
@@ -128,6 +153,50 @@ afterEach(() => {
 });
 
 describe("useLocationDrag", () => {
+	it("offline drop submits and lands in projected tree without flying back", async () => {
+		mockSubmit.mockResolvedValue("queued");
+		const { view, measured, gesture, onQueued, onPutBack, onError } = screen();
+		const cellar = gesture(tree[3]);
+		cellar.grab({ x: 200, y: 350 });
+		await measured();
+		cellar.move({ x: 200, y: 150 });
+		cellar.drop({ x: 200, y: 150 });
+		await act(async () => {});
+		const intent = mockSubmit.mock.calls[0][0];
+		expect(intent).toEqual(
+			expect.objectContaining({
+				kind: "moveLocation",
+				locationId: "cellar",
+				parentId: "garden",
+				targetTitle: "garden",
+				sourceParentId: "house",
+				sourceAncestorIds: ["house"],
+			}),
+		);
+		expect(moved).not.toHaveBeenCalled();
+		expect(view.result.current.dragged).toBeNull();
+		expect(onQueued).toHaveBeenCalledWith(intent);
+		expect(onPutBack).not.toHaveBeenCalled();
+		expect(onError).not.toHaveBeenCalled();
+		const projected = projectLocations(tree, [intent], homeId).locations;
+		view.rerender({ locations: projected });
+		const movedCellar = projected.find((each) => each.id === "cellar");
+		if (!movedCellar) throw new Error("Projected cellar missing");
+		expect(movedCellar.parentId).toBe("garden");
+		const again = gesture(movedCellar);
+		again.grab({ x: 200, y: 350 });
+		await measured();
+		again.move({ x: 200, y: 450 });
+		again.drop({ x: 200, y: 450 });
+		await act(async () => {});
+		expect(mockSubmit.mock.calls[1][0]).toEqual(
+			expect.objectContaining({
+				parentId: "attic",
+				sourceParentId: "garden",
+				sourceAncestorIds: ["house", "garden"],
+			}),
+		);
+	});
 	it("writes the re-parent a drop lands on", async () => {
 		const { measured, gesture } = screen();
 		const cellar = gesture(tree[3]);

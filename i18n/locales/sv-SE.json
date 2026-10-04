@@ -133,7 +133,6 @@
 		"emptyTitle": "Lägg till platserna runt ditt hem",
 		"emptyBody": "Trädgården, källaren, stugan — bygg trädet nu, lägg in arbetet i det senare.",
 		"actions": "Platsåtgärder",
-		"dragOffline": "Offline — att dra en plats kräver en anslutning.",
 		"putBack": "Lade tillbaka den där den stod."
 	},
 	"homes": {
@@ -218,6 +217,12 @@
 		}
 	},
 	"outbox": {
+		"waiting": "Väntar på att synkas",
+		"pendingChanges_one": "{{count}} ändring väntar på anslutning",
+		"pendingChanges_other": "{{count}} ändringar väntar på anslutning",
+		"queuedMove": "{{name}} flyttas under {{target}} när du är online igen.",
+		"queuedMoveTop": "{{name}} flyttas till översta nivån när du är online igen.",
+		"queuedDelete": "{{name}} tas bort när du är online igen.",
 		"refusedMoveCycle": "Kunde inte flytta {{name}}: {{target}} flyttades inuti den medan du var offline.",
 		"refusedTargetGone": "Kunde inte flytta {{name}}: {{target}} togs bort medan du var offline.",
 		"refusedOther": "Kunde inte synka {{name}}. {{reason}}",
