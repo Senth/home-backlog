@@ -5,7 +5,7 @@ import { useWindowDimensions } from "react-native";
 import { Text } from "react-native-paper";
 import { useHome } from "@/contexts/HomeContext";
 import { useAppTheme } from "@/theme";
-import { denseBreakpoint } from "@/theme/tokens";
+import { denseBreakpoint, space } from "@/theme/tokens";
 
 /**
  * The boards, and the gate that keeps them scoped to a home.
@@ -38,9 +38,15 @@ export default function TabsLayout() {
 				tabBarLabel: ({ color, children }) => (
 					<Text
 						variant="labelMedium"
-						numberOfLines={width < denseBreakpoint ? 2 : 1}
+						numberOfLines={width < denseBreakpoint ? undefined : 1}
 						aria-label={children}
-						style={{ color, textAlign: "center", maxWidth: "100%" }}
+						style={{
+							color,
+							textAlign: "center",
+							...(width < denseBreakpoint
+								? { alignSelf: "stretch", marginHorizontal: -space.xs }
+								: { maxWidth: "100%" }),
+						}}
 					>
 						{width < denseBreakpoint ? t(`tab.${route.name}Narrow`) : children}
 					</Text>
