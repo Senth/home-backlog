@@ -29,13 +29,20 @@ const pending = new Map<string, Promise<unknown>>();
 export async function withOutboxLock<T>(
 	key: string,
 	work: () => Promise<T>,
+	whenBusy?: () => Promise<T>,
 ): Promise<T> {
 	if (
 		Platform.OS === "web" &&
 		typeof navigator !== "undefined" &&
 		navigator.locks?.request
-	)
+	) {
+		if (whenBusy)
+			return navigator.locks.request(key, { ifAvailable: true }, (lock) =>
+				lock ? work() : whenBusy(),
+			);
 		return navigator.locks.request(key, work);
+	}
+	if (whenBusy && pending.has(key)) return whenBusy();
 	const next = (pending.get(key) ?? Promise.resolve()).then(work);
 	const settled = next.catch(() => {});
 	pending.set(key, settled);

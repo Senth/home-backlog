@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { Provider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import Locations from "@/app/(app)/(tabs)/locations";
@@ -225,6 +225,7 @@ it("weak connection queues failed online move without error or snap back", async
 	jest.mocked(isOnline).mockReturnValue(true);
 	jest.mocked(moveLocation).mockRejectedValueOnce({ code: "unavailable" });
 	const screen = open();
+	await act(async () => {});
 	fireEvent.press(screen.getByTestId("move-kitchen"));
 	fireEvent.press(screen.getByTestId("target-garden"));
 	fireEvent.press(screen.getByText("locations.moveHere"));

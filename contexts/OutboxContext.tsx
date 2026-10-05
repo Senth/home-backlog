@@ -118,16 +118,26 @@ export function OutboxProvider({ children }: { children: ReactNode }) {
 	const submit = useCallback(
 		async (intent: OutboxIntent, runOnline: () => Promise<void>) => {
 			if (!uid) throw new Error("Outbox requires a signed-in user");
-			if (isOnline()) {
-				try {
-					await runOnline();
-					return "saved" as const;
-				} catch (reason) {
-					if (!isUnavailable(reason)) throw reason;
-				}
-			}
-			setIntents(await updateOutbox(uid, (queue) => enqueue(queue, intent)));
-			return "queued" as const;
+			const queueIntent = async () => {
+				setIntents(await updateOutbox(uid, (queue) => enqueue(queue, intent)));
+				return "queued" as const;
+			};
+			if (!isOnline()) return queueIntent();
+			return withOutboxLock(
+				`outbox:${uid}`,
+				async () => {
+					if (isOnline() && !(await readOutbox(uid)).length) {
+						try {
+							await runOnline();
+							return "saved" as const;
+						} catch (reason) {
+							if (!isUnavailable(reason)) throw reason;
+						}
+					}
+					return queueIntent();
+				},
+				queueIntent,
+			);
 		},
 		[uid],
 	);
