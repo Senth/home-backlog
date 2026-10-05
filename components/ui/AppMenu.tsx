@@ -1,6 +1,7 @@
 import { type ComponentProps, useRef } from "react";
-import { View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { Menu } from "react-native-paper";
+import { denseBreakpoint, space } from "@/theme/tokens";
 
 type AppMenuProps = ComponentProps<typeof Menu>;
 
@@ -19,7 +20,15 @@ type AppMenuProps = ComponentProps<typeof Menu>;
  * mounted the `Menu` stays mounted, so closing keeps returning focus to the
  * trigger.
  */
-export function AppMenu({ visible, children, ...props }: AppMenuProps) {
+export function AppMenu({
+	visible,
+	children,
+	style,
+	contentStyle,
+	...props
+}: AppMenuProps) {
+	const { width } = useWindowDimensions();
+	const narrow = width < denseBreakpoint;
 	const openedRef = useRef(false);
 	openedRef.current ||= visible;
 	const opened = openedRef.current;
@@ -37,7 +46,12 @@ export function AppMenu({ visible, children, ...props }: AppMenuProps) {
 	}
 
 	return (
-		<Menu visible={visible} {...props}>
+		<Menu
+			visible={visible}
+			{...props}
+			style={[style, narrow && { left: space.sm, right: space.sm }]}
+			contentStyle={[contentStyle, narrow && { maxWidth: "100%" }]}
+		>
 			{children}
 		</Menu>
 	);
