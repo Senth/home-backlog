@@ -2,9 +2,10 @@ import { Redirect, useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { ActivityIndicator, Appbar, Button, Text } from "react-native-paper";
+import { ActivityIndicator, Button, Text } from "react-native-paper";
 import { CardEditForm } from "@/components/overview/CardEditForm";
 import { useCardWrites } from "@/components/overview/use-card-writes";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
 import { useHome } from "@/contexts/HomeContext";
@@ -59,19 +60,19 @@ export default function OverviewCardEdit() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header>
-				<BackAction
-					accessibilityLabel={t("overview.cards.editor.title")}
-					onPress={leave}
-				/>
-				<Appbar.Content
-					title={
-						entry === null
-							? t("overview.cards.editor.add")
-							: t("overview.cards.edit.title")
-					}
-				/>
-			</Appbar.Header>
+			<AppHeader
+				title={
+					entry === null
+						? t("overview.cards.editor.add")
+						: t("overview.cards.edit.title")
+				}
+				leading={
+					<BackAction
+						accessibilityLabel={t("overview.cards.editor.title")}
+						onPress={leave}
+					/>
+				}
+			/>
 
 			{loading ? (
 				<ActivityIndicator

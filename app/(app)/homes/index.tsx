@@ -3,7 +3,6 @@ import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import {
-	Appbar,
 	Button,
 	Divider,
 	HelperText,
@@ -17,6 +16,7 @@ import { displayLabel } from "@/auth/display-name";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { PendingInviteCards } from "@/components/homes/PendingInviteCards";
 import { AppDialog } from "@/components/ui/AppDialog";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
@@ -114,13 +114,12 @@ export default function Homes() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header>
-				<Appbar.Content title={t("homes.title")} />
+			<AppHeader title={t("homes.title")}>
 				{/* The only way out of the app when you are in no home at all: this
 				    screen is where the gate sends you, and the boards are unreachable
 				    until a home exists. */}
 				<AccountMenu />
-			</Appbar.Header>
+			</AppHeader>
 
 			<SlimScrollView
 				contentContainerStyle={{

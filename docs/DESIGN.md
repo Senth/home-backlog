@@ -254,6 +254,7 @@ when it looks identical.**
 | List row | `components/ui/Row.tsx` |
 | Avatar | `components/ui/PersonAvatar.tsx` |
 | Back action | `components/ui/BackAction.tsx` |
+| App bar | `components/ui/AppHeader.tsx` |
 | Icon | `components/ui/PaperIcon.tsx` |
 | Drop zone | `components/node/AttachmentDropZone.tsx` |
 | Empty screen | `components/ui/PlaceholderScreen.tsx` — scaffolding only, never a real empty state |
@@ -385,6 +386,8 @@ than it is worth and the controls take the room).
 they shrink below `touchTarget`. A fixed rail that cannot wrap is the first thing to break at
 200% text in Swedish, so position may not be the only carrier of meaning.
 
+**Two floors.** 320 CSS px must look right: it is WCAG 1.4.10's reflow width, and where a common phone lands at 130% text. 195 CSS px (a 390px phone at 200%, which Chrome on Android reaches from the OS font size alone) must not break: nothing overlaps, nothing becomes unreachable, the screen still names its home or its card, and no label is cut off. Cramped is allowed there; broken is not. `e2e/craft.spec.ts` test 21 is the 195 claim.
+
 ## Verification
 
 **Run it:** `scripts/dev-stack.sh up`, then the URL it prints. Sign in via redirect —
@@ -412,6 +415,7 @@ density overwhelms.
 - **Trusting Paper's touch targets.** They are all under `touchTarget`.
 - **`Appbar.BackAction`.** Its arrow never reaches `settings.icon` and lands as an unnamed
   `role="img"`. Use `BackAction`; invariant 12 catches it.
+- **A raw `Appbar.Header`.** It picks no mode and clamps its title to one line. Use `AppHeader`; the invariant catches it.
 - **Letting color carry something words should.** A hue beside the words is fine; a hue
   instead of them is the Trello habit.
 - **Solving a footprint problem with color** — quieting a control's fill because it feels

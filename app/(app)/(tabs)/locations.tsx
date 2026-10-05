@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import { Pressable, useWindowDimensions, View } from "react-native";
 import {
 	ActivityIndicator,
-	Appbar,
 	Button,
 	FAB,
 	Icon,
@@ -22,6 +21,7 @@ import {
 	screenKey,
 	useLocationDrag,
 } from "@/components/location/use-location-drag";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useHome } from "@/contexts/HomeContext";
@@ -227,22 +227,25 @@ export default function Locations() {
 			collapsable={false}
 			style={{ flex: 1, backgroundColor: theme.colors.background }}
 		>
-			<Appbar.Header>
-				<BackAction
-					accessibilityLabel={
-						moveActive ? t("common.cancel") : t("homes.title")
-					}
-					onPress={() => {
-						if (moveActive) {
-							setMove(cancelMove());
-						} else {
-							router.push("/homes");
+			<AppHeader
+				title={activeHome?.name ?? ""}
+				leading={
+					<BackAction
+						accessibilityLabel={
+							moveActive ? t("common.cancel") : t("homes.title")
 						}
-					}}
-				/>
-				<Appbar.Content title={activeHome?.name ?? ""} />
+						onPress={() => {
+							if (moveActive) {
+								setMove(cancelMove());
+							} else {
+								router.push("/homes");
+							}
+						}}
+					/>
+				}
+			>
 				<AccountMenu />
-			</Appbar.Header>
+			</AppHeader>
 
 			<SlimScrollView
 				testID="locations-scroll"

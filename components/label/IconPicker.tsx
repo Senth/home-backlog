@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, useWindowDimensions, View } from "react-native";
-import { Appbar, Icon, IconButton, Text, TextInput } from "react-native-paper";
+import { Appbar, Icon, Text, TextInput } from "react-native-paper";
 import {
 	type IconKeywords,
 	iconColumns,
 	loadIconKeywords,
 	searchIcons,
 } from "@/components/label/icon-search";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { PaperIcon } from "@/components/ui/PaperIcon";
 import { SlimFlatList } from "@/components/ui/SlimScrollView";
 import { useAppTheme } from "@/theme";
@@ -67,14 +68,18 @@ export function IconPicker({ value, onSelect, onClose }: IconPickerProps) {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header>
-				<IconButton
-					icon="close"
-					style={touchTargetStyle}
-					accessibilityLabel={t("common.closeDialog")}
-					onPress={onClose}
-				/>
-				<Appbar.Content title={t("labels.iconPickerTitle")} />
+			<AppHeader
+				title={t("labels.iconPickerTitle")}
+				leading={
+					<Appbar.Action
+						icon="close"
+						isLeading
+						style={touchTargetStyle}
+						accessibilityLabel={t("common.closeDialog")}
+						onPress={onClose}
+					/>
+				}
+			>
 				{/* The action names the view it would take you to, so both views
 				    are one tap apart in either direction. */}
 				<Appbar.Action
@@ -85,7 +90,7 @@ export function IconPicker({ value, onSelect, onClose }: IconPickerProps) {
 					}
 					onPress={() => setList((wasList) => !wasList)}
 				/>
-			</Appbar.Header>
+			</AppHeader>
 
 			<View style={{ flex: 1, padding: space.md, gap: space.sm }}>
 				<TextInput

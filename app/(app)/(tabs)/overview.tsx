@@ -16,6 +16,7 @@ import { expandedColumnWidth } from "@/components/board/column-width";
 import { TitleDialog } from "@/components/board/TitleDialog";
 import { CardActionsMenu } from "@/components/overview/CardActionsMenu";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { InstallCard } from "@/components/ui/InstallCard";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
@@ -40,7 +41,6 @@ import {
 import { type Card, cardRows, seedTitleKeys } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
 import {
-	appBarStackBreakpoint,
 	border,
 	cardGutterBreakpoint,
 	compactBreakpoint,
@@ -337,12 +337,15 @@ export default function Overview() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header mode={width < appBarStackBreakpoint ? "medium" : "small"}>
-				<BackAction
-					accessibilityLabel={t("homes.title")}
-					onPress={() => router.push("/homes")}
-				/>
-				<Appbar.Content title={activeHome?.name ?? ""} />
+			<AppHeader
+				title={activeHome?.name ?? ""}
+				leading={
+					<BackAction
+						accessibilityLabel={t("homes.title")}
+						onPress={() => router.push("/homes")}
+					/>
+				}
+			>
 				<Appbar.Action
 					icon="tune"
 					accessibilityLabel={t("overview.cards.editor.title")}
@@ -350,7 +353,7 @@ export default function Overview() {
 					onPress={openEditor}
 				/>
 				<AccountMenu />
-			</Appbar.Header>
+			</AppHeader>
 
 			<SlimScrollView
 				contentContainerStyle={{

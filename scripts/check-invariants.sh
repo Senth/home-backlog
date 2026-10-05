@@ -12,7 +12,7 @@
 # Usage:   yarn invariants [--base <ref>]
 # Exit:    0 = all pass, 1 = an invariant failed, 2 = the script could not run
 #
-# Checks 1-6, 8 and 14 through 24 read the whole working tree — tracked files
+# Checks 1-6, 8 and 14 through 25 read the whole working tree — tracked files
 # *and* untracked ones that git would add, because the moment you most want
 # this run is right after writing a new file, and a new file has not been
 # staged yet. A violation is a violation whoever wrote it, and the tree being
@@ -321,7 +321,7 @@ fi
 #    hook that hides under components/
 #
 # These directories are domain logic by definition, except utils/navigation.ts:
-# its one-line SDK call is shared by back arrows and guarded by check 22.
+# its one-line SDK call is shared by back arrows and guarded by check 23.
 # `auth/` is deliberately not in the list: auth/redirect.ts is another wrapper.
 #
 # The `use-*.ts` clause is the gap this check used to have. A hook is a domain
@@ -738,7 +738,22 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 22. Only utils/navigation.ts decides whether back has history
+HEADER_FILES=()
+for f in "${ALL_TS[@]}"; do
+	[[ "$f" == "components/ui/AppHeader.tsx" ]] && continue
+	HEADER_FILES+=("$f")
+done
+PATTERN='<Appbar\.Header'
+hits=$(scan "${HEADER_FILES[@]}" | strip_comments)
+if [[ -n "$hits" ]]; then
+	report 22 "no raw Appbar.Header" FAIL "$hits" \
+		"Use <AppHeader> from @/components/ui/AppHeader."
+else
+	report 22 "no raw Appbar.Header" ok
+fi
+
+# ---------------------------------------------------------------------------
+# 23. Only utils/navigation.ts decides whether back has history
 #
 # A direct call leaves the arrow dead after a reload. Whole-line comments are
 # ignored so prose about this failure does not trigger the check.
@@ -752,14 +767,14 @@ done
 PATTERN='\b(canGoBack|router\.back)[[:space:]]*\('
 hits=$(scan "${BACK_FILES[@]}" | strip_comments)
 if [[ -n "$hits" ]]; then
-	report 22 "back only via goBack" FAIL "$hits" \
+	report 23 "back only via goBack" FAIL "$hits" \
 		"Use goBack from @/utils/navigation instead of calling router.back or canGoBack directly."
 else
-	report 22 "back only via goBack" ok
+	report 23 "back only via goBack" ok
 fi
 
 # ---------------------------------------------------------------------------
-# 23. Every UI locale has icon keywords for exactly the installed glyphs
+# 24. Every UI locale has icon keywords for exactly the installed glyphs
 #
 # The icon picker searches the active locale's keywords (#379). Each locale in
 # i18n/locales/ other than en-US needs i18n/icon-keywords/<locale>.json with
@@ -781,14 +796,14 @@ for f in i18n/locales/*.json; do
 	fi
 done
 if [[ -n "$keyword_check" ]]; then
-	report 23 "icon keywords per locale" FAIL "${keyword_check%$'\n'}" \
+	report 24 "icon keywords per locale" FAIL "${keyword_check%$'\n'}" \
 		"The key set must equal i18n/icon-keywords/en-US.json, which is the installed glyphmap."
 else
-	report 23 "icon keywords per locale" ok
+	report 24 "icon keywords per locale" ok
 fi
 
 # ---------------------------------------------------------------------------
-# 24. Every Paper Button states its mode in the opening tag
+# 25. Every Paper Button states its mode in the opening tag
 # ---------------------------------------------------------------------------
 button_modes=$(
 	for f in "${SRC[@]}"; do
@@ -848,10 +863,10 @@ button_modes=$(
 	done
 )
 if [[ -n "$button_modes" ]]; then
-	report 24 "button mode stated" FAIL "$button_modes" \
+	report 25 "button mode stated" FAIL "$button_modes" \
 		"Every <Button> states its mode; Paper's default is not a choice (docs/DESIGN.md § Components)."
 else
-	report 24 "button mode stated" ok
+	report 25 "button mode stated" ok
 fi
 
 # ---------------------------------------------------------------------------

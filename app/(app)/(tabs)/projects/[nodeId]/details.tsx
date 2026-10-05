@@ -8,7 +8,7 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions, View } from "react-native";
+import { View } from "react-native";
 import {
 	ActivityIndicator,
 	Appbar,
@@ -35,6 +35,7 @@ import { PeopleSection } from "@/components/node/PeopleSection";
 import { StepsSection } from "@/components/node/StepsSection";
 import { VisibilityField } from "@/components/node/VisibilityField";
 import { WaitingOnSection } from "@/components/node/WaitingOnSection";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { AppMenu } from "@/components/ui/AppMenu";
 import { AppSheet } from "@/components/ui/AppSheet";
 import { BackAction } from "@/components/ui/BackAction";
@@ -61,13 +62,7 @@ import {
 	rootIdOf,
 } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import {
-	appBarStackBreakpoint,
-	contentWidth,
-	size,
-	space,
-	touchTargetStyle,
-} from "@/theme/tokens";
+import { contentWidth, size, space, touchTargetStyle } from "@/theme/tokens";
 import { goBack } from "@/utils/navigation";
 
 /** The field editor a row has open. Its sheet mounts only while open. */
@@ -95,7 +90,6 @@ type Editor =
 export default function NodeDetails() {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
-	const { width } = useWindowDimensions();
 	const { nodeId, from } = useLocalSearchParams<{
 		nodeId: string;
 		from?: string;
@@ -415,36 +409,35 @@ export default function NodeDetails() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header
-				// Three 48dp targets and the bar's padding leave a narrow screen no
-				// room for a title — see `appBarStackBreakpoint`.
-				mode={width < appBarStackBreakpoint ? "medium" : "small"}
+			{/* The parent board alone is a different failure: these details are
+			    reachable from the board's *own* app-bar action, where the stack is
+			    [parent, board X, details X] — so dismissing to the parent pops
+			    board X as well, and tapping the mark then back lands you a level
+			    above where you started, with the board you were on gone. */}
+			{/* The bar names the screen, not the card — the card face below is
+			    where the card says its own name, and repeating it here left a
+			    long title with nowhere to go (#237, the settled mock). */}
+			<AppHeader
+				title={t("detail.title")}
+				leading={
+					<BackAction
+						accessibilityLabel={t("board.up")}
+						onPress={() => {
+							if (from === "locations") {
+								router.dismissTo("/projects");
+								router.navigate("/locations");
+							} else {
+								goBack(boardHref(node?.parentId ?? null), "dismissTo");
+							}
+						}}
+					/>
+				}
 				// The card is the screen's subject, and the face at the top of the
 				// scroll is where it says so (#237): the bar merges into the page
 				// instead of drawing a band of its own above it. `transparent`
 				// names an absence, and no palette entry could replace it.
 				style={{ backgroundColor: "transparent" }}
 			>
-				{/* The parent board alone is a different failure: these details are
-				    reachable from the board's *own* app-bar action, where the stack is
-				    [parent, board X, details X] — so dismissing to the parent pops
-				    board X as well, and tapping the mark then back lands you a level
-				    above where you started, with the board you were on gone. */}
-				<BackAction
-					accessibilityLabel={t("board.up")}
-					onPress={() => {
-						if (from === "locations") {
-							router.dismissTo("/projects");
-							router.navigate("/locations");
-						} else {
-							goBack(boardHref(node?.parentId ?? null), "dismissTo");
-						}
-					}}
-				/>
-				{/* The bar names the screen, not the card — the card face below is
-			    where the card says its own name, and repeating it here left a
-			    long title with nowhere to go (#237, the settled mock). */}
-				<Appbar.Content title={t("detail.title")} />
 				{node === null ? null : (
 					<AppMenu
 						visible={menuOpen}
@@ -471,7 +464,7 @@ export default function NodeDetails() {
 						/>
 					</AppMenu>
 				)}
-			</Appbar.Header>
+			</AppHeader>
 
 			{/* Mounted only while open — see `CardMenu`'s identical dialog. */}
 			{renaming && node !== null ? (

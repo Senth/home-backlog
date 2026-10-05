@@ -8,13 +8,14 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { Appbar, Snackbar } from "react-native-paper";
+import { Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
 import {
 	BoardFilterAction,
 	BoardFilterSheet,
 } from "@/components/board/BoardFilterSheet";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
 import { useBoardFilter } from "@/hooks/use-board-filter";
@@ -112,16 +113,21 @@ export default function Projects() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header>
-				<BackAction
-					accessibilityLabel={t(
-						from === "locations" ? "tab.locations" : "homes.title",
-					)}
-					onPress={() =>
-						from === "locations" ? goBack("/locations") : router.push("/homes")
-					}
-				/>
-				<Appbar.Content title={activeHome?.name ?? ""} />
+			<AppHeader
+				title={activeHome?.name ?? ""}
+				leading={
+					<BackAction
+						accessibilityLabel={t(
+							from === "locations" ? "tab.locations" : "homes.title",
+						)}
+						onPress={() =>
+							from === "locations"
+								? goBack("/locations")
+								: router.push("/homes")
+						}
+					/>
+				}
+			>
 				{showFilterAction ? (
 					<BoardFilterAction
 						set={
@@ -133,7 +139,7 @@ export default function Projects() {
 					/>
 				) : null}
 				<AccountMenu />
-			</Appbar.Header>
+			</AppHeader>
 
 			{homeId ? (
 				<Board

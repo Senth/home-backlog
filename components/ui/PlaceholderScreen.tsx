@@ -2,7 +2,8 @@ import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { Appbar, Text } from "react-native-paper";
+import { Text } from "react-native-paper";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
 import { useAppTheme } from "@/theme";
@@ -46,14 +47,17 @@ export function PlaceholderScreen({
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header>
-				<BackAction
-					accessibilityLabel={t("homes.title")}
-					onPress={() => router.push("/homes")}
-				/>
-				<Appbar.Content title={activeHome?.name ?? ""} />
+			<AppHeader
+				title={activeHome?.name ?? ""}
+				leading={
+					<BackAction
+						accessibilityLabel={t("homes.title")}
+						onPress={() => router.push("/homes")}
+					/>
+				}
+			>
 				{action}
-			</Appbar.Header>
+			</AppHeader>
 			{children}
 			<View
 				style={{

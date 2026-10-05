@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Image, View } from "react-native";
 import {
-	Appbar,
 	Divider,
 	Icon,
 	IconButton,
@@ -13,6 +12,7 @@ import {
 } from "react-native-paper";
 import { urlOf } from "@/components/board/CardThumbnails";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { Row } from "@/components/ui/Row";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
@@ -101,13 +101,15 @@ export default function AttachmentsInventory() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<Appbar.Header>
-				<BackAction
-					accessibilityLabel={t("manageHome.title")}
-					onPress={() => goBack(`/homes/${homeId}`)}
-				/>
-				<Appbar.Content title={home?.name ?? ""} />
-			</Appbar.Header>
+			<AppHeader
+				title={home?.name ?? ""}
+				leading={
+					<BackAction
+						accessibilityLabel={t("manageHome.title")}
+						onPress={() => goBack(`/homes/${homeId}`)}
+					/>
+				}
+			/>
 
 			<SlimScrollView
 				contentContainerStyle={{

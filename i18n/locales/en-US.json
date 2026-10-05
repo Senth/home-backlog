@@ -56,7 +56,10 @@
 		"projects": "Projects",
 		"locations": "Locations",
 		"maintenance": "Maintenance",
-		"maintenanceNarrow": "Upkeep"
+		"overviewNarrow": "Over­view",
+		"projectsNarrow": "Proj­ects",
+		"locationsNarrow": "Loca­tions",
+		"maintenanceNarrow": "Main­tenance"
 	},
 	"screen": {
 		"login": {
