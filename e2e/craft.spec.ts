@@ -988,6 +988,48 @@ test("14: the desktop column header, card title and add button are unclipped", a
 	).toEqual([]);
 });
 
+test("at 320px full tab labels fit on one line without changing tab bar height, in this locale", async ({
+	page,
+}, testInfo) => {
+	test.skip(page.viewportSize()?.width !== VIEWPORTS.phone.width);
+	const copy = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
+	await gotoAndSettle(page, OVERVIEW);
+	const tab = page.getByRole("tab").first();
+	const originalHeight = await tab.evaluate(
+		(node) => node.parentElement?.getBoundingClientRect().height,
+	);
+	expect(originalHeight).toBeGreaterThan(0);
+	await page.setViewportSize({ ...VIEWPORTS.phone, width: denseBreakpoint });
+	await page.evaluate(() => document.fonts.ready);
+	for (const name of [
+		"overview",
+		"projects",
+		"locations",
+		"maintenance",
+	] as const) {
+		const label = page
+			.getByRole("tab")
+			.getByText(copy.tab[name], { exact: true });
+		await expect(label).toBeVisible();
+		const fit = await label.evaluate((node) => ({
+			scrollWidth: node.scrollWidth,
+			clientWidth: node.clientWidth,
+			height: node.getBoundingClientRect().height,
+			lineHeight: Number.parseFloat(getComputedStyle(node).lineHeight),
+		}));
+		expect(
+			fit.scrollWidth,
+			`${copy.tab[name]} at 320px (${testInfo.project.name})`,
+		).toBeLessThanOrEqual(fit.clientWidth);
+		expect(fit.height).toBeLessThanOrEqual(fit.lineHeight);
+	}
+	expect(
+		await tab.evaluate(
+			(node) => node.parentElement?.getBoundingClientRect().height,
+		),
+	).toBe(originalHeight);
+});
+
 test("21: at 195px every app bar names its screen, no control overlaps, no tab label is clipped, in this locale", async ({
 	page,
 }, testInfo) => {

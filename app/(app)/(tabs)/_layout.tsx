@@ -43,9 +43,9 @@ export default function TabsLayout() {
 						style={{
 							color,
 							textAlign: "center",
-							...(width < denseBreakpoint
-								? { alignSelf: "stretch", marginHorizontal: -space.xs }
-								: { maxWidth: "100%" }),
+							alignSelf: "stretch",
+							marginHorizontal: -space.xs,
+							maxWidth: width,
 						}}
 					>
 						{width < denseBreakpoint ? t(`tab.${route.name}Narrow`) : children}
