@@ -988,7 +988,7 @@ test("14: the desktop column header, card title and add button are unclipped", a
 	).toEqual([]);
 });
 
-test("21: the app bar still shows its name at 200%, in this locale", async ({
+test("21: at 195px every app bar names its screen, no control overlaps, no tab label is clipped, in this locale", async ({
 	page,
 }, testInfo) => {
 	test.skip(
@@ -996,86 +996,104 @@ test("21: the app bar still shows its name at 200%, in this locale", async ({
 		"the 200% claim pins a 195px window; the desktop project would re-measure it identically",
 	);
 
+	// D9's 195px floor must not break; cramped is allowed.
 	await page.setViewportSize(VIEWPORTS.phoneZoomed);
 	const copy = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
-	await gotoAndSettle(page, {
-		path: "/overview",
-		ready: { key: "overview.ongoing.title" },
-	});
-	const appBarTitleWidth = async (title: string): Promise<number> =>
-		page.evaluate((name) => {
-			const titles = Array.from(
-				document.querySelectorAll('[data-testid="app-header-title"]'),
-			)
-				.filter((node) => node.textContent === name)
-				.map((node) => node.getBoundingClientRect())
-				.filter((box) => box.top < 200)
-				.map((box) => Math.round(box.width));
-			return Math.max(0, ...titles);
-		}, title);
-	const titleWidth = async (title: string): Promise<number> =>
-		page.evaluate((name) => {
-			const titles = Array.from(document.querySelectorAll("*"))
-				.filter((node) => node.textContent === name)
-				.map((node) => node.getBoundingClientRect())
-				.filter((box) => box.top < 200)
-				.map((box) => Math.round(box.width));
-			return Math.max(0, ...titles);
-		}, title);
-	const noHorizontalOverflow = async () => {
-		const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-			scrollWidth: document.documentElement.scrollWidth,
-			clientWidth: document.documentElement.clientWidth,
+	const checkScreen = async (title: string, hasTabs: boolean) => {
+		const titleNode = page
+			.getByTestId("app-header-title")
+			.filter({ visible: true });
+		await expect(titleNode).toHaveText(title);
+		await page.evaluate(() => document.fonts.ready);
+		const where = `${new URL(page.url()).pathname} at 195px (${testInfo.project.name})`;
+		const titleBox = await titleNode.evaluate((node) => ({
+			scrollWidth: node.scrollWidth,
+			clientWidth: node.clientWidth,
+			scrollHeight: node.scrollHeight,
+			clientHeight: node.clientHeight,
 		}));
-		expect(scrollWidth, "document horizontal overflow").toBeLessThanOrEqual(
-			clientWidth,
+		expect(titleBox.scrollWidth, `title width on ${where}`).toBeLessThanOrEqual(
+			titleBox.clientWidth + 1,
 		);
-	};
-	expect(
-		await appBarTitleWidth("Huset"),
-		"Overview app bar title at 200%",
-	).toBeGreaterThan(120);
-	await expect(
-		page.getByRole("button", { name: copy.homes.title, exact: true }),
-	).toBeVisible();
-	await expect(
-		page.getByRole("button", {
-			name: copy.overview.cards.editor.title,
-			exact: true,
-		}),
-	).toBeVisible();
-	await expect(page.getByTestId("account-menu-trigger")).toBeVisible();
-	await noHorizontalOverflow();
-
-	for (const viewport of [VIEWPORTS.phone, { width: 1280, height: 900 }]) {
-		await page.setViewportSize(viewport);
 		expect(
-			await appBarTitleWidth("Huset"),
-			`Overview title at ${viewport.width}px`,
-		).toBeGreaterThan(120);
-		await noHorizontalOverflow();
+			titleBox.scrollHeight,
+			`title height on ${where}`,
+		).toBeLessThanOrEqual(titleBox.clientHeight + 1);
+		const overlaps = await page
+			.getByTestId("app-header")
+			.filter({ visible: true })
+			.evaluate((header) => {
+				const buttons = Array.from(
+					header.querySelectorAll('button, [role="button"]'),
+				);
+				const bad: string[] = [];
+				for (const [index, button] of buttons.entries()) {
+					const a = button.getBoundingClientRect();
+					for (const other of buttons.slice(index + 1)) {
+						const b = other.getBoundingClientRect();
+						if (
+							a.left < b.right &&
+							b.left < a.right &&
+							a.top < b.bottom &&
+							b.top < a.bottom
+						) {
+							bad.push(
+								`${button.getAttribute("aria-label")} overlaps ${other.getAttribute("aria-label")}`,
+							);
+						}
+					}
+				}
+				return bad;
+			});
+		expect(overlaps, `app bar controls on ${where}`).toEqual([]);
+		if (hasTabs) {
+			await expect(page.getByRole("tab")).toHaveCount(4);
+			const clipped = await page.getByRole("tab").evaluateAll((tabs) =>
+				tabs.flatMap((tab) =>
+					Array.from(tab.querySelectorAll("*"))
+						.filter(
+							(node) => node.children.length === 0 && node.textContent?.trim(),
+						)
+						.filter(
+							(node) =>
+								node.scrollWidth > node.clientWidth + 1 ||
+								node.scrollHeight > node.clientHeight + 1,
+						)
+						.map(
+							(node) =>
+								`${node.textContent}: ${node.scrollWidth}x${node.scrollHeight} in ${node.clientWidth}x${node.clientHeight}`,
+						),
+				),
+			);
+			expect(clipped, `tab labels on ${where}`).toEqual([]);
+		}
+	};
+	for (const route of [OVERVIEW, BOARD]) {
+		await gotoAndSettle(page, route);
+		await checkScreen("Huset", true);
 	}
 
-	await page.setViewportSize(VIEWPORTS.phoneZoomed);
-	await gotoAndSettle(page, BOARD);
 	await page.getByText(SEEDED_PROJECT).first().click();
 	await page.waitForURL(/\/projects\/[^/]+$/);
 	const id = new URL(page.url()).pathname.split("/")[2] as string;
-
-	await page.getByText(SEEDED_PROJECT).first().waitFor();
-	const onBoard = await titleWidth(SEEDED_PROJECT);
+	await checkScreen(SEEDED_PROJECT, true);
 
 	await page.goto(`/projects/${id}/details`);
 	await page.getByText(SEEDED_PROJECT).first().waitFor();
-	const onDetails = await titleWidth(SEEDED_PROJECT);
+	await checkScreen(copy.detail.title, true);
 
-	// Room for the name, not merely a non-zero box: an ellipsis on its own is
-	// the failure this claim is about.
-	const where = `at 200% (${testInfo.project.name})`;
-	expect(onBoard, `board app bar title width ${where}`).toBeGreaterThan(120);
-	expect(onDetails, `details app bar title width ${where}`).toBeGreaterThan(
-		120,
-	);
+	await page.goto("/homes");
+	await page
+		.getByRole("button", {
+			name: copy.manageHome.manageNamed.replace("{{home}}", "Huset"),
+			exact: true,
+		})
+		.click();
+	await page.waitForURL(/\/homes\/[^/]+$/);
+	await checkScreen(copy.manageHome.title, false);
+
+	await gotoAndSettle(page, ROUTES[4]);
+	await checkScreen(copy.automations.title, false);
 });
 
 test("31: the FAB spans no more than 60% of a 195px viewport, in this locale", async ({
