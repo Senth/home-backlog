@@ -2,6 +2,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Redirect, Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions } from "react-native";
+import { Text } from "react-native-paper";
 import { useHome } from "@/contexts/HomeContext";
 import { useAppTheme } from "@/theme";
 import { denseBreakpoint } from "@/theme/tokens";
@@ -27,12 +28,24 @@ export default function TabsLayout() {
 		// retraces the taps; "history" would replace a revisit and drop it.
 		<Tabs
 			backBehavior="fullHistory"
-			screenOptions={{
+			screenOptions={({ route }) => ({
 				headerShown: false,
 				tabBarActiveTintColor: theme.colors.primary,
 				tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
 				tabBarStyle: { backgroundColor: theme.colors.surface },
-			}}
+				tabBarAccessibilityLabel: t(`tab.${route.name}`),
+				// Soft hyphens keep the same words readable when each tab is narrow.
+				tabBarLabel: ({ color, children }) => (
+					<Text
+						variant="labelMedium"
+						numberOfLines={width < denseBreakpoint ? 2 : 1}
+						aria-label={children}
+						style={{ color, textAlign: "center", maxWidth: "100%" }}
+					>
+						{width < denseBreakpoint ? t(`tab.${route.name}Narrow`) : children}
+					</Text>
+				),
+			})}
 		>
 			{/* First, and the route the app opens on: a summary you have to
 			    navigate to is a summary nobody reads. */}
@@ -78,14 +91,7 @@ export default function TabsLayout() {
 			<Tabs.Screen
 				name="maintenance"
 				options={{
-					// "Maintenance" is the one tab label longer than its Swedish
-					// counterpart, and a single word cannot wrap — at a 195 px viewport
-					// (a 390 px phone at 200 % zoom) it truncates to "Mainten…". One
-					// word carries the tab down there.
-					title:
-						width < denseBreakpoint
-							? t("tab.maintenanceNarrow")
-							: t("tab.maintenance"),
+					title: t("tab.maintenance"),
 					tabBarIcon: ({ color, size }) => (
 						<MaterialCommunityIcons
 							name="calendar-refresh-outline"

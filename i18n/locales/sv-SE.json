@@ -56,7 +56,10 @@
 		"projects": "Projekt",
 		"locations": "Platser",
 		"maintenance": "Underhåll",
-		"maintenanceNarrow": "Underhåll"
+		"overviewNarrow": "Över­sikt",
+		"projectsNarrow": "Projekt",
+		"locationsNarrow": "Platser",
+		"maintenanceNarrow": "Under­håll"
 	},
 	"screen": {
 		"login": {
