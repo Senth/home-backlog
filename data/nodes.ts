@@ -783,8 +783,8 @@ export interface FlipProgress {
  * server, writes in depth order, and `flipPlan` drops every document already at
  * the target, so retrying finishes the job rather than repeating it.
  *
- * Online only, and the caller disables the control offline rather than letting
- * this fail after the fact. Each write changes `visibility`, so
+ * The caller sends this through the outbox: offline changes queue, then replay
+ * calls this function when connected. Each write changes `visibility`, so
  * `privacyUnchanged()` is false and one parent `get()` is spent per document —
  * affordable because these are single-document writes, not a batch, so the
  * twenty-document-access budget does not apply.

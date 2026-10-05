@@ -32,11 +32,11 @@ import { childAncestorIds, movedAncestorIds } from "@/models/node";
  *
  * **Offline.** `createLocation` and `editLocation` queue optimistically, the
  * acknowledged-promise pattern `createNode` uses — nothing user-facing awaits
- * the promise. `moveLocation` and `deleteLocation` read the subtree from the
- * server first, so offline they fail loudly: the cache holds only the locations
- * that happened to have been opened, and "no children in cache" is not "no
- * children". Locations have no visibility to hide anything, so one
- * whole-collection read is complete as well as safe.
+ * the promise. The outbox queues `moveLocation` and `deleteLocation` offline,
+ * then replays them through these server-reading writes when connected. The
+ * cache holds only locations that happened to have been opened, and "no
+ * children in cache" is not "no children". Locations have no visibility to
+ * hide anything, so one whole-collection read is complete as well as safe.
  */
 
 const homesCollection = "homes";

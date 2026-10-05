@@ -225,6 +225,8 @@
 		"waiting": "Waiting to sync",
 		"pendingChanges_one": "{{count}} change waiting for a connection",
 		"pendingChanges_other": "{{count}} changes waiting for a connection",
+		"signOutPending_one": "{{count}} change is still waiting for a connection. It'll sync next time you sign in here.",
+		"signOutPending_other": "{{count}} changes are still waiting for a connection. They'll sync next time you sign in here.",
 		"queuedMove": "{{name}} moves under {{target}} when you're back online.",
 		"queuedMoveTop": "{{name}} moves to the top level when you're back online.",
 		"queuedDelete": "{{name}} will be deleted when you're back online.",

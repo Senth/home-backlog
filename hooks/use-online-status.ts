@@ -18,9 +18,9 @@ export function isOnline(): boolean {
 /**
  * Whether the browser thinks it has a connection.
  *
- * Only ever used to *tell* the user, and to decide how long to wait before
- * telling them. **No write is ever gated on it** — Firestore queues its own and
- * would lose them.
+ * The outbox queues eligible writes when this is false, and also queues online
+ * attempts that fail with `unavailable`. It is not proof that Firestore can
+ * reach the server, so reads that need a connection still explain that state.
  */
 export function useOnlineStatus(): boolean {
 	const [online, setOnline] = useState(isOnline);
