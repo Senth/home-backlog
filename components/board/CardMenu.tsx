@@ -37,6 +37,7 @@ import { icon, size, space, touchTarget } from "@/theme/tokens";
 /** A message the board says after an action, with the way back if there is one. */
 export interface Notice {
 	text: string;
+	intentId?: string;
 	undo?: () => void;
 }
 
@@ -189,6 +190,7 @@ export function CardMenu({
 					: "outbox.queuedMoveTop";
 		onNotice({
 			text: t(key, { name: intent.title, target: intent.targetTitle }),
+			intentId: intent.id,
 			undo: () => {
 				void undo(intent.id).catch(() =>
 					onNotice({ text: t("error.saveFailed") }),

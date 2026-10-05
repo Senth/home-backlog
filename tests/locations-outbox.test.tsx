@@ -1,11 +1,13 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
-import { Provider } from "react-native-paper";
+import { AppState, type AppStateStatus } from "react-native";
+import { Provider, Snackbar } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import Locations from "@/app/(app)/(tabs)/locations";
 import { LocationTree } from "@/components/location/LocationRow";
 import { useLocationDrag } from "@/components/location/use-location-drag";
 import { OutboxProvider } from "@/contexts/OutboxContext";
 import { moveLocation } from "@/data/locations";
+import { replayIntent } from "@/data/outbox-replay";
 import type { OutboxIntent } from "@/data/outbox-store";
 import { useLocationCounts } from "@/hooks/use-location-counts";
 import { isOnline } from "@/hooks/use-online-status";
@@ -169,7 +171,58 @@ beforeEach(() => {
 	mockLocations = [kitchen, garden, pantry];
 	jest.mocked(isOnline).mockReturnValue(false);
 	jest.mocked(moveLocation).mockReset().mockResolvedValue();
+	jest.mocked(replayIntent).mockReset().mockResolvedValue();
+	jest
+		.spyOn(AppState, "addEventListener")
+		.mockReturnValue({ remove: jest.fn() });
 });
+
+it.each([
+	["drained", undefined],
+	["dropped", { code: "subject-not-found" }],
+	["refused", { code: "move-own-subtree" }],
+])(
+	"removes queued snackbar and Undo immediately when intent is %s",
+	async (_, reason) => {
+		let reconnect!: (state: AppStateStatus) => void;
+		const subscription = jest
+			.spyOn(AppState, "addEventListener")
+			.mockImplementation((_, listener) => {
+				reconnect = listener;
+				return { remove: jest.fn() };
+			});
+		try {
+			if (reason) jest.mocked(replayIntent).mockRejectedValueOnce(reason);
+			const screen = open();
+			fireEvent.press(screen.getByTestId("move-kitchen"));
+			fireEvent.press(screen.getByTestId("target-garden"));
+			fireEvent.press(screen.getByText("locations.moveHere"));
+			await waitFor(() => expect(screen.getByText("common.undo")).toBeTruthy());
+			jest.mocked(isOnline).mockReturnValue(true);
+			await act(async () => reconnect("active"));
+			await waitFor(() =>
+				expect(JSON.parse(mockStore["outbox:marcus"])).toEqual([]),
+			);
+			expect(
+				screen.UNSAFE_getAllByType(Snackbar).filter((bar) => bar.props.action),
+			).toHaveLength(0);
+			expect(
+				screen.queryByText(
+					'outbox.queuedMove:{"name":"Kitchen","target":"Garden"}',
+				),
+			).toBeNull();
+			if (reason?.code === "move-own-subtree") {
+				expect(
+					screen.getByText(
+						'outbox.refusedMoveCycle:{"name":"Kitchen","target":"Garden"}',
+					),
+				).toBeTruthy();
+			}
+		} finally {
+			subscription.mockRestore();
+		}
+	},
+);
 
 it("offline Move under projects subject and descendants, adds named Undo, and Undo restores listener tree", async () => {
 	const screen = open();

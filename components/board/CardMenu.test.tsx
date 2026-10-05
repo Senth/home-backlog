@@ -201,6 +201,7 @@ describe("CardMenu", () => {
 		expect(onNotice.mock.calls[0][0].text).toBe(
 			'outbox.queuedDelete:{"name":"Card self"}',
 		);
+		expect(onNotice.mock.calls[0][0].intentId).toBe("intent-1");
 		await act(async () => onNotice.mock.calls[0][0].undo());
 		expect(mockUndo).toHaveBeenCalledWith("intent-1");
 	});
@@ -254,6 +255,7 @@ describe("CardMenu", () => {
 		expect(onNotice.mock.calls[0][0].text).toBe(
 			'outbox.queuedMove:{"name":"Card self","target":"Card host"}',
 		);
+		expect(onNotice.mock.calls[0][0].intentId).toBe("intent-1");
 		await act(async () => onNotice.mock.calls[0][0].undo());
 		expect(mockUndo).toHaveBeenCalledWith("intent-1");
 	});

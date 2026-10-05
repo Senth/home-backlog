@@ -6,7 +6,6 @@ import {
 	ActivityIndicator,
 	Button,
 	FAB,
-	Snackbar,
 	Surface,
 	Text,
 } from "react-native-paper";
@@ -25,6 +24,7 @@ import {
 	useBoardDrag,
 } from "@/components/board/use-board-drag";
 import { fieldSpecs } from "@/components/overview/CardEditForm";
+import { OutboxSnackbar } from "@/components/ui/OutboxSnackbar";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
@@ -903,7 +903,8 @@ export function Board({
 
 			{/* The destination of a move is off-screen by definition — saying
 			    nothing makes it read as a delete. */}
-			<Snackbar
+			<OutboxSnackbar
+				intentId={notice?.intentId}
 				visible={notice !== null}
 				onDismiss={() => setNotice(null)}
 				// Material caps a snackbar well short of the window. Left to stretch,
@@ -927,7 +928,7 @@ export function Board({
 				}
 			>
 				{notice?.text ?? ""}
-			</Snackbar>
+			</OutboxSnackbar>
 		</View>
 	);
 }

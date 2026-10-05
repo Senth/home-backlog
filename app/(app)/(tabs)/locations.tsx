@@ -9,7 +9,6 @@ import {
 	Button,
 	FAB,
 	Icon,
-	Snackbar,
 	Text,
 } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
@@ -23,6 +22,7 @@ import {
 	useLocationDrag,
 } from "@/components/location/use-location-drag";
 import { BackAction } from "@/components/ui/BackAction";
+import { OutboxSnackbar } from "@/components/ui/OutboxSnackbar";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useHome } from "@/contexts/HomeContext";
 import { useOutbox } from "@/contexts/OutboxContext";
@@ -563,7 +563,8 @@ export default function Locations() {
 			    waits flattened where it was. */}
 			{drag.dragged !== null ? <LocationDragOverlay drag={drag} /> : null}
 
-			<Snackbar
+			<OutboxSnackbar
+				intentId={notice?.intentId}
 				visible={notice !== null}
 				onDismiss={() => setNotice(null)}
 				action={
@@ -588,7 +589,7 @@ export default function Locations() {
 				}}
 			>
 				{notice?.message ?? ""}
-			</Snackbar>
+			</OutboxSnackbar>
 		</View>
 	);
 }

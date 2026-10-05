@@ -34,6 +34,7 @@ import { contentWidth } from "@/theme/tokens";
 type Refusal = { intent: OutboxIntent; reason: ErrorKey };
 type OutboxContextType = {
 	intents: OutboxIntent[];
+	feedbackVisible: boolean;
 	submit: (
 		intent: OutboxIntent,
 		runOnline: () => Promise<void>,
@@ -191,9 +192,10 @@ export function OutboxProvider({ children }: { children: ReactNode }) {
 		},
 		[uid],
 	);
+	const feedbackVisible = refusals.length > 0 || failed;
 	const value = useMemo(
-		() => ({ intents, submit, undo }),
-		[intents, submit, undo],
+		() => ({ intents, submit, undo, feedbackVisible }),
+		[intents, submit, undo, feedbackVisible],
 	);
 	const first = refusals[0];
 	let message = failed ? t("error.saveFailed") : "";
@@ -219,7 +221,7 @@ export function OutboxProvider({ children }: { children: ReactNode }) {
 		<OutboxContext.Provider value={value}>
 			{children}
 			<Snackbar
-				visible={Boolean(first) || failed}
+				visible={feedbackVisible}
 				onDismiss={() => {
 					setRefusals([]);
 					setFailed(false);
