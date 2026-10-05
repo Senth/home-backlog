@@ -3,9 +3,10 @@ import { Redirect, Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions } from "react-native";
 import { Text } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHome } from "@/contexts/HomeContext";
 import { useAppTheme } from "@/theme";
-import { denseBreakpoint, space } from "@/theme/tokens";
+import { denseBreakpoint, icon, size, space } from "@/theme/tokens";
 
 /**
  * The boards, and the gate that keeps them scoped to a home.
@@ -20,6 +21,7 @@ export default function TabsLayout() {
 	const theme = useAppTheme();
 	const { activeHome } = useHome();
 	const { width } = useWindowDimensions();
+	const insets = useSafeAreaInsets();
 
 	if (!activeHome) return <Redirect href="/homes" />;
 
@@ -32,7 +34,14 @@ export default function TabsLayout() {
 				headerShown: false,
 				tabBarActiveTintColor: theme.colors.primary,
 				tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
-				tabBarStyle: { backgroundColor: theme.colors.surface },
+				tabBarStyle: {
+					backgroundColor: theme.colors.surface,
+					height:
+						width < denseBreakpoint
+							? size.appBarSmall + insets.bottom
+							: undefined,
+				},
+				tabBarIconStyle: { height: icon.md, marginTop: -space.xs },
 				tabBarAccessibilityLabel: t(`tab.${route.name}`),
 				// Soft hyphens keep the same words readable when each tab is narrow.
 				tabBarLabel: ({ color, children }) => (

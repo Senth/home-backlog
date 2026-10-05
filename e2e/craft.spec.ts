@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import {
 	cardSelector,
 	columnSelector,
@@ -988,6 +988,33 @@ test("14: the desktop column header, card title and add button are unclipped", a
 	).toEqual([]);
 });
 
+async function clippedTabLabels(page: Page) {
+	return page.getByRole("tab").evaluateAll((tabs) =>
+		tabs.flatMap((tab) => {
+			const label = tab.querySelector("[aria-label]");
+			const bar = tab.closest('[role="tablist"]');
+			if (!label || !bar) return ["missing tab label or tab bar"];
+			const range = document.createRange();
+			range.selectNodeContents(label);
+			const text = range.getBoundingClientRect();
+			const bounds = bar.getBoundingClientRect();
+			if (
+				label.scrollWidth > label.clientWidth + 1 ||
+				label.scrollHeight > label.clientHeight + 1 ||
+				text.left < Math.max(bounds.left, 0) ||
+				text.right > Math.min(bounds.right, window.innerWidth) ||
+				text.top < Math.max(bounds.top, 0) ||
+				text.bottom > Math.min(bounds.bottom, window.innerHeight)
+			) {
+				return [
+					`${label.textContent}: text ${text.left},${text.top}–${text.right},${text.bottom}; tab bar ${bounds.left},${bounds.top}–${bounds.right},${bounds.bottom}; viewport ${window.innerWidth}x${window.innerHeight}`,
+				];
+			}
+			return [];
+		}),
+	);
+}
+
 test("at 320px full tab labels fit on one line without changing tab bar height, in this locale", async ({
 	page,
 }, testInfo) => {
@@ -999,6 +1026,7 @@ test("at 320px full tab labels fit on one line without changing tab bar height, 
 		(node) => node.parentElement?.getBoundingClientRect().height,
 	);
 	expect(originalHeight).toBeGreaterThan(0);
+	expect(await clippedTabLabels(page), "tab labels at 390px").toEqual([]);
 	await page.setViewportSize({ ...VIEWPORTS.phone, width: denseBreakpoint });
 	await page.evaluate(() => document.fonts.ready);
 	for (const name of [
@@ -1023,6 +1051,7 @@ test("at 320px full tab labels fit on one line without changing tab bar height, 
 		).toBeLessThanOrEqual(fit.clientWidth);
 		expect(fit.height).toBeLessThanOrEqual(fit.lineHeight);
 	}
+	expect(await clippedTabLabels(page), "tab labels at 320px").toEqual([]);
 	expect(
 		await tab.evaluate(
 			(node) => node.parentElement?.getBoundingClientRect().height,
@@ -1090,23 +1119,7 @@ test("21: at 195px every app bar names its screen, no control overlaps, no tab l
 		expect(overlaps, `app bar controls on ${where}`).toEqual([]);
 		if (hasTabs) {
 			await expect(page.getByRole("tab")).toHaveCount(4);
-			const clipped = await page.getByRole("tab").evaluateAll((tabs) =>
-				tabs.flatMap((tab) =>
-					Array.from(tab.querySelectorAll("*"))
-						.filter(
-							(node) => node.children.length === 0 && node.textContent?.trim(),
-						)
-						.filter(
-							(node) =>
-								node.scrollWidth > node.clientWidth + 1 ||
-								node.scrollHeight > node.clientHeight + 1,
-						)
-						.map(
-							(node) =>
-								`${node.textContent}: ${node.scrollWidth}x${node.scrollHeight} in ${node.clientWidth}x${node.clientHeight}`,
-						),
-				),
-			);
+			const clipped = await clippedTabLabels(page);
 			expect(clipped, `tab labels on ${where}`).toEqual([]);
 		}
 	};
