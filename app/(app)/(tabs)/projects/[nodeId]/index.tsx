@@ -2,7 +2,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { ActivityIndicator, Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
@@ -27,7 +27,7 @@ import { filterActionVisible } from "@/models/board-filter";
 import { membersOf } from "@/models/home";
 import { effectiveLocation } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { space } from "@/theme/tokens";
+import { denseBreakpoint, space } from "@/theme/tokens";
 import { goBack } from "@/utils/navigation";
 
 const noAncestors: string[] = [];
@@ -49,6 +49,8 @@ const noLabelIds: string[] = [];
 export default function NodeBoard() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
+	const { width } = useWindowDimensions();
+	const dense = width < denseBreakpoint;
 	const { nodeId } = useLocalSearchParams<{ nodeId: string }>();
 	const { activeHome } = useHome();
 	const notice = useGoneNotice();
@@ -75,6 +77,9 @@ export default function NodeBoard() {
 	const { locations } = useLocations(homeId);
 	const [filterOpen, setFilterOpen] = useState(false);
 	const filterAnchor = useRef<View>(null);
+	const filterSet =
+		filter !== null &&
+		(filter.conditions.length > 0 || filter.reach === "subtree");
 
 	// The labels every card on this board inherits (#100): the board node's own
 	// chain, already held — the board node itself by `useNode`, everything above
@@ -161,17 +166,24 @@ export default function NodeBoard() {
 					/>
 				}
 			>
-				{showFilterAction ? (
+				{showFilterAction && !dense ? (
 					<BoardFilterAction
-						set={
-							filter !== null &&
-							(filter.conditions.length > 0 || filter.reach === "subtree")
-						}
+						set={filterSet}
 						onPress={() => setFilterOpen(true)}
 						anchorRef={filterAnchor}
 					/>
 				) : null}
-				{node !== null ? <BoardMenu homeId={homeId} node={node} /> : null}
+				{node !== null ? (
+					<BoardMenu
+						homeId={homeId}
+						node={node}
+						onFilter={
+							showFilterAction && dense ? () => setFilterOpen(true) : undefined
+						}
+						filterSet={showFilterAction && dense && filterSet}
+						anchorRef={dense ? filterAnchor : undefined}
+					/>
+				) : null}
 				<AccountMenu />
 			</AppHeader>
 

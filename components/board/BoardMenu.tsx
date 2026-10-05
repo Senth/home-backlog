@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { type RefObject, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Appbar, Menu } from "react-native-paper";
@@ -16,6 +16,9 @@ interface BoardMenuProps {
 	homeId: string | null;
 	/** The card this board belongs to, or null on the root board. */
 	node: Node | null;
+	onFilter?: () => void;
+	filterSet?: boolean;
+	anchorRef?: RefObject<View | null>;
 }
 
 /**
@@ -28,13 +31,20 @@ interface BoardMenuProps {
  * ride here moved into the filter sheet (D8), which is where the rest of the
  * board's show/hide decisions live.
  */
-export function BoardMenu({ homeId, node }: BoardMenuProps) {
+export function BoardMenu({
+	homeId,
+	node,
+	onFilter,
+	filterSet = false,
+	anchorRef,
+}: BoardMenuProps) {
 	const { t } = useTranslation();
 	const router = useRouter();
 	const theme = useAppTheme();
 	const [open, setOpen] = useState(false);
 	const [renaming, setRenaming] = useState(false);
-	const anchor = useRef<View | null>(null);
+	const ownAnchor = useRef<View | null>(null);
+	const anchor = anchorRef ?? ownAnchor;
 
 	// Stable so Paper keeps its Escape handler: it attaches that to `document`
 	// once, inside `show()`, and tears it down from an effect whose dependency
@@ -74,9 +84,9 @@ export function BoardMenu({ homeId, node }: BoardMenuProps) {
 						{/* The mark that used to sit on the info action, which now lives
 						    in this menu: it says there is something behind the dots,
 						    which makes opening them a decision rather than a lottery. */}
-						{node !== null && hasDetails(node) ? (
+						{(node !== null && hasDetails(node)) || filterSet ? (
 							<View
-								testID="board-details-mark"
+								testID="board-menu-mark"
 								style={{
 									// The style prop, not `pointerEvents`: React Native Web
 									// deprecated the prop and warns on every render.
@@ -95,6 +105,16 @@ export function BoardMenu({ homeId, node }: BoardMenuProps) {
 				}
 			>
 				<View testID={`board-menu-${node?.id ?? "root"}`}>
+					{onFilter === undefined ? null : (
+						<Menu.Item
+							leadingIcon="filter-variant"
+							title={t("board.filter.title")}
+							onPress={() => {
+								close();
+								onFilter();
+							}}
+						/>
+					)}
 					{node === null ? null : (
 						<Menu.Item
 							leadingIcon="information-outline"
