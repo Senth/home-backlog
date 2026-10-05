@@ -1,4 +1,5 @@
 import {
+	act,
 	fireEvent,
 	render,
 	screen,
@@ -59,7 +60,15 @@ function renderAccountMenu() {
 }
 
 beforeEach(() => {
+	jest.useFakeTimers();
 	mockIntents = [];
+});
+
+afterEach(async () => {
+	await act(async () => {
+		await jest.runOnlyPendingTimersAsync();
+	});
+	jest.useRealTimers();
 });
 
 it("shows sign-out question without a notice when outbox is empty", async () => {

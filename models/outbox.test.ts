@@ -73,6 +73,91 @@ const flip: Intent = {
 };
 
 describe("enqueue", () => {
+	it.each(["location", "node"])(
+		"preserves %s move escaping deleted subtree",
+		(tree) => {
+			const escaping: Intent =
+				tree === "location"
+					? {
+							...locationMove("escape", "child", null),
+							sourceParentId: "parent",
+							sourceAncestorIds: ["parent"],
+						}
+					: move("escape", {
+							nodeId: "child",
+							parentId: null,
+							sourceParentId: "parent",
+							sourceAncestorIds: ["parent"],
+						});
+			const deletion: Intent =
+				tree === "location"
+					? {
+							...metadata,
+							id: "delete",
+							kind: "deleteLocation",
+							locationId: "parent",
+						}
+					: { ...metadata, id: "delete", kind: "deleteNode", nodeId: "parent" };
+			const queue = enqueue([escaping], deletion);
+			expect(queue).toEqual([escaping, deletion]);
+			if (tree === "location") {
+				const projected = projectLocations(
+					[
+						place("parent"),
+						place("child", "parent", ["parent"]),
+						place("grandchild", "child", ["parent", "child"]),
+					],
+					queue,
+					"home",
+				);
+				expect(projected.locations.map((each) => each.id)).toEqual([
+					"child",
+					"grandchild",
+				]);
+				expect(projected.locations[1].ancestorIds).toEqual(["child"]);
+			}
+		},
+	);
+	it("preserves descendant flip when its queued ancestor escapes deletion", () => {
+		const escaping = move("escape", {
+			nodeId: "branch",
+			parentId: null,
+			sourceParentId: "parent",
+			sourceAncestorIds: ["parent"],
+		});
+		const childFlip: Intent = {
+			...flip,
+			nodeId: "child",
+			sourceParentId: "branch",
+			sourceAncestorIds: ["parent", "branch"],
+		};
+		const deletion: Intent = {
+			...metadata,
+			id: "delete",
+			kind: "deleteNode",
+			nodeId: "parent",
+		};
+		expect(enqueue([escaping, childFlip], deletion)).toEqual([
+			escaping,
+			childFlip,
+			deletion,
+		]);
+	});
+	it("keeps incoming location move so delete sweeps its final subtree", () => {
+		const incoming = locationMove("incoming", "room", "floor");
+		const deletion: Intent = {
+			...metadata,
+			id: "delete",
+			kind: "deleteLocation",
+			locationId: "floor",
+		};
+		const queue = enqueue([incoming], deletion);
+		expect(queue).toEqual([incoming, deletion]);
+		expect(
+			projectLocations([place("room"), place("floor")], queue, "home")
+				.locations,
+		).toEqual([]);
+	});
 	it("replaces node moves in their FIFO slot without changing input", () => {
 		const queue = [move("first"), move("other", { nodeId: "other" })];
 		const replacement = move("last", { parentId: "elsewhere", rank: "a9" });
@@ -103,6 +188,7 @@ describe("enqueue", () => {
 	it("node delete removes subject and subtree moves, flips and redundant deletes only", () => {
 		const child = move("child", {
 			nodeId: "child",
+			parentId: "node",
 			sourceAncestorIds: ["node"],
 		});
 		const childFlip: Intent = {
@@ -144,7 +230,7 @@ describe("enqueue", () => {
 			locationId: "floor",
 		};
 		const child: Intent = {
-			...locationMove("child", "room", null),
+			...locationMove("child", "room", "floor"),
 			sourceAncestorIds: ["floor"],
 		};
 		expect(

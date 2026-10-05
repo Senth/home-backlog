@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Animated, type View } from "react-native";
 import { useOutbox } from "@/contexts/OutboxContext";
-import { moveLocation } from "@/data/locations";
+import { moveLocation, reorderLocation } from "@/data/locations";
 import { intentMetadata, type OutboxIntent } from "@/data/outbox-store";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { Box } from "@/models/drag";
@@ -90,7 +90,7 @@ export function useLocationDrag({
 	onQueued,
 }: LocationDragOptions): LocationDrag {
 	const reduced = useReducedMotion();
-	const { submit } = useOutbox();
+	const { intents, submit } = useOutbox();
 
 	const [session, setSession] = useState<Session | null>(null);
 
@@ -255,6 +255,21 @@ export function useLocationDrag({
 			}
 
 			clear();
+			const rankOnly = (plan.parent?.id ?? null) === held.location.parentId;
+			if (
+				rankOnly &&
+				!intents.some(
+					(intent) =>
+						intent.kind === "moveLocation" &&
+						intent.homeId === homeId &&
+						intent.locationId === held.location.id,
+				)
+			) {
+				void reorderLocation(homeId, held.location.id, plan.rank).catch(
+					onError,
+				);
+				return;
+			}
 			const intent: OutboxIntent = {
 				...intentMetadata(homeId, held.location),
 				kind: "moveLocation",
@@ -264,14 +279,26 @@ export function useLocationDrag({
 				rank: plan.rank,
 			};
 			void submit(intent, () =>
-				moveLocation(homeId, held.location, plan.parent, plan.rank),
+				rankOnly
+					? reorderLocation(homeId, held.location.id, plan.rank)
+					: moveLocation(homeId, held.location, plan.parent, plan.rank),
 			)
 				.then((result) => {
 					if (result === "queued") onQueued(intent);
 				})
 				.catch(onError);
 		},
-		[clear, homeId, locations, onError, onPutBack, onQueued, settle, submit],
+		[
+			clear,
+			homeId,
+			intents,
+			locations,
+			onError,
+			onPutBack,
+			onQueued,
+			settle,
+			submit,
+		],
 	);
 	const cancel = useCallback(() => {
 		grabbed.current++;

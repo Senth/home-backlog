@@ -52,6 +52,7 @@ jest.mock("@/data/outbox-store", () => ({
 const members: Member[] = [
 	{ uid: "me", role: "owner", displayName: "Me", photoURL: null },
 	{ uid: "other", role: "member", displayName: "Other", photoURL: null },
+	{ uid: "bob", role: "member", displayName: "Bob", photoURL: null },
 ];
 const node: Node = {
 	...newNodeData({ title: "Project", rank: "a0", participantIds: ["me"] }),
@@ -216,10 +217,34 @@ it("private root participants queue their chosen list offline, retaining actor a
 	expect(flipVisibility).not.toHaveBeenCalled();
 	view.rerender(<Surface subject={subject} participants />);
 	expect(screen.getByText("outbox.pendingParticipants")).toBeTruthy();
-	expect(screen.getByRole("checkbox", { name: "Other" })).not.toBeChecked();
+	expect(screen.getByRole("checkbox", { name: "Other" })).toBeChecked();
 	expect(screen.getByRole("checkbox", { name: "Me" })).toBeDisabled();
 	expect(screen.queryByText("board.offlineHint")).toBeNull();
 	expect(screen.queryByTestId("visibility-progress-dialog")).toBeNull();
+});
+
+it("private participant toggles accumulate pending selection and reverse without changing server ACL", async () => {
+	const subject = { ...node, visibility: "private" as const };
+	const view = render(<Surface subject={subject} participants />);
+	for (const name of ["Other", "Bob", "Other"]) {
+		await act(async () =>
+			fireEvent.press(screen.getByRole("checkbox", { name })),
+		);
+		view.rerender(<Surface subject={subject} participants />);
+	}
+	expect(
+		mockSubmit.mock.calls.map(([intent]) => intent.participantIds),
+	).toEqual([
+		["me", "other"],
+		["me", "other", "bob"],
+		["me", "bob"],
+	]);
+	expect(screen.getByRole("checkbox", { name: "Other" })).not.toBeChecked();
+	expect(screen.getByRole("checkbox", { name: "Bob" })).toBeChecked();
+	expect(screen.getByRole("checkbox", { name: "Me" })).toBeDisabled();
+	expect(subject.participantIds).toEqual(["me"]);
+	expect(onSave).not.toHaveBeenCalled();
+	expect(flipVisibility).not.toHaveBeenCalled();
 });
 
 it("pending shared flip says everyone in home, but other-home intents show no line", () => {

@@ -6,6 +6,7 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -41,6 +42,7 @@ type OutboxContextType = {
 };
 
 const OutboxContext = createContext<OutboxContextType | undefined>(undefined);
+const retryDelays = [1000, 5000, 15000, 30000];
 
 export function OutboxProvider({ children }: { children: ReactNode }) {
 	const { user, loading } = useAuth();
@@ -49,10 +51,33 @@ export function OutboxProvider({ children }: { children: ReactNode }) {
 	const [intents, setIntents] = useState<OutboxIntent[]>([]);
 	const [refusals, setRefusals] = useState<Refusal[]>([]);
 	const [failed, setFailed] = useState(false);
+	const retryDrain = useRef<{ uid: string; schedule: () => void } | null>(null);
 
 	useEffect(() => {
 		if (!uid || loading) return;
 		let live = true;
+		let retries = 0;
+		let retryTimer: ReturnType<typeof setTimeout> | undefined;
+		const scheduleRetry = () => {
+			if (
+				!live ||
+				!isOnline() ||
+				retryTimer !== undefined ||
+				retries >= retryDelays.length
+			)
+				return;
+			retryTimer = setTimeout(() => {
+				retryTimer = undefined;
+				void drain();
+			}, retryDelays[retries++]);
+		};
+		retryDrain.current = {
+			uid,
+			schedule: () => {
+				retries = 0;
+				scheduleRetry();
+			},
+		};
 		const publish = (queue: OutboxIntent[]) => {
 			if (live) setIntents(queue);
 		};
@@ -67,12 +92,20 @@ export function OutboxProvider({ children }: { children: ReactNode }) {
 						const queue = await readOutbox(uid);
 						publish(queue);
 						const intent = queue[0];
-						if (!intent || !live) break;
+						if (!intent || !live) {
+							clearTimeout(retryTimer);
+							retryTimer = undefined;
+							retries = 0;
+							break;
+						}
 						try {
 							await replayIntent(intent, uid);
 						} catch (reason) {
 							const outcome = classifyReplayError(reason);
-							if (outcome === "retry") break;
+							if (outcome === "retry") {
+								scheduleRetry();
+								break;
+							}
 							if (outcome !== "drop")
 								refused.push({ intent, reason: outcome.refused });
 						}
@@ -84,11 +117,15 @@ export function OutboxProvider({ children }: { children: ReactNode }) {
 					}
 				});
 			} catch (reason) {
-				if (live && classifyReplayError(reason) !== "retry") setFailed(true);
+				if (classifyReplayError(reason) === "retry") scheduleRetry();
+				else if (live) setFailed(true);
 			}
 			if (live && refused.length) setRefusals(refused);
 		};
 		const reconnect = () => {
+			clearTimeout(retryTimer);
+			retryTimer = undefined;
+			retries = 0;
 			void drain();
 		};
 		void readOutbox(uid)
@@ -103,6 +140,8 @@ export function OutboxProvider({ children }: { children: ReactNode }) {
 			window.addEventListener("online", reconnect);
 			return () => {
 				live = false;
+				clearTimeout(retryTimer);
+				retryDrain.current = null;
 				window.removeEventListener("online", reconnect);
 			};
 		}
@@ -111,6 +150,8 @@ export function OutboxProvider({ children }: { children: ReactNode }) {
 		});
 		return () => {
 			live = false;
+			clearTimeout(retryTimer);
+			retryDrain.current = null;
 			subscription.remove();
 		};
 	}, [uid, loading]);
@@ -120,6 +161,7 @@ export function OutboxProvider({ children }: { children: ReactNode }) {
 			if (!uid) throw new Error("Outbox requires a signed-in user");
 			const queueIntent = async () => {
 				setIntents(await updateOutbox(uid, (queue) => enqueue(queue, intent)));
+				if (retryDrain.current?.uid === uid) retryDrain.current.schedule();
 				return "queued" as const;
 			};
 			if (!isOnline()) return queueIntent();

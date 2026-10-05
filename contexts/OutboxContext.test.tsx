@@ -539,3 +539,72 @@ it("reports unreadable storage and does not replace its contents", async () => {
 	});
 	expect(mockStore["outbox:marcus"]).toBe("broken JSON");
 });
+
+it("retries online unavailable queue and recovers without online event", async () => {
+	jest.useFakeTimers();
+	try {
+		jest.mocked(isOnline).mockReturnValue(true);
+		const hook = open();
+		await act(async () => {});
+		jest.mocked(replayIntent).mockRejectedValueOnce({ code: "unavailable" });
+		await act(async () => {
+			await hook.result.current.submit(
+				intent,
+				jest.fn().mockRejectedValue({ code: "unavailable" }),
+			);
+		});
+		expect(stored()).toEqual([intent]);
+		await act(async () => {
+			await jest.advanceTimersByTimeAsync(1000);
+		});
+		expect(replayIntent).toHaveBeenCalledTimes(1);
+		expect(stored()).toEqual([intent]);
+		await act(async () => {
+			await jest.advanceTimersByTimeAsync(5000);
+		});
+		expect(replayIntent).toHaveBeenCalledTimes(2);
+		expect(stored()).toEqual([]);
+		expect(hook.result.current.intents).toEqual([]);
+		expect(notice()?.visible).toBe(false);
+		hook.unmount();
+	} finally {
+		jest.useRealTimers();
+	}
+});
+
+it("bounds online retries and cancels timer on unmount", async () => {
+	jest.useFakeTimers();
+	const timeout = jest.spyOn(globalThis, "setTimeout");
+	const clear = jest.spyOn(globalThis, "clearTimeout");
+	try {
+		jest.mocked(isOnline).mockReturnValue(true);
+		jest.mocked(replayIntent).mockRejectedValue({ code: "unavailable" });
+		const hook = open();
+		await act(async () => {});
+		await act(async () => {
+			await hook.result.current.submit(
+				intent,
+				jest.fn().mockRejectedValue({ code: "unavailable" }),
+			);
+		});
+		await act(async () => {
+			await jest.advanceTimersByTimeAsync(120000);
+		});
+		expect(replayIntent).toHaveBeenCalledTimes(4);
+		expect(stored()).toEqual([intent]);
+		await act(async () => {
+			await hook.result.current.submit({ ...intent, id: "next" }, jest.fn());
+		});
+		const retryTimer = timeout.mock.results.at(-1)?.value;
+		hook.unmount();
+		expect(clear).toHaveBeenCalledWith(retryTimer);
+		await act(async () => {
+			await jest.advanceTimersByTimeAsync(120000);
+		});
+		expect(replayIntent).toHaveBeenCalledTimes(4);
+	} finally {
+		timeout.mockRestore();
+		clear.mockRestore();
+		jest.useRealTimers();
+	}
+});

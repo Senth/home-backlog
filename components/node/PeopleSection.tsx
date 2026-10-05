@@ -78,6 +78,9 @@ export function PeopleSection({
 
 	const isRoot = node.parentId === null;
 	const isPrivate = node.visibility === "private";
+	const selectedParticipants = isPrivate
+		? (flip.pendingFor(node.id)?.participantIds ?? node.participantIds)
+		: node.participantIds;
 	const rootTitle = root?.title ?? "";
 	const assignable = assignableMembers(root, members);
 	const stale = staleAssignees(node, assignable);
@@ -164,7 +167,7 @@ export function PeopleSection({
 							isPrivate ? "detail.participantsPrivate" : "detail.participants",
 						)}
 						members={members}
-						value={node.participantIds}
+						value={selectedParticipants}
 						onChange={saveParticipants}
 						unknownLabel={t("members.unknown")}
 						lockedUid={lockedUid}

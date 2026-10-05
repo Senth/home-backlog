@@ -43,12 +43,36 @@ export function enqueue(queue: readonly Intent[], intent: Intent): Intent[] {
 		earlier.homeId === intent.homeId &&
 		"locationId" in earlier === "locationId" in intent;
 	if (intent.kind === "deleteLocation" || intent.kind === "deleteNode") {
+		const parents = new Map<string, string | null>();
+		for (const earlier of [...queue, intent].filter(sameTree)) {
+			if (!parents.has(subjectId(earlier)))
+				parents.set(subjectId(earlier), earlier.sourceParentId);
+			earlier.sourceAncestorIds.forEach((id, index, ancestors) => {
+				if (!parents.has(id)) parents.set(id, ancestors[index - 1] ?? null);
+			});
+		}
+		for (const earlier of queue) {
+			if (sameTree(earlier) && "parentId" in earlier)
+				parents.set(subjectId(earlier), earlier.parentId);
+		}
+		const inDeletedSubtree = (earlier: Intent) => {
+			let id: string | null = subjectId(earlier);
+			const seen = new Set<string>();
+			while (id !== null && !seen.has(id)) {
+				if (id === subjectId(intent)) return true;
+				seen.add(id);
+				id = parents.get(id) ?? null;
+			}
+			return false;
+		};
 		return [
 			...queue.filter(
 				(earlier) =>
 					!sameTree(earlier) ||
 					(subjectId(earlier) !== subjectId(intent) &&
-						!earlier.sourceAncestorIds.includes(subjectId(intent))),
+						(("parentId" in earlier &&
+							!earlier.sourceAncestorIds.includes(subjectId(intent))) ||
+							!inDeletedSubtree(earlier))),
 			),
 			intent,
 		];

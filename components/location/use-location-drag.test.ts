@@ -5,7 +5,7 @@ import {
 	screenKey,
 	useLocationDrag,
 } from "@/components/location/use-location-drag";
-import { moveLocation } from "@/data/locations";
+import { moveLocation, reorderLocation } from "@/data/locations";
 import type { OutboxIntent } from "@/data/outbox-store";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { Location } from "@/models/locations";
@@ -20,11 +20,13 @@ import { projectLocations } from "@/models/outbox";
 
 jest.mock("@/data/locations", () => ({
 	moveLocation: jest.fn(() => Promise.resolve()),
+	reorderLocation: jest.fn(() => Promise.resolve()),
 }));
 
 const mockSubmit = jest.fn();
+let mockIntents: OutboxIntent[] = [];
 jest.mock("@/contexts/OutboxContext", () => ({
-	useOutbox: () => ({ submit: mockSubmit }),
+	useOutbox: () => ({ submit: mockSubmit, intents: mockIntents }),
 }));
 jest.mock("@/data/outbox-store", () => ({
 	intentMetadata: (homeId: string, subject: Location) => ({
@@ -138,6 +140,7 @@ function screen() {
 }
 
 beforeEach(() => {
+	mockIntents = [];
 	jest.useFakeTimers();
 	reducedMotion.mockReturnValue(false);
 	mockSubmit.mockImplementation(
@@ -153,6 +156,63 @@ afterEach(() => {
 });
 
 describe("useLocationDrag", () => {
+	it("rank-only sibling drop uses native reorder without outbox intent", async () => {
+		mockSubmit.mockResolvedValue("queued");
+		const { measured, gesture, onQueued } = screen();
+		const attic = gesture(tree[4]);
+		attic.grab({ x: 200, y: 450 });
+		await measured();
+		attic.move({ x: 200, y: 8 });
+		attic.drop({ x: 200, y: 8 });
+		await act(async () => {});
+		expect(reorderLocation).toHaveBeenCalledWith(
+			homeId,
+			"attic",
+			expect.any(String),
+		);
+		expect(moved).not.toHaveBeenCalled();
+		expect(mockSubmit).not.toHaveBeenCalled();
+		expect(onQueued).not.toHaveBeenCalled();
+	});
+	it("rank-only drop on projected move queues updated rank for same destination", async () => {
+		mockIntents = [
+			{
+				id: "pending",
+				homeId,
+				queuedAt: 1,
+				title: "cellar",
+				sourceParentId: "house",
+				sourceAncestorIds: ["house"],
+				kind: "moveLocation",
+				locationId: "cellar",
+				parentId: "garden",
+				rank: "V1",
+			},
+		];
+		mockSubmit.mockResolvedValue("queued");
+		const projected = projectLocations(tree, mockIntents, homeId).locations;
+		const { view, measured, gesture, onQueued } = screen();
+		view.rerender({ locations: projected });
+		const cellar = gesture(projected[3]);
+		cellar.grab({ x: 200, y: 350 });
+		await measured();
+		cellar.move({ x: 200, y: 208 });
+		cellar.drop({ x: 200, y: 208 });
+		await act(async () => {});
+		expect(mockSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: "moveLocation",
+				locationId: "cellar",
+				parentId: "garden",
+				sourceParentId: "garden",
+				rank: expect.any(String),
+			}),
+			expect.any(Function),
+		);
+		expect(mockSubmit.mock.calls[0][0].rank).not.toBe("V1");
+		expect(reorderLocation).not.toHaveBeenCalled();
+		expect(onQueued).toHaveBeenCalled();
+	});
 	it("offline drop submits and lands in projected tree without flying back", async () => {
 		mockSubmit.mockResolvedValue("queued");
 		const { view, measured, gesture, onQueued, onPutBack, onError } = screen();

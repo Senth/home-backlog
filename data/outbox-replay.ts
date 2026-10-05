@@ -1,5 +1,10 @@
 import { getDocFromServer } from "firebase/firestore";
-import { deleteLocation, locationRef, moveLocation } from "@/data/locations";
+import {
+	deleteLocation,
+	locationRef,
+	moveLocation,
+	reorderLocation,
+} from "@/data/locations";
 import {
 	deleteNode,
 	flipVisibility,
@@ -29,7 +34,14 @@ export async function replayIntent(intent: Intent, uid: string): Promise<void> {
 				code: "target-gone",
 			});
 		const parent = target?.exists() ? toLocation(target) : null;
-		if (subject.parentId === intent.parentId) return;
+		if (subject.parentId === intent.parentId) {
+			if (
+				intent.sourceParentId === intent.parentId &&
+				subject.rank !== intent.rank
+			)
+				return reorderLocation(homeId, subject.id, intent.rank);
+			return;
+		}
 		return moveLocation(homeId, subject, parent, intent.rank);
 	}
 	const snapshot = await getDocFromServer(nodeRef(homeId, intent.nodeId));

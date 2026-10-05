@@ -291,7 +291,7 @@ export function LocationRow({
 }: LocationRowProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
-	const { submit } = useOutbox();
+	const { intents, submit } = useOutbox();
 	const locationColor = useLocationColors(location.color).fill;
 	const count = counts.get(location.id) ?? 0;
 	const anchor = useRef<View | null>(null);
@@ -317,7 +317,31 @@ export function LocationRow({
 		close();
 		const rank = movedRank(siblings, siblingIndex, delta);
 		if (rank === null) return;
-		reorderLocation(homeId, location.id, rank);
+		if (
+			!intents.some(
+				(intent) =>
+					intent.kind === "moveLocation" &&
+					intent.homeId === homeId &&
+					intent.locationId === location.id,
+			)
+		) {
+			reorderLocation(homeId, location.id, rank);
+			return;
+		}
+		const intent: OutboxIntent = {
+			...intentMetadata(homeId, location),
+			kind: "moveLocation",
+			locationId: location.id,
+			parentId: location.parentId,
+			targetTitle: locations.find((each) => each.id === location.parentId)
+				?.title,
+			rank,
+		};
+		void submit(intent, () => reorderLocation(homeId, location.id, rank))
+			.then((result) => {
+				if (result === "queued") onQueued(intent);
+			})
+			.catch((reason) => onError(locationErrorKey(reason)));
 	};
 
 	const remove = async () => {

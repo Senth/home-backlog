@@ -10,7 +10,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { ReactTestInstance } from "react-test-renderer";
 import { DragArea } from "@/components/board/DragArea";
 import { LocationRow } from "@/components/location/LocationRow";
-import { deleteLocation } from "@/data/locations";
+import { deleteLocation, reorderLocation } from "@/data/locations";
 import type { OutboxIntent } from "@/data/outbox-store";
 import type { Location } from "@/models/locations";
 import { lightTheme } from "@/theme";
@@ -30,8 +30,9 @@ jest.mock("@/contexts/AuthContext", () => ({
 }));
 
 const mockSubmit = jest.fn();
+let mockIntents: OutboxIntent[] = [];
 jest.mock("@/contexts/OutboxContext", () => ({
-	useOutbox: () => ({ submit: mockSubmit }),
+	useOutbox: () => ({ submit: mockSubmit, intents: mockIntents }),
 }));
 
 jest.mock("@/data/outbox-store", () => ({
@@ -139,6 +140,8 @@ function buttons(root: ReactTestInstance): ReactTestInstance[] {
 
 describe("LocationRow", () => {
 	beforeEach(() => {
+		jest.useFakeTimers();
+		mockIntents = [];
 		mockSubmit.mockImplementation(
 			async (_intent: OutboxIntent, runOnline: () => Promise<void>) => {
 				await runOnline();
@@ -146,6 +149,61 @@ describe("LocationRow", () => {
 			},
 		);
 		jest.mocked(deleteLocation).mockResolvedValue();
+		jest.mocked(reorderLocation).mockResolvedValue();
+	});
+	afterEach(async () => {
+		await act(async () => {
+			await jest.runOnlyPendingTimersAsync();
+		});
+		jest.useRealTimers();
+	});
+	it("sibling menu reorder merges rank into pending location move", async () => {
+		const parent = { ...house, id: "parent" };
+		const subject = {
+			...house,
+			parentId: "parent",
+			ancestorIds: ["parent"],
+			rank: "V0",
+		};
+		const sibling = { ...subject, id: "sibling", rank: "V1" };
+		mockIntents = [
+			{
+				id: "pending",
+				homeId: "home-1",
+				queuedAt: 1,
+				title: house.title,
+				sourceParentId: null,
+				sourceAncestorIds: [],
+				kind: "moveLocation",
+				locationId: house.id,
+				parentId: "parent",
+				rank: house.rank,
+			},
+		];
+		mockSubmit.mockResolvedValue("queued");
+		const { root, getByLabelText } = renderRow({
+			location: subject,
+			locations: [parent, subject, sibling],
+		});
+		fireEvent.press(getByLabelText("locations.actions"), {
+			stopPropagation: jest.fn(),
+		});
+		const item = root
+			.findAllByType(Menu.Item)
+			.find((each) => each.props.title === "locations.moveDown");
+		expect(item).toBeDefined();
+		await act(async () => item?.props.onPress());
+		expect(mockSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: "moveLocation",
+				locationId: house.id,
+				parentId: "parent",
+				sourceParentId: "parent",
+				rank: expect.any(String),
+			}),
+			expect.any(Function),
+		);
+		expect(reorderLocation).not.toHaveBeenCalled();
 	});
 
 	it("offline still offers Move and Delete without a connection hint", () => {

@@ -139,8 +139,31 @@ it.each(moves)(
 			.mockResolvedValueOnce(stored("target") as never);
 		await replayIntent(intent, "uid");
 		expect(writeBatch).not.toHaveBeenCalled();
+		expect(updateDoc).not.toHaveBeenCalled();
 	},
 );
+
+it("replays merged rank after pending location move already reached destination", async () => {
+	jest
+		.mocked(getDocFromServer)
+		.mockResolvedValueOnce(
+			stored("subject", {
+				...nodeData,
+				parentId: "target",
+				ancestorIds: ["target"],
+			}) as never,
+		)
+		.mockResolvedValueOnce(stored("target") as never);
+	await replayIntent(
+		{ ...moves[0], sourceParentId: "target", sourceAncestorIds: ["target"] },
+		"uid",
+	);
+	expect(updateDoc).toHaveBeenCalledWith(
+		{ id: "subject" },
+		{ rank: "a9", updatedAt: "server-timestamp" },
+	);
+	expect(writeBatch).not.toHaveBeenCalled();
+});
 
 it.each(moves)(
 	"uses fresh hierarchy and stored rank for $kind",
