@@ -1344,3 +1344,61 @@ test("32: the board's filter pills center glyph, word and ✕ on one line", asyn
 		`filter pill centering (${testInfo.project.name})`,
 	).toEqual([]);
 });
+
+test("33: at 195px the filter sheet's reach answers are whole on their own lines, in this locale", async ({
+	page,
+}, testInfo) => {
+	test.skip(
+		page.viewportSize()?.width !== VIEWPORTS.phone.width,
+		"the 200% claim pins a 195px window; the desktop project would re-measure it identically",
+	);
+
+	// #415. The reach control is the sheet's one segmented pair, and Paper's
+	// `SegmentedButtons` pins each label to one line — at this window both
+	// Swedish answers read *Den…* and *Allt l…*. Below `denseBreakpoint` the
+	// component swaps the control for wrapping chips, the card editor's own
+	// narrow-width swap, so the claim is measured on both halves: the two
+	// labels hold the same no-clip box test 21 holds the app bar titles to,
+	// and each chip's pressable holds the `touchTarget` floor the contract
+	// makes rows keep before they shrink.
+	await page.setViewportSize(VIEWPORTS.phoneZoomed);
+	const strings = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
+
+	await gotoAndSettle(page, BOARD);
+	await page.getByRole("button", { name: strings.board.filter.title }).click();
+	const reachChips = page
+		.getByTestId("board-filter-sheet")
+		.locator('[data-testid="chip"]');
+	await expect(reachChips).toHaveCount(2);
+
+	for (const label of [
+		strings.board.filter.thisBoard,
+		strings.board.filter.everythingBelow,
+	]) {
+		const box = await page
+			.getByTestId("board-filter-sheet")
+			.getByText(label, { exact: true })
+			.evaluate((node) => ({
+				scrollWidth: node.scrollWidth,
+				clientWidth: node.clientWidth,
+			}));
+		expect(
+			box.scrollWidth,
+			`"${label}" is clipped at 195px`,
+		).toBeLessThanOrEqual(box.clientWidth + 1);
+	}
+
+	const heights = await reachChips.evaluateAll((nodes) =>
+		nodes.map((node) => node.getBoundingClientRect().height),
+	);
+	for (const height of heights) {
+		expect(
+			height,
+			`a reach chip's pressable is ${height}px, under the ${touchTarget - 1}px floor`,
+		).toBeGreaterThanOrEqual(touchTarget - 1);
+	}
+
+	// Escape dismisses without writing: the sheet edits the live filter, and
+	// this test sets nothing.
+	await page.keyboard.press("Escape");
+});

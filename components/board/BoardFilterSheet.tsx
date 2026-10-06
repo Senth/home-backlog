@@ -1,9 +1,10 @@
 import { type RefObject, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import {
 	Appbar,
 	Button,
+	Chip,
 	Divider,
 	SegmentedButtons,
 	Switch,
@@ -35,6 +36,8 @@ import type { Priority } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import {
 	border,
+	denseBreakpoint,
+	outlinedTouchTarget,
 	radius,
 	segmentedLabelLineHeight,
 	size,
@@ -113,6 +116,7 @@ export function BoardFilterSheet({
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const { user } = useAuth();
+	const { width } = useWindowDimensions();
 	const [openField, setOpenField] = useState<string | null>(null);
 
 	// Reset when the sheet *opens*, during render, the way `CardEditForm`
@@ -227,28 +231,69 @@ export function BoardFilterSheet({
 					<Text variant="titleMedium">{t("board.filter.title")}</Text>
 
 					<View>
-						<SegmentedButtons
-							value={filter?.reach ?? "board"}
-							onValueChange={(value) =>
-								onChange({
-									mode: filter?.mode ?? "open",
-									reach: value as "board" | "subtree",
-									conditions,
-								})
-							}
-							buttons={[
-								{
-									value: "board",
-									label: t("board.filter.thisBoard"),
-									labelStyle: { lineHeight: segmentedLabelLineHeight },
-								},
-								{
-									value: "subtree",
-									label: t("board.filter.everythingBelow"),
-									labelStyle: { lineHeight: segmentedLabelLineHeight },
-								},
-							]}
-						/>
+						{/* Below `denseBreakpoint` the reach answers become chips that
+					    wrap, the card editor's own swap for its mode control: Paper's
+					    `SegmentedButtons` pins its labels to one line, and at 195px
+					    both Swedish answers ellipsized to *Den…* / *Allt l…* (#415). */}
+						{width < denseBreakpoint ? (
+							<View
+								style={{
+									flexDirection: "row",
+									flexWrap: "wrap",
+									gap: space.sm,
+								}}
+							>
+								{(["board", "subtree"] as const).map((reach) => {
+									const chosen = (filter?.reach ?? "board") === reach;
+									return (
+										<Chip
+											key={reach}
+											mode={chosen ? "flat" : "outlined"}
+											selected={chosen}
+											showSelectedCheck={false}
+											aria-pressed={chosen}
+											onPress={() =>
+												onChange({
+													mode: filter?.mode ?? "open",
+													reach,
+													conditions,
+												})
+											}
+											style={{ minHeight: outlinedTouchTarget }}
+										>
+											{t(
+												reach === "board"
+													? "board.filter.thisBoard"
+													: "board.filter.everythingBelow",
+											)}
+										</Chip>
+									);
+								})}
+							</View>
+						) : (
+							<SegmentedButtons
+								value={filter?.reach ?? "board"}
+								onValueChange={(value) =>
+									onChange({
+										mode: filter?.mode ?? "open",
+										reach: value as "board" | "subtree",
+										conditions,
+									})
+								}
+								buttons={[
+									{
+										value: "board",
+										label: t("board.filter.thisBoard"),
+										labelStyle: { lineHeight: segmentedLabelLineHeight },
+									},
+									{
+										value: "subtree",
+										label: t("board.filter.everythingBelow"),
+										labelStyle: { lineHeight: segmentedLabelLineHeight },
+									},
+								]}
+							/>
+						)}
 						{/* The sentence under the control, the same escape the card
 						    editor's segmented controls use: it says what the choice
 						    means, so the two answers cannot read as one four-way one. */}

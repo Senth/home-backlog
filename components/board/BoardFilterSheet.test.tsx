@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
+import * as ReactNative from "react-native";
 import { Provider } from "react-native-paper";
 import { BoardFilterSheet } from "@/components/board/BoardFilterSheet";
 import { PriorityDot } from "@/components/board/PriorityDot";
@@ -8,6 +9,7 @@ import type { Member } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
 import type { Location } from "@/models/locations";
 import { lightTheme } from "@/theme";
+import { denseBreakpoint } from "@/theme/tokens";
 
 jest.mock("react-i18next", () => ({
 	// Keys asserted, not sentences — `CheckListPicker.test.tsx` for the reasoning.
@@ -81,6 +83,8 @@ function renderSheet(props: {
 }
 
 describe("BoardFilterSheet", () => {
+	afterEach(() => jest.restoreAllMocks());
+
 	it("renders the nine fields, an unset one reading Not set", () => {
 		renderSheet({});
 
@@ -179,6 +183,29 @@ describe("BoardFilterSheet", () => {
 	});
 
 	it("the reach control writes the stored filter, with its sentence following", () => {
+		const onChange = jest.fn();
+		renderSheet({ onChange });
+
+		expect(
+			screen.getByText("board.filter.thisBoardDescription"),
+		).toBeOnTheScreen();
+		fireEvent.press(screen.getByText("board.filter.everythingBelow"));
+
+		expect(onChange).toHaveBeenCalledWith(filter({ reach: "subtree" }));
+	});
+
+	/**
+	 * Below `denseBreakpoint` the reach answers are wrapping chips (#415):
+	 * Paper's `SegmentedButtons` pins its labels to one line, and at 195px —
+	 * the 200% window — both Swedish answers ellipsized. Same narrow-width
+	 * swap as the card editor's mode control, so the same proof: the chips
+	 * render and a tap still writes the chosen reach.
+	 */
+	it("below denseBreakpoint the reach answers wrap as chips and still write the reach", () => {
+		jest.spyOn(ReactNative, "useWindowDimensions").mockReturnValue({
+			...ReactNative.Dimensions.get("window"),
+			width: denseBreakpoint - 1,
+		});
 		const onChange = jest.fn();
 		renderSheet({ onChange });
 
