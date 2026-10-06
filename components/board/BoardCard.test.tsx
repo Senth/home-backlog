@@ -2,6 +2,11 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import type { ReactElement } from "react";
 import { ThemeProvider } from "react-native-paper";
 import { BoardCard } from "@/components/board/BoardCard";
+
+jest.mock("@/contexts/OutboxContext", () => ({
+	useOutbox: () => ({ intents: [] }),
+}));
+
 import enUS from "@/i18n/locales/en-US.json";
 import svSE from "@/i18n/locales/sv-SE.json";
 import type { LabelWithId } from "@/models/label";

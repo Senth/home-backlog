@@ -4,8 +4,15 @@ import { useOverview } from "@/hooks/use-overview";
 import { usePairedListener } from "@/hooks/use-paired-listener";
 import { toCalendarDay } from "@/models/due-date";
 import type { CardCondition } from "@/models/filter";
+import { type Node, newNodeData } from "@/models/node";
+import type { Intent } from "@/models/outbox";
 import { doneWithinDays } from "@/models/overview";
 import type { Card } from "@/models/overview-cards";
+
+let mockIntents: Intent[] = [];
+jest.mock("@/contexts/OutboxContext", () => ({
+	useOutbox: () => ({ intents: mockIntents }),
+}));
 
 jest.mock("@/contexts/AuthContext", () => ({
 	useAuth: () => ({ user: { uid: "uid-me" } }),
@@ -35,6 +42,7 @@ jest.mock("@/hooks/use-paired-listener", () => ({
 
 beforeEach(() => {
 	mockCards = [];
+	mockIntents = [];
 	jest.useFakeTimers();
 });
 
@@ -71,6 +79,53 @@ function pairs() {
 }
 
 describe("useOverview", () => {
+	it("hides pending subjects from roots, open pool and done, scoped by home", () => {
+		const entries: Node[] = ["deleted", "moved", "kept"].map((id) => ({
+			...newNodeData({ title: id, rank: "V0" }),
+			id,
+			createdAt: null,
+			completedAt: null,
+			updatedAt: null,
+			createdBy: "me",
+		}));
+		const base = {
+			homeId: "home-1",
+			queuedAt: 1,
+			title: "Subject",
+			sourceParentId: null,
+			sourceAncestorIds: [],
+		};
+		mockIntents = [
+			{ ...base, id: "delete", kind: "deleteNode", nodeId: "deleted" },
+			{
+				...base,
+				id: "move",
+				kind: "reparentNode",
+				nodeId: "moved",
+				parentId: "away",
+				rank: "V0",
+			},
+			{
+				...base,
+				homeId: "other",
+				id: "other",
+				kind: "deleteNode",
+				nodeId: "kept",
+			},
+		];
+		jest.mocked(usePairedListener).mockReturnValue({
+			nodes: entries,
+			loading: false,
+			failed: false,
+			retry: jest.fn(),
+		});
+		const hook = renderHook(() => useOverview("home-1"));
+		for (const pair of Object.values(hook.result.current))
+			expect(pair.nodes.map((each) => each.id)).toEqual(["kept"]);
+		mockIntents = [];
+		hook.rerender(undefined);
+		expect(hook.result.current.pool.nodes).toEqual(entries);
+	});
 	/**
 	 * The done pair's `doneSince(now)` is only as fresh as its subscription:
 	 * a screen open since yesterday must re-ask it at the turnover. The pool

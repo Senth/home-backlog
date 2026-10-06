@@ -316,7 +316,7 @@ export async function getNode(
 	} catch (reason) {
 		// `unavailable` is the network saying it could not ask, not the rules
 		// saying no — answering anything here would be a guess dressed as data.
-		if ((reason as { code?: string } | null)?.code === "unavailable") {
+		if (isUnavailable(reason)) {
 			return undefined;
 		}
 		// A refusal is the answer, not an error: an unreadable ancestor is the
@@ -328,6 +328,10 @@ export async function getNode(
 		}
 		return null;
 	}
+}
+
+export function isUnavailable(reason: unknown): boolean {
+	return (reason as { code?: string } | null)?.code === "unavailable";
 }
 
 /**
@@ -779,8 +783,8 @@ export interface FlipProgress {
  * server, writes in depth order, and `flipPlan` drops every document already at
  * the target, so retrying finishes the job rather than repeating it.
  *
- * Online only, and the caller disables the control offline rather than letting
- * this fail after the fact. Each write changes `visibility`, so
+ * The caller sends this through the outbox: offline changes queue, then replay
+ * calls this function when connected. Each write changes `visibility`, so
  * `privacyUnchanged()` is false and one parent `get()` is spent per document —
  * affordable because these are single-document writes, not a batch, so the
  * twenty-document-access budget does not apply.
@@ -903,18 +907,30 @@ function refusedMove(code: string, message: string): Error {
 	return error;
 }
 
+function refuseOversizedSubtree(writes: number): void {
+	if (writes <= 500) return;
+	throw refusedMove(
+		"subtree-too-large",
+		"This change would exceed one atomic batch.",
+	);
+}
+
 /**
  * The i18n key for a refused move; anything else is a plain save failure.
  */
 export type MoveErrorKey =
 	| "error.moveOwnSubtree"
 	| "error.moveVisibility"
+	| "error.targetGone"
+	| "error.subtreeTooLarge"
 	| "error.saveFailed";
 
 export function moveErrorKey(reason: unknown): MoveErrorKey {
 	const code = (reason as { code?: string } | null)?.code;
 	if (code === "move-own-subtree") return "error.moveOwnSubtree";
 	if (code === "move-visibility") return "error.moveVisibility";
+	if (code === "target-gone") return "error.targetGone";
+	if (code === "subtree-too-large") return "error.subtreeTooLarge";
 	return "error.saveFailed";
 }
 
@@ -947,6 +963,12 @@ export async function reparentNode(
 	const ancestorIds = childAncestorIds(parent);
 	const participants = await movedParticipants(homeId, node, parent);
 	const descendants = await subtreeOf(homeId, node, uid);
+	refuseOversizedSubtree(
+		descendants.length +
+			1 +
+			Number(node.parentId !== null) +
+			Number(parent !== null),
+	);
 
 	const batch = writeBatch(db);
 	batch.update(nodeRef(homeId, node.id), {
@@ -1002,6 +1024,9 @@ export async function deleteNode(
 	uid: string,
 ): Promise<void> {
 	const descendants = await subtreeOf(homeId, node, uid);
+	refuseOversizedSubtree(
+		descendants.length + 1 + Number(node.parentId !== null),
+	);
 
 	const batch = writeBatch(db);
 	for (const snapshot of descendants) batch.delete(snapshot.ref);

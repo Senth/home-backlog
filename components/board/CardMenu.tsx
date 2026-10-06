@@ -10,6 +10,7 @@ import { AppMenu } from "@/components/ui/AppMenu";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
+import { useOutbox } from "@/contexts/OutboxContext";
 import {
 	boardOnce,
 	deleteNode,
@@ -19,9 +20,11 @@ import {
 	reparentNode,
 	updateNode,
 } from "@/data/nodes";
+import { intentMetadata, type OutboxIntent } from "@/data/outbox-store";
 import { useTabTrap } from "@/hooks/use-modal-focus";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import {
+	compareNodes,
 	type Node,
 	rankAtEnd,
 	rankBetween,
@@ -34,6 +37,7 @@ import { icon, size, space, touchTarget } from "@/theme/tokens";
 /** A message the board says after an action, with the way back if there is one. */
 export interface Notice {
 	text: string;
+	intentId?: string;
 	undo?: () => void;
 }
 
@@ -84,10 +88,7 @@ type Destination = Node | null | "up";
  * component and not by `Menu` — see `rootPageHeight`.
  *
  * **Offline.** Move, position and rename queue optimistically, which is what a
- * board in a shed needs. `Move under…` and `Delete` require a connection and say
- * so: both read from the server on purpose, because "no children in the cache"
- * is not "no children" — a cold cache would let a subtree delete miss
- * descendants and orphan them.
+ * board in a shed needs.
  */
 export function CardMenu({
 	homeId,
@@ -103,6 +104,7 @@ export function CardMenu({
 	const { t } = useTranslation();
 	const { user } = useAuth();
 	const online = useOnlineStatus();
+	const { submit, undo } = useOutbox();
 
 	const { activeHome } = useHome();
 	const [open, setOpen] = useState(false);
@@ -179,6 +181,23 @@ export function CardMenu({
 
 	const failed = (reason: unknown) =>
 		console.error("Could not move the card:", reason);
+	const queuedNotice = (intent: OutboxIntent) => {
+		const key =
+			intent.kind === "deleteNode"
+				? "outbox.queuedDelete"
+				: intent.kind === "reparentNode" && intent.parentId !== null
+					? "outbox.queuedMove"
+					: "outbox.queuedMoveTop";
+		onNotice({
+			text: t(key, { name: intent.title, target: intent.targetTitle }),
+			intentId: intent.id,
+			undo: () => {
+				void undo(intent.id).catch(() =>
+					onNotice({ text: t("error.saveFailed") }),
+				);
+			},
+		});
+	};
 
 	/**
 	 * A one-tap move that appends to the end of the destination column.
@@ -223,32 +242,53 @@ export function CardMenu({
 	 *
 	 * The destination board is not on screen, and a rank is ordered within its
 	 * `(parentId, status)` column — so it is read once for the neighbours the new
-	 * rank is computed against. `reparentNode` already requires a connection and
-	 * already reads the subtree from the server, so this changes nothing about
-	 * when it works.
+	 * rank is computed against.
 	 */
 	const moveUnder = async (destination: Destination) => {
 		close();
 		if (user === null) return;
 
 		try {
-			const target =
+			const parentId =
 				destination === "up"
-					? parent?.parentId
-						? await requireNode(homeId, parent.parentId)
-						: null
+					? (parent?.parentId ?? null)
+					: (destination?.id ?? null);
+			let target =
+				destination === "up"
+					? ([...nodes, ...hidden].find((card) => card.id === parentId) ?? null)
 					: destination;
-
-			const board = await boardOnce(homeId, target?.id ?? null, user.uid);
-			const last = board.filter((card) => card.status === node.status).at(-1);
-
-			await reparentNode(
-				homeId,
-				node,
-				target,
-				rankAtEnd(last?.rank ?? null),
-				user.uid,
-			);
+			const cachedLast = [...nodes, ...hidden]
+				.filter(
+					(card) =>
+						card.parentId === parentId &&
+						card.status === node.status &&
+						card.id !== node.id,
+				)
+				.sort(compareNodes)
+				.at(-1);
+			const intent: OutboxIntent = {
+				...intentMetadata(homeId, node),
+				kind: "reparentNode",
+				nodeId: node.id,
+				parentId,
+				targetTitle:
+					target?.title ??
+					(parentId === null ? undefined : t("board.moveUnderUp")),
+				rank: rankAtEnd(cachedLast?.rank ?? null),
+			};
+			const result = await submit(intent, async () => {
+				if (parentId !== null && target === null)
+					target = await requireNode(homeId, parentId);
+				intent.targetTitle = target?.title;
+				const board = await boardOnce(homeId, parentId, user.uid);
+				const last = board.filter((card) => card.status === node.status).at(-1);
+				intent.rank = rankAtEnd(last?.rank ?? null);
+				await reparentNode(homeId, node, target, intent.rank, user.uid);
+			});
+			if (result === "queued") {
+				queuedNotice(intent);
+				return;
+			}
 			onNotice({
 				text: t("board.movedUnder", {
 					title: target?.title ?? t("board.root"),
@@ -308,7 +348,15 @@ export function CardMenu({
 		if (user === null) return;
 
 		try {
-			await deleteNode(homeId, node, user.uid);
+			const intent: OutboxIntent = {
+				...intentMetadata(homeId, node),
+				kind: "deleteNode",
+				nodeId: node.id,
+			};
+			const result = await submit(intent, () =>
+				deleteNode(homeId, node, user.uid),
+			);
+			if (result === "queued") queuedNotice(intent);
 		} catch (reason) {
 			console.error("Could not delete the card:", reason);
 			onNotice({ text: t("error.saveFailed") });
@@ -376,7 +424,7 @@ export function CardMenu({
 								leadingIcon="file-tree-outline"
 								title={t("board.moveUnder")}
 								onPress={() => setPage("under")}
-								disabled={!online || (hosts.length === 0 && parent === null)}
+								disabled={hosts.length === 0 && parent === null}
 							/>
 							<Menu.Item
 								leadingIcon="pause-circle-outline"
@@ -406,14 +454,7 @@ export function CardMenu({
 									close();
 									setDeleting(true);
 								}}
-								disabled={!online}
 							/>
-							{/* Both of the disabled ones read from the server on purpose, so
-						    the hint says what they need rather than letting the tap fail
-						    after the fact. */}
-							{online ? null : (
-								<Menu.Item disabled title={t("board.offlineHint")} />
-							)}
 						</View>
 					) : (
 						/* One card per row, so these are the pages that outgrow the height
@@ -528,9 +569,6 @@ export function CardMenu({
 										}}
 										disabled={!online}
 									/>
-									{/* The search reads the server on purpose, so the hint
-								    says what it needs rather than letting the tap fail
-								    after the fact — exactly *Move under…*'s split. */}
 									{online ? null : (
 										<Menu.Item disabled title={t("board.offlineHint")} />
 									)}
@@ -638,9 +676,12 @@ function MenuLabel({ children }: { children: string }) {
  * root.
  */
 async function requireNode(homeId: string, nodeId: string): Promise<Node> {
-	// `undefined` — offline, no answer at all — has the same answer here as a
-	// refusal: up-one-level needs the real node, and neither is it.
-	const node = (await getNode(homeId, nodeId)) ?? null;
+	const node = await getNode(homeId, nodeId);
+	if (node === undefined)
+		throw Object.assign(
+			new Error("The board above this one is not available."),
+			{ code: "unavailable" },
+		);
 	if (node === null) {
 		throw new Error("The board above this one is not readable.");
 	}

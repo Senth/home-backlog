@@ -136,7 +136,6 @@
 		"emptyTitle": "Lägg till platserna runt ditt hem",
 		"emptyBody": "Trädgården, källaren, stugan — bygg trädet nu, lägg in arbetet i det senare.",
 		"actions": "Platsåtgärder",
-		"dragOffline": "Offline — att dra en plats kräver en anslutning.",
 		"putBack": "Lade tillbaka den där den stod."
 	},
 	"homes": {
@@ -220,12 +219,33 @@
 			"empty": "Ingen automation har skrivit här."
 		}
 	},
+	"outbox": {
+		"pendingPrivate": "Ändras till privat när du är online igen.",
+		"pendingShared": "Alla i hemmet får se det när du är online igen.",
+		"pendingParticipants": "Vilka som är med ändras när du är online igen.",
+		"waitingCount_one": "{{count}} väntar på att synkas",
+		"waitingCount_other": "{{count}} väntar på att synkas",
+		"waiting": "Väntar på att synkas",
+		"pendingChanges_one": "{{count}} ändring väntar på anslutning",
+		"pendingChanges_other": "{{count}} ändringar väntar på anslutning",
+		"signOutPending_one": "{{count}} ändring väntar på anslutning. Den synkas nästa gång du loggar in på den här enheten.",
+		"signOutPending_other": "{{count}} ändringar väntar på anslutning. De synkas nästa gång du loggar in på den här enheten.",
+		"queuedMove": "{{name}} flyttas under {{target}} när du är online igen.",
+		"queuedMoveTop": "{{name}} flyttas till översta nivån när du är online igen.",
+		"queuedDelete": "{{name}} tas bort när du är online igen.",
+		"refusedMoveCycle": "Kunde inte flytta {{name}}: {{target}} flyttades inuti den medan du var offline.",
+		"refusedTargetGone": "Kunde inte flytta {{name}}: {{target}} togs bort medan du var offline.",
+		"refusedOther": "Kunde inte synka {{name}}. {{reason}}",
+		"andMore_one": "och {{count}} till",
+		"andMore_other": "och {{count}} till"
+	},
 	"error": {
 		"googleSignIn": "Kunde inte logga in med Google. Försök igen.",
-		"moveOwnSubtree": "Det kortet kan inte flyttas under sig självt eller ett av sina egna kort.",
+		"moveOwnSubtree": "Det går inte att flytta något under sig självt eller något som ligger inuti det.",
 		"moveVisibility": "Ett privat kort kan inte ligga i ett delat projekt, eller tvärtom.",
 		"offline": "Du är offline. Du måste vara uppkopplad för att logga in.",
-		"subtreeTooLarge": "Den platsen har för mycket under sig för att ändras på en gång. Flytta eller ta bort den i mindre delar.",
+		"subtreeTooLarge": "Det finns för mycket inuti för att ändra allt på en gång. Flytta eller ta bort det i mindre delar.",
+		"targetGone": "Det du ville flytta till har tagits bort. Välj vart du vill flytta i stället.",
 		"saveFailed": "Det gick inte att spara. Försök igen."
 	},
 	"board": {

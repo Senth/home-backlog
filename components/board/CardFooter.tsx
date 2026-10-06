@@ -4,11 +4,14 @@ import { type StyleProp, View, type ViewStyle } from "react-native";
 import { Icon, Text } from "react-native-paper";
 import { DueChip } from "@/components/board/DueChip";
 import { FadeText } from "@/components/board/FadeText";
+import { useHome } from "@/contexts/HomeContext";
+import { useOutbox } from "@/contexts/OutboxContext";
 import { useLocationColors } from "@/hooks/use-location-colors";
 import { cardFace } from "@/models/attachment";
 import { showsDue } from "@/models/due-date";
 import type { Location } from "@/models/locations";
 import type { Node } from "@/models/node";
+import { waitingCountFor } from "@/models/outbox";
 import { useAppTheme } from "@/theme";
 import { border, icon, space } from "@/theme/tokens";
 
@@ -161,6 +164,11 @@ export function CardFooter({
 	style,
 }: CardFooterProps) {
 	const { t } = useTranslation();
+	const { activeHome } = useHome();
+	const { intents } = useOutbox();
+	const syncCount = activeHome
+		? waitingCountFor(node.id, intents, activeHome.id)
+		: 0;
 
 	// Only to decide whether the second pair exists — the chip itself, and the
 	// warning color on it, are `DueChip`'s.
@@ -180,7 +188,7 @@ export function CardFooter({
 	const where = location !== undefined || node.effort !== null;
 	const when = showDue || waiting !== null;
 
-	if (!where && !when && !carries) return null;
+	if (!where && !when && !carries && syncCount === 0) return null;
 
 	return (
 		<View style={[{ rowGap: border.hairline }, style]}>
@@ -212,6 +220,11 @@ export function CardFooter({
 						</Fact>
 					)}
 				</Pair>
+			) : null}
+			{syncCount > 0 ? (
+				<Fact source="cloud-upload-outline">
+					{t("outbox.waitingCount", { count: syncCount })}
+				</Fact>
 			) : null}
 		</View>
 	);

@@ -136,7 +136,6 @@
 		"emptyTitle": "Add the places around your home",
 		"emptyBody": "The garden, the basement, the cabin — build the tree now, file work in it later.",
 		"actions": "Location actions",
-		"dragOffline": "Offline — dragging a place needs a connection.",
 		"putBack": "Put back where it was."
 	},
 	"homes": {
@@ -220,12 +219,33 @@
 			"empty": "No automation has written here."
 		}
 	},
+	"outbox": {
+		"pendingPrivate": "Changes to private when you're back online.",
+		"pendingShared": "Changes to everyone in the home when you're back online.",
+		"pendingParticipants": "Who's in it changes when you're back online.",
+		"waitingCount_one": "{{count}} waiting to sync",
+		"waitingCount_other": "{{count}} waiting to sync",
+		"waiting": "Waiting to sync",
+		"pendingChanges_one": "{{count}} change waiting for a connection",
+		"pendingChanges_other": "{{count}} changes waiting for a connection",
+		"signOutPending_one": "{{count}} change is still waiting for a connection. It'll sync next time you sign in here.",
+		"signOutPending_other": "{{count}} changes are still waiting for a connection. They'll sync next time you sign in here.",
+		"queuedMove": "{{name}} moves under {{target}} when you're back online.",
+		"queuedMoveTop": "{{name}} moves to the top level when you're back online.",
+		"queuedDelete": "{{name}} will be deleted when you're back online.",
+		"refusedMoveCycle": "Couldn't move {{name}}: {{target}} was moved inside it while you were offline.",
+		"refusedTargetGone": "Couldn't move {{name}}: {{target}} was deleted while you were offline.",
+		"refusedOther": "Couldn't sync {{name}}. {{reason}}",
+		"andMore_one": "and {{count}} more",
+		"andMore_other": "and {{count}} more"
+	},
 	"error": {
 		"googleSignIn": "Could not sign in with Google. Please try again.",
-		"moveOwnSubtree": "That card cannot be moved under itself or one of its own cards.",
+		"moveOwnSubtree": "It cannot be moved under itself or anything nested inside it.",
 		"moveVisibility": "A private card cannot live inside a shared project, or the other way around.",
 		"offline": "You are offline. Signing in needs a connection.",
-		"subtreeTooLarge": "That location has too much under it to change in one go. Move or delete it in smaller pieces.",
+		"subtreeTooLarge": "There is too much nested inside it to change in one go. Move or delete it in smaller pieces.",
+		"targetGone": "The destination was deleted. Choose somewhere else to move it.",
 		"saveFailed": "Could not save that. Please try again."
 	},
 	"board": {

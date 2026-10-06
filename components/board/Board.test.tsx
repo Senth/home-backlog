@@ -1,10 +1,33 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 // `Provider`, not `ThemeProvider`: the board's Snackbar mounts a Portal host.
-import { Provider, TextInput } from "react-native-paper";
+import { Provider, Snackbar, TextInput } from "react-native-paper";
 // Paper's Snackbar reads the safe-area insets its provider carries.
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { ReactTestInstance } from "react-test-renderer";
 import { Board } from "@/components/board/Board";
+import { CardMenu } from "@/components/board/CardMenu";
+import type { OutboxIntent } from "@/data/outbox-store";
+
+let mockIntents: OutboxIntent[] = [];
+let mockFeedbackVisible = false;
+
+jest.mock("@/contexts/OutboxContext", () => ({
+	useOutbox: () => ({
+		intents: mockIntents,
+		feedbackVisible: mockFeedbackVisible,
+		submit: jest.fn(
+			async (_intent: unknown, runOnline: () => Promise<void>) => {
+				await runOnline();
+				return "saved";
+			},
+		),
+		undo: jest.fn(),
+	}),
+}));
+jest.mock("@/data/outbox-store", () => ({
+	intentMetadata: jest.fn(() => ({ id: "intent-1" })),
+}));
+
 import { DragArea } from "@/components/board/DragArea";
 import { createNode } from "@/data/nodes";
 import type { BoardFilter } from "@/models/board-filter";
@@ -155,6 +178,46 @@ function renderBoard(props: {
 }
 
 describe("Board", () => {
+	beforeEach(() => {
+		mockIntents = [];
+		mockFeedbackVisible = false;
+	});
+
+	it.each(["intent leaves outbox", "global feedback appears"])(
+		"removes card menu queued snackbar immediately when %s",
+		(reason) => {
+			mockIntents = [
+				{
+					id: "intent-1",
+					homeId: "home-1",
+					kind: "deleteNode",
+					nodeId: "node-backlog",
+					title: "Fix the gutter",
+					queuedAt: 1,
+					sourceParentId: null,
+					sourceAncestorIds: [],
+				},
+			];
+			const props = { loading: false, viewport: 800, nodes: [node("backlog")] };
+			const board = renderBoard(props);
+			act(() =>
+				board.UNSAFE_getByType(CardMenu).props.onNotice({
+					text: "outbox.queuedDelete",
+					intentId: "intent-1",
+					undo: jest.fn(),
+				}),
+			);
+			expect(screen.getByText("outbox.queuedDelete")).toBeOnTheScreen();
+			expect(screen.getByText("common.undo")).toBeOnTheScreen();
+			if (reason === "intent leaves outbox") mockIntents = [];
+			else mockFeedbackVisible = true;
+			board.rerenderBoard(props);
+			expect(board.UNSAFE_queryAllByType(Snackbar)).toHaveLength(0);
+			expect(screen.queryByText("outbox.queuedDelete")).toBeNull();
+			expect(screen.queryByText("common.undo")).toBeNull();
+		},
+	);
+
 	// #266: first launch holds `loading` while the cache-only snapshot waits for
 	// the server, and the board below the spinner must not read as empty.
 	it("shows the spinner instead of the columns while loading", () => {

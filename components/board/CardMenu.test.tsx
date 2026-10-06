@@ -1,8 +1,22 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react-native";
 // `Provider`, not `ThemeProvider`: the menu mounts a Portal host.
 import { Provider } from "react-native-paper";
-import { CardMenu } from "@/components/board/CardMenu";
-import { moveNode } from "@/data/nodes";
+import { CardMenu, type Notice } from "@/components/board/CardMenu";
+import {
+	boardOnce,
+	deleteNode,
+	getNode,
+	moveNode,
+	reparentNode,
+} from "@/data/nodes";
+import type { OutboxIntent } from "@/data/outbox-store";
 import type { Node } from "@/models/node";
 import { defaultColumns, rankAtEnd } from "@/models/node";
 import { lightTheme } from "@/theme";
@@ -24,8 +38,24 @@ jest.mock("@/contexts/HomeContext", () => ({
 	useHome: () => ({ activeHome: null }),
 }));
 
+let mockOnline = true;
+const mockSubmit = jest.fn();
+const mockUndo = jest.fn();
+jest.mock("@/contexts/OutboxContext", () => ({
+	useOutbox: () => ({ submit: mockSubmit, undo: mockUndo }),
+}));
+jest.mock("@/data/outbox-store", () => ({
+	intentMetadata: (homeId: string, subject: Node) => ({
+		id: "intent-1",
+		homeId,
+		queuedAt: 1,
+		title: subject.title,
+		sourceParentId: subject.parentId,
+		sourceAncestorIds: subject.ancestorIds,
+	}),
+}));
 jest.mock("@/hooks/use-online-status", () => ({
-	useOnlineStatus: () => true,
+	useOnlineStatus: () => mockOnline,
 }));
 
 // The menu's under page reads the board above from the server; the gate under
@@ -86,6 +116,7 @@ function renderMenu(props: {
 	hidden?: Node[];
 	node?: Node;
 	parent?: Node | null;
+	onNotice?: (notice: Notice) => void;
 }) {
 	return render(
 		<Provider theme={lightTheme}>
@@ -97,7 +128,7 @@ function renderMenu(props: {
 				nodes={props.nodes}
 				hidden={props.hidden}
 				blockers={new Map()}
-				onNotice={() => {}}
+				onNotice={props.onNotice ?? (() => {})}
 				onDetails={() => {}}
 			/>
 		</Provider>,
@@ -105,6 +136,245 @@ function renderMenu(props: {
 }
 
 describe("CardMenu", () => {
+	beforeEach(() => {
+		mockOnline = true;
+		mockUndo.mockReset().mockResolvedValue(undefined);
+		jest.mocked(reparentNode).mockReset().mockResolvedValue();
+		jest.mocked(deleteNode).mockReset().mockResolvedValue();
+		jest.mocked(boardOnce).mockReset().mockResolvedValue([]);
+		jest.mocked(getNode).mockReset();
+		mockSubmit
+			.mockReset()
+			.mockImplementation(
+				async (_intent: OutboxIntent, runOnline: () => Promise<void>) => {
+					if (!mockOnline) return "queued";
+					try {
+						await runOnline();
+						return "saved";
+					} catch (reason) {
+						if ((reason as { code?: string }).code === "unavailable")
+							return "queued";
+						throw reason;
+					}
+				},
+			);
+	});
+
+	it("offline enables Move under and Delete, removes root hint but keeps search gate", () => {
+		mockOnline = false;
+		renderMenu({ nodes: [node("self"), node("host")] });
+		fireEvent.press(screen.getByLabelText("board.actions"), {
+			stopPropagation: jest.fn(),
+		});
+		expect(screen.getByText("board.moveUnder")).toBeEnabled();
+		expect(screen.getByText("board.delete")).toBeEnabled();
+		expect(screen.queryByText("board.offlineHint")).toBeNull();
+		fireEvent.press(screen.getByText("board.waitingOn"));
+		expect(screen.getByText("board.waitingSearch")).toBeDisabled();
+		expect(screen.getByText("board.offlineHint")).toBeTruthy();
+	});
+
+	it("offline Delete submits hierarchy and offers queued Undo", async () => {
+		mockOnline = false;
+		const onNotice = jest.fn();
+		renderMenu({ nodes: [node("self")], onNotice });
+		fireEvent.press(screen.getByLabelText("board.actions"), {
+			stopPropagation: jest.fn(),
+		});
+		fireEvent.press(screen.getByText("board.delete"));
+		fireEvent.press(
+			within(screen.getByTestId("delete-card-self")).getByText("board.delete"),
+		);
+		await waitFor(() => expect(onNotice).toHaveBeenCalled());
+		expect(mockSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: "deleteNode",
+				nodeId: "self",
+				homeId: "home-1",
+				title: "Card self",
+				sourceParentId: null,
+				sourceAncestorIds: [],
+			}),
+			expect.any(Function),
+		);
+		expect(deleteNode).not.toHaveBeenCalled();
+		expect(onNotice.mock.calls[0][0].text).toBe(
+			'outbox.queuedDelete:{"name":"Card self"}',
+		);
+		expect(onNotice.mock.calls[0][0].intentId).toBe("intent-1");
+		await act(async () => onNotice.mock.calls[0][0].undo());
+		expect(mockUndo).toHaveBeenCalledWith("intent-1");
+	});
+
+	it("unavailable Delete offers queued Undo and reports failed cancellation", async () => {
+		jest.mocked(deleteNode).mockRejectedValueOnce({ code: "unavailable" });
+		mockUndo.mockRejectedValueOnce(new Error("Storage failed"));
+		const onNotice = jest.fn();
+		renderMenu({ nodes: [node("self")], onNotice });
+		fireEvent.press(screen.getByLabelText("board.actions"), {
+			stopPropagation: jest.fn(),
+		});
+		fireEvent.press(screen.getByText("board.delete"));
+		fireEvent.press(
+			within(screen.getByTestId("delete-card-self")).getByText("board.delete"),
+		);
+		await waitFor(() => expect(onNotice).toHaveBeenCalled());
+		expect(deleteNode).toHaveBeenCalled();
+		expect(onNotice.mock.calls[0][0].text).toBe(
+			'outbox.queuedDelete:{"name":"Card self"}',
+		);
+		await act(async () => onNotice.mock.calls[0][0].undo());
+		expect(mockUndo).toHaveBeenCalledWith("intent-1");
+		expect(onNotice).toHaveBeenLastCalledWith({ text: "error.saveFailed" });
+	});
+
+	it("offline Move under queues without fetching destination board and names target", async () => {
+		mockOnline = false;
+		const onNotice = jest.fn();
+		renderMenu({ nodes: [node("self"), node("host")], onNotice });
+		fireEvent.press(screen.getByLabelText("board.actions"), {
+			stopPropagation: jest.fn(),
+		});
+		fireEvent.press(screen.getByText("board.moveUnder"));
+		fireEvent.press(screen.getByText("Card host"));
+		await waitFor(() => expect(onNotice).toHaveBeenCalled());
+		expect(mockSubmit.mock.calls[0][0]).toEqual(
+			expect.objectContaining({
+				kind: "reparentNode",
+				nodeId: "self",
+				parentId: "host",
+				targetTitle: "Card host",
+				title: "Card self",
+				sourceParentId: null,
+				sourceAncestorIds: [],
+				rank: rankAtEnd(null),
+			}),
+		);
+		expect(boardOnce).not.toHaveBeenCalled();
+		expect(reparentNode).not.toHaveBeenCalled();
+		expect(onNotice.mock.calls[0][0].text).toBe(
+			'outbox.queuedMove:{"name":"Card self","target":"Card host"}',
+		);
+		expect(onNotice.mock.calls[0][0].intentId).toBe("intent-1");
+		await act(async () => onNotice.mock.calls[0][0].undo());
+		expect(mockUndo).toHaveBeenCalledWith("intent-1");
+	});
+
+	it("offline up-one-level queues known ancestor id even when its title is uncached", async () => {
+		mockOnline = false;
+		const onNotice = jest.fn();
+		renderMenu({
+			node: node("self", {
+				parentId: "parent",
+				ancestorIds: ["ancestor", "parent"],
+			}),
+			parent: node("parent", {
+				parentId: "ancestor",
+				ancestorIds: ["ancestor"],
+			}),
+			nodes: [],
+			onNotice,
+		});
+		fireEvent.press(screen.getByLabelText("board.actions"), {
+			stopPropagation: jest.fn(),
+		});
+		fireEvent.press(screen.getByText("board.moveUnder"));
+		fireEvent.press(screen.getByText("board.moveUnderUp"));
+		await waitFor(() => expect(onNotice).toHaveBeenCalled());
+		expect(mockSubmit.mock.calls[0][0]).toEqual(
+			expect.objectContaining({
+				parentId: "ancestor",
+				sourceParentId: "parent",
+				sourceAncestorIds: ["ancestor", "parent"],
+			}),
+		);
+		expect(getNode).not.toHaveBeenCalled();
+	});
+
+	it("online move keeps destination-board rank and existing success notice", async () => {
+		jest
+			.mocked(boardOnce)
+			.mockResolvedValue([node("child", { parentId: "host", rank: "V5" })]);
+		const onNotice = jest.fn();
+		renderMenu({ nodes: [node("self"), node("host")], onNotice });
+		fireEvent.press(screen.getByLabelText("board.actions"), {
+			stopPropagation: jest.fn(),
+		});
+		fireEvent.press(screen.getByText("board.moveUnder"));
+		fireEvent.press(screen.getByText("Card host"));
+		await waitFor(() => expect(onNotice).toHaveBeenCalled());
+		expect(reparentNode).toHaveBeenCalledWith(
+			"home-1",
+			expect.objectContaining({ id: "self" }),
+			expect.objectContaining({ id: "host" }),
+			rankAtEnd("V5"),
+			"uid-me",
+		);
+		expect(onNotice.mock.calls[0][0]).toEqual({
+			text: 'board.movedUnder:{"title":"Card host"}',
+		});
+	});
+
+	it("offline promotion uses top-level copy and offers Undo", async () => {
+		mockOnline = false;
+		const onNotice = jest.fn();
+		renderMenu({
+			node: node("self", { parentId: "parent", ancestorIds: ["parent"] }),
+			parent: node("parent"),
+			nodes: [],
+			onNotice,
+		});
+		fireEvent.press(screen.getByLabelText("board.actions"), {
+			stopPropagation: jest.fn(),
+		});
+		fireEvent.press(screen.getByText("board.moveUnder"));
+		fireEvent.press(screen.getByText("board.moveUnderTop"));
+		await waitFor(() => expect(onNotice).toHaveBeenCalled());
+		expect(mockSubmit.mock.calls[0][0].parentId).toBeNull();
+		expect(onNotice.mock.calls[0][0].text).toBe(
+			'outbox.queuedMoveTop:{"name":"Card self"}',
+		);
+		expect(onNotice.mock.calls[0][0].undo).toEqual(expect.any(Function));
+	});
+
+	it("unavailable ancestor lookup queues up-one-level rather than treating it as refusal", async () => {
+		jest.mocked(getNode).mockResolvedValueOnce(undefined);
+		const onNotice = jest.fn();
+		renderMenu({
+			node: node("self", {
+				parentId: "parent",
+				ancestorIds: ["ancestor", "parent"],
+			}),
+			parent: node("parent", { parentId: "ancestor" }),
+			nodes: [],
+			onNotice,
+		});
+		fireEvent.press(screen.getByLabelText("board.actions"), {
+			stopPropagation: jest.fn(),
+		});
+		fireEvent.press(screen.getByText("board.moveUnder"));
+		fireEvent.press(screen.getByText("board.moveUnderUp"));
+		await waitFor(() => expect(onNotice).toHaveBeenCalled());
+		expect(mockSubmit.mock.calls[0][0].parentId).toBe("ancestor");
+		expect(onNotice.mock.calls[0][0].undo).toEqual(expect.any(Function));
+		expect(boardOnce).not.toHaveBeenCalled();
+	});
+
+	it("unavailable during destination read queues instead of losing move", async () => {
+		jest.mocked(boardOnce).mockRejectedValueOnce({ code: "unavailable" });
+		const onNotice = jest.fn();
+		renderMenu({ nodes: [node("self"), node("host")], onNotice });
+		fireEvent.press(screen.getByLabelText("board.actions"), {
+			stopPropagation: jest.fn(),
+		});
+		fireEvent.press(screen.getByText("board.moveUnder"));
+		fireEvent.press(screen.getByText("Card host"));
+		await waitFor(() => expect(onNotice).toHaveBeenCalled());
+		expect(onNotice.mock.calls[0][0].text).toBe(
+			'outbox.queuedMove:{"name":"Card self","target":"Card host"}',
+		);
+		expect(onNotice.mock.calls[0][0].undo).toEqual(expect.any(Function));
+	});
 	/**
 	 * #90: a filter that hides the destination column's last card must not
 	 * shorten the column the move lands at the end of. The real sibling set

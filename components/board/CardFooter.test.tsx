@@ -4,7 +4,19 @@ import { CardFooter } from "@/components/board/CardFooter";
 import type { Location } from "@/models/locations";
 import type { Attachment, Node } from "@/models/node";
 import { newNodeData } from "@/models/node";
+import type { Intent } from "@/models/outbox";
 import { labelHues, lightTheme } from "@/theme";
+
+let mockIntents: Intent[] = [];
+jest.mock("@/contexts/OutboxContext", () => ({
+	useOutbox: () => ({ intents: mockIntents }),
+}));
+jest.mock("@/contexts/HomeContext", () => ({
+	useHome: () => ({ activeHome: { id: "home-1" } }),
+}));
+beforeEach(() => {
+	mockIntents = [];
+});
 
 jest.mock("react-i18next", () => ({
 	useTranslation: () => ({
@@ -62,6 +74,49 @@ function aLocation(over: Partial<Location> = {}): Location {
 }
 
 describe("CardFooter, the count face", () => {
+	it("shows one generic waiting line only for intents touching this card in this home", () => {
+		const move: Intent = {
+			id: "move-1",
+			kind: "reparentNode",
+			homeId: "home-1",
+			nodeId: "child",
+			parentId: "card",
+			rank: "V0",
+			title: "Child",
+			queuedAt: 1,
+			sourceParentId: null,
+			sourceAncestorIds: [],
+		};
+		mockIntents = [
+			move,
+			{
+				id: "delete-1",
+				kind: "deleteNode",
+				homeId: "home-1",
+				nodeId: "deleted-child",
+				title: "Deleted child",
+				queuedAt: 2,
+				sourceParentId: "card",
+				sourceAncestorIds: ["card"],
+			},
+			{ ...move, id: "other-home", homeId: "other" },
+			{ ...move, id: "elsewhere", parentId: "elsewhere" },
+		];
+		const view = render(
+			<Provider theme={lightTheme}>
+				<CardFooter node={aNode([])} locationId={null} waiting={null} />
+			</Provider>,
+		);
+		expect(screen.getAllByText(/outbox.waitingCount/)).toHaveLength(1);
+		expect(screen.getByText('outbox.waitingCount:{"count":2}')).toBeTruthy();
+		mockIntents = [];
+		view.rerender(
+			<Provider theme={lightTheme}>
+				<CardFooter node={aNode([])} locationId={null} waiting={null} />
+			</Provider>,
+		);
+		expect(screen.queryByText(/outbox.waitingCount/)).toBeNull();
+	});
 	it("carries the paperclip fact beside where and how long", () => {
 		render(
 			<Provider theme={lightTheme}>

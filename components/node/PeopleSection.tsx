@@ -3,10 +3,9 @@ import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Button, Text } from "react-native-paper";
 import { detailsHref } from "@/components/board/board-href";
-import type { FlipState } from "@/components/node/FlipDialog";
+import { type FlipState, FlipWaiting } from "@/components/node/FlipDialog";
 import { PeopleField } from "@/components/node/PeopleField";
 import type { NodeChanges } from "@/data/nodes";
-import { useOnlineStatus } from "@/hooks/use-online-status";
 import type { Member } from "@/models/home";
 import {
 	assignableMembers,
@@ -76,10 +75,12 @@ export function PeopleSection({
 	uid,
 }: PeopleSectionProps) {
 	const { t } = useTranslation();
-	const online = useOnlineStatus();
 
 	const isRoot = node.parentId === null;
 	const isPrivate = node.visibility === "private";
+	const selectedParticipants = isPrivate
+		? (flip.pendingFor(node.id)?.participantIds ?? node.participantIds)
+		: node.participantIds;
 	const rootTitle = root?.title ?? "";
 	const assignable = assignableMembers(root, members);
 	const stale = staleAssignees(node, assignable);
@@ -166,7 +167,7 @@ export function PeopleSection({
 							isPrivate ? "detail.participantsPrivate" : "detail.participants",
 						)}
 						members={members}
-						value={node.participantIds}
+						value={selectedParticipants}
 						onChange={saveParticipants}
 						unknownLabel={t("members.unknown")}
 						lockedUid={lockedUid}
@@ -175,11 +176,8 @@ export function PeopleSection({
 								? "detail.participantsYouStay"
 								: "detail.participantsLast",
 						)}
-						// Only the private path needs a connection — it is n
-						// server-checked writes. The shared one queues like any edit.
-						disabled={isPrivate && !online}
-						disabledHint={t("board.offlineHint")}
 					/>
+					<FlipWaiting state={flip} nodeId={node.id} />
 					<WhoSeesProjectNote />
 				</View>
 			) : null}

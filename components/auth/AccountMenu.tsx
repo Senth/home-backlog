@@ -18,6 +18,7 @@ import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { AppMenu } from "@/components/ui/AppMenu";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOutbox } from "@/contexts/OutboxContext";
 import { useTabTrap } from "@/hooks/use-modal-focus";
 import { useAppTheme } from "@/theme";
 import {
@@ -60,6 +61,7 @@ export function AccountMenu() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const { user, signOut } = useAuth();
+	const { intents } = useOutbox();
 	const router = useRouter();
 	const { width } = useWindowDimensions();
 	const isFocused = useIsFocused();
@@ -100,6 +102,9 @@ export function AccountMenu() {
 			setError(mapAuthError(reason));
 		});
 	};
+	const signOutBody = intents.length
+		? `${t("account.signOut.body")}\n${t("outbox.signOutPending", { count: intents.length })}`
+		: t("account.signOut.body");
 
 	return (
 		<>
@@ -217,7 +222,7 @@ export function AccountMenu() {
 				onDismiss={closeConfirm}
 				onConfirm={handleSignOut}
 				title={t("account.signOut.title")}
-				body={t("account.signOut.body")}
+				body={signOutBody}
 				confirmLabel={t("common.signOut")}
 				destructive
 				testID={signOutDialogTestID}

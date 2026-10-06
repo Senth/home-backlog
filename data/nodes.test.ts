@@ -45,6 +45,7 @@ import {
 import {
 	addToSharedRoots,
 	applyLabel,
+	isUnavailable,
 	moveErrorKey,
 	participatingDoneQuery,
 	removeLabel,
@@ -116,12 +117,20 @@ describe("moveErrorKey", () => {
 	it.each([
 		[{ code: "move-own-subtree" }, "error.moveOwnSubtree"],
 		[{ code: "move-visibility" }, "error.moveVisibility"],
+		[{ code: "target-gone" }, "error.targetGone"],
+		[{ code: "subtree-too-large" }, "error.subtreeTooLarge"],
 		[{ code: "permission-denied" }, "error.saveFailed"],
 		[new Error("boom"), "error.saveFailed"],
 		[null, "error.saveFailed"],
 	])("maps %p to %p", (reason, key) => {
 		expect(moveErrorKey(reason)).toBe(key);
 	});
+});
+
+it("recognizes unavailable without treating permission failures as network failures", () => {
+	expect(isUnavailable({ code: "unavailable" })).toBe(true);
+	expect(isUnavailable({ code: "permission-denied" })).toBe(false);
+	expect(isUnavailable(null)).toBe(false);
 });
 
 /** Only what `toNode` reads for this claim. */

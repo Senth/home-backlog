@@ -12,11 +12,13 @@ import {
 } from "@/components/location/use-location-drag";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { AppMenu } from "@/components/ui/AppMenu";
+import { useOutbox } from "@/contexts/OutboxContext";
 import {
 	deleteLocation,
 	locationErrorKey,
 	reorderLocation,
 } from "@/data/locations";
+import { intentMetadata, type OutboxIntent } from "@/data/outbox-store";
 import { useLocationColors } from "@/hooks/use-location-colors";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { LocationDropHint } from "@/models/location-drag";
@@ -64,14 +66,15 @@ interface LocationTreeProps {
 	hint?: LocationDropHint | null;
 	/** How tall the gap slot is: the carried row's own height. */
 	gapHeight?: number;
+	waitingIds: ReadonlySet<string>;
 	onToggle: (id: string) => void;
 	onOpen: (location: Location) => void;
 	onAddUnder: (parent: Location) => void;
 	onMoveUnder: (location: Location) => void;
 	onSelectDestination: (parent: Location | null) => void;
 	onError: (message: string) => void;
+	onQueued: (intent: OutboxIntent) => void;
 	homeId: string;
-	online: boolean;
 }
 
 /**
@@ -97,14 +100,15 @@ export function LocationTree({
 	drag,
 	hint,
 	gapHeight = space.none,
+	waitingIds,
 	onToggle,
 	onOpen,
 	onAddUnder,
 	onMoveUnder,
 	onSelectDestination,
 	onError,
+	onQueued,
 	homeId,
-	online,
 }: LocationTreeProps) {
 	const theme = useAppTheme();
 	const rail = {
@@ -149,8 +153,9 @@ export function LocationTree({
 								onAddUnder={onAddUnder}
 								onMoveUnder={onMoveUnder}
 								locations={locations}
-								online={online}
+								waiting={waitingIds.has(location.id)}
 								onError={onError}
+								onQueued={onQueued}
 							/>
 							{cardsOpen && mode.phase === "idle" ? (
 								<LocationCards
@@ -174,14 +179,15 @@ export function LocationTree({
 										drag={drag}
 										hint={hint}
 										gapHeight={gapHeight}
+										waitingIds={waitingIds}
 										onToggle={onToggle}
 										onOpen={onOpen}
 										onAddUnder={onAddUnder}
 										onMoveUnder={onMoveUnder}
 										onSelectDestination={onSelectDestination}
 										onError={onError}
+										onQueued={onQueued}
 										homeId={homeId}
-										online={online}
 									/>
 								</View>
 							) : null}
@@ -235,8 +241,9 @@ interface LocationRowProps {
 	onMoveUnder: (location: Location) => void;
 	/** Every location in the home. */
 	locations: Location[];
-	online: boolean;
+	waiting?: boolean;
 	onError: (message: string) => void;
+	onQueued: (intent: OutboxIntent) => void;
 }
 
 /**
@@ -258,9 +265,7 @@ interface LocationRowProps {
  * long-press on touch and on pointer movement on the desktop, and the row's
  * frame is measured once, when the place lifts. The area stays enabled while
  * its own place is carried — disabling it mid-press runs the cleanup, which
- * cancels the drag the moment it lifts. Offline the area is disabled — the
- * write a drop makes reads the subtree from the server, so the control row's
- * hint says why nothing lifts before the gesture is tried.
+ * cancels the drag the moment it lifts.
  *
  * A re-parenting drop highlights this row (`primaryContainer`, the board's
  * momentary-feedback tone); the between-siblings cases draw their empty slot
@@ -280,11 +285,13 @@ export function LocationRow({
 	onAddUnder,
 	onMoveUnder,
 	locations,
-	online,
+	waiting = false,
 	onError,
+	onQueued,
 }: LocationRowProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
+	const { intents, submit } = useOutbox();
 	const locationColor = useLocationColors(location.color).fill;
 	const count = counts.get(location.id) ?? 0;
 	const anchor = useRef<View | null>(null);
@@ -310,13 +317,45 @@ export function LocationRow({
 		close();
 		const rank = movedRank(siblings, siblingIndex, delta);
 		if (rank === null) return;
-		reorderLocation(homeId, location.id, rank);
+		if (
+			!intents.some(
+				(intent) =>
+					intent.kind === "moveLocation" &&
+					intent.homeId === homeId &&
+					intent.locationId === location.id,
+			)
+		) {
+			reorderLocation(homeId, location.id, rank);
+			return;
+		}
+		const intent: OutboxIntent = {
+			...intentMetadata(homeId, location),
+			kind: "moveLocation",
+			locationId: location.id,
+			parentId: location.parentId,
+			targetTitle: locations.find((each) => each.id === location.parentId)
+				?.title,
+			rank,
+		};
+		void submit(intent, () => reorderLocation(homeId, location.id, rank))
+			.then((result) => {
+				if (result === "queued") onQueued(intent);
+			})
+			.catch((reason) => onError(locationErrorKey(reason)));
 	};
 
 	const remove = async () => {
 		setDeleting(false);
+		const intent: OutboxIntent = {
+			...intentMetadata(homeId, location),
+			kind: "deleteLocation",
+			locationId: location.id,
+		};
 		try {
-			await deleteLocation(homeId, location);
+			const result = await submit(intent, () =>
+				deleteLocation(homeId, location),
+			);
+			if (result === "queued") onQueued(intent);
 		} catch (reason) {
 			console.error("Could not delete the location:", reason);
 			onError(locationErrorKey(reason));
@@ -331,7 +370,7 @@ export function LocationRow({
 			    the copy under the finger. */}
 			<View ref={drag?.register(rowKey(location.id))} collapsable={false}>
 				<DragArea
-					enabled={gestures !== undefined && online && move === undefined}
+					enabled={gestures !== undefined && move === undefined}
 					{...(gestures ?? noGestures)}
 				>
 					<View
@@ -396,7 +435,7 @@ export function LocationRow({
 						<Pressable
 							accessible
 							accessibilityRole="button"
-							accessibilityLabel={t("locations.open", { name: location.title })}
+							accessibilityLabel={`${t("locations.open", { name: location.title })}${waiting ? `. ${t("outbox.waiting")}` : ""}`}
 							accessibilityState={{
 								disabled: dimmed,
 								selected,
@@ -412,7 +451,43 @@ export function LocationRow({
 								justifyContent: "center",
 							}}
 						>
-							<Text variant="bodyLarge">{location.title}</Text>
+							<View
+								style={{
+									flexDirection: "row",
+									flexWrap: "wrap",
+									alignItems: "center",
+									gap: space.sm,
+								}}
+							>
+								<Text variant="bodyLarge" style={{ maxWidth: "100%" }}>
+									{location.title}
+								</Text>
+								{waiting ? (
+									<View
+										style={{
+											flexDirection: "row",
+											alignItems: "center",
+											gap: space.xs,
+											maxWidth: "100%",
+										}}
+									>
+										<Icon
+											source="cloud-upload-outline"
+											size={icon.sm}
+											color={theme.colors.onSurfaceVariant}
+										/>
+										<Text
+											variant="bodySmall"
+											style={{
+												color: theme.colors.onSurfaceVariant,
+												flexShrink: 1,
+											}}
+										>
+											{t("outbox.waiting")}
+										</Text>
+									</View>
+								) : null}
+							</View>
 						</Pressable>
 
 						{/* The open count, rolled up through the subtree and right-aligned
@@ -490,7 +565,6 @@ export function LocationRow({
 										close();
 										onMoveUnder(location);
 									}}
-									disabled={!online}
 								/>
 								<Menu.Item
 									leadingIcon="pencil-outline"
@@ -507,14 +581,7 @@ export function LocationRow({
 										close();
 										setDeleting(true);
 									}}
-									disabled={!online}
 								/>
-								{/* Both disabled ones read from the server on purpose, so the
-						    hint says what they need rather than letting the tap fail
-						    after the fact. */}
-								{online ? null : (
-									<Menu.Item disabled title={t("board.offlineHint")} />
-								)}
 							</View>
 						</AppMenu>
 					</View>

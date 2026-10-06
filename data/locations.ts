@@ -32,11 +32,11 @@ import { childAncestorIds, movedAncestorIds } from "@/models/node";
  *
  * **Offline.** `createLocation` and `editLocation` queue optimistically, the
  * acknowledged-promise pattern `createNode` uses — nothing user-facing awaits
- * the promise. `moveLocation` and `deleteLocation` read the subtree from the
- * server first, so offline they fail loudly: the cache holds only the locations
- * that happened to have been opened, and "no children in cache" is not "no
- * children". Locations have no visibility to hide anything, so one
- * whole-collection read is complete as well as safe.
+ * the promise. The outbox queues `moveLocation` and `deleteLocation` offline,
+ * then replays them through these server-reading writes when connected. The
+ * cache holds only locations that happened to have been opened, and "no
+ * children in cache" is not "no children". Locations have no visibility to
+ * hide anything, so one whole-collection read is complete as well as safe.
  */
 
 const homesCollection = "homes";
@@ -200,11 +200,17 @@ function refuseOversizedSubtree(count: number, operation: string): void {
  * The i18n key for a refused move or delete; anything else is a plain save
  * failure — the same mapping `moveErrorKey` makes for nodes.
  */
-export type LocationErrorKey = "error.subtreeTooLarge" | "error.saveFailed";
+export type LocationErrorKey =
+	| "error.subtreeTooLarge"
+	| "error.saveFailed"
+	| "error.targetGone"
+	| "error.moveOwnSubtree";
 
 export function locationErrorKey(reason: unknown): LocationErrorKey {
 	const code = (reason as { code?: string } | null)?.code;
 	if (code === "subtree-too-large") return "error.subtreeTooLarge";
+	if (code === "target-gone") return "error.targetGone";
+	if (code === "move-own-subtree") return "error.moveOwnSubtree";
 	return "error.saveFailed";
 }
 
@@ -230,7 +236,10 @@ export async function moveLocation(
 	rank: string,
 ): Promise<void> {
 	if (parent !== null && inSubtree(parent, location.id)) {
-		throw new Error("A location cannot be moved inside its own subtree.");
+		throw Object.assign(
+			new Error("A location cannot be moved inside its own subtree."),
+			{ code: "move-own-subtree" },
+		);
 	}
 
 	const ancestorIds = childAncestorIds(parent);

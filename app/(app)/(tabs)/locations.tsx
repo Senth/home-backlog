@@ -1,6 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, useWindowDimensions, View } from "react-native";
 import {
@@ -8,7 +8,6 @@ import {
 	Button,
 	FAB,
 	Icon,
-	Snackbar,
 	Text,
 } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
@@ -23,14 +22,16 @@ import {
 } from "@/components/location/use-location-drag";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
+import { OutboxSnackbar } from "@/components/ui/OutboxSnackbar";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useHome } from "@/contexts/HomeContext";
+import { useOutbox } from "@/contexts/OutboxContext";
 import { locationErrorKey, moveLocation } from "@/data/locations";
+import { intentMetadata, type OutboxIntent } from "@/data/outbox-store";
 import { useBoardFilter } from "@/hooks/use-board-filter";
 import { useEscapeCancel } from "@/hooks/use-escape-cancel";
 import { useLocationCounts } from "@/hooks/use-location-counts";
 import { useLocations } from "@/hooks/use-locations";
-import { useOnlineStatus } from "@/hooks/use-online-status";
 import { locationFilter } from "@/models/board-filter";
 import { dropHint } from "@/models/location-drag";
 import {
@@ -42,6 +43,7 @@ import {
 } from "@/models/location-move";
 import { childLocations, type Location } from "@/models/locations";
 import { rankAtEnd } from "@/models/node";
+import { projectLocations } from "@/models/outbox";
 import { useAppTheme } from "@/theme";
 import {
 	border,
@@ -64,9 +66,7 @@ type AddTarget = { parent: Location | null } | null;
  *
  * One row per place; the depth is carried by the rails, not by padding. The
  * FAB creates a root place; a row's overflow menu reorders, nests, edits,
- * moves and deletes. Create and edit queue offline; move and delete read the
- * subtree from the server first, so they are disabled offline with the hint
- * the card menu shows, rather than failing after the tap.
+ * moves and deletes.
  *
  * A row is three sibling controls and nothing nested — a pressable inside a
  * pressable rendered invalid HTML on every load (#205). The row itself and
@@ -81,10 +81,22 @@ export default function Locations() {
 	const router = useRouter();
 	const { activeHome } = useHome();
 	const { width } = useWindowDimensions();
-	const online = useOnlineStatus();
+	const { intents, submit, undo } = useOutbox();
 
 	const homeId = activeHome?.id ?? null;
-	const { locations, loading, failed, retry } = useLocations(homeId);
+	const {
+		locations: listenerLocations,
+		loading,
+		failed,
+		retry,
+	} = useLocations(homeId);
+	const { locations, waitingIds } = useMemo(
+		() => projectLocations(listenerLocations, intents, homeId ?? ""),
+		[listenerLocations, intents, homeId],
+	);
+	const pendingCount = intents.filter(
+		(intent) => intent.homeId === homeId,
+	).length;
 	const { setFilter } = useBoardFilter(homeId);
 	const { pool, counts } = useLocationCounts(homeId, locations);
 
@@ -95,21 +107,36 @@ export default function Locations() {
 	/** The move-under mode (Q14) — idle means the tree browses. */
 	const [move, setMove] = useState<MoveMode>(idleMove);
 	const [adding, setAdding] = useState<AddTarget>(null);
-	const [notice, setNotice] = useState<string | null>(null);
+	const [notice, setNotice] = useState<{
+		message: string;
+		intentId?: string;
+	} | null>(null);
 	const [fabHeight, setFabHeight] = useState(0);
 	const openerRef = useRef<View | null>(null);
 	const visitingPlace = useRef(false);
 	const navigation = useNavigation();
 
-	// The drag is the one move a gesture makes, and it writes the same
-	// `moveLocation` the move mode does — offline the hook never starts.
+	const showError = (key: string) => setNotice({ message: t(key) });
+	const onQueued = (intent: OutboxIntent) => {
+		const key =
+			intent.kind === "deleteLocation"
+				? "outbox.queuedDelete"
+				: intent.kind === "moveLocation" && intent.parentId !== null
+					? "outbox.queuedMove"
+					: "outbox.queuedMoveTop";
+		setNotice({
+			message: t(key, { name: intent.title, target: intent.targetTitle }),
+			intentId: intent.id,
+		});
+	};
 	const drag = useLocationDrag({
 		homeId: homeId ?? "",
 		locations,
-		onPutBack: () => setNotice("locations.putBack"),
+		onPutBack: () => showError("locations.putBack"),
+		onQueued,
 		onError: (reason) => {
 			console.error("Could not move the location:", reason);
-			setNotice(locationErrorKey(reason));
+			showError(locationErrorKey(reason));
 		},
 	});
 	// The drop indicator is what the model already decided, drawn: a highlight
@@ -184,24 +211,30 @@ export default function Locations() {
 
 	/**
 	 * The move itself, written only from the confirm phase: one batch, the
-	 * moved place at the end of its new siblings. Offline the write reads the
-	 * subtree from the server and fails loudly, which is why the menu item
-	 * that starts the mode is disabled offline instead.
+	 * moved place at the end of its new siblings.
 	 */
 	const confirmMove = () => {
 		if (move.phase !== "confirm" || homeId === null) return;
 		const { moving, parent } = move;
 		setMove(idleMove);
 		const siblings = childLocations(locations, parent?.id ?? null);
-		moveLocation(
-			homeId,
-			moving,
-			parent,
-			rankAtEnd(siblings.at(-1)?.rank ?? null),
-		).catch((reason) => {
-			console.error("Could not move the location:", reason);
-			setNotice(locationErrorKey(reason));
-		});
+		const rank = rankAtEnd(siblings.at(-1)?.rank ?? null);
+		const intent: OutboxIntent = {
+			...intentMetadata(homeId, moving),
+			kind: "moveLocation",
+			locationId: moving.id,
+			parentId: parent?.id ?? null,
+			targetTitle: parent?.title,
+			rank,
+		};
+		void submit(intent, () => moveLocation(homeId, moving, parent, rank))
+			.then((result) => {
+				if (result === "queued") onQueued(intent);
+			})
+			.catch((reason) => {
+				console.error("Could not move the location:", reason);
+				showError(locationErrorKey(reason));
+			});
 	};
 
 	const empty = !loading && !failed && locations.length === 0;
@@ -324,10 +357,8 @@ export default function Locations() {
 
 				{/* The control row: the tree's two disclosures in one place, so
 				    a deep tree never needs a walk to tidy; the cards toggle rides
-				    beside them. Session-only, like the collapsed set itself. A
-				    drag starts nowhere offline, and the row is where the screen
-				    says why — before the gesture, not after a dead one. */}
-				{showTree ? (
+				    beside them. Session-only, like the collapsed set itself. */}
+				{showTree || pendingCount > 0 ? (
 					<View
 						style={{
 							flexDirection: "row",
@@ -336,39 +367,43 @@ export default function Locations() {
 							marginBottom: space.md,
 						}}
 					>
-						<Button
-							mode="outlined"
-							icon="unfold-less-horizontal"
-							onPress={collapseAll}
-							// The row wraps below the phone's width, and a wrapped line
-							// starts at the same left edge as the one above it — buttons
-							// that stretch to the row's rhythm keep their edges exactly
-							// on each other's instead of a fraction of a pixel off.
-							style={{ flexGrow: 1 }}
-							contentStyle={{ minHeight: touchTarget }}
-						>
-							{t("locations.collapseAll")}
-						</Button>
-						<Button
-							mode="outlined"
-							icon="unfold-more-horizontal"
-							onPress={expandAll}
-							style={{ flexGrow: 1 }}
-							contentStyle={{ minHeight: touchTarget }}
-						>
-							{t("locations.expandAll")}
-						</Button>
-						<Button
-							mode="outlined"
-							icon={cardsOpen ? "eye-off-outline" : "eye-outline"}
-							onPress={() => setCardsOpen((open) => !open)}
-							accessibilityRole="button"
-							style={{ flexGrow: 1 }}
-							contentStyle={{ minHeight: touchTarget }}
-						>
-							{t(cardsOpen ? "locations.hideCards" : "locations.showCards")}
-						</Button>
-						{online ? null : (
+						{showTree ? (
+							<>
+								<Button
+									mode="outlined"
+									icon="unfold-less-horizontal"
+									onPress={collapseAll}
+									// The row wraps below the phone's width, and a wrapped line
+									// starts at the same left edge as the one above it — buttons
+									// that stretch to the row's rhythm keep their edges exactly
+									// on each other's instead of a fraction of a pixel off.
+									style={{ flexGrow: 1 }}
+									contentStyle={{ minHeight: touchTarget }}
+								>
+									{t("locations.collapseAll")}
+								</Button>
+								<Button
+									mode="outlined"
+									icon="unfold-more-horizontal"
+									onPress={expandAll}
+									style={{ flexGrow: 1 }}
+									contentStyle={{ minHeight: touchTarget }}
+								>
+									{t("locations.expandAll")}
+								</Button>
+								<Button
+									mode="outlined"
+									icon={cardsOpen ? "eye-off-outline" : "eye-outline"}
+									onPress={() => setCardsOpen((open) => !open)}
+									accessibilityRole="button"
+									style={{ flexGrow: 1 }}
+									contentStyle={{ minHeight: touchTarget }}
+								>
+									{t(cardsOpen ? "locations.hideCards" : "locations.showCards")}
+								</Button>
+							</>
+						) : null}
+						{pendingCount > 0 ? (
 							<Text
 								variant="bodySmall"
 								style={{
@@ -376,9 +411,9 @@ export default function Locations() {
 									alignSelf: "center",
 								}}
 							>
-								{t("locations.dragOffline")}
+								{t("outbox.pendingChanges", { count: pendingCount })}
 							</Text>
-						)}
+						) : null}
 					</View>
 				) : null}
 
@@ -431,6 +466,7 @@ export default function Locations() {
 				{showTree ? (
 					<LocationTree
 						locations={locations}
+						waitingIds={waitingIds}
 						parentId={null}
 						collapsed={collapsed}
 						counts={counts}
@@ -445,9 +481,9 @@ export default function Locations() {
 						onSelectDestination={(parent) =>
 							setMove(selectDestination(move, parent))
 						}
-						onError={setNotice}
+						onError={showError}
+						onQueued={onQueued}
 						homeId={homeId ?? ""}
-						online={online}
 						drag={drag}
 						hint={hint}
 						gapHeight={gapHeight}
@@ -530,17 +566,33 @@ export default function Locations() {
 			    waits flattened where it was. */}
 			{drag.dragged !== null ? <LocationDragOverlay drag={drag} /> : null}
 
-			<Snackbar
+			<OutboxSnackbar
+				intentId={notice?.intentId}
 				visible={notice !== null}
 				onDismiss={() => setNotice(null)}
+				action={
+					notice?.intentId
+						? {
+								label: t("common.undo"),
+								onPress: () => {
+									const id = notice.intentId;
+									setNotice(null);
+									if (id)
+										void undo(id).catch((reason) =>
+											showError(locationErrorKey(reason)),
+										);
+								},
+							}
+						: undefined
+				}
 				style={{
 					maxWidth: contentWidth.snackbar,
 					alignSelf: "center",
 					marginBottom: space.md,
 				}}
 			>
-				{notice ? t(notice) : ""}
-			</Snackbar>
+				{notice?.message ?? ""}
+			</OutboxSnackbar>
 		</View>
 	);
 }
