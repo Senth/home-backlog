@@ -150,6 +150,10 @@ reads as one unit with what it names.
   text and never a control, drawn even when the other two lines are empty. The one
   exception is a private project's own board, which leaves it off every card because the
   board says it once.
+- **A private project's own board says *Private* once**, at the end of the crumbs row,
+  instead of on every card: the same `lock-outline` and word, `labelMedium` in
+  `onSurfaceVariant` because it sits on the background. The crumbs scroll; the fact never
+  scrolls away.
 - **Inherited labels render exactly like a card's own** — no dimming, no outline variant.
   A label passed down by the project is as much the card's identity as one put on it
   directly.

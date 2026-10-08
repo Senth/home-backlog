@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { type StyleProp, View, type ViewStyle } from "react-native";
-import { Icon, Text } from "react-native-paper";
 import { DueChip } from "@/components/board/DueChip";
-import { FadeText } from "@/components/board/FadeText";
+import { Fact } from "@/components/board/Fact";
 import { useHome } from "@/contexts/HomeContext";
 import { useOutbox } from "@/contexts/OutboxContext";
 import { useLocationColors } from "@/hooks/use-location-colors";
@@ -12,8 +11,7 @@ import { showsDue } from "@/models/due-date";
 import type { Location } from "@/models/locations";
 import type { Node } from "@/models/node";
 import { waitingCountFor } from "@/models/outbox";
-import { useAppTheme } from "@/theme";
-import { border, icon, space } from "@/theme/tokens";
+import { border, space } from "@/theme/tokens";
 
 interface CardFooterProps {
 	node: Node;
@@ -43,20 +41,6 @@ interface CardFooterProps {
 	style?: StyleProp<ViewStyle>;
 }
 
-interface FactProps {
-	source: string;
-	/** Overrides the muted tier — the warning color, on an overdue card. */
-	color?: string;
-	/** What a screen reader hears instead of the visual shorthand. */
-	accessibilityLabel?: string;
-	/**
-	 * One line that fades at the card's right edge instead of wrapping (#339)
-	 * — the waiting fact, whose words name a card that may be called anything.
-	 */
-	fade?: boolean;
-	children: ReactNode;
-}
-
 /**
  * The location fact (#338): the place's own glyph, in its own hue — the same
  * colored mark the tree draws for it, so a card and the tree say one place
@@ -75,51 +59,6 @@ function LocationFact({
 		<Fact source={location.icon} color={tone}>
 			{children}
 		</Fact>
-	);
-}
-
-/**
- * One bare fact: a leading glyph and the words, no box around them. The
- * card's footer is text on the card, and a chip border there was one more
- * edge competing with the card's own.
- */
-function Fact({
-	source,
-	color,
-	accessibilityLabel,
-	fade = false,
-	children,
-}: FactProps) {
-	const theme = useAppTheme();
-	const tone = color ?? theme.colors.onCardMuted;
-
-	return (
-		<View
-			style={{
-				flexDirection: "row",
-				alignItems: "center",
-				gap: space.xs,
-				// The faded fact claims the whole line it sits on, so its fade
-				// waits at the card's edge for words that actually get there —
-				// a fact that fits is never faded.
-				flex: fade ? 1 : undefined,
-			}}
-		>
-			<Icon source={source} size={icon.sm} color={tone} />
-			{fade ? (
-				<FadeText color={tone} accessibilityLabel={accessibilityLabel}>
-					{children}
-				</FadeText>
-			) : (
-				<Text
-					variant="labelMedium"
-					accessibilityLabel={accessibilityLabel}
-					style={{ color: tone, flexShrink: 1 }}
-				>
-					{children}
-				</Text>
-			)}
-		</View>
 	);
 }
 
