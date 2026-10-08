@@ -207,7 +207,7 @@ export function Breadcrumbs({
 			}}
 		>
 			{trail}
-			<View style={{ paddingHorizontal: space.sm }}>
+			<View style={{ paddingLeft: space.sm, paddingRight: space.md }}>
 				<Fact source="lock-outline" color={theme.colors.onSurfaceVariant}>
 					{t("board.private")}
 				</Fact>
