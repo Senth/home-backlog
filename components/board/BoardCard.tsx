@@ -115,6 +115,7 @@ interface BoardCardProps {
 	 * restyled, it just keeps one fact to itself.
 	 */
 	hideLocation?: boolean;
+	showPrivate?: boolean;
 }
 
 /**
@@ -211,6 +212,7 @@ export function BoardCard({
 	locations,
 	ancestorLocationId = null,
 	hideLocation = false,
+	showPrivate = true,
 }: BoardCardProps) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
@@ -470,6 +472,7 @@ export function BoardCard({
 						locationId={locationId}
 						locations={locations}
 						showLocation={!hideLocation}
+						showPrivate={showPrivate}
 						waiting={waiting}
 						// The title owns the space between them; the footer hangs one
 						// `space.sm` under it, whether or not it has anything to say.

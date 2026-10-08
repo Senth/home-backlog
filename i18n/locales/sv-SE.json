@@ -308,7 +308,7 @@
 		"crumbHidden": "Dolt",
 		"trail": "Var du är",
 		"pathA11y": "I {{path}}",
-		"hidden": "Dold",
+		"private": "Privat",
 		"assignedTo_one": "{{names}} gör det här",
 		"assignedTo_other": "{{names}} gör det här",
 		"boardActions": "Tavlans åtgärder",

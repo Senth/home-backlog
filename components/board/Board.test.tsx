@@ -129,6 +129,7 @@ function renderBoard(props: {
 	onOpenFilter?: () => void;
 	reach?: "board" | "subtree";
 	pool?: Node[];
+	parent?: Node | null;
 }) {
 	// Held as a tree over the props, so a test can re-render the same board
 	// with the same props — the shape a board left open re-renders in.
@@ -144,7 +145,7 @@ function renderBoard(props: {
 			<Provider theme={lightTheme}>
 				<Board
 					homeId="home-1"
-					parent={null}
+					parent={current.parent ?? null}
 					columns={defaultColumns}
 					nodes={current.nodes ?? []}
 					hidden={current.hidden}
@@ -246,6 +247,22 @@ describe("Board", () => {
 
 		expect(screen.getAllByText("Fix the gutter")).toHaveLength(2);
 		expect(screen.queryByText("board.empty")).not.toBeOnTheScreen();
+	});
+
+	it("leaves the private line off the cards of a private project's own board", () => {
+		const privately = (status: Node["status"]): Node => ({
+			...node(status),
+			visibility: "private",
+		});
+		renderBoard({
+			loading: false,
+			viewport: 800,
+			parent: { ...privately("backlog"), id: "project" },
+			nodes: [privately("backlog")],
+		});
+
+		expect(screen.getByText("Fix the gutter")).toBeOnTheScreen();
+		expect(screen.queryByText("board.private")).not.toBeOnTheScreen();
 	});
 
 	it("does not offer the compact add FAB while loading", () => {

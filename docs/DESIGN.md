@@ -146,6 +146,10 @@ reads as one unit with what it names.
   never *Basement · workshop*. Effort leads `clock-outline`; due keeps `calendar` in
   `warning`; waiting is `timer-sand` in `onCardMuted` — **quieter than overdue,
   deliberately**: being blocked is a state the card is in, not an alarm about it.
+  A private card adds a third line (#233), `lock-outline` *Private* in `onCardMuted`, plain
+  text and never a control, drawn even when the other two lines are empty. The one
+  exception is a private project's own board, which leaves it off every card because the
+  board says it once.
 - **Inherited labels render exactly like a card's own** — no dimming, no outline variant.
   A label passed down by the project is as much the card's identity as one put on it
   directly.

@@ -198,3 +198,62 @@ describe("CardFooter, the location fact", () => {
 		).toBe(labelHues.teal.light.ink);
 	});
 });
+
+describe("CardFooter, the private fact", () => {
+	function aPrivateNode(): Node {
+		return { ...aNode([]), visibility: "private" };
+	}
+
+	it("says a private card is private, as plain text", () => {
+		render(
+			<Provider theme={lightTheme}>
+				<CardFooter
+					node={aPrivateNode()}
+					locationId={null}
+					waiting={{ label: "Waiting on Paint", a11yLabel: "Waiting" }}
+				/>
+			</Provider>,
+		);
+
+		expect(screen.getByText("board.private")).toBeOnTheScreen();
+		expect(
+			screen.getByTestId("lock-outline", { includeHiddenElements: true }),
+		).toBeOnTheScreen();
+		expect(screen.queryByRole("button")).toBeNull();
+	});
+
+	it("says nothing on a shared card", () => {
+		render(
+			<Provider theme={lightTheme}>
+				<CardFooter node={aNode([])} locationId={null} waiting={null} />
+			</Provider>,
+		);
+
+		expect(screen.queryByText("board.private")).toBeNull();
+	});
+
+	it("stays quiet when the board already says it", () => {
+		render(
+			<Provider theme={lightTheme}>
+				<CardFooter
+					node={aPrivateNode()}
+					locationId={null}
+					waiting={null}
+					showPrivate={false}
+				/>
+			</Provider>,
+		);
+
+		expect(screen.queryByText("board.private")).toBeNull();
+	});
+
+	it("draws the line alone on a card with nothing else to say", () => {
+		render(
+			<Provider theme={lightTheme}>
+				<CardFooter node={aPrivateNode()} locationId={null} waiting={null} />
+			</Provider>,
+		);
+
+		expect(screen.getByText("board.private")).toBeOnTheScreen();
+	});
+});

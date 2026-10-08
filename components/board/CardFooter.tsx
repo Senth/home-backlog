@@ -36,6 +36,7 @@ interface CardFooterProps {
 	 * row saying its own name twice. One prop, so the footer keeps its shape.
 	 */
 	showLocation?: boolean;
+	showPrivate?: boolean;
 	/** The waiting mark, when the card is waiting; `null` when it is not. */
 	waiting: { label: string; a11yLabel: string } | null;
 	/** The card owns the air between its title and this footer. */
@@ -141,7 +142,7 @@ function Pair({ children }: { children: ReactNode }) {
 
 /**
  * The card's footer (#100), two pairs of bare facts: **where and how long**,
- * then **due and waiting**.
+ * then **due and waiting**, then *Private* on a private card (#233).
  *
  * The spacing is the wrap fix: every pair spaces its own members `space.sm`
  * apart horizontally and one hairline apart vertically, so a pair that runs
@@ -160,6 +161,7 @@ export function CardFooter({
 	locationId,
 	locations,
 	showLocation = true,
+	showPrivate = true,
 	waiting,
 	style,
 }: CardFooterProps) {
@@ -187,8 +189,9 @@ export function CardFooter({
 			: undefined;
 	const where = location !== undefined || node.effort !== null;
 	const when = showDue || waiting !== null;
+	const isPrivate = showPrivate && node.visibility === "private";
 
-	if (!where && !when && !carries && syncCount === 0) return null;
+	if (!where && !when && !isPrivate && !carries && syncCount === 0) return null;
 
 	return (
 		<View style={[{ rowGap: border.hairline }, style]}>
@@ -220,6 +223,9 @@ export function CardFooter({
 						</Fact>
 					)}
 				</Pair>
+			) : null}
+			{isPrivate ? (
+				<Fact source="lock-outline">{t("board.private")}</Fact>
 			) : null}
 			{syncCount > 0 ? (
 				<Fact source="cloud-upload-outline">

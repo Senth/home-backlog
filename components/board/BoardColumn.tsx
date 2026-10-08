@@ -93,6 +93,7 @@ interface BoardColumnProps {
 	ancestorLocationId?: string | null;
 	/** Location id → place, the leaf. See `BoardCard`. */
 	locations?: ReadonlyMap<string, Location>;
+	showPrivate?: boolean;
 }
 
 /**
@@ -127,6 +128,7 @@ export function BoardColumn({
 	ancestorLabelIds,
 	ancestorLocationId,
 	locations,
+	showPrivate,
 }: BoardColumnProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
@@ -369,6 +371,7 @@ export function BoardColumn({
 										ancestorLabelIds={ancestorLabelIds}
 										ancestorLocationId={ancestorLocationId}
 										locations={locations}
+										showPrivate={showPrivate}
 									/>
 								) : (
 									<DragArea {...drag.handlers(node)}>
@@ -383,6 +386,7 @@ export function BoardColumn({
 											ancestorLabelIds={ancestorLabelIds}
 											ancestorLocationId={ancestorLocationId}
 											locations={locations}
+											showPrivate={showPrivate}
 										/>
 									</DragArea>
 								)}
