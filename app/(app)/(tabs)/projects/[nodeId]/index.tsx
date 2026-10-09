@@ -13,6 +13,10 @@ import {
 import { BoardMenu } from "@/components/board/BoardMenu";
 import { Breadcrumbs } from "@/components/board/Breadcrumbs";
 import { boardHref, goneHref } from "@/components/board/board-href";
+import {
+	SelectCardsAction,
+	SelectionBar,
+} from "@/components/board/SelectionBar";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
@@ -160,37 +164,56 @@ export default function NodeBoard() {
 			{/* No `subtitle`: Paper renders it only outside Material 3, so the
 			    home's name lives on the root board's app bar and one crumb away
 			    — the first crumb goes there. */}
-			<AppHeader
-				title={node?.title ?? ""}
-				leading={
-					<BackAction
-						accessibilityLabel={t("board.up")}
-						onPress={() =>
-							goBack(boardHref(node?.parentId ?? null), "dismissTo")
-						}
-					/>
-				}
-			>
-				{showFilterAction && !dense ? (
-					<BoardFilterAction
-						set={filterSet}
-						onPress={() => setFilterOpen(true)}
-						anchorRef={filterAnchor}
-					/>
-				) : null}
-				{node !== null ? (
-					<BoardMenu
-						homeId={homeId}
-						node={node}
-						onFilter={
-							showFilterAction && dense ? () => setFilterOpen(true) : undefined
-						}
-						filterSet={showFilterAction && dense && filterSet}
-						anchorRef={dense ? filterAnchor : undefined}
-					/>
-				) : null}
-				<AccountMenu />
-			</AppHeader>
+			{selection.selecting ? (
+				<SelectionBar selection={selection} />
+			) : (
+				<AppHeader
+					title={node?.title ?? ""}
+					leading={
+						<BackAction
+							accessibilityLabel={t("board.up")}
+							onPress={() =>
+								goBack(boardHref(node?.parentId ?? null), "dismissTo")
+							}
+						/>
+					}
+				>
+					<View
+						style={{
+							flexDirection: "row",
+							flexWrap: "wrap",
+							flexShrink: 1,
+							justifyContent: "flex-end",
+							maxWidth: "100%",
+						}}
+					>
+						{(filter?.reach ?? "board") === "board" ? (
+							<SelectCardsAction onPress={selection.start} />
+						) : null}
+						{showFilterAction && !dense ? (
+							<BoardFilterAction
+								set={filterSet}
+								onPress={() => setFilterOpen(true)}
+								anchorRef={filterAnchor}
+							/>
+						) : null}
+						{node !== null ? (
+							<BoardMenu
+								homeId={homeId}
+								node={node}
+								onFilter={
+									showFilterAction && dense
+										? () => setFilterOpen(true)
+										: undefined
+								}
+								filterSet={showFilterAction && dense && filterSet}
+								anchorRef={dense ? filterAnchor : undefined}
+							/>
+						) : null}
+						<AccountMenu />
+					</View>
+				</AppHeader>
+			)}
 
 			<Breadcrumbs
 				crumbs={crumbs}

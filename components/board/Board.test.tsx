@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import type { ComponentProps } from "react";
 // `Provider`, not `ThemeProvider`: the board's Snackbar mounts a Portal host.
 import { Provider, Snackbar, TextInput } from "react-native-paper";
 // Paper's Snackbar reads the safe-area insets its provider carries.
@@ -28,13 +29,22 @@ jest.mock("@/data/outbox-store", () => ({
 	intentMetadata: jest.fn(() => ({ id: "intent-1" })),
 }));
 
-import { Platform } from "react-native";
+import { Dimensions, Platform } from "react-native";
 import { DragArea } from "@/components/board/DragArea";
-import { createNode } from "@/data/nodes";
+import {
+	SelectCardsAction,
+	SelectionBar,
+} from "@/components/board/SelectionBar";
+import { createNode, moveNodes } from "@/data/nodes";
 import { useCardSelection } from "@/hooks/use-card-selection";
 import type { BoardFilter } from "@/models/board-filter";
 import type { Node } from "@/models/node";
-import { defaultColumns, rankAtEnd } from "@/models/node";
+import {
+	appendRanks,
+	defaultColumns,
+	rankAtEnd,
+	rankSequence,
+} from "@/models/node";
 import { lightTheme } from "@/theme";
 import { space } from "@/theme/tokens";
 
@@ -71,6 +81,20 @@ jest.mock("@/hooks/use-reduced-motion", () => ({
 jest.mock("@/hooks/use-online-status", () => ({
 	useOnlineStatus: () => true,
 }));
+jest.mock("@/components/ui/AppMenu", () => ({
+	AppMenu: ({
+		visible,
+		anchor,
+		children,
+	}: ComponentProps<typeof import("@/components/ui/AppMenu").AppMenu>) => (
+		<>
+			{typeof anchor === "object" && anchor !== null && "x" in anchor
+				? null
+				: anchor}
+			{visible ? children : null}
+		</>
+	),
+}));
 
 // CardMenu reaches BlockerSearchDialog, which imports the Firestore module
 // itself — jest's node_modules cannot parse it. The same stub its test uses.
@@ -81,6 +105,7 @@ jest.mock("firebase/firestore", () => ({
 jest.mock("@/data/nodes", () => ({
 	createNode: jest.fn(),
 	moveNode: jest.fn(),
+	moveNodes: jest.fn(async () => {}),
 	// `useLabelAncestors` getDocs the chain nodes the pool does not hold; a
 	// test's pool holds them all, so the fetch never fires.
 	getNode: jest.fn(),
@@ -147,24 +172,41 @@ function SelectionBoard({ current }: { current: TestBoardProps }) {
 		(current.reach ?? "board") === "board",
 	);
 	return (
-		<Board
-			homeId="home-1"
-			parent={current.parent ?? null}
-			columns={defaultColumns}
-			nodes={current.nodes ?? []}
-			hidden={current.hidden}
-			loading={current.loading}
-			filter={current.filter}
-			onChangeFilter={current.onChangeFilter}
-			onOpenFilter={current.onOpenFilter}
-			reach={current.reach}
-			pool={current.pool}
-			selection={selection}
-		/>
+		<>
+			{selection.selecting ? (
+				<SelectionBar selection={selection} />
+			) : (
+				<SelectCardsAction onPress={selection.start} />
+			)}
+			<Board
+				homeId="home-1"
+				parent={current.parent ?? null}
+				columns={defaultColumns}
+				nodes={current.nodes ?? []}
+				hidden={current.hidden}
+				loading={current.loading}
+				filter={current.filter}
+				onChangeFilter={current.onChangeFilter}
+				onOpenFilter={current.onOpenFilter}
+				reach={current.reach}
+				pool={current.pool}
+				selection={selection}
+			/>
+		</>
 	);
 }
 
+const viewportHeight = 844;
+
 function renderBoard(props: TestBoardProps) {
+	Dimensions.set({
+		window: {
+			width: props.viewport,
+			height: viewportHeight,
+			scale: 1,
+			fontScale: 1,
+		},
+	});
 	// Held as a tree over the props, so a test can re-render the same board
 	// with the same props — the shape a board left open re-renders in.
 	const tree = (current: typeof props) => (
@@ -200,6 +242,18 @@ function renderBoard(props: TestBoardProps) {
 	};
 }
 
+function measureAnchors() {
+	for (const instance of screen.UNSAFE_root.findAll(
+		(instance) => typeof instance.instance?.measureInWindow === "function",
+	)) {
+		instance.instance.measureInWindow.mockImplementation(
+			(
+				callback: (x: number, y: number, width: number, height: number) => void,
+			) => callback(100, 100, 100, 48),
+		);
+	}
+}
+
 describe("Board", () => {
 	beforeEach(() => {
 		mockIntents = [];
@@ -226,6 +280,11 @@ describe("Board", () => {
 				fireEvent.press(screen.getByText("Fix the gutter"));
 				expect(screen.queryByLabelText(/^board.selectedCardA11y:/)).toBeNull();
 				expect(mockPush).not.toHaveBeenCalled();
+				fireEvent.press(screen.getByText("Fix the gutter"));
+				expect(
+					screen.getByLabelText(/^board.selectedCardA11y:/),
+				).toBeOnTheScreen();
+				fireEvent.press(screen.getByLabelText("board.stopSelecting"));
 				fireEvent.press(screen.getByText("Fix the gutter"));
 				expect(mockPush).toHaveBeenCalled();
 			} finally {
@@ -277,6 +336,112 @@ describe("Board", () => {
 		} finally {
 			jest.restoreAllMocks();
 		}
+	});
+
+	it.each([390, 1440])(
+		"select starts empty, Move is disabled or absent, and close restores the controls at %ipx",
+		(viewport) => {
+			renderBoard({ loading: false, viewport, nodes: [node("backlog")] });
+			fireEvent.press(screen.getByLabelText("board.selectCards"));
+			expect(
+				screen.getByText('board.selectedCount:{"count":0}'),
+			).toBeOnTheScreen();
+			if (viewport === 390)
+				expect(screen.queryByText(/board\.addTo:/)).toBeNull();
+			if (viewport === 1440)
+				expect(screen.getByText("board.moveTo")).toBeDisabled();
+			else expect(screen.queryByText(/board\.moveCardsTo/)).toBeNull();
+			fireEvent.press(screen.getByText("Fix the gutter"));
+			expect(
+				screen.getByText('board.selectedCount:{"count":1}'),
+			).toBeOnTheScreen();
+			if (viewport === 390)
+				expect(
+					screen.getByText('board.moveCardsTo:{"count":1}'),
+				).toBeOnTheScreen();
+			fireEvent.press(screen.getByLabelText("board.stopSelecting"));
+			expect(screen.getByLabelText("board.selectCards")).toBeOnTheScreen();
+			expect(screen.getAllByText(/board\.addTo:/).length).toBeGreaterThan(0);
+		},
+	);
+
+	it.each([390, 1440])(
+		"moves three selected cards in old order after a hidden destination card, and one Undo restores all at %ipx",
+		(viewport) => {
+			const cards = ["first", "middle", "last"].map((title, index) => ({
+				...node("backlog"),
+				id: title,
+				title,
+				rank: rankSequence(null, null, 3)[index],
+			}));
+			const destination = {
+				...node("done"),
+				title: "hidden destination",
+				rank: rankAtEnd(null),
+				priority: "high" as const,
+			};
+			renderBoard({
+				loading: false,
+				viewport,
+				nodes: [...cards, destination],
+				filter: {
+					mode: "open",
+					reach: "board",
+					conditions: [{ field: "priority", anyOf: ["none"] }],
+				},
+			});
+			fireEvent.press(screen.getByLabelText("board.selectCards"));
+			for (const title of ["last", "first", "middle"])
+				fireEvent.press(screen.getByText(title));
+			expect(screen.queryByText("hidden destination")).toBeNull();
+			measureAnchors();
+			fireEvent.press(
+				screen.getByText(
+					viewport === 390 ? 'board.moveCardsTo:{"count":3}' : "board.moveTo",
+				),
+			);
+			const menu = screen.getByTestId("selection-move-menu");
+			expect(
+				menu.findAll((instance) => instance.props.title === "status.backlog"),
+			).toHaveLength(0);
+			fireEvent.press(screen.getByText("status.done"));
+			const ranks = appendRanks([destination], 3);
+			expect(moveNodes).toHaveBeenCalledWith(
+				"home-1",
+				cards.map((card, index) => ({
+					node: card,
+					status: "done",
+					rank: ranks[index],
+				})),
+			);
+			expect(screen.getByLabelText("board.selectCards")).toBeOnTheScreen();
+			expect(
+				screen.getAllByText(
+					'board.movedCardsTo:{"count":3,"column":"status.done"}',
+				),
+			).toHaveLength(1);
+			fireEvent.press(screen.getByText("common.undo"));
+			expect(moveNodes).toHaveBeenLastCalledWith(
+				"home-1",
+				cards.map((card, index) => ({
+					node: { ...card, status: "done", rank: ranks[index] },
+					status: card.status,
+					rank: card.rank,
+				})),
+			);
+		},
+	);
+
+	it("one selected card keeps the existing moved notice", () => {
+		renderBoard({ loading: false, viewport: 390, nodes: [node("backlog")] });
+		fireEvent.press(screen.getByLabelText("board.selectCards"));
+		fireEvent.press(screen.getByText("Fix the gutter"));
+		measureAnchors();
+		fireEvent.press(screen.getByText('board.moveCardsTo:{"count":1}'));
+		fireEvent.press(screen.getByText("status.done"));
+		expect(
+			screen.getByText('board.moved:{"column":"status.done"}'),
+		).toBeOnTheScreen();
 	});
 
 	it("filter changes prune hidden selections without selecting them again when cleared", () => {

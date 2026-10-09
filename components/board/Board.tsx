@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	Animated,
@@ -11,6 +11,7 @@ import {
 	ActivityIndicator,
 	Button,
 	FAB,
+	Menu,
 	Surface,
 	Text,
 } from "react-native-paper";
@@ -29,13 +30,15 @@ import {
 	useBoardDrag,
 } from "@/components/board/use-board-drag";
 import { fieldSpecs } from "@/components/overview/CardEditForm";
+import { AppMenu } from "@/components/ui/AppMenu";
 import { OutboxSnackbar } from "@/components/ui/OutboxSnackbar";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
-import { createNode } from "@/data/nodes";
+import { createNode, moveNodes } from "@/data/nodes";
 import type { useCardSelection } from "@/hooks/use-card-selection";
 import { useLabelAncestors } from "@/hooks/use-label-ancestors";
+import { useTabTrap } from "@/hooks/use-modal-focus";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { BoardFilter, BoardReach } from "@/models/board-filter";
 import {
@@ -47,6 +50,7 @@ import { membersOf } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
 import type { Location } from "@/models/locations";
 import {
+	appendRanks,
 	crossBoardBlockerIds,
 	type EffectiveLocation,
 	effectiveLocation,
@@ -58,6 +62,7 @@ import {
 	visibleColumns,
 } from "@/models/node";
 import { doneWithinDays } from "@/models/overview";
+import { ordered } from "@/models/selection";
 import { useAppTheme } from "@/theme";
 import {
 	cardGutterBreakpoint,
@@ -202,6 +207,8 @@ export function Board({
 	const [current, setCurrent] = useState(0);
 	const [adding, setAdding] = useState<Status | null>(null);
 	const [notice, setNotice] = useState<Notice | null>(null);
+	const moveFabAnchor = useRef<View>(null);
+	useTabTrap(selection.moveAnchor !== null, "selection-move-menu");
 
 	/**
 	 * What the watcher has answered for the blockers this board's own query
@@ -502,7 +509,7 @@ export function Board({
 		const modified =
 			Platform.OS === "web" &&
 			(modifiers?.ctrlKey || modifiers?.metaKey || shift);
-		if (reach === "board" && (selected.ids.length > 0 || modified)) {
+		if (reach === "board" && (selection.selecting || modified)) {
 			if (selected.status !== null && selected.status !== node.status) {
 				setNotice({
 					text: t("board.selectionElsewhere", {
@@ -517,6 +524,52 @@ export function Board({
 			return;
 		}
 		router.push(hasSteps(node) ? boardHref(node.id) : detailsHref(node.id));
+	};
+	const moveSelection = (status: Status) => {
+		selection.closeMove();
+		if (
+			reach !== "board" ||
+			status === selected.status ||
+			!columns.includes(status)
+		)
+			return;
+		const siblings = siblingsOf(universe, parent?.id ?? null);
+		const picked = ordered(selected, siblings);
+		if (picked.length === 0) return;
+		const ranks = appendRanks(
+			siblings.filter((card) => card.status === status),
+			picked.length,
+		);
+		const moves = picked.map((node, index) => ({
+			node,
+			status,
+			rank: ranks[index],
+		}));
+		const failed = (reason: unknown) => {
+			console.error("Could not move the cards:", reason);
+			setNotice({ text: t("error.saveFailed") });
+		};
+		moveNodes(homeId, moves).catch(failed);
+		selection.clear();
+		setNotice({
+			text:
+				picked.length === 1
+					? t("board.moved", { column: t(`status.${status}`) })
+					: t("board.movedCardsTo", {
+							count: picked.length,
+							column: t(`status.${status}`),
+						}),
+			undo: () => {
+				moveNodes(
+					homeId,
+					moves.map(({ node, status, rank }) => ({
+						node: { ...node, status, rank },
+						status: node.status,
+						rank: node.rank,
+					})),
+				).catch(failed);
+			},
+		});
 	};
 
 	const menu = (node: Node) => (
@@ -903,27 +956,60 @@ export function Board({
 			{compact &&
 			!loading &&
 			onScreen !== undefined &&
-			!(filterActive && shownNodes.length === 0) ? (
-				<FAB
-					icon={boardWidth < denseBreakpoint ? undefined : "plus"}
-					label={t("board.addTo", { column: t(`status.${onScreen}`) })}
-					onPress={() => setAdding(onScreen)}
-					// What the pane above pads its bottom by. The label is a
-					// translated sentence at the reader's own text size, so nothing
-					// short of measuring it is right in both locales.
-					onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
+			!(filterActive && shownNodes.length === 0) &&
+			(!selection.selecting || selected.ids.length > 0) ? (
+				<View
+					ref={moveFabAnchor}
 					style={{
 						position: "absolute",
 						right: space.md,
-						// Above the snackbar while there is one. Undo is not decoration
-						// here — it is the way back from a gesture that can move a card
-						// somebody did not mean to move — and a FAB parked on top of it
-						// is the one control that must never be covered.
 						bottom: fabBottom,
 						maxWidth: boardWidth * fabTokens.widthShare,
 					}}
-				/>
+				>
+					<FAB
+						icon={
+							boardWidth < denseBreakpoint
+								? undefined
+								: selection.selecting
+									? "arrow-right-bold-outline"
+									: "plus"
+						}
+						label={
+							selection.selecting
+								? t("board.moveCardsTo", { count: selected.ids.length })
+								: t("board.addTo", { column: t(`status.${onScreen}`) })
+						}
+						onPress={() =>
+							selection.selecting
+								? selection.openMove(moveFabAnchor.current)
+								: setAdding(onScreen)
+						}
+						// What the pane above pads its bottom by. The label is a
+						// translated sentence at the reader's own text size, so nothing
+						// short of measuring it is right in both locales.
+						onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
+					/>
+				</View>
 			) : null}
+			<AppMenu
+				visible={selection.moveAnchor !== null}
+				anchor={selection.moveAnchor ?? { x: space.none, y: space.none }}
+				onDismiss={selection.closeMove}
+				overlayAccessibilityLabel={t("common.closeMenu")}
+			>
+				<View testID="selection-move-menu">
+					{columns
+						.filter((status) => status !== selected.status)
+						.map((status) => (
+							<Menu.Item
+								key={status}
+								title={t(`status.${status}`)}
+								onPress={() => moveSelection(status)}
+							/>
+						))}
+				</View>
+			</AppMenu>
 
 			<TitleDialog
 				visible={adding !== null}

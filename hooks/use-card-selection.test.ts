@@ -14,6 +14,20 @@ beforeEach(() => {
 	mockFocused = true;
 });
 
+it("starts empty, stays selecting after the last card is deselected, and clears explicitly", () => {
+	const { result } = renderHook(() => useCardSelection("home root", true));
+	act(() => result.current.start());
+	expect(result.current.selecting).toBe(true);
+	expect(result.current.state).toEqual(empty);
+	act(() => result.current.toggleCard(first));
+	act(() => result.current.toggleCard(first));
+	expect(result.current.selecting).toBe(true);
+	expect(result.current.state).toEqual(empty);
+	act(() => result.current.clear());
+	expect(result.current.selecting).toBe(false);
+	expect(result.current.moveAnchor).toBeNull();
+});
+
 it("prunes hidden and moved cards without resurrecting them when visible again", () => {
 	const { result } = renderHook(() => useCardSelection("home root", true));
 	act(() => {
