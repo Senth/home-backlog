@@ -715,6 +715,10 @@ export function rankSequence(
 	return generateNKeysBetween(before, after, count, rankDigits);
 }
 
+export function appendRanks(siblings: readonly Node[], n: number): string[] {
+	return rankSequence(siblings.at(-1)?.rank ?? null, null, n);
+}
+
 /**
  * The board sort: rank, then id.
  *
