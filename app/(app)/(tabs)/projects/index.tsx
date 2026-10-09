@@ -20,6 +20,7 @@ import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
 import { useBoardFilter } from "@/hooks/use-board-filter";
 import { useBoardNodes } from "@/hooks/use-board-nodes";
+import { useCardSelection } from "@/hooks/use-card-selection";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useLocations } from "@/hooks/use-locations";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
@@ -92,6 +93,10 @@ export default function Projects() {
 		filter?.reach ?? "board",
 	);
 	const board = useParticipantFilter(nodes);
+	const selection = useCardSelection(
+		`${homeId ?? ""} root`,
+		(filter?.reach ?? "board") === "board",
+	);
 	const { locations } = useLocations(homeId);
 	const [filterOpen, setFilterOpen] = useState(false);
 	const filterAnchor = useRef<View>(null);
@@ -157,6 +162,7 @@ export default function Projects() {
 					onOpenFilter={() => setFilterOpen(true)}
 					reach={filter?.reach ?? "board"}
 					pool={pool}
+					selection={selection}
 				/>
 			) : null}
 

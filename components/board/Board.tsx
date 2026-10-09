@@ -1,7 +1,12 @@
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Animated, View } from "react-native";
+import {
+	Animated,
+	type GestureResponderEvent,
+	Platform,
+	View,
+} from "react-native";
 import {
 	ActivityIndicator,
 	Button,
@@ -29,6 +34,7 @@ import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { createNode } from "@/data/nodes";
+import type { useCardSelection } from "@/hooks/use-card-selection";
 import { useLabelAncestors } from "@/hooks/use-label-ancestors";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { BoardFilter, BoardReach } from "@/models/board-filter";
@@ -133,6 +139,7 @@ interface BoardProps {
 	 * the whole answer in this-board reach.
 	 */
 	pool?: Node[];
+	selection: ReturnType<typeof useCardSelection>;
 }
 
 /**
@@ -176,6 +183,7 @@ export function Board({
 	onOpenFilter,
 	reach = "board",
 	pool,
+	selection,
 }: BoardProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
@@ -353,6 +361,10 @@ export function Board({
 		[universe, matchCtx, conditions],
 	);
 	const filterActive = conditions.length > 0;
+	const { state: selected, pruneVisible } = selection;
+	useEffect(() => {
+		pruneVisible(reach === "board" ? shownNodes : noCards);
+	}, [pruneVisible, reach, shownNodes]);
 
 	// The frozen set, plus a column for any status that is on this board but not
 	// in it. A card that exists is visible somewhere — including one the filter
@@ -482,7 +494,28 @@ export function Board({
 	 * as an empty board, and the chevron on the card already says which of the
 	 * two a tap will do.
 	 */
-	const open = (node: Node) => {
+	const open = (node: Node, event?: GestureResponderEvent) => {
+		const modifiers = event?.nativeEvent as
+			| { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean }
+			| undefined;
+		const shift = Platform.OS === "web" && modifiers?.shiftKey;
+		const modified =
+			Platform.OS === "web" &&
+			(modifiers?.ctrlKey || modifiers?.metaKey || shift);
+		if (reach === "board" && (selected.ids.length > 0 || modified)) {
+			if (selected.status !== null && selected.status !== node.status) {
+				setNotice({
+					text: t("board.selectionElsewhere", {
+						column: t(`status.${selected.status}`),
+					}),
+				});
+			} else if (shift) {
+				selection.selectRange(node, cardsIn(node.status));
+			} else {
+				selection.toggleCard(node);
+			}
+			return;
+		}
 		router.push(hasSteps(node) ? boardHref(node.id) : detailsHref(node.id));
 	};
 
@@ -712,6 +745,7 @@ export function Board({
 									}
 									onAdd={() => setAdding(status)}
 									onOpen={open}
+									selectedIds={reach === "board" ? selected.ids : noLabelIds}
 									renderMenu={menu}
 									drag={columnDrag(status)}
 									blockers={blockers}
@@ -750,6 +784,7 @@ export function Board({
 							doneWindowDays={reach === "subtree" ? doneWithinDays : undefined}
 							onAdd={() => setAdding(status)}
 							onOpen={open}
+							selectedIds={reach === "board" ? selected.ids : noLabelIds}
 							renderMenu={menu}
 							drag={columnDrag(status)}
 							blockers={blockers}

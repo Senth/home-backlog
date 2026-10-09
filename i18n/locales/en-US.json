@@ -269,6 +269,8 @@
 		"titleTooLong": "That title is too long",
 		"open": "Open as board",
 		"openDetails": "Open details",
+		"selectionElsewhere": "You're picking in {{column}}. Close the selection to pick elsewhere.",
+		"selectedCardA11y": "{{title}}, selected",
 		"actions": "Card actions",
 		"blocked": "Waiting",
 		"waitingOn": "Waiting on…",

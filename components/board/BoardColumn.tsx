@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { type GestureResponderEvent, View } from "react-native";
 import { Button, Text } from "react-native-paper";
 import { BoardCard } from "@/components/board/BoardCard";
 import { DragArea } from "@/components/board/DragArea";
@@ -66,7 +66,8 @@ interface BoardColumnProps {
 	 */
 	bottomInset?: number;
 	onAdd: () => void;
-	onOpen: (node: Node) => void;
+	onOpen: (node: Node, event: GestureResponderEvent) => void;
+	selectedIds: readonly string[];
 	/** The card's overflow menu, which the board owns because the actions do. */
 	renderMenu?: (node: Node) => ReactNode;
 	/**
@@ -122,6 +123,7 @@ export function BoardColumn({
 	bottomInset = space.xxl,
 	onAdd,
 	onOpen,
+	selectedIds,
 	renderMenu,
 	drag,
 	blockers,
@@ -362,7 +364,8 @@ export function BoardColumn({
 								{drag === undefined ? (
 									<BoardCard
 										node={node}
-										onOpen={() => onOpen(node)}
+										onOpen={(event) => onOpen(node, event)}
+										selected={selectedIds.includes(node.id)}
 										menu={renderMenu?.(node)}
 										wide={wide}
 										onColumn={wide}
@@ -377,7 +380,8 @@ export function BoardColumn({
 									<DragArea {...drag.handlers(node)}>
 										<BoardCard
 											node={node}
-											onOpen={() => onOpen(node)}
+											onOpen={(event) => onOpen(node, event)}
+											selected={selectedIds.includes(node.id)}
 											menu={renderMenu?.(node)}
 											wide={wide}
 											onColumn={wide}

@@ -19,6 +19,7 @@ import { useHome } from "@/contexts/HomeContext";
 import { useAncestors } from "@/hooks/use-ancestors";
 import { useBoardFilter } from "@/hooks/use-board-filter";
 import { useBoardNodes } from "@/hooks/use-board-nodes";
+import { useCardSelection } from "@/hooks/use-card-selection";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useLocations } from "@/hooks/use-locations";
 import { useNode } from "@/hooks/use-node";
@@ -74,6 +75,10 @@ export default function NodeBoard() {
 		filter?.reach ?? "board",
 	);
 	const filtered = useParticipantFilter(nodes);
+	const selection = useCardSelection(
+		`${homeId ?? ""} ${board ?? ""}`,
+		(filter?.reach ?? "board") === "board",
+	);
 	const { locations } = useLocations(homeId);
 	const [filterOpen, setFilterOpen] = useState(false);
 	const filterAnchor = useRef<View>(null);
@@ -218,6 +223,7 @@ export default function NodeBoard() {
 					onOpenFilter={() => setFilterOpen(true)}
 					reach={filter?.reach ?? "board"}
 					pool={pool}
+					selection={selection}
 				/>
 			) : (
 				<ActivityIndicator

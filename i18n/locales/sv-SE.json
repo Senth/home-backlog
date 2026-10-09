@@ -269,6 +269,8 @@
 		"titleTooLong": "Titeln är för lång",
 		"open": "Öppna som tavla",
 		"openDetails": "Öppna detaljer",
+		"selectionElsewhere": "Du väljer i {{column}}. Stäng urvalet för att välja någon annanstans.",
+		"selectedCardA11y": "{{title}}, vald",
 		"actions": "Kortåtgärder",
 		"blocked": "Väntar",
 		"waitingOn": "Väntar på…",

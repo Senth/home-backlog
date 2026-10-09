@@ -28,8 +28,10 @@ jest.mock("@/data/outbox-store", () => ({
 	intentMetadata: jest.fn(() => ({ id: "intent-1" })),
 }));
 
+import { Platform } from "react-native";
 import { DragArea } from "@/components/board/DragArea";
 import { createNode } from "@/data/nodes";
+import { useCardSelection } from "@/hooks/use-card-selection";
 import type { BoardFilter } from "@/models/board-filter";
 import type { Node } from "@/models/node";
 import { defaultColumns, rankAtEnd } from "@/models/node";
@@ -55,12 +57,19 @@ jest.mock("@/contexts/HomeContext", () => ({
 	useHome: () => ({ activeHome: null }),
 }));
 
+const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
-	useRouter: () => ({ push: jest.fn() }),
+	useRouter: () => ({ push: mockPush }),
+}));
+jest.mock("@react-navigation/native", () => ({
+	useIsFocused: () => true,
 }));
 
 jest.mock("@/hooks/use-reduced-motion", () => ({
 	useReducedMotion: () => false,
+}));
+jest.mock("@/hooks/use-online-status", () => ({
+	useOnlineStatus: () => true,
 }));
 
 // CardMenu reaches BlockerSearchDialog, which imports the Firestore module
@@ -119,7 +128,7 @@ function node(status: Node["status"]): Node {
 	};
 }
 
-function renderBoard(props: {
+interface TestBoardProps {
 	loading: boolean;
 	viewport: number;
 	nodes?: Node[];
@@ -130,7 +139,32 @@ function renderBoard(props: {
 	reach?: "board" | "subtree";
 	pool?: Node[];
 	parent?: Node | null;
-}) {
+}
+
+function SelectionBoard({ current }: { current: TestBoardProps }) {
+	const selection = useCardSelection(
+		`home-1 ${current.parent?.id ?? ""}`,
+		(current.reach ?? "board") === "board",
+	);
+	return (
+		<Board
+			homeId="home-1"
+			parent={current.parent ?? null}
+			columns={defaultColumns}
+			nodes={current.nodes ?? []}
+			hidden={current.hidden}
+			loading={current.loading}
+			filter={current.filter}
+			onChangeFilter={current.onChangeFilter}
+			onOpenFilter={current.onOpenFilter}
+			reach={current.reach}
+			pool={current.pool}
+			selection={selection}
+		/>
+	);
+}
+
+function renderBoard(props: TestBoardProps) {
 	// Held as a tree over the props, so a test can re-render the same board
 	// with the same props — the shape a board left open re-renders in.
 	const tree = (current: typeof props) => (
@@ -143,19 +177,7 @@ function renderBoard(props: {
 			}}
 		>
 			<Provider theme={lightTheme}>
-				<Board
-					homeId="home-1"
-					parent={current.parent ?? null}
-					columns={defaultColumns}
-					nodes={current.nodes ?? []}
-					hidden={current.hidden}
-					loading={current.loading}
-					filter={current.filter}
-					onChangeFilter={current.onChangeFilter}
-					onOpenFilter={current.onOpenFilter}
-					reach={current.reach}
-					pool={current.pool}
-				/>
+				<SelectionBoard current={current} />
 			</Provider>
 		</SafeAreaProvider>
 	);
@@ -182,6 +204,146 @@ describe("Board", () => {
 	beforeEach(() => {
 		mockIntents = [];
 		mockFeedbackVisible = false;
+	});
+
+	it.each(["ctrlKey", "metaKey"])(
+		"%s starts selection, taps toggle instead of opening",
+		(key) => {
+			jest.replaceProperty(Platform, "OS", "web");
+			try {
+				renderBoard({
+					loading: false,
+					viewport: 1440,
+					nodes: [node("backlog")],
+				});
+				fireEvent.press(screen.getByText("Fix the gutter"), {
+					nativeEvent: { [key]: true },
+				});
+				expect(
+					screen.getByLabelText(/^board.selectedCardA11y:/),
+				).toBeOnTheScreen();
+				expect(mockPush).not.toHaveBeenCalled();
+				fireEvent.press(screen.getByText("Fix the gutter"));
+				expect(screen.queryByLabelText(/^board.selectedCardA11y:/)).toBeNull();
+				expect(mockPush).not.toHaveBeenCalled();
+				fireEvent.press(screen.getByText("Fix the gutter"));
+				expect(mockPush).toHaveBeenCalled();
+			} finally {
+				jest.restoreAllMocks();
+			}
+		},
+	);
+
+	it("shift-click selects a visible range, then another column replaces the notice without changing selection", () => {
+		jest.replaceProperty(Platform, "OS", "web");
+		try {
+			const cards = ["first", "middle", "last"].map((title, index) => ({
+				...node("backlog"),
+				id: title,
+				title,
+				rank: `a${index}`,
+			}));
+			const other = { ...node("execution"), title: "elsewhere" };
+			const board = renderBoard({
+				loading: false,
+				viewport: 1440,
+				nodes: [...cards, other],
+			});
+			act(() =>
+				board
+					.UNSAFE_getAllByType(CardMenu)[0]
+					.props.onNotice({ text: "old notice" }),
+			);
+			fireEvent.press(screen.getByText("first"), {
+				nativeEvent: { ctrlKey: true },
+			});
+			fireEvent.press(screen.getByText("last"), {
+				nativeEvent: { shiftKey: true },
+			});
+			expect(screen.getAllByLabelText(/^board.selectedCardA11y:/)).toHaveLength(
+				3,
+			);
+			fireEvent.press(screen.getByText("elsewhere"));
+			expect(
+				screen.getByText(
+					'board.selectionElsewhere:{"column":"status.backlog"}',
+				),
+			).toBeOnTheScreen();
+			expect(screen.queryByText("old notice")).toBeNull();
+			expect(screen.getAllByLabelText(/^board.selectedCardA11y:/)).toHaveLength(
+				3,
+			);
+			expect(mockPush).not.toHaveBeenCalled();
+		} finally {
+			jest.restoreAllMocks();
+		}
+	});
+
+	it("filter changes prune hidden selections without selecting them again when cleared", () => {
+		jest.replaceProperty(Platform, "OS", "web");
+		try {
+			const cards = [
+				{
+					...node("backlog"),
+					id: "first",
+					title: "first",
+					priority: "low" as const,
+				},
+				{
+					...node("backlog"),
+					id: "second",
+					title: "second",
+					priority: "high" as const,
+				},
+			];
+			const props = { loading: false, viewport: 390, nodes: cards };
+			const board = renderBoard(props);
+			fireEvent.press(screen.getByText("first"), {
+				nativeEvent: { metaKey: true },
+			});
+			fireEvent.press(screen.getByText("second"));
+			board.rerenderBoard({
+				...props,
+				filter: {
+					mode: "open",
+					reach: "board",
+					conditions: [{ field: "priority", anyOf: ["low"] }],
+				},
+			});
+			expect(screen.queryByText("second")).toBeNull();
+			expect(
+				screen.getByLabelText('board.selectedCardA11y:{"title":"first"}'),
+			).toBeOnTheScreen();
+			board.rerenderBoard(props);
+			expect(screen.getByText("second")).toBeOnTheScreen();
+			expect(
+				screen.getByLabelText('board.selectedCardA11y:{"title":"first"}'),
+			).toBeOnTheScreen();
+			expect(
+				screen.queryByLabelText('board.selectedCardA11y:{"title":"second"}'),
+			).toBeNull();
+		} finally {
+			jest.restoreAllMocks();
+		}
+	});
+
+	it("subtree reach ignores selection modifiers and opens the card", () => {
+		jest.replaceProperty(Platform, "OS", "web");
+		try {
+			renderBoard({
+				loading: false,
+				viewport: 1440,
+				nodes: [node("backlog")],
+				reach: "subtree",
+			});
+			fireEvent.press(screen.getByText("Fix the gutter"), {
+				nativeEvent: { ctrlKey: true },
+			});
+			expect(mockPush).toHaveBeenCalled();
+			expect(screen.queryByLabelText(/^board.selectedCardA11y:/)).toBeNull();
+		} finally {
+			jest.restoreAllMocks();
+		}
 	});
 
 	it.each(["intent leaves outbox", "global feedback appears"])(
