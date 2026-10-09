@@ -16,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: prod
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           # Pin exact patch: Node 22.23.0 has a keep-alive socket regression
           # (CVE-2026-48931 fix) that breaks the WIF STS token exchange inside
@@ -29,7 +29,7 @@ jobs:
           node-version: 22.23.1
 
       - name: Cache node_modules
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('yarn.lock') }}
@@ -55,7 +55,7 @@ jobs:
           cmd: build:web
 
       - name: Authenticate with Google Cloud
-        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           project_id: home-backlog
           workload_identity_provider: projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github/providers/home-backlog
