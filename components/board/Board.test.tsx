@@ -255,6 +255,45 @@ function measureAnchors() {
 }
 
 describe("Board", () => {
+	it("card menu starts selection and reuses batch move notice and Undo", () => {
+		const cards = [
+			node("backlog"),
+			{ ...node("backlog"), id: "second", title: "second", rank: "a1" },
+		];
+		renderBoard({ loading: false, viewport: 1440, nodes: cards });
+		fireEvent.press(screen.getAllByLabelText("board.actions")[0], {
+			stopPropagation: jest.fn(),
+		});
+		fireEvent.press(screen.getByText("board.select"));
+		fireEvent.press(screen.getByText("second"));
+		fireEvent.press(screen.getAllByLabelText("board.actions")[0], {
+			stopPropagation: jest.fn(),
+		});
+		fireEvent.press(screen.getByText('board.moveCardsTo:{"count":2}'));
+		fireEvent.press(screen.getByText("status.done"));
+		const ranks = appendRanks([], 2);
+		expect(moveNodes).toHaveBeenCalledWith(
+			"home-1",
+			cards.map((card, index) => ({
+				node: card,
+				status: "done",
+				rank: ranks[index],
+			})),
+		);
+		expect(
+			screen.getByText('board.movedCardsTo:{"count":2,"column":"status.done"}'),
+		).toBeOnTheScreen();
+		expect(screen.getByLabelText("board.selectCards")).toBeOnTheScreen();
+		fireEvent.press(screen.getByText("common.undo"));
+		expect(moveNodes).toHaveBeenLastCalledWith(
+			"home-1",
+			cards.map((card, index) => ({
+				node: { ...card, status: "done", rank: ranks[index] },
+				status: card.status,
+				rank: card.rank,
+			})),
+		);
+	});
 	beforeEach(() => {
 		mockIntents = [];
 		mockFeedbackVisible = false;

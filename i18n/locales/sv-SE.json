@@ -272,6 +272,8 @@
 		"selectionElsewhere": "Du väljer i {{column}}. Stäng urvalet för att välja någon annanstans.",
 		"selectedCardA11y": "{{title}}, vald",
 		"selectCards": "Välj kort",
+		"select": "Välj",
+		"deselect": "Avmarkera",
 		"stopSelecting": "Stäng urvalet",
 		"selectedCount_one": "{{count}} valt",
 		"selectedCount_other": "{{count}} valda",

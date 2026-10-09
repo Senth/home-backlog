@@ -272,6 +272,8 @@
 		"selectionElsewhere": "You're picking in {{column}}. Close the selection to pick elsewhere.",
 		"selectedCardA11y": "{{title}}, selected",
 		"selectCards": "Select cards",
+		"select": "Select",
+		"deselect": "Deselect",
 		"stopSelecting": "Stop selecting",
 		"selectedCount_one": "{{count}} selected",
 		"selectedCount_other": "{{count}} selected",

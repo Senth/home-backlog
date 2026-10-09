@@ -581,6 +581,9 @@ export function Board({
 			nodes={nodes}
 			hidden={hidden}
 			blockers={blockers}
+			selection={
+				reach === "board" ? { ...selection, moveTo: moveSelection } : undefined
+			}
 			onNotice={setNotice}
 			// The only way in for a card that *is* a board, where a tap drills in.
 			onDetails={() => router.push(detailsHref(node.id))}
