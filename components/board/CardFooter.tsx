@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { type StyleProp, View, type ViewStyle } from "react-native";
-import { Icon, Text } from "react-native-paper";
 import { DueChip } from "@/components/board/DueChip";
-import { FadeText } from "@/components/board/FadeText";
+import { Fact } from "@/components/board/Fact";
 import { useHome } from "@/contexts/HomeContext";
 import { useOutbox } from "@/contexts/OutboxContext";
 import { useLocationColors } from "@/hooks/use-location-colors";
@@ -12,8 +11,7 @@ import { showsDue } from "@/models/due-date";
 import type { Location } from "@/models/locations";
 import type { Node } from "@/models/node";
 import { waitingCountFor } from "@/models/outbox";
-import { useAppTheme } from "@/theme";
-import { border, icon, space } from "@/theme/tokens";
+import { border, space } from "@/theme/tokens";
 
 interface CardFooterProps {
 	node: Node;
@@ -36,24 +34,11 @@ interface CardFooterProps {
 	 * row saying its own name twice. One prop, so the footer keeps its shape.
 	 */
 	showLocation?: boolean;
+	showPrivate?: boolean;
 	/** The waiting mark, when the card is waiting; `null` when it is not. */
 	waiting: { label: string; a11yLabel: string } | null;
 	/** The card owns the air between its title and this footer. */
 	style?: StyleProp<ViewStyle>;
-}
-
-interface FactProps {
-	source: string;
-	/** Overrides the muted tier — the warning color, on an overdue card. */
-	color?: string;
-	/** What a screen reader hears instead of the visual shorthand. */
-	accessibilityLabel?: string;
-	/**
-	 * One line that fades at the card's right edge instead of wrapping (#339)
-	 * — the waiting fact, whose words name a card that may be called anything.
-	 */
-	fade?: boolean;
-	children: ReactNode;
 }
 
 /**
@@ -77,51 +62,6 @@ function LocationFact({
 	);
 }
 
-/**
- * One bare fact: a leading glyph and the words, no box around them. The
- * card's footer is text on the card, and a chip border there was one more
- * edge competing with the card's own.
- */
-function Fact({
-	source,
-	color,
-	accessibilityLabel,
-	fade = false,
-	children,
-}: FactProps) {
-	const theme = useAppTheme();
-	const tone = color ?? theme.colors.onCardMuted;
-
-	return (
-		<View
-			style={{
-				flexDirection: "row",
-				alignItems: "center",
-				gap: space.xs,
-				// The faded fact claims the whole line it sits on, so its fade
-				// waits at the card's edge for words that actually get there —
-				// a fact that fits is never faded.
-				flex: fade ? 1 : undefined,
-			}}
-		>
-			<Icon source={source} size={icon.sm} color={tone} />
-			{fade ? (
-				<FadeText color={tone} accessibilityLabel={accessibilityLabel}>
-					{children}
-				</FadeText>
-			) : (
-				<Text
-					variant="labelMedium"
-					accessibilityLabel={accessibilityLabel}
-					style={{ color: tone, flexShrink: 1 }}
-				>
-					{children}
-				</Text>
-			)}
-		</View>
-	);
-}
-
 /** A pair of facts that wraps as one unit: `columnGap` between, `rowGap` of one hairline. */
 function Pair({ children }: { children: ReactNode }) {
 	return (
@@ -141,7 +81,7 @@ function Pair({ children }: { children: ReactNode }) {
 
 /**
  * The card's footer (#100), two pairs of bare facts: **where and how long**,
- * then **due and waiting**.
+ * then **due and waiting**, then *Private* on a private card (#233).
  *
  * The spacing is the wrap fix: every pair spaces its own members `space.sm`
  * apart horizontally and one hairline apart vertically, so a pair that runs
@@ -160,6 +100,7 @@ export function CardFooter({
 	locationId,
 	locations,
 	showLocation = true,
+	showPrivate = true,
 	waiting,
 	style,
 }: CardFooterProps) {
@@ -187,8 +128,9 @@ export function CardFooter({
 			: undefined;
 	const where = location !== undefined || node.effort !== null;
 	const when = showDue || waiting !== null;
+	const isPrivate = showPrivate && node.visibility === "private";
 
-	if (!where && !when && !carries && syncCount === 0) return null;
+	if (!where && !when && !isPrivate && !carries && syncCount === 0) return null;
 
 	return (
 		<View style={[{ rowGap: border.hairline }, style]}>
@@ -220,6 +162,9 @@ export function CardFooter({
 						</Fact>
 					)}
 				</Pair>
+			) : null}
+			{isPrivate ? (
+				<Fact source="lock-outline">{t("board.private")}</Fact>
 			) : null}
 			{syncCount > 0 ? (
 				<Fact source="cloud-upload-outline">

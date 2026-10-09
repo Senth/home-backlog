@@ -191,6 +191,7 @@ export default function NodeBoard() {
 				crumbs={crumbs}
 				current={node?.title ?? ""}
 				onNavigate={(id) => router.dismissTo(boardHref(id))}
+				isPrivate={node?.visibility === "private"}
 			/>
 
 			{/* No board until its own node has arrived. `Board` hands `parent`

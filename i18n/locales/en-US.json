@@ -308,7 +308,7 @@
 		"crumbHidden": "Hidden",
 		"trail": "Where you are",
 		"pathA11y": "In {{path}}",
-		"hidden": "Hidden",
+		"private": "Private",
 		"assignedTo_one": "{{names}} is doing this",
 		"assignedTo_other": "{{names}} are doing this",
 		"boardActions": "Board actions",

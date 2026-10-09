@@ -3,13 +3,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, useWindowDimensions, View } from "react-native";
-import {
-	ActivityIndicator,
-	Button,
-	FAB,
-	Icon,
-	Text,
-} from "react-native-paper";
+import { ActivityIndicator, Button, FAB, Icon, Text } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { LocationDialog } from "@/components/location/LocationDialog";
 import {

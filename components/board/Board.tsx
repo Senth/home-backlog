@@ -262,6 +262,7 @@ export function Board({
 
 	const conditions = filter?.conditions ?? noConditions;
 	const ancestorLocationId = ancestorLocation?.locationId ?? null;
+	const showPrivate = parent?.visibility !== "private";
 
 	// Subtree reach: the ancestor chains the cards answer through, resolved by
 	// id out of the pool (#100) — a card three levels down inherits from two
@@ -717,6 +718,7 @@ export function Board({
 									ancestorLabelIds={ancestorLabelIds}
 									ancestorLocationId={ancestorLocationId}
 									locations={locations}
+									showPrivate={showPrivate}
 								/>
 							</View>
 						);
@@ -754,6 +756,7 @@ export function Board({
 							ancestorLabelIds={ancestorLabelIds}
 							ancestorLocationId={ancestorLocationId}
 							locations={locations}
+							showPrivate={showPrivate}
 						/>
 					))}
 				</SlimScrollView>
@@ -837,6 +840,7 @@ export function Board({
 							ancestorLabelIds={ancestorLabelIds}
 							ancestorLocationId={ancestorLocationId}
 							locations={locations}
+							showPrivate={showPrivate}
 						/>
 					</Surface>
 				</Animated.View>

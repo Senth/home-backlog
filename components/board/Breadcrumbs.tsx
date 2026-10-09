@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
 import { Button, Icon, Text } from "react-native-paper";
+import { Fact } from "@/components/board/Fact";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import type { Crumb } from "@/hooks/use-ancestors";
 import { useAppTheme } from "@/theme";
@@ -14,6 +15,7 @@ interface BreadcrumbsProps {
 	current: string;
 	/** `null` is the root board. */
 	onNavigate: (nodeId: string | null) => void;
+	isPrivate?: boolean;
 }
 
 interface CardTrailProps {
@@ -112,7 +114,12 @@ export function CardTrail({
  * added to a private subtask grants no read on the private project above it, and
  * a trail with a hole in it says less than one that admits to a hidden step.
  */
-export function Breadcrumbs({ crumbs, current, onNavigate }: BreadcrumbsProps) {
+export function Breadcrumbs({
+	crumbs,
+	current,
+	onNavigate,
+	isPrivate = false,
+}: BreadcrumbsProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 
@@ -124,7 +131,7 @@ export function Breadcrumbs({ crumbs, current, onNavigate }: BreadcrumbsProps) {
 		/>
 	);
 
-	return (
+	const trail = (
 		<SlimScrollView
 			horizontal
 			showsHorizontalScrollIndicator={false}
@@ -187,5 +194,24 @@ export function Breadcrumbs({ crumbs, current, onNavigate }: BreadcrumbsProps) {
 				</Text>
 			</View>
 		</SlimScrollView>
+	);
+
+	if (!isPrivate) return trail;
+
+	return (
+		<View
+			style={{
+				flexDirection: "row",
+				alignItems: "center",
+				justifyContent: "space-between",
+			}}
+		>
+			{trail}
+			<View style={{ paddingLeft: space.sm, paddingRight: space.md }}>
+				<Fact source="lock-outline" color={theme.colors.onSurfaceVariant}>
+					{t("board.private")}
+				</Fact>
+			</View>
+		</View>
 	);
 }
