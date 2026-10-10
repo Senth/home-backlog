@@ -1,6 +1,11 @@
 import { Fragment, type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Image, View } from "react-native";
+import {
+	type GestureResponderEvent,
+	Image,
+	Pressable,
+	View,
+} from "react-native";
 import { Card, Icon, Text } from "react-native-paper";
 import { CardTrail } from "@/components/board/Breadcrumbs";
 import { CardFooter } from "@/components/board/CardFooter";
@@ -34,7 +39,8 @@ interface BoardCardProps {
 	 * without a press of its own: the details screen (#237) shows the card the
 	 * route already names, so the face is not itself a control there.
 	 */
-	onOpen?: () => void;
+	onOpen?: (event: GestureResponderEvent) => void;
+	selected?: boolean;
 	/** The overflow menu. Everything that is not "open" lives in there. */
 	menu?: ReactNode;
 	/**
@@ -201,6 +207,7 @@ const noAncestorLabelIds: readonly string[] = [];
 export function BoardCard({
 	node,
 	onOpen,
+	selected = false,
 	menu,
 	wide = false,
 	onColumn = false,
@@ -338,223 +345,234 @@ export function BoardCard({
 			</View>
 		);
 
+	const CardBody = onOpen === undefined ? View : Pressable;
 	return (
 		<Card
 			mode={onColumn ? "contained" : "outlined"}
 			testID={cardTestID}
-			onPress={onOpen}
-			accessibilityHint={
-				// A face without a press has nothing to hint about.
-				onOpen === undefined
-					? undefined
-					: steps
-						? t("board.open")
-						: t("board.openDetails")
-			}
-			// Raised out of its column: the fill is a board color rather than
-			// `surface`, which in dark was the same color as the page. Paper draws
-			// the outlined card's hairline itself, in whatever `borderColor` this
-			// style carries — a `borderWidth` here would put a second, coincident
-			// border on the surface underneath it and inset the content by a pixel.
-			// On the column's fill the card is `contained` instead: the fill alone
-			// separates there, and a hairline over a fill is the edge the contract
-			// reserves for where a fill cannot do the job (#358).
+			accessibilityState={{ selected }}
 			style={{
-				backgroundColor: theme.colors.boardCard,
+				backgroundColor: selected
+					? theme.colors.secondaryContainer
+					: theme.colors.boardCard,
 				borderColor: theme.colors.boardCardBorder,
 			}}
 		>
-			{/* The hero is the one face that breaks the gutters' rail — full-bleed
+			<CardBody
+				onPress={onOpen}
+				accessible={onOpen !== undefined}
+				accessibilityState={{ selected }}
+				accessibilityLabel={
+					selected
+						? t("board.selectedCardA11y", { title: node.title })
+						: undefined
+				}
+				accessibilityHint={
+					// A face without a press has nothing to hint about.
+					onOpen === undefined || selected
+						? undefined
+						: steps
+							? t("board.open")
+							: t("board.openDetails")
+				}
+			>
+				{/* The hero is the one face that breaks the gutters' rail — full-bleed
 			    above both of them, its top corners the card's own. Chosen per
 			    card, never automatic: a board looks like this only where somebody
 			    decided it should (docs/DESIGN.md, #298). */}
-			{face.mode === "hero" && face.hero !== null ? (
-				<CardHero attachment={face.hero} />
-			) : null}
+				{face.mode === "hero" && face.hero !== null ? (
+					<CardHero attachment={face.hero} />
+				) : null}
 
-			<View style={{ flexDirection: "row", minHeight: touchTarget }}>
-				<CardGutter node={node} labels={labels} narrow={narrow} />
+				<View style={{ flexDirection: "row", minHeight: touchTarget }}>
+					<CardGutter
+						node={node}
+						labels={labels}
+						narrow={narrow}
+						selected={selected}
+					/>
 
-				{/* The content column, spacing 8 / 4 / 8 (#100): edge → crumbs,
+					{/* The content column, spacing 8 / 4 / 8 (#100): edge → crumbs,
 				    crumbs → title, title → footer. Nothing above the crumbs, nothing
 				    between them and the title — the trail reads as one unit with what
 				    it names. */}
-				<View
-					style={{
-						flex: 1,
-						paddingTop: space.sm,
-						paddingBottom: space.sm,
-						paddingHorizontal: narrow ? space.xs : space.sm,
-					}}
-				>
-					{/* The linked trail is the details card's alone: links that
+					<View
+						style={{
+							flex: 1,
+							paddingTop: space.sm,
+							paddingBottom: space.sm,
+							paddingHorizontal: narrow ? space.xs : space.sm,
+						}}
+					>
+						{/* The linked trail is the details card's alone: links that
 					    wrap. Everywhere else the trail is one elided line you
 					    consult. */}
-					{linkedTrail === undefined ? null : (
-						<CardTrail
-							crumbs={linkedTrail.crumbs}
-							onOpenCrumb={linkedTrail.onOpenCrumb}
-							narrow={narrow}
-						/>
-					)}
+						{linkedTrail === undefined ? null : (
+							<CardTrail
+								crumbs={linkedTrail.crumbs}
+								onOpenCrumb={linkedTrail.onOpenCrumb}
+								narrow={narrow}
+							/>
+						)}
 
-					{/* Context you consult rather than scan: quiet metadata the title
+						{/* Context you consult rather than scan: quiet metadata the title
 					    still owns. One `Text` so the trail end-elides as a whole — the
 					    Swedish 195px case — and one label so a screen reader hears the
 					    crumbs as words rather than chevrons. Narrow, it keeps clear of
 					    the menu floating over its own corner. */}
-					{linkedTrail !== undefined || crumbs === undefined ? null : (
-						<Text
-							variant="labelMedium"
-							numberOfLines={1}
-							accessible
-							accessibilityLabel={t("board.pathA11y", {
-								path: crumbs.map((crumb) => crumb.label).join(", "),
-							})}
-							style={[
-								{ color: theme.colors.onCardMuted },
-								narrow ? { paddingRight: touchTarget } : null,
-							]}
-						>
-							{crumbs.reduce<ReactNode>(
-								(trail, crumb) => (
-									<Fragment key={crumb.id}>
-										{trail}
-										{trail === null ? null : (
-											<Icon
-												source="chevron-right"
-												size={icon.sm}
-												color={theme.colors.onCardMuted}
-											/>
-										)}
-										{crumb.label}
-									</Fragment>
-								),
-								null,
-							)}
-						</Text>
-					)}
+						{linkedTrail !== undefined || crumbs === undefined ? null : (
+							<Text
+								variant="labelMedium"
+								numberOfLines={1}
+								accessible
+								accessibilityLabel={t("board.pathA11y", {
+									path: crumbs.map((crumb) => crumb.label).join(", "),
+								})}
+								style={[
+									{ color: theme.colors.onCardMuted },
+									narrow ? { paddingRight: touchTarget } : null,
+								]}
+							>
+								{crumbs.reduce<ReactNode>(
+									(trail, crumb) => (
+										<Fragment key={crumb.id}>
+											{trail}
+											{trail === null ? null : (
+												<Icon
+													source="chevron-right"
+													size={icon.sm}
+													color={theme.colors.onCardMuted}
+												/>
+											)}
+											{crumb.label}
+										</Fragment>
+									),
+									null,
+								)}
+							</Text>
+						)}
 
-					{/* Smaller on desktop, where a column is read as a list of cards
+						{/* Smaller on desktop, where a column is read as a list of cards
 					    rather than one card filling the screen. `wide` comes from the
 					    column, not from a measurement taken here. Quiet by exactly one
 					    step when done: the check says *finished* and the title steps
 					    down a tier with it — the fill, the border and the gutter are
 					    untouched, because a done card still belongs to its column. */}
-					<View
-						style={{
-							flexDirection: "row",
-							alignItems: "center",
-							gap: space.xs,
-							marginTop:
-								crumbs === undefined && linkedTrail === undefined
-									? space.none
-									: space.xs,
-						}}
-					>
-						{isDone ? (
-							<Icon
-								source="check"
-								size={icon.sm}
-								color={theme.colors.onCardMuted}
-							/>
-						) : null}
-						<Text
-							variant={wide ? "bodyMedium" : "bodyLarge"}
-							style={isDone ? { color: theme.colors.onCardMuted } : undefined}
-						>
-							{node.title}
-						</Text>
-					</View>
-
-					<CardFooter
-						node={node}
-						locationId={locationId}
-						locations={locations}
-						showLocation={!hideLocation}
-						showPrivate={showPrivate}
-						waiting={waiting}
-						// The title owns the space between them; the footer hangs one
-						// `space.sm` under it, whether or not it has anything to say.
-						// Rendered only when it does — a footer that renders as nothing
-						// leaves the title as the last word, which is what an empty card
-						// should end on.
-						style={{ marginTop: space.sm }}
-					/>
-
-					{/* The thumbnails face: one row under the footer, inside the
-					    content column — the gutters are untouched, and the pictures
-					    answer for the count the footer would otherwise carry. */}
-					{face.mode === "thumbnails" && face.images.length > 0 ? (
-						<View style={{ marginTop: space.sm }}>
-							<CardThumbnails images={face.images} />
-						</View>
-					) : null}
-
-					{/* Below `cardGutterBreakpoint` the right gutter is gone, so the
-					    people and the count travel with the content instead — a
-					    trailing line, wrapping before it shrinks. */}
-					{narrow && (people !== null || stepMark !== null) ? (
 						<View
 							style={{
 								flexDirection: "row",
-								flexWrap: "wrap",
 								alignItems: "center",
-								gap: space.sm,
-								marginTop: space.sm,
+								gap: space.xs,
+								marginTop:
+									crumbs === undefined && linkedTrail === undefined
+										? space.none
+										: space.xs,
 							}}
 						>
-							{people}
-							{stepMark}
+							{isDone ? (
+								<Icon
+									source="check"
+									size={icon.sm}
+									color={theme.colors.onCardMuted}
+								/>
+							) : null}
+							<Text
+								variant={wide ? "bodyMedium" : "bodyLarge"}
+								style={isDone ? { color: theme.colors.onCardMuted } : undefined}
+							>
+								{node.title}
+							</Text>
+						</View>
+
+						<CardFooter
+							node={node}
+							locationId={locationId}
+							locations={locations}
+							showLocation={!hideLocation}
+							showPrivate={showPrivate}
+							waiting={waiting}
+							// The title owns the space between them; the footer hangs one
+							// `space.sm` under it, whether or not it has anything to say.
+							// Rendered only when it does — a footer that renders as nothing
+							// leaves the title as the last word, which is what an empty card
+							// should end on.
+							style={{ marginTop: space.sm }}
+						/>
+
+						{/* The thumbnails face: one row under the footer, inside the
+					    content column — the gutters are untouched, and the pictures
+					    answer for the count the footer would otherwise carry. */}
+						{face.mode === "thumbnails" && face.images.length > 0 ? (
+							<View style={{ marginTop: space.sm }}>
+								<CardThumbnails images={face.images} />
+							</View>
+						) : null}
+
+						{/* Below `cardGutterBreakpoint` the right gutter is gone, so the
+					    people and the count travel with the content instead — a
+					    trailing line, wrapping before it shrinks. */}
+						{narrow && (people !== null || stepMark !== null) ? (
+							<View
+								style={{
+									flexDirection: "row",
+									flexWrap: "wrap",
+									alignItems: "center",
+									gap: space.sm,
+									marginTop: space.sm,
+								}}
+							>
+								{people}
+								{stepMark}
+							</View>
+						) : null}
+					</View>
+
+					{/* The right gutter: the menu, and at the foot the people and the
+				    mark that this card is a board. Gone below `cardGutterBreakpoint`,
+				    where the floating menu takes its place. */}
+					{narrow ? null : (
+						<View
+							style={{
+								width: size.cardRail,
+								alignItems: "center",
+								paddingBottom: space.xs,
+							}}
+						>
+							{menu}
+							{/* The foot is inset from the card's edge: the count is as wide
+						    as the rail was, and flush content lands under the outline's
+						    rounded corner. */}
+							<View
+								style={{
+									marginTop: "auto",
+									alignItems: "center",
+									gap: space.xs,
+									paddingRight: space.xs,
+								}}
+							>
+								{people}
+								{stepMark}
+							</View>
+						</View>
+					)}
+
+					{narrow && menu !== undefined ? (
+						// The menu floats over the card's own corner: the room it needs
+						// comes out of the crumbs' elide point rather than out of a
+						// gutter the 195px card does not have.
+						<View
+							style={{
+								position: "absolute",
+								top: space.none,
+								right: space.none,
+								zIndex: elevation.high,
+							}}
+						>
+							{menu}
 						</View>
 					) : null}
 				</View>
-
-				{/* The right gutter: the menu, and at the foot the people and the
-				    mark that this card is a board. Gone below `cardGutterBreakpoint`,
-				    where the floating menu takes its place. */}
-				{narrow ? null : (
-					<View
-						style={{
-							width: size.cardRail,
-							alignItems: "center",
-							paddingBottom: space.xs,
-						}}
-					>
-						{menu}
-						{/* The foot is inset from the card's edge: the count is as wide
-						    as the rail was, and flush content lands under the outline's
-						    rounded corner. */}
-						<View
-							style={{
-								marginTop: "auto",
-								alignItems: "center",
-								gap: space.xs,
-								paddingRight: space.xs,
-							}}
-						>
-							{people}
-							{stepMark}
-						</View>
-					</View>
-				)}
-
-				{narrow && menu !== undefined ? (
-					// The menu floats over the card's own corner: the room it needs
-					// comes out of the crumbs' elide point rather than out of a
-					// gutter the 195px card does not have.
-					<View
-						style={{
-							position: "absolute",
-							top: space.none,
-							right: space.none,
-							zIndex: elevation.high,
-						}}
-					>
-						{menu}
-					</View>
-				) : null}
-			</View>
+			</CardBody>
 		</Card>
 	);
 }

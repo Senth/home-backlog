@@ -709,6 +709,43 @@ export function moveNode(
 	return batch.commit();
 }
 
+export function moveNodes(
+	homeId: string,
+	moves: { node: Node; status: Status; rank: string }[],
+): Promise<void> {
+	if (moves.length === 0) return Promise.resolve();
+	if (moves.length === 1) {
+		const { node, status, rank } = moves[0];
+		return moveNode(homeId, node, status, rank);
+	}
+
+	const batch = writeBatch(db);
+	const parents = new Map<string, number>();
+	for (const { node, status, rank } of moves) {
+		const change = completionChange(node.status, status);
+		batch.update(nodeRef(homeId, node.id), {
+			status,
+			rank,
+			...(change === "set" ? { completedAt: serverTimestamp() } : {}),
+			...(change === "clear" ? { completedAt: null } : {}),
+			updatedAt: serverTimestamp(),
+		});
+		if (node.parentId !== null) {
+			parents.set(
+				node.parentId,
+				(parents.get(node.parentId) ?? 0) + doneChange(change).doneCount,
+			);
+		}
+	}
+	for (const [parentId, doneCount] of parents) {
+		const counters = counterFields({ childCount: 0, doneCount });
+		if (movesACounter(counters)) {
+			batch.update(nodeRef(homeId, parentId), counters);
+		}
+	}
+	return batch.commit();
+}
+
 /**
  * Everything below a node, read from the server: **both** subtree queries,
  * unioned and deduped by id.

@@ -1,4 +1,10 @@
-import { type Node, rankBetween, type Status } from "@/models/node";
+import {
+	compareNodes,
+	type Node,
+	rankBetween,
+	rankSequence,
+	type Status,
+} from "@/models/node";
 
 /*
  * ---------------------------------------------------------------------------
@@ -119,6 +125,48 @@ export function dropPlan({
 		rank: rankBetween(above?.rank ?? null, tieSafeBelow(others, index, above)),
 		direction:
 			toStatus !== dragged.status ? "across" : index < from ? "up" : "down",
+	};
+}
+
+export interface DropPlanMany {
+	status: Status;
+	moves: { id: string; rank: string }[];
+	direction: DropDirection;
+}
+
+export function dropPlanMany({
+	column,
+	carried,
+	toStatus,
+	toIndex,
+}: {
+	column: readonly Node[];
+	carried: readonly Node[];
+	toStatus: Status;
+	toIndex: number;
+}): DropPlanMany | null {
+	if (carried.length === 0) return null;
+	const cards = [...carried].sort(compareNodes);
+	const index = Math.max(0, Math.min(toIndex, column.length));
+	const before = [...column, ...cards].sort(compareNodes);
+	const after = [...column.slice(0, index), ...cards, ...column.slice(index)];
+	const sameColumn = cards.every((card) => card.status === toStatus);
+	if (sameColumn && before.every((card, at) => card.id === after[at].id))
+		return null;
+	const above = column[index - 1] ?? null;
+	const ranks = rankSequence(
+		above?.rank ?? null,
+		tieSafeBelow(column, index, above),
+		cards.length,
+	);
+	return {
+		status: toStatus,
+		moves: cards.map((card, at) => ({ id: card.id, rank: ranks[at] })),
+		direction: !sameColumn
+			? "across"
+			: index < before.findIndex((card) => card.id === cards[0].id)
+				? "up"
+				: "down",
 	};
 }
 

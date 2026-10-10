@@ -6,6 +6,7 @@ import {
 	waitFor,
 	within,
 } from "@testing-library/react-native";
+import type { ComponentProps } from "react";
 // `Provider`, not `ThemeProvider`: the menu mounts a Portal host.
 import { Provider } from "react-native-paper";
 import { CardMenu, type Notice } from "@/components/board/CardMenu";
@@ -117,6 +118,7 @@ function renderMenu(props: {
 	node?: Node;
 	parent?: Node | null;
 	onNotice?: (notice: Notice) => void;
+	selection?: ComponentProps<typeof CardMenu>["selection"];
 }) {
 	return render(
 		<Provider theme={lightTheme}>
@@ -130,12 +132,98 @@ function renderMenu(props: {
 				blockers={new Map()}
 				onNotice={props.onNotice ?? (() => {})}
 				onDetails={() => {}}
+				selection={props.selection}
 			/>
 		</Provider>,
 	);
 }
 
 describe("CardMenu", () => {
+	const selection = (ids: string[] = []) => ({
+		state: {
+			status: ids.length ? ("backlog" as const) : null,
+			ids,
+			anchor: ids[0] ?? null,
+		},
+		toggleCard: jest.fn(),
+		moveTo: jest.fn(),
+	});
+
+	it("Select starts selection with this card", () => {
+		const picking = selection();
+		renderMenu({ nodes: [node("self")], selection: picking });
+		fireEvent.press(screen.getByLabelText("board.actions"), {
+			stopPropagation: jest.fn(),
+		});
+		expect(screen.getByText("board.moveTo")).toBeTruthy();
+		fireEvent.press(screen.getByText("board.select"));
+		expect(picking.toggleCard).toHaveBeenCalledWith(node("self"));
+	});
+
+	it("selected card offers Deselect and moves the whole selection through the batch path", () => {
+		const picking = selection(["self", "other"]);
+		renderMenu({ nodes: [node("self"), node("other")], selection: picking });
+		fireEvent.press(screen.getByLabelText("board.actions"), {
+			stopPropagation: jest.fn(),
+		});
+		expect(screen.getByText("board.deselect")).toBeTruthy();
+		expect(screen.queryByText("board.select")).toBeNull();
+		fireEvent.press(screen.getByText('board.moveCardsTo:{"count":2}'));
+		fireEvent.press(screen.getByText("status.done"));
+		expect(picking.moveTo).toHaveBeenCalledWith("done");
+		expect(moveNode).not.toHaveBeenCalled();
+	});
+
+	it("Deselect toggles only this card", () => {
+		const picking = selection(["self", "other"]);
+		renderMenu({ nodes: [node("self"), node("other")], selection: picking });
+		fireEvent.press(screen.getByLabelText("board.actions"), {
+			stopPropagation: jest.fn(),
+		});
+		fireEvent.press(screen.getByText("board.deselect"));
+		expect(picking.toggleCard).toHaveBeenCalledWith(node("self"));
+		expect(picking.moveTo).not.toHaveBeenCalled();
+	});
+
+	it("unselected card in selection column offers Select but moves only itself", () => {
+		const picking = selection(["other"]);
+		renderMenu({ nodes: [node("self"), node("other")], selection: picking });
+		fireEvent.press(screen.getByLabelText("board.actions"), {
+			stopPropagation: jest.fn(),
+		});
+		expect(screen.getByText("board.select")).toBeEnabled();
+		fireEvent.press(screen.getByText("board.moveTo"));
+		fireEvent.press(screen.getByText("status.done"));
+		expect(moveNode).toHaveBeenCalledWith(
+			"home-1",
+			node("self"),
+			"done",
+			rankAtEnd(null),
+		);
+		expect(picking.moveTo).not.toHaveBeenCalled();
+	});
+
+	it("selected card Change position still moves only this card", () => {
+		const picking = selection(["self", "other"]);
+		renderMenu({
+			nodes: [node("self"), node("other", { rank: "V5" })],
+			selection: picking,
+		});
+		fireEvent.press(screen.getByLabelText("board.actions"), {
+			stopPropagation: jest.fn(),
+		});
+		fireEvent.press(screen.getByText("board.changePosition"));
+		fireEvent.press(
+			screen.getByText('board.positionAfter:{"title":"Card other"}'),
+		);
+		expect(moveNode).toHaveBeenCalledWith(
+			"home-1",
+			node("self"),
+			"backlog",
+			rankAtEnd("V5"),
+		);
+		expect(picking.moveTo).not.toHaveBeenCalled();
+	});
 	beforeEach(() => {
 		mockOnline = true;
 		mockUndo.mockReset().mockResolvedValue(undefined);

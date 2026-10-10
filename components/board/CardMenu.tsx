@@ -21,6 +21,7 @@ import {
 	updateNode,
 } from "@/data/nodes";
 import { intentMetadata, type OutboxIntent } from "@/data/outbox-store";
+import type { useCardSelection } from "@/hooks/use-card-selection";
 import { useTabTrap } from "@/hooks/use-modal-focus";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import {
@@ -72,6 +73,12 @@ interface CardMenuProps {
 	 * *is* a board takes the tap to drill into — so this is the only way in.
 	 */
 	onDetails: () => void;
+	selection?: Pick<
+		ReturnType<typeof useCardSelection>,
+		"state" | "toggleCard"
+	> & {
+		moveTo: (status: Status) => void;
+	};
 }
 
 type Page = "root" | "move" | "position" | "under" | "waiting";
@@ -100,6 +107,7 @@ export function CardMenu({
 	blockers,
 	onNotice,
 	onDetails,
+	selection,
 }: CardMenuProps) {
 	const { t } = useTranslation();
 	const { user } = useAuth();
@@ -152,6 +160,7 @@ export function CardMenu({
 	useTabTrap(open, `card-menu-${node.id}`);
 
 	const column = nodes.filter((card) => card.status === node.status);
+	const selected = selection?.state.ids.includes(node.id) ?? false;
 	const index = column.findIndex((card) => card.id === node.id);
 	const others = column.filter((card) => card.id !== node.id);
 	// The real sibling set (#90): the board's cards plus the ones the filter
@@ -211,6 +220,10 @@ export function CardMenu({
 	const moveTo = (status: Status) => {
 		close();
 		if (status === node.status) return;
+		if (selected && selection) {
+			selection.moveTo(status);
+			return;
+		}
 
 		// The end of the destination column is the real one (#90): a sibling
 		// the filter hides still owns that slot.
@@ -408,9 +421,31 @@ export function CardMenu({
 									onDetails();
 								}}
 							/>
+							{selection ? (
+								<Menu.Item
+									leadingIcon={
+										selected ? "close" : "checkbox-multiple-marked-outline"
+									}
+									title={t(selected ? "board.deselect" : "board.select")}
+									onPress={() => {
+										close();
+										selection.toggleCard(node);
+									}}
+									disabled={
+										selection.state.status !== null &&
+										selection.state.status !== node.status
+									}
+								/>
+							) : null}
 							<Menu.Item
 								leadingIcon="arrow-right-bold-outline"
-								title={t("board.moveTo")}
+								title={
+									selected
+										? t("board.moveCardsTo", {
+												count: selection?.state.ids.length,
+											})
+										: t("board.moveTo")
+								}
 								onPress={() => setPage("move")}
 							/>
 							<Menu.Item

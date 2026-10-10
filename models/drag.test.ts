@@ -1,6 +1,7 @@
 import {
 	columnAt,
 	dropPlan,
+	dropPlanMany,
 	edgeAt,
 	landingSlot,
 	type StatusBox,
@@ -213,6 +214,114 @@ describe("dropPlan", () => {
 		expect(
 			dropPlan({ column, dragged: a, toStatus: "done", toIndex: 0 })?.direction,
 		).toBe("across");
+	});
+});
+
+describe("dropPlanMany", () => {
+	const carried = [card("y", "V5"), card("x", "V4")];
+
+	it.each([0, 1, 3])(
+		"lands a contiguous group at slot %s in board order",
+		(toIndex) => {
+			const plan = dropPlanMany({ column, carried, toStatus: "done", toIndex });
+			expect(plan?.status).toBe("done");
+			expect(plan?.direction).toBe("across");
+			expect(plan?.moves.map((move) => move.id)).toEqual(["x", "y"]);
+			const ranks = plan?.moves.map((move) => move.rank) ?? [];
+			expect(ranks).toHaveLength(2);
+			expect(
+				ordered(
+					...(toIndex > 0 ? [column[toIndex - 1].rank] : []),
+					...ranks,
+					...(toIndex < column.length ? [column[toIndex].rank] : []),
+				),
+			).toBe(true);
+		},
+	);
+
+	it("writes nothing at the group's own spot, including tied ranks", () => {
+		expect(
+			dropPlanMany({
+				column: [a],
+				carried: [c, b],
+				toStatus: "backlog",
+				toIndex: 1,
+			}),
+		).toBeNull();
+		expect(
+			dropPlanMany({
+				column: [a],
+				carried: [card("e", "V0"), card("d", "V0")],
+				toStatus: "backlog",
+				toIndex: 1,
+			}),
+		).toBeNull();
+		expect(
+			dropPlanMany({ column: [], carried: [], toStatus: "done", toIndex: 0 }),
+		).toBeNull();
+	});
+
+	it("gathers noncontiguous cards even when the first stays in its slot", () => {
+		const plan = dropPlanMany({
+			column: [b],
+			carried: [c, a],
+			toStatus: "backlog",
+			toIndex: 0,
+		});
+		expect(plan).not.toBeNull();
+		expect(
+			ordered(...(plan?.moves.map((move) => move.rank) ?? []), b.rank),
+		).toBe(true);
+	});
+
+	it("lands after equal-rank neighbours and before the next distinct rank", () => {
+		const plan = dropPlanMany({
+			column: [b, card("t", b.rank), c],
+			carried,
+			toStatus: "backlog",
+			toIndex: 1,
+		});
+		expect(
+			ordered(b.rank, ...(plan?.moves.map((move) => move.rank) ?? []), c.rank),
+		).toBe(true);
+	});
+
+	it("appends past a tied run and clamps slots at both ends", () => {
+		const tied = [b, card("t", b.rank)];
+		const plan = dropPlanMany({
+			column: tied,
+			carried,
+			toStatus: "backlog",
+			toIndex: 1,
+		});
+		expect(
+			ordered(b.rank, ...(plan?.moves.map((move) => move.rank) ?? [])),
+		).toBe(true);
+		expect(
+			dropPlanMany({ column, carried, toStatus: "done", toIndex: -10 }),
+		).toEqual(dropPlanMany({ column, carried, toStatus: "done", toIndex: 0 }));
+		expect(
+			dropPlanMany({ column, carried, toStatus: "done", toIndex: 10 }),
+		).toEqual(dropPlanMany({ column, carried, toStatus: "done", toIndex: 3 }));
+	});
+
+	it("reports up and down for same-column moves", () => {
+		expect(
+			dropPlanMany({
+				column: [a],
+				carried: [b, c],
+				toStatus: "backlog",
+				toIndex: 0,
+			})?.direction,
+		).toBe("up");
+		expect(
+			dropPlanMany({
+				column: [c],
+				carried: [a, b],
+				toStatus: "backlog",
+				toIndex: 1,
+			})?.direction,
+		).toBe("down");
 	});
 });
 

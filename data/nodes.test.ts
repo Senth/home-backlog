@@ -37,6 +37,7 @@ jest.mock("firebase/firestore", () => ({
 import {
 	getDocs,
 	getDocsFromServer,
+	increment,
 	limit,
 	updateDoc,
 	where,
@@ -47,6 +48,7 @@ import {
 	applyLabel,
 	isUnavailable,
 	moveErrorKey,
+	moveNodes,
 	participatingDoneQuery,
 	removeLabel,
 	reparentNode,
@@ -65,6 +67,178 @@ function aNode(over: Partial<Node> = {}): Node {
 		...over,
 	};
 }
+
+describe("moveNodes", () => {
+	const batch = { update: jest.fn(), commit: jest.fn() };
+	const cards = ["first", "second", "third"].map((id, index) =>
+		aNode({ id, parentId: "project", status: "backlog", rank: `a${index}` }),
+	);
+
+	beforeEach(() => {
+		jest.mocked(writeBatch).mockReturnValue(batch as never);
+		jest
+			.mocked(increment)
+			.mockImplementation((value) => `increment(${value})` as never);
+		batch.commit.mockResolvedValue(undefined);
+	});
+
+	it("completes three cards in one batch and increments their parent once", async () => {
+		await moveNodes(
+			"home",
+			cards.map((node, index) => ({ node, status: "done", rank: `b${index}` })),
+		);
+
+		expect(writeBatch).toHaveBeenCalledTimes(1);
+		expect(batch.commit).toHaveBeenCalledTimes(1);
+		expect(batch.update).toHaveBeenCalledTimes(4);
+		for (const [index, node] of cards.entries()) {
+			expect(batch.update).toHaveBeenCalledWith(
+				{ id: node.id },
+				{
+					status: "done",
+					rank: `b${index}`,
+					completedAt: "server-timestamp",
+					updatedAt: "server-timestamp",
+				},
+			);
+		}
+		expect(batch.update).toHaveBeenCalledWith(
+			{ id: "project" },
+			{ doneCount: "increment(3)" },
+		);
+		expect(increment).toHaveBeenCalledTimes(1);
+		expect(updateDoc).not.toHaveBeenCalled();
+		expect(getDocsFromServer).not.toHaveBeenCalled();
+	});
+
+	it("clears completion dates and decrements once when leaving Done", async () => {
+		await moveNodes(
+			"home",
+			cards.map((node) => ({
+				node: { ...node, status: "done" },
+				status: "execution",
+				rank: node.rank,
+			})),
+		);
+
+		for (const node of cards) {
+			expect(batch.update).toHaveBeenCalledWith(
+				{ id: node.id },
+				{
+					status: "execution",
+					rank: node.rank,
+					completedAt: null,
+					updatedAt: "server-timestamp",
+				},
+			);
+		}
+		expect(batch.update).toHaveBeenCalledWith(
+			{ id: "project" },
+			{ doneCount: "increment(-3)" },
+		);
+		expect(increment).toHaveBeenCalledTimes(1);
+	});
+
+	it("undo restores each old status and rank and reverses the parent count", async () => {
+		const originals = cards.map((node, index) => ({
+			...node,
+			status: index === 0 ? ("execution" as const) : ("backlog" as const),
+		}));
+		await moveNodes(
+			"home",
+			originals.map((node, index) => ({
+				node,
+				status: "done",
+				rank: `b${index}`,
+			})),
+		);
+		batch.update.mockClear();
+
+		await moveNodes(
+			"home",
+			originals.map((node, index) => ({
+				node: { ...node, status: "done", rank: `b${index}` },
+				status: node.status,
+				rank: node.rank,
+			})),
+		);
+
+		for (const node of originals) {
+			expect(batch.update).toHaveBeenCalledWith(
+				{ id: node.id },
+				{
+					status: node.status,
+					rank: node.rank,
+					completedAt: null,
+					updatedAt: "server-timestamp",
+				},
+			);
+		}
+		expect(jest.mocked(increment).mock.calls).toEqual([[3], [-3]]);
+		expect(batch.update).toHaveBeenCalledWith(
+			{ id: "project" },
+			{ doneCount: "increment(-3)" },
+		);
+	});
+
+	it("folds counters per parent, skips zero totals and roots, and preserves dates on reorders", async () => {
+		await moveNodes("home", [
+			{ node: cards[0], status: "done", rank: "b0" },
+			{ node: { ...cards[1], status: "done" }, status: "next_up", rank: "b1" },
+			{ node: { ...cards[2], parentId: "other" }, status: "done", rank: "b2" },
+			{ node: aNode({ id: "root" }), status: "done", rank: "b3" },
+			{
+				node: aNode({ id: "completed", parentId: "other", status: "done" }),
+				status: "done",
+				rank: "b4",
+			},
+		]);
+
+		expect(batch.update).toHaveBeenCalledTimes(6);
+		expect(batch.update).toHaveBeenCalledWith(
+			{ id: "other" },
+			{ doneCount: "increment(1)" },
+		);
+		expect(batch.update).not.toHaveBeenCalledWith(
+			{ id: "project" },
+			expect.anything(),
+		);
+		expect(batch.update).toHaveBeenCalledWith(
+			{ id: "completed" },
+			{ status: "done", rank: "b4", updatedAt: "server-timestamp" },
+		);
+		expect(increment).toHaveBeenCalledTimes(1);
+	});
+
+	it("keeps the existing single-card update path", async () => {
+		await moveNodes("home", [
+			{ node: cards[0], status: "next_up", rank: "b0" },
+		]);
+
+		expect(writeBatch).not.toHaveBeenCalled();
+		expect(updateDoc).toHaveBeenCalledWith(
+			{ id: "first" },
+			{ status: "next_up", rank: "b0", updatedAt: "server-timestamp" },
+		);
+	});
+
+	it("writes nothing for an empty selection", async () => {
+		await moveNodes("home", []);
+		expect(writeBatch).not.toHaveBeenCalled();
+		expect(updateDoc).not.toHaveBeenCalled();
+	});
+
+	it("returns the batch acknowledgement and propagates refusal", async () => {
+		const reason = new Error("permission-denied");
+		batch.commit.mockRejectedValueOnce(reason);
+		await expect(
+			moveNodes(
+				"home",
+				cards.map((node) => ({ node, status: "done", rank: node.rank })),
+			),
+		).rejects.toBe(reason);
+	});
+});
 
 describe("reparentNode refusals", () => {
 	it("refuses a move inside the node's own subtree before reading anything", async () => {

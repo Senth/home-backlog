@@ -1,5 +1,6 @@
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import {
+	appendRanks,
 	assignableMembers,
 	childAncestorIds,
 	childArrives,
@@ -128,6 +129,30 @@ describe("rank", () => {
 
 		expect(keys).toHaveLength(5);
 		expect([...keys].sort()).toEqual(keys);
+	});
+});
+
+describe("appendRanks", () => {
+	it("appends after real siblings, including the hidden last card", () => {
+		const visible = node({ id: "visible", rank: "V0" });
+		const hidden = node({
+			id: "hidden",
+			rank: "V1",
+			participantIds: ["uid-b"],
+		});
+		const siblings = siblingsOf([hidden, visible], null);
+		expect(hiddenByParticipants(hidden, "uid-a")).toBe(true);
+		const ranks = appendRanks(siblings, 3);
+		expect(ranks).toHaveLength(3);
+		expect(ranks[0] > hidden.rank).toBe(true);
+		expect(
+			ranks.every((rank, index) => index === 0 || ranks[index - 1] < rank),
+		).toBe(true);
+	});
+
+	it("handles an empty column and zero cards", () => {
+		expect(appendRanks([], 2)).toEqual(rankSequence(null, null, 2));
+		expect(appendRanks([node()], 0)).toEqual([]);
 	});
 });
 

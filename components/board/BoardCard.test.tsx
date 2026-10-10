@@ -104,6 +104,16 @@ afterEach(() => {
 });
 
 describe("BoardCard", () => {
+	it("announces selected on the card's press target without a selection glyph", () => {
+		renderCard(<BoardCard node={node()} onOpen={() => {}} selected />);
+		expect(
+			screen.getByLabelText(
+				'board.selectedCardA11y:{"title":"Fix the gutter"}',
+			),
+		).toHaveProp("accessibilityState", { selected: true });
+		expect(screen.UNSAFE_queryAllByProps({ name: "check" })).toHaveLength(0);
+	});
+
 	it("renders no path and no check without the props", () => {
 		renderCard(<BoardCard node={node()} onOpen={() => {}} />);
 

@@ -1,11 +1,18 @@
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Animated, View } from "react-native";
+import {
+	Animated,
+	type GestureResponderEvent,
+	Platform,
+	View,
+} from "react-native";
 import {
 	ActivityIndicator,
+	Badge,
 	Button,
 	FAB,
+	Menu,
 	Surface,
 	Text,
 } from "react-native-paper";
@@ -21,15 +28,19 @@ import { TitleDialog } from "@/components/board/TitleDialog";
 import {
 	boardKey,
 	type ColumnDrag,
+	moveCardsWithNotice,
 	useBoardDrag,
 } from "@/components/board/use-board-drag";
 import { fieldSpecs } from "@/components/overview/CardEditForm";
+import { AppMenu } from "@/components/ui/AppMenu";
 import { OutboxSnackbar } from "@/components/ui/OutboxSnackbar";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { createNode } from "@/data/nodes";
+import type { useCardSelection } from "@/hooks/use-card-selection";
 import { useLabelAncestors } from "@/hooks/use-label-ancestors";
+import { useTabTrap } from "@/hooks/use-modal-focus";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { BoardFilter, BoardReach } from "@/models/board-filter";
 import {
@@ -41,6 +52,8 @@ import { membersOf } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
 import type { Location } from "@/models/locations";
 import {
+	appendRanks,
+	compareNodes,
 	crossBoardBlockerIds,
 	type EffectiveLocation,
 	effectiveLocation,
@@ -52,8 +65,10 @@ import {
 	visibleColumns,
 } from "@/models/node";
 import { doneWithinDays } from "@/models/overview";
+import { ordered } from "@/models/selection";
 import { useAppTheme } from "@/theme";
 import {
+	border,
 	cardGutterBreakpoint,
 	compactBreakpoint,
 	contentWidth,
@@ -62,6 +77,7 @@ import {
 	elevation,
 	fab as fabTokens,
 	radius,
+	size,
 	space,
 	touchTarget,
 } from "@/theme/tokens";
@@ -133,6 +149,7 @@ interface BoardProps {
 	 * the whole answer in this-board reach.
 	 */
 	pool?: Node[];
+	selection: ReturnType<typeof useCardSelection>;
 }
 
 /**
@@ -176,6 +193,7 @@ export function Board({
 	onOpenFilter,
 	reach = "board",
 	pool,
+	selection,
 }: BoardProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
@@ -194,6 +212,8 @@ export function Board({
 	const [current, setCurrent] = useState(0);
 	const [adding, setAdding] = useState<Status | null>(null);
 	const [notice, setNotice] = useState<Notice | null>(null);
+	const moveFabAnchor = useRef<View>(null);
+	useTabTrap(selection.moveAnchor !== null, "selection-move-menu");
 
 	/**
 	 * What the watcher has answered for the blockers this board's own query
@@ -345,14 +365,19 @@ export function Board({
 	 */
 	const shownNodes = useMemo(
 		() =>
-			matchCtx === null
-				? universe
+			(matchCtx === null
+				? [...universe]
 				: universe.filter((node) =>
 						matchesConditions(node, conditions, matchCtx),
-					),
+					)
+			).sort(compareNodes),
 		[universe, matchCtx, conditions],
 	);
 	const filterActive = conditions.length > 0;
+	const { state: selected, pruneVisible } = selection;
+	useEffect(() => {
+		pruneVisible(reach === "board" ? shownNodes : noCards);
+	}, [pruneVisible, reach, shownNodes]);
 
 	// The frozen set, plus a column for any status that is on this board but not
 	// in it. A card that exists is visible somewhere — including one the filter
@@ -410,6 +435,7 @@ export function Board({
 		nodes: shownNodes,
 		shown,
 		onNotice: setNotice,
+		selection,
 		// Only below the breakpoint: above it every column is already on screen,
 		// so there is nowhere for an edge hold to walk to. The pane it sets is the
 		// same state a chip tap sets — deliberate input, never read back from a
@@ -433,8 +459,9 @@ export function Board({
 		dragEnabled
 			? {
 					node: drag.node,
+					carried: drag.carried,
 					gapAt: drag.over?.status === status ? drag.over.index : null,
-					gapHeight: drag.overlay?.height ?? space.none,
+					gapHeight: drag.gapHeight,
 					register: drag.register,
 					handlers: drag.handlers,
 				}
@@ -482,8 +509,63 @@ export function Board({
 	 * as an empty board, and the chevron on the card already says which of the
 	 * two a tap will do.
 	 */
-	const open = (node: Node) => {
+	const open = (node: Node, event?: GestureResponderEvent) => {
+		const modifiers = event?.nativeEvent as
+			| { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean }
+			| undefined;
+		const shift = Platform.OS === "web" && modifiers?.shiftKey;
+		const modified =
+			Platform.OS === "web" &&
+			(modifiers?.ctrlKey || modifiers?.metaKey || shift);
+		if (reach === "board" && (selection.selecting || modified)) {
+			if (selected.status !== null && selected.status !== node.status) {
+				setNotice({
+					text: t("board.selectionElsewhere", {
+						column: t(`status.${selected.status}`),
+					}),
+				});
+			} else if (shift) {
+				selection.selectRange(node, cardsIn(node.status));
+			} else {
+				selection.toggleCard(node);
+			}
+			return;
+		}
 		router.push(hasSteps(node) ? boardHref(node.id) : detailsHref(node.id));
+	};
+	const moveSelection = (status: Status) => {
+		selection.closeMove();
+		if (
+			reach !== "board" ||
+			status === selected.status ||
+			!columns.includes(status)
+		)
+			return;
+		const siblings = siblingsOf(universe, parent?.id ?? null);
+		const picked = ordered(selected, siblings);
+		if (picked.length === 0) return;
+		const ranks = appendRanks(
+			siblings.filter((card) => card.status === status),
+			picked.length,
+		);
+		const moves = picked.map((node, index) => ({
+			node,
+			status,
+			rank: ranks[index],
+		}));
+		moveCardsWithNotice(
+			homeId,
+			moves,
+			picked.length === 1
+				? t("board.moved", { column: t(`status.${status}`) })
+				: t("board.movedCardsTo", {
+						count: picked.length,
+						column: t(`status.${status}`),
+					}),
+			setNotice,
+			t("error.saveFailed"),
+		);
+		selection.clear();
 	};
 
 	const menu = (node: Node) => (
@@ -495,6 +577,9 @@ export function Board({
 			nodes={nodes}
 			hidden={hidden}
 			blockers={blockers}
+			selection={
+				reach === "board" ? { ...selection, moveTo: moveSelection } : undefined
+			}
 			onNotice={setNotice}
 			// The only way in for a card that *is* a board, where a tap drills in.
 			onDetails={() => router.push(detailsHref(node.id))}
@@ -712,6 +797,7 @@ export function Board({
 									}
 									onAdd={() => setAdding(status)}
 									onOpen={open}
+									selectedIds={reach === "board" ? selected.ids : noLabelIds}
 									renderMenu={menu}
 									drag={columnDrag(status)}
 									blockers={blockers}
@@ -750,6 +836,7 @@ export function Board({
 							doneWindowDays={reach === "subtree" ? doneWithinDays : undefined}
 							onAdd={() => setAdding(status)}
 							onOpen={open}
+							selectedIds={reach === "board" ? selected.ids : noLabelIds}
 							renderMenu={menu}
 							drag={columnDrag(status)}
 							blockers={blockers}
@@ -796,6 +883,7 @@ export function Board({
 			    a thumb covering most of the pane. */}
 			{drag.node !== null && drag.overlay !== null ? (
 				<Animated.View
+					testID="board-drag-overlay"
 					style={{
 						position: "absolute",
 						// The card is a picture under the hand: everything it passes
@@ -804,6 +892,7 @@ export function Board({
 						left: drag.overlay.left,
 						top: drag.overlay.top,
 						width: drag.overlay.width,
+						paddingBottom: drag.carried.length > 1 ? space.sm : space.none,
 						transform: [
 							{ translateX: drag.offset.x },
 							{ translateY: drag.offset.y },
@@ -813,6 +902,24 @@ export function Board({
 						],
 					}}
 				>
+					{drag.carried.length > 1
+						? [space.sm, space.xs].map((offset) => (
+								<View
+									key={offset}
+									style={{
+										position: "absolute",
+										top: offset,
+										left: offset,
+										right: offset,
+										height: drag.overlay?.height,
+										backgroundColor: theme.colors.boardCard,
+										borderColor: theme.colors.boardCardBorder,
+										borderWidth: border.hairline,
+										borderRadius: radius.md,
+									}}
+								/>
+							))
+						: null}
 					{/* `boardCard` on the surface as well as on the card: Paper fills a
 					    `Surface` with an elevation tint, and it is the corners of the
 					    card that would show it — a lifted card must not be a different
@@ -843,6 +950,20 @@ export function Board({
 							showPrivate={showPrivate}
 						/>
 					</Surface>
+					{drag.carried.length > 1 ? (
+						<Badge
+							size={size.labelDot}
+							style={{
+								position: "absolute",
+								top: space.xs,
+								right: space.xs,
+								backgroundColor: theme.colors.primary,
+								color: theme.colors.onPrimary,
+							}}
+						>
+							{drag.carried.length}
+						</Badge>
+					) : null}
 				</Animated.View>
 			) : null}
 
@@ -868,27 +989,60 @@ export function Board({
 			{compact &&
 			!loading &&
 			onScreen !== undefined &&
-			!(filterActive && shownNodes.length === 0) ? (
-				<FAB
-					icon={boardWidth < denseBreakpoint ? undefined : "plus"}
-					label={t("board.addTo", { column: t(`status.${onScreen}`) })}
-					onPress={() => setAdding(onScreen)}
-					// What the pane above pads its bottom by. The label is a
-					// translated sentence at the reader's own text size, so nothing
-					// short of measuring it is right in both locales.
-					onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
+			!(filterActive && shownNodes.length === 0) &&
+			(!selection.selecting || selected.ids.length > 0) ? (
+				<View
+					ref={moveFabAnchor}
 					style={{
 						position: "absolute",
 						right: space.md,
-						// Above the snackbar while there is one. Undo is not decoration
-						// here — it is the way back from a gesture that can move a card
-						// somebody did not mean to move — and a FAB parked on top of it
-						// is the one control that must never be covered.
 						bottom: fabBottom,
 						maxWidth: boardWidth * fabTokens.widthShare,
 					}}
-				/>
+				>
+					<FAB
+						icon={
+							boardWidth < denseBreakpoint
+								? undefined
+								: selection.selecting
+									? "arrow-right-bold-outline"
+									: "plus"
+						}
+						label={
+							selection.selecting
+								? t("board.moveCardsToFab", { count: selected.ids.length })
+								: t("board.addTo", { column: t(`status.${onScreen}`) })
+						}
+						onPress={() =>
+							selection.selecting
+								? selection.openMove(moveFabAnchor.current)
+								: setAdding(onScreen)
+						}
+						// What the pane above pads its bottom by. The label is a
+						// translated sentence at the reader's own text size, so nothing
+						// short of measuring it is right in both locales.
+						onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
+					/>
+				</View>
 			) : null}
+			<AppMenu
+				visible={selection.moveAnchor !== null}
+				anchor={selection.moveAnchor ?? { x: space.none, y: space.none }}
+				onDismiss={selection.closeMove}
+				overlayAccessibilityLabel={t("common.closeMenu")}
+			>
+				<View testID="selection-move-menu">
+					{columns
+						.filter((status) => status !== selected.status)
+						.map((status) => (
+							<Menu.Item
+								key={status}
+								title={t(`status.${status}`)}
+								onPress={() => moveSelection(status)}
+							/>
+						))}
+				</View>
+			</AppMenu>
 
 			<TitleDialog
 				visible={adding !== null}

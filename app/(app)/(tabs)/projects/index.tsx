@@ -15,11 +15,16 @@ import {
 	BoardFilterAction,
 	BoardFilterSheet,
 } from "@/components/board/BoardFilterSheet";
+import {
+	SelectCardsAction,
+	SelectionBar,
+} from "@/components/board/SelectionBar";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { useHome } from "@/contexts/HomeContext";
 import { useBoardFilter } from "@/hooks/use-board-filter";
 import { useBoardNodes } from "@/hooks/use-board-nodes";
+import { useCardSelection } from "@/hooks/use-card-selection";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useLocations } from "@/hooks/use-locations";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
@@ -92,6 +97,10 @@ export default function Projects() {
 		filter?.reach ?? "board",
 	);
 	const board = useParticipantFilter(nodes);
+	const selection = useCardSelection(
+		`${homeId ?? ""} root`,
+		(filter?.reach ?? "board") === "board",
+	);
 	const { locations } = useLocations(homeId);
 	const [filterOpen, setFilterOpen] = useState(false);
 	const filterAnchor = useRef<View>(null);
@@ -113,33 +122,50 @@ export default function Projects() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-			<AppHeader
-				title={activeHome?.name ?? ""}
-				leading={
-					<BackAction
-						accessibilityLabel={t(
-							from === "locations" ? "tab.locations" : "homes.title",
-						)}
-						onPress={() =>
-							from === "locations"
-								? goBack("/locations")
-								: router.push("/homes")
-						}
-					/>
-				}
-			>
-				{showFilterAction ? (
-					<BoardFilterAction
-						set={
-							filter !== null &&
-							(filter.conditions.length > 0 || filter.reach === "subtree")
-						}
-						onPress={() => setFilterOpen(true)}
-						anchorRef={filterAnchor}
-					/>
-				) : null}
-				<AccountMenu />
-			</AppHeader>
+			{selection.selecting ? (
+				<SelectionBar selection={selection} />
+			) : (
+				<AppHeader
+					title={activeHome?.name ?? ""}
+					leading={
+						<BackAction
+							accessibilityLabel={t(
+								from === "locations" ? "tab.locations" : "homes.title",
+							)}
+							onPress={() =>
+								from === "locations"
+									? goBack("/locations")
+									: router.push("/homes")
+							}
+						/>
+					}
+				>
+					<View
+						style={{
+							flexDirection: "row",
+							flexWrap: "wrap",
+							flexShrink: 1,
+							justifyContent: "flex-end",
+							maxWidth: "100%",
+						}}
+					>
+						{(filter?.reach ?? "board") === "board" ? (
+							<SelectCardsAction onPress={selection.start} />
+						) : null}
+						{showFilterAction ? (
+							<BoardFilterAction
+								set={
+									filter !== null &&
+									(filter.conditions.length > 0 || filter.reach === "subtree")
+								}
+								onPress={() => setFilterOpen(true)}
+								anchorRef={filterAnchor}
+							/>
+						) : null}
+						<AccountMenu />
+					</View>
+				</AppHeader>
+			)}
 
 			{homeId ? (
 				<Board
@@ -157,6 +183,7 @@ export default function Projects() {
 					onOpenFilter={() => setFilterOpen(true)}
 					reach={filter?.reach ?? "board"}
 					pool={pool}
+					selection={selection}
 				/>
 			) : null}
 

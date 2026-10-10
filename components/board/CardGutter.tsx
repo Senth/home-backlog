@@ -18,6 +18,7 @@ interface CardGutterProps {
 	labels: readonly LabelWithId[];
 	/** Below `cardGutterBreakpoint` the gutter gives back the room it does not have. */
 	narrow?: boolean;
+	selected?: boolean;
 }
 
 /**
@@ -36,7 +37,12 @@ interface CardGutterProps {
  * dot carries its name for a screen reader on the wrapper — the same rule a
  * label dot follows, for the same reason.
  */
-export function CardGutter({ node, labels, narrow = false }: CardGutterProps) {
+export function CardGutter({
+	node,
+	labels,
+	narrow = false,
+	selected = false,
+}: CardGutterProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const step =
@@ -51,7 +57,9 @@ export function CardGutter({ node, labels, narrow = false }: CardGutterProps) {
 				// is at least as tall as the gutter's own arithmetic asks, so the
 				// bottom padding always clears the card's rounded edge.
 				minHeight: gutterMinHeight((step === null ? 0 : 1) + labels.length),
-				backgroundColor: theme.colors.boardColumn,
+				backgroundColor: selected
+					? theme.colors.primaryContainer
+					: theme.colors.boardColumn,
 				borderRightWidth: border.hairline,
 				borderColor: theme.colors.outlineVariant,
 				alignItems: "center",

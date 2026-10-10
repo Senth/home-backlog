@@ -3,12 +3,13 @@ import { useTranslation } from "react-i18next";
 import { Animated, type View } from "react-native";
 import type { Notice } from "@/components/board/CardMenu";
 import type { DragPoint } from "@/components/board/DragArea.types";
-import { moveNode } from "@/data/nodes";
+import { moveNodes } from "@/data/nodes";
+import type { useCardSelection } from "@/hooks/use-card-selection";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import {
 	type Box,
 	columnAt,
-	dropPlan,
+	dropPlanMany,
 	edgeAt,
 	landingSlot,
 	paneDwellMs,
@@ -16,7 +17,8 @@ import {
 	type StatusBox,
 } from "@/models/drag";
 import type { Node, Status } from "@/models/node";
-import { drag as dragTokens } from "@/theme/tokens";
+import { ordered } from "@/models/selection";
+import { drag as dragTokens, space } from "@/theme/tokens";
 
 /** Where a lifted card would land: a column, and a slot in it. */
 export interface DropSlot {
@@ -43,6 +45,7 @@ export interface Overlay {
 export interface ColumnDrag {
 	/** The card in flight, which no column draws in its list. */
 	node: Node | null;
+	carried: Node[];
 	/** The slot this column's gap sits at, or `null` when it is elsewhere. */
 	gapAt: number | null;
 	/** How tall the gap is: exactly the card it is holding a place for. */
@@ -61,6 +64,9 @@ export interface CardDragHandlers {
 
 interface Session {
 	node: Node;
+	carried: Node[];
+	selected: boolean;
+	gapHeight: number;
 	/**
 	 * The board as it looked when the card lifted, which is what stays on screen
 	 * until it lands.
@@ -99,6 +105,7 @@ export interface BoardDragOptions {
 	/** The columns the board is showing, in order. */
 	shown: readonly Status[];
 	onNotice: (notice: Notice) => void;
+	selection: Pick<ReturnType<typeof useCardSelection>, "state" | "clear">;
 	/**
 	 * Below the breakpoint only. Holding a card at the screen edge walks the
 	 * board sideways one column at a time — the path for a drop where the
@@ -113,6 +120,8 @@ export interface BoardDragOptions {
 export interface BoardDrag {
 	/** The card in flight, or `null` when nothing is held. */
 	node: Node | null;
+	carried: Node[];
+	gapHeight: number;
 	/** What the board draws: the frozen order while a card is up. */
 	cards: Node[];
 	over: DropSlot | null;
@@ -153,6 +162,7 @@ export function useBoardDrag({
 	nodes,
 	shown,
 	onNotice,
+	selection,
 	pane,
 }: BoardDragOptions): BoardDrag {
 	const { t } = useTranslation();
@@ -235,6 +245,7 @@ export function useBoardDrag({
 	 */
 	const settle = useCallback(
 		(from: Session) => {
+			start.current = null;
 			// A card put down in the edge zone must not go on walking the board
 			// while it flies home.
 			stopWalking();
@@ -327,7 +338,9 @@ export function useBoardDrag({
 				// measurements: below the breakpoint the destination column is not on
 				// screen, so there is nothing of it to have measured.
 				const cards = held.cards.filter(
-					(card) => card.status === chip.status && card.id !== held.node.id,
+					(card) =>
+						card.status === chip.status &&
+						!held.carried.some((carried) => carried.id === card.id),
 				);
 				return { status: chip.status, index: cards.length, via: "chip" };
 			}
@@ -336,7 +349,7 @@ export function useBoardDrag({
 			if (column === null) return null;
 
 			const others = (known.cards[column.status] ?? []).filter(
-				(card) => card.id !== held.node.id,
+				(card) => !held.carried.some((carried) => carried.id === card.id),
 			);
 			return {
 				status: column.status,
@@ -392,7 +405,7 @@ export function useBoardDrag({
 	/** Where the gap is now, if that is somewhere new. */
 	const commit = useCallback((slot: DropSlot | null) => {
 		const held = live.current;
-		if (held === null) return;
+		if (held === null || start.current === null) return;
 		const same =
 			slot === null
 				? held.over === null
@@ -449,7 +462,9 @@ export function useBoardDrag({
 	const grab = useCallback(
 		async (node: Node, point: DragPoint) => {
 			const token = ++grabbed.current;
-			const frozen = nodes;
+			const frozen = [...nodes];
+			const selected = selection.state.ids.includes(node.id);
+			const carried = selected ? ordered(selection.state, frozen) : [node];
 			const measured = await measure(frozen);
 			// Let go before the measuring finished, so there is no card to lift.
 			if (grabbed.current !== token || measured === null) return;
@@ -465,7 +480,7 @@ export function useBoardDrag({
 			offset.setValue({ x: 0, y: 0 });
 
 			const others = (measured.cards[node.status] ?? []).filter(
-				(card) => card.id !== node.id,
+				(card) => !carried.some((held) => held.id === card.id),
 			);
 			const home: DropSlot = {
 				status: node.status,
@@ -478,6 +493,22 @@ export function useBoardDrag({
 
 			const opened: Session = {
 				node,
+				carried,
+				selected,
+				gapHeight: carried.reduce(
+					(height, card) => {
+						const frame = measured.cards[card.status]?.find(
+							(candidate) => candidate.id === card.id,
+						)?.box;
+						return (
+							height +
+							(frame === undefined
+								? box.bottom - box.top
+								: frame.bottom - frame.top)
+						);
+					},
+					space.sm * (carried.length - 1),
+				),
 				cards: frozen,
 				overlay: {
 					left: box.left - measured.board.left,
@@ -491,7 +522,7 @@ export function useBoardDrag({
 			live.current = opened;
 			setSession(opened);
 		},
-		[measure, nodes, offset],
+		[measure, nodes, offset, selection.state],
 	);
 
 	const move = useCallback(
@@ -501,7 +532,25 @@ export function useBoardDrag({
 			if (held === null || from === null) return;
 
 			at.current = point;
-			offset.setValue({ x: point.x - from.x, y: point.y - from.y });
+			let x = point.x - from.x;
+			const board = geometry.current?.board;
+			if (held.carried.length > 1 && board !== undefined) {
+				const inset = reduced
+					? space.none
+					: (held.overlay.width * (dragTokens.lift - 1)) / 2;
+				x = Math.max(
+					inset - held.overlay.left,
+					Math.min(
+						x,
+						board.right -
+							board.left -
+							held.overlay.left -
+							held.overlay.width -
+							inset,
+					),
+				);
+			}
+			offset.setValue({ x, y: point.y - from.y });
 
 			// A point outside every column clears the gap — nowhere is a place the
 			// board can show, and dropping out there puts the card back. The gap
@@ -533,7 +582,7 @@ export function useBoardDrag({
 
 			commit(slot);
 		},
-		[commit, offset, slotAt, walk],
+		[commit, offset, reduced, slotAt, walk],
 	);
 
 	const drop = useCallback(() => {
@@ -559,9 +608,13 @@ export function useBoardDrag({
 			return;
 		}
 
-		const plan = dropPlan({
-			column: held.cards.filter((card) => card.status === target.status),
-			dragged: held.node,
+		const plan = dropPlanMany({
+			column: held.cards.filter(
+				(card) =>
+					card.status === target.status &&
+					!held.carried.some((carried) => carried.id === card.id),
+			),
+			carried: held.carried,
 			toStatus: target.status,
 			toIndex: target.index,
 		});
@@ -577,31 +630,35 @@ export function useBoardDrag({
 
 		// Deleted under you, subtree and all, while you were carrying it. The
 		// write would resurrect a card nobody can reach.
-		if (!nodes.some((card) => card.id === held.node.id)) {
+		if (
+			held.carried.some(
+				(carried) => !nodes.some((card) => card.id === carried.id),
+			)
+		) {
 			onNotice({ text: t("board.gone") });
 			return;
 		}
 
-		const node = held.node;
-		moveNode(homeId, node, plan.status, plan.rank).catch(failed);
-		onNotice({
-			text:
-				plan.direction === "across"
+		moveCardsWithNotice(
+			homeId,
+			plan.moves.map(({ id, rank }) => ({
+				node: held.carried.find((card) => card.id === id) as Node,
+				status: plan.status,
+				rank,
+			})),
+			plan.direction === "across"
+				? held.carried.length === 1
 					? t("board.moved", { column: t(`status.${plan.status}`) })
-					: t(plan.direction === "up" ? "board.movedUp" : "board.movedDown"),
-			// Both halves are still in hand, exactly as the card menu's *Move* has
-			// them. One snackbar, replaced and never stacked, so twelve drags in a
-			// row leave one line on screen and it undoes the last of them.
-			undo: () => {
-				moveNode(
-					homeId,
-					{ ...node, status: plan.status },
-					node.status,
-					node.rank,
-				).catch(failed);
-			},
-		});
-	}, [clear, homeId, nodes, onNotice, settle, t]);
+					: t("board.movedCardsTo", {
+							count: held.carried.length,
+							column: t(`status.${plan.status}`),
+						})
+				: t(plan.direction === "up" ? "board.movedUp" : "board.movedDown"),
+			onNotice,
+			t("error.saveFailed"),
+		);
+		if (held.selected) selection.clear();
+	}, [clear, homeId, nodes, onNotice, selection.clear, settle, t]);
 
 	const cancel = useCallback(() => {
 		grabbed.current++;
@@ -624,6 +681,8 @@ export function useBoardDrag({
 	return useMemo(
 		() => ({
 			node: session?.node ?? null,
+			carried: session?.carried ?? noCards,
+			gapHeight: session?.gapHeight ?? space.none,
 			cards: session?.cards ?? nodes,
 			over: session?.over ?? null,
 			overlay: session?.overlay ?? null,
@@ -646,8 +705,34 @@ export function useBoardDrag({
  */
 const paneSettleMs = 80;
 
-const failed = (reason: unknown) =>
-	console.error("Could not move the card:", reason);
+const noCards: Node[] = [];
+
+export function moveCardsWithNotice(
+	homeId: string,
+	moves: Parameters<typeof moveNodes>[1],
+	text: string,
+	onNotice: (notice: Notice) => void,
+	failureText: string,
+) {
+	const failed = (reason: unknown) => {
+		console.error("Could not move the cards:", reason);
+		onNotice({ text: failureText });
+	};
+	moveNodes(homeId, moves).catch(failed);
+	onNotice({
+		text,
+		undo: () => {
+			moveNodes(
+				homeId,
+				moves.map(({ node, status, rank }) => ({
+					node: { ...node, status, rank },
+					status: node.status,
+					rank: node.rank,
+				})),
+			).catch(failed);
+		},
+	});
+}
 
 function isStatusBox(box: StatusBox | null): box is StatusBox {
 	return box !== null;
