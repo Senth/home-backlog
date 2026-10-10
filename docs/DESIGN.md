@@ -34,9 +34,9 @@ means something.
   feel about a card is not.
 - **A productivity dashboard.** No charts, no streaks, no completion percentage, no progress
   ring, no number that grades the household.
-- **An app that nags.** No badge counts, no red dot on a tab, no urgency banner, no empty
-  state that implies you are behind. `size.dot` is a mark that something is there, and it
-  stays a mark.
+- **An app that nags.** No badge counts (the multi-card drag's held count is not one, see
+  Motion), no red dot on a tab, no urgency banner, no empty state that implies you are behind.
+  `size.dot` is a mark that something is there, and it stays a mark.
 - No card nested inside a card. No gradient, except a color slider's track. No emoji. No
   decorative illustration.
 
@@ -351,7 +351,8 @@ has to carry itself.
 - **What you manipulate** gets real motion: `drag.lift` so a card reads as off the board
   without the title reflowing under the finger, a spring on release, `drag.landing` kept free
   in every column including an empty one, `drag.edgeZone` for the pane strip. Dragging a card
-  to Done should feel physical.
+  to Done should feel physical. A multi-card drag shows a deck and a count badge. The badge
+  counts what you hold, not what you owe.
 - **What changes underneath you** may animate — a card another member moved sliding into
   place — but only when the element is already on screen, never while you are dragging, and
   never by moving the scroll position under you. Motion you did not ask for is distraction.
