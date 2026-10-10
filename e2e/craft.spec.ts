@@ -1059,6 +1059,55 @@ test("at 320px full tab labels fit on one line without changing tab bar height, 
 	).toBe(originalHeight);
 });
 
+test("on desktop every tab's label and icon share the tab bar's centre line, in this locale", async ({
+	page,
+}, testInfo) => {
+	test.skip(
+		page.viewportSize()?.width !== VIEWPORTS.desktop.width,
+		"the label sits beside the icon only from tabBesideIconBreakpoint",
+	);
+	await gotoAndSettle(page, OVERVIEW);
+	await page.evaluate(() => document.fonts.ready);
+	const offsets = await page.getByRole("tab").evaluateAll((tabs) =>
+		tabs.map((tab) => {
+			const label = tab.querySelector("[aria-label]");
+			const icon = tab.firstElementChild;
+			const bar = tab.closest('[role="tablist"]');
+			if (!label || !icon || !bar)
+				throw new Error("missing tab label, icon or tab bar");
+			const range = document.createRange();
+			range.selectNodeContents(label);
+			const text = range.getBoundingClientRect();
+			const iconBox = icon.getBoundingClientRect();
+			const barBox = bar.getBoundingClientRect();
+			const centre = (box: DOMRect) => box.top + box.height / 2;
+			return {
+				name: label.textContent,
+				label: centre(text) - centre(barBox),
+				icon: centre(iconBox) - centre(barBox),
+				gap: text.left - iconBox.right,
+			};
+		}),
+	);
+	expect(offsets).toHaveLength(4);
+	for (const offset of offsets) {
+		const where = `${offset.name} (${testInfo.project.name})`;
+		expect(
+			Math.abs(offset.label),
+			`label centre of ${where}`,
+		).toBeLessThanOrEqual(1);
+		expect(
+			Math.abs(offset.icon),
+			`icon centre of ${where}`,
+		).toBeLessThanOrEqual(1);
+		expect(offset.gap, `icon to label gap of ${where}`).toBeCloseTo(
+			space.sm,
+			0,
+		);
+	}
+	expect(await clippedTabLabels(page), "tab labels on desktop").toEqual([]);
+});
+
 test("21: at 195px every app bar names its screen, no control overlaps, no tab label is clipped, in this locale", async ({
 	page,
 }, testInfo) => {

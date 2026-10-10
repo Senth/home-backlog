@@ -6,7 +6,13 @@ import { Text } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHome } from "@/contexts/HomeContext";
 import { useAppTheme } from "@/theme";
-import { denseBreakpoint, icon, size, space } from "@/theme/tokens";
+import {
+	denseBreakpoint,
+	icon,
+	size,
+	space,
+	tabBesideIconBreakpoint,
+} from "@/theme/tokens";
 
 /**
  * The boards, and the gate that keeps them scoped to a home.
@@ -20,7 +26,8 @@ export default function TabsLayout() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const { activeHome } = useHome();
-	const { width } = useWindowDimensions();
+	const { width, height } = useWindowDimensions();
+	const besideIcon = width >= tabBesideIconBreakpoint || width > height;
 	const insets = useSafeAreaInsets();
 
 	if (!activeHome) return <Redirect href="/homes" />;
@@ -41,21 +48,28 @@ export default function TabsLayout() {
 							? size.appBarSmall + insets.bottom
 							: undefined,
 				},
-				tabBarIconStyle: { height: icon.md, marginTop: -space.xs },
+				tabBarLabelPosition: besideIcon ? "beside-icon" : "below-icon",
+				tabBarIconStyle: besideIcon
+					? { width: icon.md, height: icon.md }
+					: { height: icon.md, marginTop: -space.xs },
 				tabBarAccessibilityLabel: t(`tab.${route.name}`),
 				// Soft hyphens keep the same words readable when each tab is narrow.
-				tabBarLabel: ({ color, children }) => (
+				tabBarLabel: ({ color, children, position }) => (
 					<Text
 						variant="labelMedium"
 						numberOfLines={width < denseBreakpoint ? undefined : 1}
 						aria-label={children}
-						style={{
-							color,
-							textAlign: "center",
-							alignSelf: "stretch",
-							marginHorizontal: -space.xs,
-							maxWidth: width,
-						}}
+						style={
+							position === "beside-icon"
+								? { color, marginStart: space.sm }
+								: {
+										color,
+										textAlign: "center",
+										alignSelf: "stretch",
+										marginHorizontal: -space.xs,
+										maxWidth: width,
+									}
+						}
 					>
 						{width < denseBreakpoint ? t(`tab.${route.name}Narrow`) : children}
 					</Text>
