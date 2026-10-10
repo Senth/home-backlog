@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import {
 	ActivityIndicator,
+	Badge,
 	Button,
 	FAB,
 	Menu,
@@ -27,6 +28,7 @@ import { TitleDialog } from "@/components/board/TitleDialog";
 import {
 	boardKey,
 	type ColumnDrag,
+	moveCardsWithNotice,
 	useBoardDrag,
 } from "@/components/board/use-board-drag";
 import { fieldSpecs } from "@/components/overview/CardEditForm";
@@ -35,7 +37,7 @@ import { OutboxSnackbar } from "@/components/ui/OutboxSnackbar";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
-import { createNode, moveNodes } from "@/data/nodes";
+import { createNode } from "@/data/nodes";
 import type { useCardSelection } from "@/hooks/use-card-selection";
 import { useLabelAncestors } from "@/hooks/use-label-ancestors";
 import { useTabTrap } from "@/hooks/use-modal-focus";
@@ -65,6 +67,7 @@ import { doneWithinDays } from "@/models/overview";
 import { ordered } from "@/models/selection";
 import { useAppTheme } from "@/theme";
 import {
+	border,
 	cardGutterBreakpoint,
 	compactBreakpoint,
 	contentWidth,
@@ -73,6 +76,7 @@ import {
 	elevation,
 	fab as fabTokens,
 	radius,
+	size,
 	space,
 	touchTarget,
 } from "@/theme/tokens";
@@ -429,6 +433,7 @@ export function Board({
 		nodes: shownNodes,
 		shown,
 		onNotice: setNotice,
+		selection,
 		// Only below the breakpoint: above it every column is already on screen,
 		// so there is nowhere for an edge hold to walk to. The pane it sets is the
 		// same state a chip tap sets — deliberate input, never read back from a
@@ -452,8 +457,9 @@ export function Board({
 		dragEnabled
 			? {
 					node: drag.node,
+					carried: drag.carried,
 					gapAt: drag.over?.status === status ? drag.over.index : null,
-					gapHeight: drag.overlay?.height ?? space.none,
+					gapHeight: drag.gapHeight,
 					register: drag.register,
 					handlers: drag.handlers,
 				}
@@ -545,31 +551,19 @@ export function Board({
 			status,
 			rank: ranks[index],
 		}));
-		const failed = (reason: unknown) => {
-			console.error("Could not move the cards:", reason);
-			setNotice({ text: t("error.saveFailed") });
-		};
-		moveNodes(homeId, moves).catch(failed);
+		moveCardsWithNotice(
+			homeId,
+			moves,
+			picked.length === 1
+				? t("board.moved", { column: t(`status.${status}`) })
+				: t("board.movedCardsTo", {
+						count: picked.length,
+						column: t(`status.${status}`),
+					}),
+			setNotice,
+			t("error.saveFailed"),
+		);
 		selection.clear();
-		setNotice({
-			text:
-				picked.length === 1
-					? t("board.moved", { column: t(`status.${status}`) })
-					: t("board.movedCardsTo", {
-							count: picked.length,
-							column: t(`status.${status}`),
-						}),
-			undo: () => {
-				moveNodes(
-					homeId,
-					moves.map(({ node, status, rank }) => ({
-						node: { ...node, status, rank },
-						status: node.status,
-						rank: node.rank,
-					})),
-				).catch(failed);
-			},
-		});
 	};
 
 	const menu = (node: Node) => (
@@ -887,6 +881,7 @@ export function Board({
 			    a thumb covering most of the pane. */}
 			{drag.node !== null && drag.overlay !== null ? (
 				<Animated.View
+					testID="board-drag-overlay"
 					style={{
 						position: "absolute",
 						// The card is a picture under the hand: everything it passes
@@ -895,6 +890,7 @@ export function Board({
 						left: drag.overlay.left,
 						top: drag.overlay.top,
 						width: drag.overlay.width,
+						paddingBottom: drag.carried.length > 1 ? space.sm : space.none,
 						transform: [
 							{ translateX: drag.offset.x },
 							{ translateY: drag.offset.y },
@@ -904,6 +900,24 @@ export function Board({
 						],
 					}}
 				>
+					{drag.carried.length > 1
+						? [space.sm, space.xs].map((offset) => (
+								<View
+									key={offset}
+									style={{
+										position: "absolute",
+										top: offset,
+										left: offset,
+										right: offset,
+										height: drag.overlay?.height,
+										backgroundColor: theme.colors.boardCard,
+										borderColor: theme.colors.boardCardBorder,
+										borderWidth: border.hairline,
+										borderRadius: radius.md,
+									}}
+								/>
+							))
+						: null}
 					{/* `boardCard` on the surface as well as on the card: Paper fills a
 					    `Surface` with an elevation tint, and it is the corners of the
 					    card that would show it — a lifted card must not be a different
@@ -934,6 +948,20 @@ export function Board({
 							showPrivate={showPrivate}
 						/>
 					</Surface>
+					{drag.carried.length > 1 ? (
+						<Badge
+							size={size.labelDot}
+							style={{
+								position: "absolute",
+								top: space.xs,
+								right: space.xs,
+								backgroundColor: theme.colors.primary,
+								color: theme.colors.onPrimary,
+							}}
+						>
+							{drag.carried.length}
+						</Badge>
+					) : null}
 				</Animated.View>
 			) : null}
 

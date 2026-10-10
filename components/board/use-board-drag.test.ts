@@ -7,10 +7,12 @@ import {
 	columnKey,
 	useBoardDrag,
 } from "@/components/board/use-board-drag";
-import { moveNode } from "@/data/nodes";
+import { moveNodes } from "@/data/nodes";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { paneDwellMs, paneRepeatDwellMs } from "@/models/drag";
 import type { Node, Status } from "@/models/node";
+import type { SelectionState } from "@/models/selection";
+import { space } from "@/theme/tokens";
 
 /**
  * `models/drag.ts` decides *where* a dropped card lands and is tested on its
@@ -20,7 +22,7 @@ import type { Node, Status } from "@/models/node";
  */
 
 jest.mock("@/data/nodes", () => ({
-	moveNode: jest.fn(() => Promise.resolve()),
+	moveNodes: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock("@/hooks/use-reduced-motion", () => ({
@@ -37,7 +39,7 @@ jest.mock("react-i18next", () => ({
 	}),
 }));
 
-const moved = moveNode as jest.MockedFunction<typeof moveNode>;
+const moved = moveNodes as jest.MockedFunction<typeof moveNodes>;
 const reducedMotion = useReducedMotion as jest.MockedFunction<
 	typeof useReducedMotion
 >;
@@ -60,13 +62,20 @@ function box(top: number, height: number, left = 0, width = 300): View {
 
 interface Board {
 	cards: Node[];
+	selected?: string[];
 	/** Below the breakpoint: which pane is on screen, and how many there are. */
 	pane?: number;
 }
 
-function board({ cards, pane }: Board) {
+function board({ cards, pane, selected = [] }: Board) {
 	const onNotice = jest.fn();
 	const onChange = jest.fn();
+	const clearSelection = jest.fn();
+	const selection: SelectionState = {
+		ids: selected,
+		status: selected.length > 0 ? "backlog" : null,
+		anchor: selected.at(-1) ?? null,
+	};
 
 	// The pane goes through props and comes back as a re-render, the way the
 	// board really moves: a walk that only called a spy would never change the
@@ -78,6 +87,7 @@ function board({ cards, pane }: Board) {
 				nodes: props.nodes,
 				shown,
 				onNotice,
+				selection: { state: selection, clear: clearSelection },
 				pane:
 					pane === undefined
 						? undefined
@@ -150,7 +160,17 @@ function board({ cards, pane }: Board) {
 		},
 	});
 
-	return { view, onNotice, onChange, register, measured, arrive, gesture };
+	return {
+		view,
+		onNotice,
+		onChange,
+		register,
+		measured,
+		arrive,
+		gesture,
+		selection,
+		clearSelection,
+	};
 }
 
 beforeEach(() => {
@@ -167,6 +187,164 @@ const b = node("b", "V1");
 const c = node("c", "V2");
 
 describe("useBoardDrag", () => {
+	it("ignores movement after cancellation while the stack settles", async () => {
+		const { view, gesture, measured } = board({
+			cards: [a, b, c],
+			selected: [a.id, c.id],
+		});
+		const card = gesture(c);
+		card.grab({ x: 10, y: 250 });
+		await measured();
+		card.move({ x: 10, y: 400 });
+		card.cancel();
+		const home = view.result.current.over;
+		card.move({ x: 500, y: 700 });
+		expect(view.result.current.over).toEqual(home);
+		await measured();
+		expect(view.result.current.node).toBeNull();
+	});
+
+	it("puts a selected stack on a chip in order with one count notice", async () => {
+		const { gesture, measured, register, onNotice } = board({
+			cards: [a, b, c],
+			selected: [c.id, a.id],
+		});
+		register(chipKey("next_up"))(box(0, 40, 100, 80));
+		const card = gesture(c);
+		card.grab({ x: 10, y: 250 });
+		await measured();
+		card.move({ x: 150, y: 20 });
+		card.drop();
+		expect(
+			moved.mock.calls[0]?.[1].map(({ node, status }) => [node.id, status]),
+		).toEqual([
+			[a.id, "next_up"],
+			[c.id, "next_up"],
+		]);
+		expect(onNotice).toHaveBeenCalledTimes(1);
+		expect(onNotice.mock.calls[0][0].text).toBe(
+			'board.movedCardsTo:{"count":2,"column":"status.next_up"}',
+		);
+	});
+
+	it("does not write or clear selection when a contiguous stack stays put", async () => {
+		const { gesture, measured, onNotice, clearSelection } = board({
+			cards: [a, b, c],
+			selected: [a.id, b.id],
+		});
+		const card = gesture(a);
+		card.grab({ x: 10, y: 50 });
+		await measured();
+		card.drop();
+		expect(moved).not.toHaveBeenCalled();
+		expect(onNotice).not.toHaveBeenCalled();
+		expect(clearSelection).not.toHaveBeenCalled();
+	});
+
+	it("moves a selected stack contiguously in one write and one Undo", async () => {
+		const { gesture, measured, onNotice, clearSelection } = board({
+			cards: [a, b, c],
+			selected: [c.id, a.id],
+		});
+		const card = gesture(c);
+		card.grab({ x: 10, y: 250 });
+		await measured();
+		card.move({ x: 10, y: 290 });
+		card.drop();
+		expect(moved).toHaveBeenCalledTimes(1);
+		const moves = moved.mock.calls[0]?.[1] ?? [];
+		expect(moves.map((move) => move.node.id)).toEqual([a.id, c.id]);
+		expect(moves[0].rank > b.rank).toBe(true);
+		expect(moves[1].rank > moves[0].rank).toBe(true);
+		expect(clearSelection).toHaveBeenCalledTimes(1);
+		expect(onNotice).toHaveBeenCalledTimes(1);
+		onNotice.mock.calls[0][0].undo();
+		expect(moved).toHaveBeenCalledTimes(2);
+		expect(moved.mock.calls[1]?.[1]).toEqual(
+			moves.map(({ node, status, rank }) => ({
+				node: { ...node, status, rank },
+				status: node.status,
+				rank: node.rank,
+			})),
+		);
+	});
+
+	it("keeps selection after moving an unselected card", async () => {
+		const { gesture, measured, clearSelection } = board({
+			cards: [a, b, c],
+			selected: [a.id],
+		});
+		const card = gesture(b);
+		card.grab({ x: 10, y: 150 });
+		await measured();
+		card.move({ x: 10, y: 290 });
+		card.drop();
+		expect(moved.mock.calls[0]?.[1]).toHaveLength(1);
+		expect(moved.mock.calls[0]?.[1][0].node.id).toBe(b.id);
+		expect(clearSelection).not.toHaveBeenCalled();
+	});
+
+	it("aborts the whole stack if any carried card was deleted", async () => {
+		const { gesture, measured, arrive, onNotice, clearSelection } = board({
+			cards: [a, b, c],
+			selected: [a.id, c.id],
+		});
+		const card = gesture(c);
+		card.grab({ x: 10, y: 250 });
+		await measured();
+		arrive([b, c]);
+		card.move({ x: 10, y: 290 });
+		card.drop();
+		expect(moved).not.toHaveBeenCalled();
+		expect(onNotice).toHaveBeenCalledWith({ text: "board.gone" });
+		expect(clearSelection).not.toHaveBeenCalled();
+	});
+
+	it("carries selected cards in board order with room for every card", async () => {
+		const { view, gesture, measured } = board({
+			cards: [a, b, c],
+			selected: [c.id, a.id],
+		});
+		gesture(c).grab({ x: 10, y: 250 });
+		await measured();
+		expect(view.result.current).toHaveProperty("carried", [a, c]);
+		expect(view.result.current).toHaveProperty("gapHeight", 200 + space.sm);
+	});
+
+	it("carries only an unselected card and keeps selection", async () => {
+		const { view, gesture, measured, clearSelection, selection } = board({
+			cards: [a, b, c],
+			selected: [a.id, c.id],
+		});
+		gesture(b).grab({ x: 10, y: 150 });
+		await measured();
+		expect(view.result.current).toHaveProperty("carried", [b]);
+		expect(clearSelection).not.toHaveBeenCalled();
+		expect(selection.ids).toEqual([a.id, c.id]);
+	});
+
+	it.each(["cancel", "outside"])(
+		"restores selected cards on %s without clearing selection",
+		async (end) => {
+			reducedMotion.mockReturnValue(true);
+			const { view, gesture, measured, clearSelection } = board({
+				cards: [a, b, c],
+				selected: [a.id, c.id],
+			});
+			const card = gesture(c);
+			card.grab({ x: 10, y: 250 });
+			await measured();
+			if (end === "outside") {
+				card.move({ x: 500, y: 700 });
+				card.drop();
+			} else card.cancel();
+			expect(view.result.current.node).toBeNull();
+			expect(view.result.current.cards).toEqual([a, b, c]);
+			expect(clearSelection).not.toHaveBeenCalled();
+			expect(moved).not.toHaveBeenCalled();
+		},
+	);
+
 	it("writes the drop and offers the way back", async () => {
 		const { onNotice, measured, gesture } = board({ cards: [a, b, c] });
 		const card = gesture(a);
@@ -177,10 +355,10 @@ describe("useBoardDrag", () => {
 		card.drop();
 
 		expect(moved).toHaveBeenCalledTimes(1);
-		const [, dragged, status, rank] = moved.mock.calls[0] ?? [];
-		expect((dragged as Node).id).toBe("a");
-		expect(status).toBe("backlog");
-		expect((rank as string) > c.rank).toBe(true);
+		const move = moved.mock.calls[0]?.[1][0];
+		expect(move?.node.id).toBe("a");
+		expect(move?.status).toBe("backlog");
+		expect((move?.rank ?? "") > c.rank).toBe(true);
 
 		const notice = onNotice.mock.calls[0]?.[0];
 		expect(notice.text).toBe("board.movedDown");
@@ -188,8 +366,8 @@ describe("useBoardDrag", () => {
 		notice.undo();
 		expect(moved).toHaveBeenCalledTimes(2);
 		// Back to the status and the rank it had, both of which were in hand.
-		expect(moved.mock.calls[1]?.[2]).toBe("backlog");
-		expect(moved.mock.calls[1]?.[3]).toBe(a.rank);
+		expect(moved.mock.calls[1]?.[1][0].status).toBe("backlog");
+		expect(moved.mock.calls[1]?.[1][0].rank).toBe(a.rank);
 	});
 
 	it("says nothing and writes nothing for a card put back where it was", async () => {
@@ -258,7 +436,7 @@ describe("useBoardDrag", () => {
 		card.move({ x: 150, y: 20 });
 		card.drop();
 
-		expect(moved.mock.calls[0]?.[2]).toBe("next_up");
+		expect(moved.mock.calls[0]?.[1][0].status).toBe("next_up");
 		expect(onNotice.mock.calls[0]?.[0].text).toContain("board.moved");
 	});
 
@@ -364,6 +542,6 @@ describe("useBoardDrag", () => {
 		});
 		card.drop();
 
-		expect(moved.mock.calls[0]?.[2]).toBe("backlog");
+		expect(moved.mock.calls[0]?.[1][0].status).toBe("backlog");
 	});
 });

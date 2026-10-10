@@ -84,6 +84,7 @@ export function DragArea({
 		/** A scroll. Once this is set the press can never become a drag. */
 		let refused = false;
 		let hold: ReturnType<typeof setTimeout> | null = null;
+		let touch: Touch | undefined;
 
 		const cancelHold = () => {
 			if (hold !== null) clearTimeout(hold);
@@ -123,12 +124,14 @@ export function DragArea({
 		 * outlives every pane.
 		 */
 		const trackingOn = () => {
+			window.addEventListener("keydown", onEscape, true);
 			document.addEventListener("pointermove", move, true);
 			document.addEventListener("pointerup", up, true);
 			document.addEventListener("pointercancel", cancel, true);
 		};
 
 		const trackingOff = () => {
+			window.removeEventListener("keydown", onEscape, true);
 			document.removeEventListener("pointermove", move, true);
 			document.removeEventListener("pointerup", up, true);
 			document.removeEventListener("pointercancel", cancel, true);
@@ -179,7 +182,11 @@ export function DragArea({
 
 		const shield = (event: Event) => {
 			event.stopPropagation();
-			if (!armed) return;
+			if (!armed) {
+				if (event.type === "touchend" || event.type === "touchcancel")
+					release();
+				return;
+			}
 
 			const touch =
 				"changedTouches" in event
@@ -227,9 +234,13 @@ export function DragArea({
 			// shield holds at the document, so a shield already in place would
 			// swallow this on its way and the press would never be called off.
 			node.dispatchEvent(
-				new Event(type === "mouse" ? "dragstart" : "touchcancel", {
-					bubbles: true,
-				}),
+				type === "mouse"
+					? new Event("dragstart", { bubbles: true })
+					: new TouchEvent("touchcancel", {
+							bubbles: true,
+							touches: [],
+							changedTouches: touch === undefined ? [] : [touch],
+						}),
 			);
 
 			shieldOn();
@@ -245,6 +256,19 @@ export function DragArea({
 			start = null;
 			armed = false;
 			refused = false;
+			touch = undefined;
+			cancelHold();
+		};
+
+		const onEscape = (event: KeyboardEvent) => {
+			if (event.key !== "Escape" || !armed) return;
+			event.preventDefault();
+			event.stopImmediatePropagation();
+			handlers.current.onCancel();
+			swallowNextClick();
+			armed = false;
+			refused = true;
+			unlockScrollers();
 			cancelHold();
 		};
 
@@ -318,6 +342,13 @@ export function DragArea({
 			if (armed || hold !== null) event.preventDefault();
 		};
 
+		const rememberTouch = (event: TouchEvent) => {
+			touch = event.changedTouches[0];
+		};
+		const shieldModifiedRelease = (event: MouseEvent) => {
+			if (event.ctrlKey || event.altKey) event.stopPropagation();
+		};
+
 		// Both set here rather than through a style prop: neither is in React
 		// Native's `ViewStyle`, and this file is the web by definition. The
 		// selection is what a slow press on a card otherwise starts — and it
@@ -326,10 +357,14 @@ export function DragArea({
 		node.style.setProperty("user-select", "none");
 		node.style.setProperty("-webkit-user-select", "none");
 		node.addEventListener("pointerdown", down);
+		node.addEventListener("touchstart", rememberTouch);
+		node.addEventListener("mouseup", shieldModifiedRelease);
 		node.addEventListener("contextmenu", contextMenu);
 
 		return () => {
 			node.removeEventListener("pointerdown", down);
+			node.removeEventListener("touchstart", rememberTouch);
+			node.removeEventListener("mouseup", shieldModifiedRelease);
 			node.removeEventListener("contextmenu", contextMenu);
 			// A card really in flight goes home rather than hanging: this only runs
 			// when the card itself is gone — deleted under you, or the board left

@@ -186,7 +186,7 @@ export function BoardColumn({
 	// model counts too: a card is never one of its own neighbours.
 	let slot = 0;
 	const rows = nodes.map((node) => {
-		const held = lifted !== null && node.id === lifted.id;
+		const held = drag?.carried.some((card) => card.id === node.id) ?? false;
 		const row = { node, held, gapBefore: !held && gapAt === slot };
 		if (!held) slot++;
 		return row;
@@ -215,7 +215,10 @@ export function BoardColumn({
 	const landing = (
 		<View
 			style={{
-				minHeight: dragTokens.landing,
+				minHeight: Math.max(
+					dragTokens.landing,
+					gapAt === null ? space.none : (drag?.gapHeight ?? space.none),
+				),
 				alignItems: "center",
 				justifyContent: "center",
 				padding: space.sm,
