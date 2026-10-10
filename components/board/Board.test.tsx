@@ -6,6 +6,7 @@ import { Provider, Snackbar, TextInput } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { ReactTestInstance } from "react-test-renderer";
 import { Board } from "@/components/board/Board";
+import { BoardColumn } from "@/components/board/BoardColumn";
 import { CardMenu } from "@/components/board/CardMenu";
 import type { OutboxIntent } from "@/data/outbox-store";
 
@@ -29,12 +30,17 @@ jest.mock("@/data/outbox-store", () => ({
 	intentMetadata: jest.fn(() => ({ id: "intent-1" })),
 }));
 
-import { Dimensions, Platform } from "react-native";
+import { Dimensions, Platform, type View } from "react-native";
 import { DragArea } from "@/components/board/DragArea";
 import {
 	SelectCardsAction,
 	SelectionBar,
 } from "@/components/board/SelectionBar";
+import {
+	boardKey,
+	cardKey,
+	columnKey,
+} from "@/components/board/use-board-drag";
 import { createNode, moveNodes } from "@/data/nodes";
 import { useCardSelection } from "@/hooks/use-card-selection";
 import type { BoardFilter } from "@/models/board-filter";
@@ -255,6 +261,80 @@ function measureAnchors() {
 }
 
 describe("Board", () => {
+	it.each([false, true])(
+		"keeps an interleaved participant-hidden sibling in displayed order for range selection and drag with filter=%s",
+		async (filtered) => {
+			jest.replaceProperty(Platform, "OS", "web");
+			try {
+				const [a, b, c] = ["a", "b", "c"].map((title, index) => ({
+					...node("backlog"),
+					id: title,
+					title,
+					rank: rankSequence(null, null, 3)[index],
+					participantIds: [title === "b" ? "uid-other" : "uid-me"],
+				}));
+				renderBoard({
+					loading: false,
+					viewport: 1440,
+					nodes: [a, c],
+					hidden: [b],
+					filter: filtered
+						? {
+								mode: "open",
+								reach: "board",
+								conditions: [{ field: "priority", anyOf: ["none"] }],
+							}
+						: null,
+				});
+				const column = () => screen.UNSAFE_getAllByType(BoardColumn)[0];
+				expect(column().props.nodes).toEqual([a, b, c]);
+				fireEvent.press(screen.getByText("a"), {
+					nativeEvent: { ctrlKey: true },
+				});
+				fireEvent.press(screen.getByText("b"), {
+					nativeEvent: { shiftKey: true },
+				});
+				expect(column().props.selectedIds).toEqual([a.id, b.id]);
+				fireEvent.press(screen.getByLabelText("board.stopSelecting"));
+				const { register } = column().props.drag;
+				const frame = (top: number, height: number) =>
+					({
+						measureInWindow: (callback: (...values: number[]) => void) =>
+							callback(0, top, 300, height),
+					}) as unknown as View;
+				register(boardKey)(frame(0, 600));
+				for (const status of defaultColumns)
+					register(columnKey(status))(
+						status === "backlog" ? frame(0, 600) : null,
+					);
+				column().props.nodes.forEach((card: Node, index: number) => {
+					register(cardKey(card.id))(frame(index * 100, 100));
+				});
+				await act(async () => {
+					screen
+						.UNSAFE_getAllByType(DragArea)[0]
+						.props.onGrab({ x: 10, y: 50 });
+				});
+				expect(screen.getByTestId("board-drag-overlay")).toBeOnTheScreen();
+				expect(column().props.nodes).toEqual([a, b, c]);
+				expect(column().props.drag.gapAt).toBe(0);
+				act(() => {
+					screen
+						.UNSAFE_getAllByType(DragArea)[0]
+						.props.onMove({ x: 10, y: 175 });
+				});
+				expect(column().props.drag.gapAt).toBe(1);
+				act(() => screen.UNSAFE_getAllByType(DragArea)[0].props.onDrop());
+				expect(moveNodes).toHaveBeenCalledTimes(1);
+				const move = jest.mocked(moveNodes).mock.calls[0][1][0];
+				expect(move.node.id).toBe(a.id);
+				expect(move.rank > b.rank && move.rank < c.rank).toBe(true);
+			} finally {
+				jest.restoreAllMocks();
+			}
+		},
+	);
+
 	it("card menu starts selection and reuses batch move notice and Undo", () => {
 		const cards = [
 			node("backlog"),

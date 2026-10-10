@@ -16,7 +16,7 @@ import {
 	paneRepeatDwellMs,
 	type StatusBox,
 } from "@/models/drag";
-import { compareNodes, type Node, type Status } from "@/models/node";
+import type { Node, Status } from "@/models/node";
 import { ordered } from "@/models/selection";
 import { drag as dragTokens, space } from "@/theme/tokens";
 
@@ -462,7 +462,7 @@ export function useBoardDrag({
 	const grab = useCallback(
 		async (node: Node, point: DragPoint) => {
 			const token = ++grabbed.current;
-			const frozen = [...nodes].sort(compareNodes);
+			const frozen = [...nodes];
 			const selected = selection.state.ids.includes(node.id);
 			const carried = selected ? ordered(selection.state, frozen) : [node];
 			const measured = await measure(frozen);

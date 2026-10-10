@@ -53,6 +53,7 @@ import type { LabelWithId } from "@/models/label";
 import type { Location } from "@/models/locations";
 import {
 	appendRanks,
+	compareNodes,
 	crossBoardBlockerIds,
 	type EffectiveLocation,
 	effectiveLocation,
@@ -364,11 +365,12 @@ export function Board({
 	 */
 	const shownNodes = useMemo(
 		() =>
-			matchCtx === null
-				? universe
+			(matchCtx === null
+				? [...universe]
 				: universe.filter((node) =>
 						matchesConditions(node, conditions, matchCtx),
-					),
+					)
+			).sort(compareNodes),
 		[universe, matchCtx, conditions],
 	);
 	const filterActive = conditions.length > 0;
