@@ -1,6 +1,6 @@
 import { Fragment, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Animated, Pressable, View } from "react-native";
+import { Animated, Pressable, useWindowDimensions, View } from "react-native";
 import { Icon, IconButton, Menu, Surface, Text } from "react-native-paper";
 import { DragArea } from "@/components/board/DragArea";
 import { LocationCards } from "@/components/location/LocationCards";
@@ -12,6 +12,7 @@ import {
 } from "@/components/location/use-location-drag";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { AppMenu } from "@/components/ui/AppMenu";
+import { rowLeadStyle } from "@/components/ui/row-lead-style";
 import { useOutbox } from "@/contexts/OutboxContext";
 import {
 	deleteLocation,
@@ -28,9 +29,11 @@ import { movedRank, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import {
 	border,
+	denseBreakpoint,
 	drag as dragTokens,
 	elevation,
 	icon,
+	indent,
 	radius,
 	space,
 	touchTarget,
@@ -77,17 +80,6 @@ interface LocationTreeProps {
 	homeId: string;
 }
 
-/**
- * The siblings under one parent, each followed by its own children's rail.
- *
- * The rail wraps **only the children** — never the container that holds the
- * parent row — so it can never cross a chevron, whatever the depth. It is
- * centred on the parent's chevron band: `icon.sm - space.xs` puts the hairline
- * at the band's centre (+12), and `space.xs - border.hairline` of padding puts
- * the child content at +16, exactly one `indent.step` — the depth the old
- * padding scheme carried, now carried by the rails themselves. There is no
- * rail at the top level, because the top level has no parent to hang one on.
- */
 export function LocationTree({
 	locations,
 	parentId,
@@ -111,11 +103,15 @@ export function LocationTree({
 	homeId,
 }: LocationTreeProps) {
 	const theme = useAppTheme();
+	const { width } = useWindowDimensions();
+	const dense = width < denseBreakpoint;
 	const rail = {
-		marginLeft: icon.sm - space.xs,
+		marginLeft: dense
+			? indent.denseStep - border.hairline
+			: indent.step - space.xs,
 		borderLeftWidth: border.hairline,
 		borderLeftColor: theme.colors.outlineVariant,
-		paddingLeft: space.xs - border.hairline,
+		paddingLeft: dense ? space.none : space.xs - border.hairline,
 	};
 
 	const move: MoveSelection | undefined =
@@ -291,6 +287,8 @@ export function LocationRow({
 }: LocationRowProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
+	const { width } = useWindowDimensions();
+	const dense = width < denseBreakpoint;
 	const { intents, submit } = useOutbox();
 	const locationColor = useLocationColors(location.color).fill;
 	const count = counts.get(location.id) ?? 0;
@@ -376,11 +374,12 @@ export function LocationRow({
 					<View
 						style={{
 							flexDirection: "row",
+							flexWrap: "wrap",
 							alignItems: "center",
 							minHeight: touchTarget,
 							gap: space.sm,
 							paddingVertical: space.xs,
-							paddingRight: space.sm,
+							paddingRight: dense ? space.none : space.sm,
 							borderRadius: radius.sm,
 							// Dim, never hide: the refused rows stay on the map, so what
 							// cannot be chosen is still legible as the tree it belongs to.
@@ -392,198 +391,225 @@ export function LocationRow({
 								: undefined,
 						}}
 					>
-						{/* The chevron's own button, present only where there is something
+						<View
+							style={[
+								{
+									flexDirection: "row",
+									alignItems: "center",
+									gap: dense ? space.xs : space.sm,
+									flexGrow: 1,
+									flexShrink: 1,
+									flexBasis: space.none,
+								},
+								rowLeadStyle,
+							]}
+						>
+							{/* The chevron's own button, present only where there is something
 				    to disclose; a childless row keeps the band, so the names line
 				    up. Its box runs the full row height — the band is narrow, the
 				    height is what makes it hittable. */}
-						{hasChildren ? (
+							{hasChildren ? (
+								<Pressable
+									accessible
+									accessibilityRole="button"
+									accessibilityLabel={t("locations.toggle", {
+										name: location.title,
+									})}
+									aria-expanded={expanded}
+									onPress={() => onToggle(location.id)}
+									style={{
+										// The band stays `icon.sm + space.xs` wide on the page —
+										// the rails are centred on it — and the touch box is the
+										// full `touchTarget`, pulled back so nothing after it
+										// moves. The overlap lands on the glyph, whose tap earns
+										// nothing.
+										width: touchTarget,
+										marginRight: icon.sm + space.xs - touchTarget,
+										height: touchTarget,
+										alignItems: "center",
+										justifyContent: "center",
+									}}
+								>
+									<Icon
+										source={expanded ? "chevron-down" : "chevron-right"}
+										size={icon.sm}
+										color={theme.colors.onSurfaceVariant}
+									/>
+								</Pressable>
+							) : (
+								<View style={{ width: icon.sm + space.xs }} />
+							)}
+
+							{/* The identity mark: the place's own glyph in its own color,
+				    resolved by scheme — a bare colored glyph, no fill behind it. */}
+							<Icon
+								source={location.icon}
+								size={icon.md}
+								color={locationColor}
+							/>
+
 							<Pressable
 								accessible
 								accessibilityRole="button"
-								accessibilityLabel={t("locations.toggle", {
-									name: location.title,
-								})}
-								aria-expanded={expanded}
-								onPress={() => onToggle(location.id)}
+								accessibilityLabel={`${t("locations.open", { name: location.title })}${waiting ? `. ${t("outbox.waiting")}` : ""}`}
+								accessibilityState={{
+									disabled: dimmed,
+									selected,
+								}}
+								onPress={
+									dimmed
+										? undefined
+										: () => (move ? move.onSelect(location) : onOpen(location))
+								}
 								style={{
-									// The band stays `icon.sm + space.xs` wide on the page —
-									// the rails are centred on it — and the touch box is the
-									// full `touchTarget`, pulled back so nothing after it
-									// moves. The overlap lands on the glyph, whose tap earns
-									// nothing.
-									width: touchTarget,
-									marginRight: icon.sm + space.xs - touchTarget,
-									height: touchTarget,
-									alignItems: "center",
+									flexGrow: 1,
+									flexShrink: 1,
+									minHeight: touchTarget,
 									justifyContent: "center",
 								}}
 							>
-								<Icon
-									source={expanded ? "chevron-down" : "chevron-right"}
-									size={icon.sm}
-									color={theme.colors.onSurfaceVariant}
-								/>
-							</Pressable>
-						) : (
-							<View style={{ width: icon.sm + space.xs }} />
-						)}
-
-						{/* The identity mark: the place's own glyph in its own color,
-				    resolved by scheme — a bare colored glyph, no fill behind it. */}
-						<Icon source={location.icon} size={icon.md} color={locationColor} />
-
-						<Pressable
-							accessible
-							accessibilityRole="button"
-							accessibilityLabel={`${t("locations.open", { name: location.title })}${waiting ? `. ${t("outbox.waiting")}` : ""}`}
-							accessibilityState={{
-								disabled: dimmed,
-								selected,
-							}}
-							onPress={
-								dimmed
-									? undefined
-									: () => (move ? move.onSelect(location) : onOpen(location))
-							}
-							style={{
-								flex: 1,
-								minHeight: touchTarget,
-								justifyContent: "center",
-							}}
-						>
-							<View
-								style={{
-									flexDirection: "row",
-									flexWrap: "wrap",
-									alignItems: "center",
-									gap: space.sm,
-								}}
-							>
-								<Text variant="bodyLarge" style={{ maxWidth: "100%" }}>
-									{location.title}
-								</Text>
-								{waiting ? (
-									<View
-										style={{
-											flexDirection: "row",
-											alignItems: "center",
-											gap: space.xs,
-											maxWidth: "100%",
-										}}
-									>
-										<Icon
-											source="cloud-upload-outline"
-											size={icon.sm}
-											color={theme.colors.onSurfaceVariant}
-										/>
-										<Text
-											variant="bodySmall"
+								<View
+									style={{
+										flexDirection: "row",
+										flexWrap: "wrap",
+										alignItems: "center",
+										gap: space.sm,
+									}}
+								>
+									<Text variant="bodyLarge" style={{ maxWidth: "100%" }}>
+										{location.title}
+									</Text>
+									{waiting ? (
+										<View
 											style={{
-												color: theme.colors.onSurfaceVariant,
-												flexShrink: 1,
+												flexDirection: "row",
+												alignItems: "center",
+												gap: space.xs,
+												maxWidth: "100%",
 											}}
 										>
-											{t("outbox.waiting")}
-										</Text>
-									</View>
-								) : null}
-							</View>
-						</Pressable>
-
-						{/* The open count, rolled up through the subtree and right-aligned
+											<Icon
+												source="cloud-upload-outline"
+												size={icon.sm}
+												color={theme.colors.onSurfaceVariant}
+											/>
+											<Text
+												variant="bodySmall"
+												style={{
+													color: theme.colors.onSurfaceVariant,
+													flexShrink: 1,
+												}}
+											>
+												{t("outbox.waiting")}
+											</Text>
+										</View>
+									) : null}
+								</View>
+							</Pressable>
+						</View>
+						<View
+							style={{
+								flexDirection: "row",
+								alignItems: "center",
+								gap: space.sm,
+								marginLeft: "auto",
+							}}
+						>
+							{/* The open count, rolled up through the subtree and right-aligned
 				    left of the menu, quiet. Nothing is drawn at zero — an empty
 				    place says nothing rather than saying 0 (#205). */}
-						{count > 0 ? (
-							<Text
-								variant="bodySmall"
-								style={{ color: theme.colors.onSurfaceVariant }}
-							>
-								{count}
-							</Text>
-						) : null}
+							{count > 0 ? (
+								<Text
+									variant="bodySmall"
+									style={{ color: theme.colors.onSurfaceVariant }}
+								>
+									{count}
+								</Text>
+							) : null}
 
-						{/* The confirmed destination of a move-under carries its mark in
+							{/* The confirmed destination of a move-under carries its mark in
 						    its own row, so the bar's sentence and the tree agree at a
 						    glance. A drag's aim is said by the highlight or the slot. */}
-						{selected ? (
-							<Icon
-								source="check"
-								size={icon.md}
-								color={theme.colors.primary}
-							/>
-						) : null}
+							{selected ? (
+								<Icon
+									source="check"
+									size={icon.md}
+									color={theme.colors.primary}
+								/>
+							) : null}
 
-						<AppMenu
-							visible={open}
-							onDismiss={close}
-							overlayAccessibilityLabel={t("common.closeMenu")}
-							anchor={
-								<View ref={anchor}>
-									<IconButton
-										icon="dots-vertical"
-										size={icon.sm}
-										accessibilityLabel={t("locations.actions")}
-										disabled={move !== undefined}
-										onPress={(event) => {
-											event.stopPropagation();
-											setOpen(true);
+							<AppMenu
+								visible={open}
+								onDismiss={close}
+								overlayAccessibilityLabel={t("common.closeMenu")}
+								anchor={
+									<View ref={anchor}>
+										<IconButton
+											icon="dots-vertical"
+											size={icon.sm}
+											accessibilityLabel={t("locations.actions")}
+											disabled={move !== undefined}
+											onPress={(event) => {
+												event.stopPropagation();
+												setOpen(true);
+											}}
+											style={{
+												width: touchTarget,
+												height: touchTarget,
+												margin: space.none,
+											}}
+										/>
+									</View>
+								}
+							>
+								<View>
+									<Menu.Item
+										leadingIcon="plus"
+										title={t("locations.addUnder")}
+										onPress={() => {
+											close();
+											onAddUnder(location);
 										}}
-										style={{
-											width: touchTarget,
-											height: touchTarget,
-											margin: space.none,
+									/>
+									<Menu.Item
+										leadingIcon="arrow-up"
+										title={t("locations.moveUp")}
+										disabled={siblingIndex === 0}
+										onPress={() => reorder(-1)}
+									/>
+									<Menu.Item
+										leadingIcon="arrow-down"
+										title={t("locations.moveDown")}
+										disabled={siblingIndex === siblings.length - 1}
+										onPress={() => reorder(1)}
+									/>
+									<Menu.Item
+										leadingIcon="file-tree-outline"
+										title={t("locations.moveUnder")}
+										onPress={() => {
+											close();
+											onMoveUnder(location);
+										}}
+									/>
+									<Menu.Item
+										leadingIcon="pencil-outline"
+										title={t("locations.edit")}
+										onPress={() => {
+											close();
+											setEditing(true);
+										}}
+									/>
+									<Menu.Item
+										leadingIcon="delete-outline"
+										title={t("locations.delete")}
+										onPress={() => {
+											close();
+											setDeleting(true);
 										}}
 									/>
 								</View>
-							}
-						>
-							<View>
-								<Menu.Item
-									leadingIcon="plus"
-									title={t("locations.addUnder")}
-									onPress={() => {
-										close();
-										onAddUnder(location);
-									}}
-								/>
-								<Menu.Item
-									leadingIcon="arrow-up"
-									title={t("locations.moveUp")}
-									disabled={siblingIndex === 0}
-									onPress={() => reorder(-1)}
-								/>
-								<Menu.Item
-									leadingIcon="arrow-down"
-									title={t("locations.moveDown")}
-									disabled={siblingIndex === siblings.length - 1}
-									onPress={() => reorder(1)}
-								/>
-								<Menu.Item
-									leadingIcon="file-tree-outline"
-									title={t("locations.moveUnder")}
-									onPress={() => {
-										close();
-										onMoveUnder(location);
-									}}
-								/>
-								<Menu.Item
-									leadingIcon="pencil-outline"
-									title={t("locations.edit")}
-									onPress={() => {
-										close();
-										setEditing(true);
-									}}
-								/>
-								<Menu.Item
-									leadingIcon="delete-outline"
-									title={t("locations.delete")}
-									onPress={() => {
-										close();
-										setDeleting(true);
-									}}
-								/>
-							</View>
-						</AppMenu>
+							</AppMenu>
+						</View>
 					</View>
 				</DragArea>
 			</View>

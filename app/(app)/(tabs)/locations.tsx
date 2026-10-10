@@ -41,9 +41,11 @@ import { projectLocations } from "@/models/outbox";
 import { useAppTheme } from "@/theme";
 import {
 	border,
+	compactBreakpoint,
 	contentWidth,
 	denseBreakpoint,
 	fab as fabTokens,
+	gutter,
 	icon,
 	radius,
 	space,
@@ -277,7 +279,7 @@ export default function Locations() {
 			<SlimScrollView
 				testID="locations-scroll"
 				contentContainerStyle={{
-					padding: space.md,
+					padding: width < compactBreakpoint ? gutter.compact : gutter.wide,
 					paddingBottom: fabInset,
 					alignSelf: "center",
 					width: "100%",

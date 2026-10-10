@@ -261,13 +261,14 @@ describe("LocationRow", () => {
 	});
 
 	it("keeps drag available offline and shows waiting text only for queued rows", () => {
+		const handlers = {
+			onGrab: jest.fn(),
+			onMove: jest.fn(),
+			onDrop: jest.fn(),
+			onCancel: jest.fn(),
+		};
 		const drag = {
-			handlers: jest.fn(() => ({
-				onGrab: jest.fn(),
-				onMove: jest.fn(),
-				onDrop: jest.fn(),
-				onCancel: jest.fn(),
-			})),
+			handlers: jest.fn(() => handlers),
 			register: jest.fn(),
 			dragged: null,
 		};
@@ -276,6 +277,9 @@ describe("LocationRow", () => {
 			drag: drag as unknown as Parameters<typeof LocationRow>[0]["drag"],
 		});
 		expect(root.findByType(DragArea).props.enabled).toBe(true);
+		expect(root.findByType(DragArea).props).toMatchObject(handlers);
+		expect(drag.handlers).toHaveBeenCalledWith(house);
+		expect(drag.register).toHaveBeenCalledWith("row:house");
 		expect(getByText("outbox.waiting")).toBeTruthy();
 	});
 	it("renders the three sibling controls: chevron, name, menu", () => {
@@ -338,6 +342,41 @@ describe("LocationRow", () => {
 		expect(onOpen).toHaveBeenCalledWith(house);
 		expect(onToggle).not.toHaveBeenCalled();
 	});
+
+	it("selects a move destination without navigating, while chevron stays live", () => {
+		const onSelect = jest.fn();
+		const { getByLabelText, onOpen, onToggle, root } = renderRow({
+			move: { movingId: "other", selectedId: house.id, onSelect },
+		});
+
+		fireEvent.press(getByLabelText(/locations.open/));
+		expect(onSelect).toHaveBeenCalledWith(house);
+		expect(onOpen).not.toHaveBeenCalled();
+		expect(getByLabelText(/locations.open/)).toBeSelected();
+		expect(getByLabelText("locations.actions")).toBeDisabled();
+		expect(root.findByType(DragArea).props.enabled).toBe(false);
+		fireEvent.press(getByLabelText(/locations.toggle/));
+		expect(onToggle).toHaveBeenCalledWith(house.id);
+	});
+
+	it.each([false, true])(
+		"refuses moving place and its descendants, descendant=%s",
+		(descendant) => {
+			const onSelect = jest.fn();
+			const location = descendant
+				? { ...house, id: "child", parentId: house.id, ancestorIds: [house.id] }
+				: house;
+			const { getByLabelText, onOpen } = renderRow({
+				location,
+				move: { movingId: house.id, selectedId: null, onSelect },
+			});
+
+			fireEvent.press(getByLabelText(/locations.open/));
+			expect(getByLabelText(/locations.open/)).toBeDisabled();
+			expect(onSelect).not.toHaveBeenCalled();
+			expect(onOpen).not.toHaveBeenCalled();
+		},
+	);
 
 	it("keeps a chevron out of a childless row, but keeps the names aligned", () => {
 		const { queryByLabelText } = renderRow({ hasChildren: false });
