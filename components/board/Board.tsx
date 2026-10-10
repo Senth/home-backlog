@@ -1008,7 +1008,7 @@ export function Board({
 						}
 						label={
 							selection.selecting
-								? t("board.moveCardsTo", { count: selected.ids.length })
+								? t("board.moveCardsToFab", { count: selected.ids.length })
 								: t("board.addTo", { column: t(`status.${onScreen}`) })
 						}
 						onPress={() =>

@@ -389,14 +389,14 @@ describe("Board", () => {
 				expect(screen.queryByText(/board\.addTo:/)).toBeNull();
 			if (viewport === 1440)
 				expect(screen.getByText("board.moveTo")).toBeDisabled();
-			else expect(screen.queryByText(/board\.moveCardsTo/)).toBeNull();
+			else expect(screen.queryByText(/board\.moveCardsTo(?::|$)/)).toBeNull();
 			fireEvent.press(screen.getByText("Fix the gutter"));
 			expect(
 				screen.getByText('board.selectedCount:{"count":1}'),
 			).toBeOnTheScreen();
 			if (viewport === 390)
 				expect(
-					screen.getByText('board.moveCardsTo:{"count":1}'),
+					screen.getByText('board.moveCardsToFab:{"count":1}'),
 				).toBeOnTheScreen();
 			fireEvent.press(screen.getByLabelText("board.stopSelecting"));
 			expect(screen.getByLabelText("board.selectCards")).toBeOnTheScreen();
@@ -436,7 +436,9 @@ describe("Board", () => {
 			measureAnchors();
 			fireEvent.press(
 				screen.getByText(
-					viewport === 390 ? 'board.moveCardsTo:{"count":3}' : "board.moveTo",
+					viewport === 390
+						? 'board.moveCardsToFab:{"count":3}'
+						: "board.moveTo",
 				),
 			);
 			const menu = screen.getByTestId("selection-move-menu");
@@ -476,7 +478,7 @@ describe("Board", () => {
 		fireEvent.press(screen.getByLabelText("board.selectCards"));
 		fireEvent.press(screen.getByText("Fix the gutter"));
 		measureAnchors();
-		fireEvent.press(screen.getByText('board.moveCardsTo:{"count":1}'));
+		fireEvent.press(screen.getByText('board.moveCardsToFab:{"count":1}'));
 		fireEvent.press(screen.getByText("status.done"));
 		expect(
 			screen.getByText('board.moved:{"column":"status.done"}'),
