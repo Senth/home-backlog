@@ -3,7 +3,14 @@ import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, useWindowDimensions, View } from "react-native";
-import { ActivityIndicator, Button, FAB, Icon, Text } from "react-native-paper";
+import {
+	ActivityIndicator,
+	Button,
+	FAB,
+	Icon,
+	Menu,
+	Text,
+} from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { LocationDialog } from "@/components/location/LocationDialog";
 import {
@@ -15,6 +22,7 @@ import {
 	useLocationDrag,
 } from "@/components/location/use-location-drag";
 import { AppHeader } from "@/components/ui/AppHeader";
+import { AppMenu } from "@/components/ui/AppMenu";
 import { BackAction } from "@/components/ui/BackAction";
 import { OutboxSnackbar } from "@/components/ui/OutboxSnackbar";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
@@ -100,6 +108,7 @@ export default function Locations() {
 	const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 	/** Cards hidden by default (#205); the toggle is the control row's. */
 	const [cardsOpen, setCardsOpen] = useState(false);
+	const [viewMenuOpen, setViewMenuOpen] = useState(false);
 	/** The move-under mode (Q14) — idle means the tree browses. */
 	const [move, setMove] = useState<MoveMode>(idleMove);
 	const [adding, setAdding] = useState<AddTarget>(null);
@@ -363,7 +372,50 @@ export default function Locations() {
 							marginBottom: space.md,
 						}}
 					>
-						{showTree ? (
+						{showTree && width < denseBreakpoint ? (
+							<AppMenu
+								visible={viewMenuOpen}
+								onDismiss={() => setViewMenuOpen(false)}
+								overlayAccessibilityLabel={t("common.closeMenu")}
+								anchor={
+									<Button
+										mode="outlined"
+										icon="tune-variant"
+										onPress={() => setViewMenuOpen(true)}
+										contentStyle={{ minHeight: touchTarget }}
+									>
+										{t("locations.view")}
+									</Button>
+								}
+							>
+								<Menu.Item
+									leadingIcon="unfold-less-horizontal"
+									title={t("locations.collapseAll")}
+									onPress={() => {
+										setViewMenuOpen(false);
+										collapseAll();
+									}}
+								/>
+								<Menu.Item
+									leadingIcon="unfold-more-horizontal"
+									title={t("locations.expandAll")}
+									onPress={() => {
+										setViewMenuOpen(false);
+										expandAll();
+									}}
+								/>
+								<Menu.Item
+									leadingIcon={cardsOpen ? "eye-off-outline" : "eye-outline"}
+									title={t(
+										cardsOpen ? "locations.hideCards" : "locations.showCards",
+									)}
+									onPress={() => {
+										setViewMenuOpen(false);
+										setCardsOpen((open) => !open);
+									}}
+								/>
+							</AppMenu>
+						) : showTree ? (
 							<>
 								<Button
 									mode="outlined"

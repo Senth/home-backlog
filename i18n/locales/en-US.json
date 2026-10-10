@@ -124,6 +124,7 @@
 		"titleRequired": "The place needs a name",
 		"titleTooLong": "That name is too long",
 		"collapseAll": "Collapse all",
+		"view": "View",
 		"expandAll": "Expand all",
 		"showCards": "Show cards",
 		"hideCards": "Hide cards",

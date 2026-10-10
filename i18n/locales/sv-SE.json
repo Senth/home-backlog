@@ -124,6 +124,7 @@
 		"titleRequired": "Platsen behöver ett namn",
 		"titleTooLong": "Det namnet är för långt",
 		"collapseAll": "Fäll ihop alla",
+		"view": "Visning",
 		"expandAll": "Fäll ut alla",
 		"showCards": "Visa kort",
 		"hideCards": "Dölj kort",
