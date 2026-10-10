@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { View } from "react-native";
-import { Text } from "react-native-paper";
+import { Text, TouchableRipple } from "react-native-paper";
+import { rowLeadStyle } from "@/components/ui/row-lead-style";
 import { useAppTheme } from "@/theme";
 import { space, touchTarget } from "@/theme/tokens";
 
@@ -10,6 +11,8 @@ interface RowProps {
 	left?: ReactNode;
 	/** Controls that belong to this row — a menu, a withdraw button, a chip. */
 	right?: ReactNode;
+	onPress?: () => void;
+	testID?: string;
 }
 
 /**
@@ -24,19 +27,25 @@ interface RowProps {
  * disabled, and automation refuses to click them, on rows whose whole purpose is
  * the controls they contain.
  *
- * Rows that *are* tappable — the homes list — keep `List.Item`, where the ripple
- * has a handler and none of this applies.
+ * Tappable rows use a ripple on the lead only, never around the controls.
  *
- * The row wraps before it shrinks (`docs/DESIGN.md`'s overflow rule for rows of
- * controls): at 200 % text a row has genuinely more content than fits on one
- * line, so the value takes a line of its own rather than shrinking to nothing —
- * the same escape that fixed `ColumnBar` (#237).
+ * Names wrap between words before controls move to another line. On web the
+ * lead's min-content width keeps its longest word whole.
  */
-export function Row({ title, description, left, right }: RowProps) {
+export function Row({
+	title,
+	description,
+	left,
+	right,
+	onPress,
+	testID,
+}: RowProps) {
 	const theme = useAppTheme();
+	const Lead = onPress ? TouchableRipple : View;
 
 	return (
 		<View
+			testID={testID}
 			style={{
 				flexDirection: "row",
 				flexWrap: "wrap",
@@ -47,37 +56,45 @@ export function Row({ title, description, left, right }: RowProps) {
 				paddingHorizontal: space.md,
 			}}
 		>
-			{/* `left` and the title are one flex item, so a wrapped line takes
-			    the icon with the name instead of stranding the glyph alone on
-			    the line above it (#237). flexGrow with an auto basis, not
-			    `flex: 1`: a zero basis is weight zero in the shrink phase, so at
-			    200 % text the title yielded the whole row to the value and
-			    collapsed to nothing. */}
-			<View
-				style={{
-					flexDirection: "row",
-					alignItems: "center",
-					gap: space.md,
-					flexGrow: 1,
-					flexShrink: 1,
-					flexBasis: "auto",
-				}}
+			<Lead
+				onPress={onPress}
+				accessibilityRole={onPress ? "button" : undefined}
+				style={[
+					{
+						flexDirection: "row",
+						alignItems: "center",
+						gap: space.md,
+						flexGrow: 1,
+						flexShrink: 1,
+						flexBasis: space.none,
+						minHeight: onPress ? touchTarget : undefined,
+					},
+					rowLeadStyle,
+				]}
 			>
-				{left}
-				{/* `touchTarget` keeps a floor under the shortest names, which
-				    shrink by size and so lose the most. */}
-				<View style={{ flexShrink: 1, minWidth: touchTarget }}>
-					<Text variant="bodyLarge">{title}</Text>
-					{description ? (
-						<Text
-							variant="bodyMedium"
-							style={{ color: theme.colors.onSurfaceVariant }}
-						>
-							{description}
-						</Text>
-					) : null}
+				<View
+					style={{
+						flexDirection: "row",
+						alignItems: "center",
+						gap: space.md,
+						flexGrow: 1,
+						flexShrink: 1,
+					}}
+				>
+					{left}
+					<View style={{ flexShrink: 1, minWidth: touchTarget }}>
+						<Text variant="bodyLarge">{title}</Text>
+						{description ? (
+							<Text
+								variant="bodyMedium"
+								style={{ color: theme.colors.onSurfaceVariant }}
+							>
+								{description}
+							</Text>
+						) : null}
+					</View>
 				</View>
-			</View>
+			</Lead>
 			{right}
 		</View>
 	);
