@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { Chip, Provider, SegmentedButtons } from "react-native-paper";
+import { Provider } from "react-native-paper";
 import AttachmentsInventory from "@/app/(app)/homes/[homeId]/attachments";
 import { lightTheme } from "@/theme";
 import { denseBreakpoint } from "@/theme/tokens";
@@ -67,27 +67,55 @@ function renderInventory(width: number) {
 }
 
 describe("AttachmentsInventory", () => {
-	it("below denseBreakpoint renders both choices as wrapping chips and updates selection", () => {
+	it("below denseBreakpoint shows both sort choices and updates selection", () => {
 		renderInventory(denseBreakpoint - 1);
 
-		const chips = screen.UNSAFE_getAllByType(Chip);
-		expect(chips).toHaveLength(2);
-		expect(chips.map((chip) => chip.props["aria-pressed"])).toEqual([
-			true,
-			false,
-		]);
-		fireEvent.press(chips[1]);
+		expect(screen.getByText("homes.sortLargest")).toBeOnTheScreen();
+		expect(screen.getByText("homes.sortNewest")).toBeOnTheScreen();
 		expect(
-			screen
-				.UNSAFE_getAllByType(Chip)
-				.map((chip) => chip.props["aria-pressed"]),
-		).toEqual([false, true]);
+			screen.getByRole("button", { name: "homes.sortLargest" }).props
+				.accessibilityState,
+		).toMatchObject({ selected: true });
+		expect(
+			screen.getByRole("button", { name: "homes.sortNewest" }).props
+				.accessibilityState,
+		).toMatchObject({ selected: false });
+
+		fireEvent.press(screen.getByRole("button", { name: "homes.sortNewest" }));
+
+		expect(
+			screen.getByRole("button", { name: "homes.sortLargest" }).props
+				.accessibilityState,
+		).toMatchObject({ selected: false });
+		expect(
+			screen.getByRole("button", { name: "homes.sortNewest" }).props
+				.accessibilityState,
+		).toMatchObject({ selected: true });
 	});
 
-	it("at denseBreakpoint keeps SegmentedButtons", () => {
+	it("at denseBreakpoint shows both sort choices and updates selection", () => {
 		renderInventory(denseBreakpoint);
 
-		expect(screen.UNSAFE_getAllByType(SegmentedButtons)).toHaveLength(1);
-		expect(screen.UNSAFE_queryAllByType(Chip)).toHaveLength(0);
+		expect(screen.getByText("homes.sortLargest")).toBeOnTheScreen();
+		expect(screen.getByText("homes.sortNewest")).toBeOnTheScreen();
+		expect(
+			screen.getByRole("button", { name: "homes.sortLargest" }).props
+				.accessibilityState,
+		).toMatchObject({ checked: true });
+		expect(
+			screen.getByRole("button", { name: "homes.sortNewest" }).props
+				.accessibilityState,
+		).toMatchObject({ checked: false });
+
+		fireEvent.press(screen.getByRole("button", { name: "homes.sortNewest" }));
+
+		expect(
+			screen.getByRole("button", { name: "homes.sortLargest" }).props
+				.accessibilityState,
+		).toMatchObject({ checked: false });
+		expect(
+			screen.getByRole("button", { name: "homes.sortNewest" }).props
+				.accessibilityState,
+		).toMatchObject({ checked: true });
 	});
 });
