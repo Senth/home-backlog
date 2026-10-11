@@ -66,7 +66,6 @@ export function Row({
 						gap: space.md,
 						flexGrow: 1,
 						flexShrink: 1,
-						flexBasis: space.none,
 						minHeight: onPress ? touchTarget : undefined,
 					},
 					rowLeadStyle,

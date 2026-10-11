@@ -399,7 +399,6 @@ export function LocationRow({
 									gap: dense ? space.xs : space.sm,
 									flexGrow: 1,
 									flexShrink: 1,
-									flexBasis: space.none,
 								},
 								rowLeadStyle,
 							]}

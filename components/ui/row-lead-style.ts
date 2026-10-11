@@ -1,1 +1,1 @@
-export const rowLeadStyle = {};
+export const rowLeadStyle = { flexBasis: "auto" } as const;
