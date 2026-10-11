@@ -441,11 +441,13 @@ export function LocationRow({
 
 							{/* The identity mark: the place's own glyph in its own color,
 				    resolved by scheme — a bare colored glyph, no fill behind it. */}
-							<Icon
-								source={location.icon}
-								size={icon.md}
-								color={locationColor}
-							/>
+							<View pointerEvents="none">
+								<Icon
+									source={location.icon}
+									size={icon.md}
+									color={locationColor}
+								/>
+							</View>
 
 							<Pressable
 								accessible

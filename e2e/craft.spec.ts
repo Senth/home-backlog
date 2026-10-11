@@ -1249,6 +1249,34 @@ test("21: at 195px app bars, tabs, list rows and attachment sorting stay readabl
 	for (const home of ["Huset", "Stugan"]) {
 		await checkText(page.getByText(home, { exact: true }).locator(".."));
 	}
+	const cabinName = await page
+		.getByText("Stugan", { exact: true })
+		.boundingBox();
+	const cabinPencil = await page
+		.getByRole("button", {
+			name: copy.manageHome.manageNamed.replace("{{home}}", "Stugan"),
+			exact: true,
+		})
+		.boundingBox();
+	expect(cabinName).not.toBeNull();
+	expect(cabinPencil).not.toBeNull();
+	if (cabinName && cabinPencil) {
+		expect
+			.soft(cabinPencil.y, "Stugan pencil stays beside its name")
+			.toBeLessThan(cabinName.y + cabinName.height);
+		expect
+			.soft(cabinPencil.y + cabinPencil.height)
+			.toBeGreaterThan(cabinName.y);
+	}
+	const createHome = await page
+		.getByRole("button", { name: copy.homes.create, exact: true })
+		.boundingBox();
+	expect(createHome).not.toBeNull();
+	if (createHome) {
+		expect
+			.soft(createHome.y + createHome.height, "create home fits initial view")
+			.toBeLessThanOrEqual(VIEWPORTS.phoneZoomed.height);
+	}
 	await page
 		.getByRole("button", {
 			name: copy.manageHome.manageNamed.replace("{{home}}", "Huset"),
@@ -1280,6 +1308,18 @@ test("21: at 195px app bars, tabs, list rows and attachment sorting stay readabl
 	await expect(locationRows).toHaveCount(40);
 	await checkScreen("Huset", true);
 	await checkText(locationRows.locator(".."));
+	const toggle = page.getByRole("button", {
+		name: copy.locations.toggle.replace("{{name}}", "Bottenvåning"),
+		exact: true,
+	});
+	await expect(toggle).toHaveAttribute("aria-expanded", "true");
+	const toggleBox = await toggle.boundingBox();
+	expect(toggleBox?.width).toBeGreaterThanOrEqual(touchTarget);
+	expect(toggleBox?.height).toBeGreaterThanOrEqual(touchTarget);
+	await toggle.click({ timeout: 5_000 });
+	await expect(toggle).toHaveAttribute("aria-expanded", "false");
+	await toggle.click();
+	await expect(toggle).toHaveAttribute("aria-expanded", "true");
 	const toolbarHeight = await page
 		.getByRole("button", {
 			name: copy.locations.view ?? copy.locations.collapseAll,

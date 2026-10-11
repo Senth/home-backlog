@@ -35,6 +35,7 @@ import { useAppTheme } from "@/theme";
 import {
 	compactBreakpoint,
 	contentWidth,
+	denseBreakpoint,
 	gutter,
 	icon,
 	space,
@@ -142,7 +143,7 @@ export default function Homes() {
 
 			<SlimScrollView
 				contentContainerStyle={{
-					paddingVertical: space.md,
+					paddingVertical: width < denseBreakpoint ? space.sm : space.md,
 					paddingHorizontal:
 						width < compactBreakpoint ? gutter.compact : gutter.wide,
 					gap: space.md,

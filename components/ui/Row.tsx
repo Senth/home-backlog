@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { Text, TouchableRipple } from "react-native-paper";
 import { rowLeadStyle } from "@/components/ui/row-lead-style";
 import { useAppTheme } from "@/theme";
-import { space, touchTarget } from "@/theme/tokens";
+import { denseBreakpoint, space, touchTarget } from "@/theme/tokens";
 
 interface RowProps {
 	title: string;
@@ -41,6 +41,7 @@ export function Row({
 	testID,
 }: RowProps) {
 	const theme = useAppTheme();
+	const dense = useWindowDimensions().width < denseBreakpoint;
 	const Lead = onPress ? TouchableRipple : View;
 
 	return (
@@ -51,9 +52,10 @@ export function Row({
 				flexWrap: "wrap",
 				alignItems: "center",
 				gap: space.md,
+				rowGap: dense ? space.sm : space.md,
 				minHeight: touchTarget,
-				paddingVertical: space.sm,
-				paddingHorizontal: space.md,
+				paddingVertical: dense ? space.xs : space.sm,
+				paddingHorizontal: dense ? space.sm : space.md,
 			}}
 		>
 			<Lead
