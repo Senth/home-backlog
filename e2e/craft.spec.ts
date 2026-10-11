@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import {
 	cardSelector,
 	columnSelector,
@@ -1108,7 +1108,7 @@ test("on desktop every tab's label and icon share the tab bar's centre line, in 
 	expect(await clippedTabLabels(page), "tab labels on desktop").toEqual([]);
 });
 
-test("21: at 195px every app bar names its screen, no control overlaps, no tab label is clipped, in this locale", async ({
+test("21: at 195px app bars, tabs, list rows and attachment sorting stay readable, locations toolbar stays one line, in this locale", async ({
 	page,
 }, testInfo) => {
 	test.skip(
@@ -1119,6 +1119,58 @@ test("21: at 195px every app bar names its screen, no control overlaps, no tab l
 	// D9's 195px floor must not break; cramped is allowed.
 	await page.setViewportSize(VIEWPORTS.phoneZoomed);
 	const copy = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
+	const checkText = async (rows: Locator) => {
+		expect(
+			await rows.count(),
+			"text measurement has rows to check",
+		).toBeGreaterThan(0);
+		await page.evaluate(() => document.fonts.ready);
+		const offenders = await rows.evaluateAll((roots) => {
+			const bad: string[] = [];
+			for (const root of roots) {
+				const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+				let node = walker.nextNode();
+				while (node) {
+					const text = node.textContent ?? "";
+					const element = node.parentElement;
+					if (
+						element &&
+						text.trim() &&
+						!getComputedStyle(element).fontFamily.includes(
+							"MaterialCommunityIcons",
+						)
+					) {
+						if (
+							element.scrollWidth > element.clientWidth ||
+							element.scrollHeight > element.clientHeight
+						) {
+							bad.push(
+								`clipped "${text}" (${element.scrollWidth}x${element.scrollHeight} in ${element.clientWidth}x${element.clientHeight})`,
+							);
+						}
+						for (const word of text.matchAll(/[\p{L}\p{N}]+/gu)) {
+							const range = document.createRange();
+							range.setStart(node, word.index);
+							range.setEnd(node, word.index + word[0].length);
+							const lines = new Set(
+								Array.from(range.getClientRects(), (rect) => rect.top),
+							);
+							if (lines.size !== 1)
+								bad.push(`word "${word[0]}" spans ${lines.size} lines`);
+						}
+					}
+					node = walker.nextNode();
+				}
+			}
+			return bad;
+		});
+		expect
+			.soft(
+				offenders,
+				`row and sort text on ${new URL(page.url()).pathname} (${testInfo.project.name})`,
+			)
+			.toEqual([]);
+	};
 	const checkScreen = async (title: string, hasTabs: boolean) => {
 		const titleNode = page
 			.getByTestId("app-header-title")
@@ -1192,9 +1244,62 @@ test("21: at 195px every app bar names its screen, no control overlaps, no tab l
 			name: copy.manageHome.manageNamed.replace("{{home}}", "Huset"),
 			exact: true,
 		})
+		.waitFor();
+	await checkScreen(copy.homes.title, false);
+	for (const home of ["Huset", "Stugan"]) {
+		await checkText(page.getByText(home, { exact: true }).locator(".."));
+	}
+	await page
+		.getByRole("button", {
+			name: copy.manageHome.manageNamed.replace("{{home}}", "Huset"),
+			exact: true,
+		})
 		.click();
 	await page.waitForURL(/\/homes\/[^/]+$/);
+	const homePath = new URL(page.url()).pathname;
 	await checkScreen(copy.manageHome.title, false);
+	await page.goto(`${homePath}/attachments`);
+	await page.getByText(copy.homes.sortLargest, { exact: true }).waitFor();
+	await checkScreen("Huset", false);
+	await checkText(
+		page
+			.getByText(copy.homes.sortLargest, { exact: true })
+			.or(page.getByText(copy.homes.sortNewest, { exact: true })),
+	);
+
+	await page.goto("/overview-editor");
+	const editorRows = page.locator('[data-testid^="overview-editor-card-"]');
+	await editorRows.first().waitFor();
+	await checkScreen(copy.overview.cards.editor.title, false);
+	await checkText(editorRows);
+
+	await page.goto("/locations");
+	const locationRows = page.getByRole("button", {
+		name: new RegExp(`^${copy.locations.open.split("{{name}}")[0]}`),
+	});
+	await expect(locationRows).toHaveCount(40);
+	await checkScreen("Huset", true);
+	await checkText(locationRows.locator(".."));
+	const toolbarHeight = await page
+		.getByRole("button", {
+			name: copy.locations.view ?? copy.locations.collapseAll,
+			exact: true,
+		})
+		.evaluate((button) => {
+			let row = button.parentElement;
+			while (row) {
+				const style = getComputedStyle(row);
+				if (style.flexDirection === "row" && style.flexWrap === "wrap") {
+					return row.getBoundingClientRect().height;
+				}
+				row = row.parentElement;
+			}
+			return null;
+		});
+	expect(toolbarHeight, "locations toolbar exists").not.toBeNull();
+	expect
+		.soft(toolbarHeight, "locations toolbar at 195px")
+		.toBeLessThanOrEqual(touchTarget + border.hairline * 2);
 
 	await gotoAndSettle(page, ROUTES[4]);
 	await checkScreen(copy.automations.title, false);
