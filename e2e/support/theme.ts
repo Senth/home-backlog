@@ -18,8 +18,9 @@ import type { CustomBands } from "@/models/label-color";
  *    inside the installed paper package, loaded behind a `require` hook that
  *    answers `react-native` with the one thing those modules touch at module
  *    level: `Platform`.
- * 2. `theme/index.ts` itself is transpiled with the repo's own `typescript`
- *    and evaluated with a `require` that hands back the themes from step 1 —
+ * 2. `theme/index.ts` itself is transpiled with `babel-preset-expo` — the
+ *    transform the app itself ships through — and evaluated with a `require`
+ *    that hands back the themes from step 1 —
  *    so what this exports is the object the app actually spreads into its
  *    provider, not a copy that can drift from it.
  */
@@ -101,7 +102,8 @@ function loadThemeSource(): {
 	>;
 	customColorBands: CustomBands;
 } {
-	const ts = NODE_REQUIRE("typescript") as typeof import("typescript");
+	const babel = NODE_REQUIRE("@babel/core") as typeof import("@babel/core");
+	const presetExpo = NODE_REQUIRE.resolve("babel-preset-expo");
 	const paperThemes = loadPaperThemes();
 	const requireFake = (id: string): unknown => {
 		if (id !== "react-native-paper") {
@@ -116,12 +118,16 @@ function loadThemeSource(): {
 	};
 	const load = (file: string): unknown => {
 		const source = readFileSync(path.join(process.cwd(), file), "utf8");
-		const js = ts.transpileModule(source, {
-			compilerOptions: {
-				module: ts.ModuleKind.CommonJS,
-				target: ts.ScriptTarget.ES2019,
-			},
-		}).outputText;
+		const result = babel.transformSync(source, {
+			filename: file,
+			presets: [presetExpo],
+			configFile: false,
+			babelrc: false,
+		});
+		const js = result?.code;
+		if (typeof js !== "string") {
+			throw new Error(`babel failed to transpile ${file}`);
+		}
 		const moduleShell = { exports: {} };
 		new Function("require", "module", "exports", js)(
 			requireFake,
