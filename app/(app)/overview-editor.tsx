@@ -24,6 +24,7 @@ import { useCardWrites } from "@/components/overview/use-card-writes";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
+import { Row } from "@/components/ui/Row";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
@@ -41,10 +42,12 @@ import {
 } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
 import {
+	compactBreakpoint,
 	denseBreakpoint,
 	drag as dragTokens,
 	elevation,
 	fab as fabTokens,
+	gutter,
 	radius,
 	space,
 	touchTarget,
@@ -73,6 +76,7 @@ export default function OverviewEditor() {
 	const theme = useAppTheme();
 	const router = useRouter();
 	const { width } = useWindowDimensions();
+	const pageGutter = width < compactBreakpoint ? gutter.compact : gutter.wide;
 	const { user } = useAuth();
 	const { activeHome } = useHome();
 
@@ -239,7 +243,13 @@ export default function OverviewEditor() {
 					style={{ marginTop: space.xl }}
 				/>
 			) : failed ? (
-				<View style={{ gap: space.md, padding: space.md }}>
+				<View
+					style={{
+						gap: space.md,
+						paddingVertical: space.md,
+						paddingHorizontal: pageGutter,
+					}}
+				>
 					<Text
 						variant="bodyMedium"
 						style={{ color: theme.colors.onSurfaceVariant }}
@@ -265,7 +275,7 @@ export default function OverviewEditor() {
 						variant="bodyMedium"
 						style={{
 							color: theme.colors.onSurfaceVariant,
-							paddingHorizontal: space.md,
+							paddingHorizontal: pageGutter + space.sm,
 							paddingTop: space.md,
 						}}
 					>
@@ -274,7 +284,11 @@ export default function OverviewEditor() {
 					<View
 						ref={drag.register(listKey)}
 						collapsable={false}
-						style={{ gap: space.sm, padding: space.md }}
+						style={{
+							gap: space.sm,
+							paddingVertical: space.md,
+							paddingHorizontal: pageGutter,
+						}}
 					>
 						{rows.map(({ entry, held, gapBefore }) => (
 							<Fragment key={entry.card.id}>
@@ -305,31 +319,31 @@ export default function OverviewEditor() {
 					</View>
 
 					{removed.length > 0 ? (
-						<List.Section testID="overview-editor-removed">
+						<List.Section
+							testID="overview-editor-removed"
+							style={{ paddingHorizontal: pageGutter }}
+						>
 							{/* A section heading is titleMedium per DESIGN § 4 — the
 					    same swap the Overview card headings took. */}
 							<Text
 								variant="titleMedium"
 								style={{
-									paddingHorizontal: space.md,
+									paddingHorizontal: space.sm,
 									paddingVertical: space.sm,
 								}}
 							>
 								{t("overview.cards.editor.removed")}
 							</Text>
 							{removed.map((seed) => (
-								<List.Item
+								<Row
 									key={seed.id}
 									title={
 										seed.seedId !== null
 											? t(seedTitleKeys[seed.seedId])
 											: seed.id
 									}
-									// The row's one action is the restore itself; the button
-									// beside it is the same action named, and without a handler
-									// on the row Paper would report the whole row disabled.
 									onPress={() => restore(seed)}
-									right={() => (
+									right={
 										<Button
 											mode="text"
 											onPress={() => restore(seed)}
@@ -337,7 +351,7 @@ export default function OverviewEditor() {
 										>
 											{t("overview.cards.editor.restore")}
 										</Button>
-									)}
+									}
 								/>
 							))}
 						</List.Section>
@@ -356,7 +370,7 @@ export default function OverviewEditor() {
 				onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
 				style={{
 					position: "absolute",
-					right: space.md,
+					right: pageGutter,
 					bottom: space.md,
 					maxWidth: width * fabTokens.widthShare,
 				}}
@@ -503,23 +517,17 @@ function EditorRow({
 					: undefined
 			}
 		>
-			<List.Item
+			<Row
 				testID={`overview-editor-card-${card.id}`}
 				title={
 					card.title ??
 					(card.seedId !== null ? t(seedTitleKeys[card.seedId]) : card.id)
 				}
-				titleNumberOfLines={2}
 				description={`${t(`overview.cards.editor.scope.${scope}Short`, { home: activeHome?.name })}${
 					hidden ? ` · ${t("overview.cards.editor.hiddenBadge")}` : ""
 				}`}
-				style={{ minHeight: touchTarget }}
-				// The row's one action is the editor for that card — and it is what
-				// keeps the row a real pressable: Paper's TouchableRipple reports a
-				// pressable with no handler as disabled, and an aria-disabled row
-				// disables its own menu for every assistive technology with it.
 				onPress={() => onEdit(entry)}
-				right={() => (
+				right={
 					<CardActionsMenu
 						testID={`overview-editor-menu-${card.id}`}
 						card={card}
@@ -536,7 +544,7 @@ function EditorRow({
 						onShow={() => onShow(entry)}
 						onRemove={() => onRemove(entry)}
 					/>
-				)}
+				}
 			/>
 		</View>
 	);

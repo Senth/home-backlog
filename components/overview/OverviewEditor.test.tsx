@@ -9,6 +9,8 @@ import { type EditorCard, seedCards } from "@/models/overview-cards";
 import { lightTheme } from "@/theme";
 
 const mockPush = jest.fn();
+const mockAddTo = jest.fn();
+const mockReplaceIn = jest.fn();
 let mockHomeName = "Huset";
 let mockLoading = false;
 let mockFailed = false;
@@ -44,7 +46,7 @@ jest.mock("@/hooks/use-locations", () => ({
 }));
 jest.mock("@/data/cards", () => ({ saveHiddenShared: jest.fn() }));
 jest.mock("@/components/overview/use-card-writes", () => ({
-	useCardWrites: () => ({}),
+	useCardWrites: () => ({ addTo: mockAddTo, replaceIn: mockReplaceIn }),
 }));
 jest.mock("@/components/overview/use-card-list-drag", () => ({
 	listKey: "list",
@@ -54,7 +56,12 @@ jest.mock("@/components/overview/use-card-list-drag", () => ({
 		draggedId: null,
 		gapIndex: null,
 		register: () => () => {},
-		handlers: () => null,
+		handlers: () => ({
+			onGrab: jest.fn(),
+			onMove: jest.fn(),
+			onDrop: jest.fn(),
+			onCancel: jest.fn(),
+		}),
 	}),
 }));
 
@@ -107,7 +114,10 @@ it.each([
 		for (const subtitle of [global, home, shared]) {
 			expect(screen.getByText(subtitle)).toBeTruthy();
 		}
-		fireEvent.press(screen.getByTestId("overview-editor-card-recentlyDone"));
+		expect(
+			screen.getByTestId("overview-editor-card-recentlyDone"),
+		).toBeOnTheScreen();
+		fireEvent.press(screen.getByText(locale.overview.done.title));
 		expect(mockPush).toHaveBeenCalledWith(
 			"/overview-card-edit?cardId=recentlyDone",
 		);
@@ -130,4 +140,42 @@ it("names the active home rather than a fixed home", async () => {
 	expect(screen.getByText("Only me · Stugan")).toBeTruthy();
 	expect(screen.getByText("Everyone in Stugan · Hidden")).toBeTruthy();
 	expect(screen.getByText(/shared with everyone in Stugan/)).toBeTruthy();
+});
+
+it("restores a removed original by its title", async () => {
+	await renderEditor("en-US");
+
+	fireEvent.press(screen.getByText(en.overview.cards.title.quickWins));
+
+	expect(mockAddTo).toHaveBeenCalledWith(
+		"global",
+		expect.objectContaining({ id: "quickWins" }),
+	);
+});
+
+it("opens the card menu without editing the card", async () => {
+	await renderEditor("en-US");
+
+	fireEvent.press(screen.getByTestId("overview-editor-menu-ongoing"), {
+		stopPropagation: jest.fn(),
+	});
+
+	expect(mockPush).not.toHaveBeenCalled();
+	expect(screen.getByText(en.overview.cards.menu.edit)).toBeOnTheScreen();
+});
+
+it("moves a card through its menu without opening its editor", async () => {
+	await renderEditor("en-US");
+	fireEvent.press(screen.getByTestId("overview-editor-menu-comingUp"), {
+		stopPropagation: jest.fn(),
+	});
+
+	fireEvent.press(screen.getByText(en.overview.cards.menu.moveUp));
+
+	expect(mockReplaceIn).toHaveBeenCalledWith(
+		"home",
+		expect.objectContaining({ id: "comingUp", rank: expect.any(String) }),
+	);
+	expect(mockReplaceIn.mock.calls[0][1].rank < cards.ongoing.rank).toBe(true);
+	expect(mockPush).not.toHaveBeenCalled();
 });

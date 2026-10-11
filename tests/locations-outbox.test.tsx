@@ -1,6 +1,6 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { AppState, type AppStateStatus } from "react-native";
-import { Provider, Snackbar } from "react-native-paper";
+import { Menu, Provider, Snackbar } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import Locations from "@/app/(app)/(tabs)/locations";
 import { LocationTree } from "@/components/location/LocationRow";
@@ -17,6 +17,17 @@ import { space } from "@/theme/tokens";
 
 let mockStore: Record<string, string> = {};
 let mockLocations: Location[] = [];
+let mockWidth = 320;
+const mockHeight = 844;
+jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
+	__esModule: true,
+	default: () => ({
+		width: mockWidth,
+		height: mockHeight,
+		scale: 1,
+		fontScale: 1,
+	}),
+}));
 jest.mock("@react-native-async-storage/async-storage", () => ({
 	getItem: jest.fn(async (key: string) => mockStore[key] ?? null),
 	setItem: jest.fn(async (key: string, value: string) => {
@@ -167,6 +178,7 @@ function open() {
 }
 
 beforeEach(() => {
+	mockWidth = 320;
 	mockStore = {};
 	mockLocations = [kitchen, garden, pantry];
 	jest.mocked(isOnline).mockReturnValue(false);
@@ -175,6 +187,61 @@ beforeEach(() => {
 	jest
 		.spyOn(AppState, "addEventListener")
 		.mockReturnValue({ remove: jest.fn() });
+});
+
+afterEach(() => jest.restoreAllMocks());
+
+it("View menu keeps tree controls reachable below 320px and closes after each action", async () => {
+	mockWidth = 195;
+	const screen = open();
+	await act(async () => {});
+	expect(screen.queryByText("locations.collapseAll")).toBeNull();
+	expect(screen.queryByText("locations.expandAll")).toBeNull();
+	expect(screen.queryByText("locations.showCards")).toBeNull();
+
+	const choose = async (title: string) => {
+		fireEvent.press(screen.getByText("locations.view"));
+		const item = screen
+			.UNSAFE_getAllByType(Menu.Item)
+			.find((each) => each.props.title === title);
+		expect(item).toBeDefined();
+		await act(async () => item?.props.onPress?.());
+		expect(screen.UNSAFE_getByType(Menu).props.visible).toBe(false);
+	};
+	await choose("locations.collapseAll");
+	expect(jest.mocked(LocationTree).mock.calls.at(-1)?.[0].collapsed).toEqual(
+		new Set(["kitchen"]),
+	);
+	await choose("locations.expandAll");
+	expect(jest.mocked(LocationTree).mock.calls.at(-1)?.[0].collapsed.size).toBe(
+		0,
+	);
+	await choose("locations.showCards");
+	expect(jest.mocked(LocationTree).mock.calls.at(-1)?.[0].cardsOpen).toBe(true);
+	await choose("locations.hideCards");
+	expect(jest.mocked(LocationTree).mock.calls.at(-1)?.[0].cardsOpen).toBe(
+		false,
+	);
+});
+
+it("retains direct tree controls at 320px", async () => {
+	const screen = open();
+	await act(async () => {});
+	expect(screen.queryByText("locations.view")).toBeNull();
+	fireEvent.press(screen.getByText("locations.collapseAll"));
+	expect(jest.mocked(LocationTree).mock.calls.at(-1)?.[0].collapsed).toEqual(
+		new Set(["kitchen"]),
+	);
+	fireEvent.press(screen.getByText("locations.expandAll"));
+	expect(jest.mocked(LocationTree).mock.calls.at(-1)?.[0].collapsed.size).toBe(
+		0,
+	);
+	fireEvent.press(screen.getByText("locations.showCards"));
+	expect(screen.getByText("locations.hideCards")).toBeTruthy();
+	fireEvent.press(screen.getByText("locations.hideCards"));
+	expect(jest.mocked(LocationTree).mock.calls.at(-1)?.[0].cardsOpen).toBe(
+		false,
+	);
 });
 
 it.each([

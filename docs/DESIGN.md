@@ -278,7 +278,8 @@ and every row's controls as dimmed.
   `text` is the default draw for actions introduced by this rule, including affirmations and
   dismissals. Existing `contained-tonal` buttons remain for load-failure retries, moving a
   location, and saving a label or location; existing `outlined` buttons remain for the board's
-  filtered-empty action, location-tree controls, overview-card sorting, column navigation,
+  filtered-empty action, location-tree controls (below `denseBreakpoint` they fold
+  into one outlined *View* menu), overview-card sorting, column navigation,
   date picking, touch attachment choices, and launch-timing copy. Do not add a border or fill
   to promote a button: the FAB and the contained action carry the emphasis. Two contained
   buttons on one surface is a finding. Destructive actions in `theme.colors.error` stay

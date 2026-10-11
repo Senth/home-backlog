@@ -1,11 +1,17 @@
 import { useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import {
+	Platform,
+	type TextStyle,
+	useWindowDimensions,
+	View,
+} from "react-native";
 import {
 	Button,
 	Divider,
 	HelperText,
+	Icon,
 	IconButton,
 	List,
 	Snackbar,
@@ -17,6 +23,7 @@ import { AccountMenu } from "@/components/auth/AccountMenu";
 import { PendingInviteCards } from "@/components/homes/PendingInviteCards";
 import { AppDialog } from "@/components/ui/AppDialog";
 import { AppHeader } from "@/components/ui/AppHeader";
+import { Row } from "@/components/ui/Row";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
@@ -25,10 +32,22 @@ import { useOnlineStatus } from "@/hooks/use-online-status";
 import { usePendingInvites } from "@/hooks/use-pending-invites";
 import { type HomeNameError, homeNameError } from "@/models/home";
 import { useAppTheme } from "@/theme";
-import { contentWidth, space, touchTarget } from "@/theme/tokens";
+import {
+	compactBreakpoint,
+	contentWidth,
+	denseBreakpoint,
+	gutter,
+	icon,
+	space,
+	touchTarget,
+} from "@/theme/tokens";
 import { buildId } from "@/utils/build-info";
 
 const createDialogTestID = "create-home-dialog";
+const wrappingLabel =
+	Platform.OS === "web"
+		? ({ whiteSpace: "normal", textOverflow: "clip" } as unknown as TextStyle)
+		: undefined;
 
 /**
  * "My homes" — a level of navigation, not a menu.
@@ -45,6 +64,7 @@ const createDialogTestID = "create-home-dialog";
 export default function Homes() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
+	const { width } = useWindowDimensions();
 	const router = useRouter();
 	const online = useOnlineStatus();
 	const { user } = useAuth();
@@ -123,7 +143,9 @@ export default function Homes() {
 
 			<SlimScrollView
 				contentContainerStyle={{
-					padding: space.md,
+					paddingVertical: width < denseBreakpoint ? space.sm : space.md,
+					paddingHorizontal:
+						width < compactBreakpoint ? gutter.compact : gutter.wide,
 					gap: space.md,
 					alignSelf: "center",
 					width: "100%",
@@ -176,17 +198,28 @@ export default function Homes() {
 				) : (
 					<List.Section>
 						{homes.map((home) => (
-							<List.Item
+							<Row
 								key={home.id}
 								title={home.name}
 								description={t("homes.memberCount", {
 									count: Object.keys(home.members).length,
 								})}
 								onPress={() => openHome(home.id)}
-								style={{ minHeight: touchTarget }}
-								left={(props) => <List.Icon {...props} icon="home-outline" />}
-								right={(props) => (
-									<View style={{ flexDirection: "row", alignItems: "center" }}>
+								left={
+									<Icon
+										source="home-outline"
+										size={icon.md}
+										color={theme.colors.onSurfaceVariant}
+									/>
+								}
+								right={
+									<View
+										style={{
+											flexDirection: "row",
+											alignItems: "center",
+											marginLeft: "auto",
+										}}
+									>
 										{home.id === activeHome?.id ? (
 											// `accessible` alone renders a bare `div` carrying an
 											// `aria-label`, which ARIA forbids on an element with no
@@ -200,9 +233,9 @@ export default function Homes() {
 												accessibilityRole="image"
 												accessibilityLabel={t("homes.current")}
 											>
-												<List.Icon
-													{...props}
-													icon="check"
+												<Icon
+													source="check"
+													size={icon.md}
 													color={theme.colors.primary}
 												/>
 											</View>
@@ -220,7 +253,7 @@ export default function Homes() {
 											}}
 										/>
 									</View>
-								)}
+								}
 							/>
 						))}
 					</List.Section>
@@ -257,6 +290,7 @@ export default function Homes() {
 							onPress={openCreate}
 							disabled={!online}
 							contentStyle={{ minHeight: touchTarget }}
+							labelStyle={wrappingLabel}
 						>
 							{t("homes.create")}
 						</Button>

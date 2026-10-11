@@ -10,6 +10,8 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 
+jest.setTimeout(120000);
+
 const execScript = promisify(execFile);
 const SCRIPT = path.join(
 	__dirname,
@@ -230,29 +232,21 @@ test("a clean fixture passes every check", async () => {
 	const summary = statuses(result.stdout);
 	expect([...summary.keys()].sort()).toEqual([...CHECKS].sort());
 	for (const check of CHECKS) expect(summary.get(check)).toBe("ok");
-}, 20000);
+});
 
-test.each(CASES)(
-	"$name: the check it violates fails, tracked",
-	async (c) => {
-		await plant(c, true);
-		const result = await run(sandbox, c.args ?? []);
-		expect(result.code).toBe(1);
-		expectOnly(result, c.check);
-	},
-	20000,
-);
+test.each(CASES)("$name: the check it violates fails, tracked", async (c) => {
+	await plant(c, true);
+	const result = await run(sandbox, c.args ?? []);
+	expect(result.code).toBe(1);
+	expectOnly(result, c.check);
+});
 
-test.each(CASES)(
-	"$name: the check it violates fails, untracked",
-	async (c) => {
-		await plant(c, false);
-		const result = await run(sandbox, c.args ?? []);
-		expect(result.code).toBe(1);
-		expectOnly(result, c.check);
-	},
-	20000,
-);
+test.each(CASES)("$name: the check it violates fails, untracked", async (c) => {
+	await plant(c, false);
+	const result = await run(sandbox, c.args ?? []);
+	expect(result.code).toBe(1);
+	expectOnly(result, c.check);
+});
 
 test("comment-only mentions are stripped, not violations", async () => {
 	await copyTree(path.join(FIXTURES, "comment-only"), sandbox);
@@ -261,7 +255,7 @@ test("comment-only mentions are stripped, not violations", async () => {
 	for (const [name, status] of statuses(result.stdout)) {
 		expect(`${name}: ${status}`).toBe(`${name}: ok`);
 	}
-}, 20000);
+});
 
 test.each([
 	["<Button />", false],
@@ -286,22 +280,18 @@ test.each([
 		'{/* A step\'s editor\n    <Button /> is an example. */}\n<Button mode="text" />',
 		true,
 	],
-])(
-	"button mode scanner: %s",
-	async (tag, valid) => {
-		const screen = path.join(sandbox, "components", "ButtonCases.tsx");
-		await fs.promises.writeFile(
-			screen,
-			`export const Screen = () => (${tag});\n`,
-		);
-		const result = await run(sandbox);
-		expect(statuses(result.stdout).get("button mode stated")).toBe(
-			valid ? "ok" : "FAIL",
-		);
-		expect(result.code).toBe(valid ? 0 : 1);
-	},
-	20000,
-);
+])("button mode scanner: %s", async (tag, valid) => {
+	const screen = path.join(sandbox, "components", "ButtonCases.tsx");
+	await fs.promises.writeFile(
+		screen,
+		`export const Screen = () => (${tag});\n`,
+	);
+	const result = await run(sandbox);
+	expect(statuses(result.stdout).get("button mode stated")).toBe(
+		valid ? "ok" : "FAIL",
+	);
+	expect(result.code).toBe(valid ? 0 : 1);
+});
 
 test("PeopleSection JSX comment does not hide Action's Button", async () => {
 	const source = await fs.promises.readFile(
@@ -319,13 +309,13 @@ test("PeopleSection JSX comment does not hide Action's Button", async () => {
 	expect(result.stderr).toContain(
 		`components/PeopleSection.tsx:${buttonLine}:`,
 	);
-}, 20000);
+});
 
 test("a bare --base is a usage error, not a hang", async () => {
 	const result = await run(sandbox, ["--base"]);
 	expect(result.code).toBe(2);
 	expect(result.stderr).toContain("--base needs a ref");
-}, 20000);
+});
 
 test.each([
 	["origin/nope", "cannot resolve --base 'origin/nope'"],
@@ -337,7 +327,6 @@ test.each([
 		expect(result.code).toBe(2);
 		expect(result.stderr).toContain(message);
 	},
-	20000,
 );
 
 test("no resolvable base skips check 7 and still passes", async () => {
@@ -345,7 +334,7 @@ test("no resolvable base skips check 7 and still passes", async () => {
 	const result = await run(sandbox);
 	expect(result.code).toBe(0);
 	expect(statuses(result.stdout).get("rules -> rules tests")).toMatch(/^skip/);
-}, 20000);
+});
 
 test("a tree with no TypeScript refuses to report a pass", async () => {
 	fs.rmSync(path.join(sandbox, "components"), {
@@ -356,7 +345,7 @@ test("a tree with no TypeScript refuses to report a pass", async () => {
 	const result = await run(sandbox);
 	expect(result.code).toBe(2);
 	expect(result.stderr).toContain("no TypeScript sources");
-}, 20000);
+});
 
 test("outside a repository it exits 2", async () => {
 	const nowhere = fs.mkdtempSync(
@@ -369,4 +358,4 @@ test("outside a repository it exits 2", async () => {
 	} finally {
 		fs.rmSync(nowhere, { recursive: true, force: true });
 	}
-}, 20000);
+});

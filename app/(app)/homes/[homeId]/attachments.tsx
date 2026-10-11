@@ -1,8 +1,9 @@
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Image, View } from "react-native";
+import { Image, Pressable, useWindowDimensions, View } from "react-native";
 import {
+	Chip,
 	Divider,
 	Icon,
 	IconButton,
@@ -39,8 +40,12 @@ import {
 import type { Attachment } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import {
+	compactBreakpoint,
 	contentWidth,
+	denseBreakpoint,
+	gutter,
 	icon,
+	outlinedTouchTarget,
 	radius,
 	segmentedLabelLineHeight,
 	size,
@@ -52,6 +57,8 @@ import { goBack } from "@/utils/navigation";
 export default function AttachmentsInventory() {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
+	const { width } = useWindowDimensions();
+	const pageGutter = width < compactBreakpoint ? gutter.compact : gutter.wide;
 	const { homeId } = useLocalSearchParams<{ homeId: string }>();
 	const { user } = useAuth();
 	const { homes } = useHome();
@@ -80,6 +87,10 @@ export default function AttachmentsInventory() {
 	const bytes = home?.attachmentBytes ?? 0;
 	const hidden = unseenBytes(bytes, rows);
 	const full = quotaWarning(bytes);
+	const sortOptions = [
+		{ value: "largest", label: t("homes.sortLargest") },
+		{ value: "newest", label: t("homes.sortNewest") },
+	] as const;
 
 	// The name behind the uid the counter attributed the bytes to. A member
 	// who has left has no profile left, and their bytes stay theirs.
@@ -113,7 +124,8 @@ export default function AttachmentsInventory() {
 
 			<SlimScrollView
 				contentContainerStyle={{
-					padding: space.md,
+					paddingVertical: space.md,
+					paddingHorizontal: pageGutter,
 					gap: space.md,
 					alignSelf: "center",
 					width: "100%",
@@ -161,22 +173,43 @@ export default function AttachmentsInventory() {
 					</View>
 				)}
 
-				<SegmentedButtons
-					value={order}
-					onValueChange={(value) => setOrder(value as InventoryOrder)}
-					buttons={[
-						{
-							value: "largest",
-							label: t("homes.sortLargest"),
+				{width < denseBreakpoint ? (
+					<View
+						style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}
+					>
+						{sortOptions.map(({ value, label }) => {
+							const selected = order === value;
+							return (
+								<Pressable
+									key={value}
+									accessibilityRole="button"
+									aria-pressed={selected}
+									onPress={() => setOrder(value)}
+								>
+									<Chip
+										mode={selected ? "flat" : "outlined"}
+										selected={selected}
+										showSelectedCheck={false}
+										accessibilityRole="none"
+										style={{ minHeight: outlinedTouchTarget }}
+									>
+										{label}
+									</Chip>
+								</Pressable>
+							);
+						})}
+					</View>
+				) : (
+					<SegmentedButtons
+						value={order}
+						onValueChange={(value) => setOrder(value as InventoryOrder)}
+						buttons={sortOptions.map(({ value, label }) => ({
+							value,
+							label,
 							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-						{
-							value: "newest",
-							label: t("homes.sortNewest"),
-							labelStyle: { lineHeight: segmentedLabelLineHeight },
-						},
-					]}
-				/>
+						}))}
+					/>
+				)}
 
 				{/* The gap between the home's true total and what this member can
 				    see, stated rather than hidden — a reader without every private
