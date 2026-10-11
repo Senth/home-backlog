@@ -73,24 +73,28 @@ describe("AttachmentsInventory", () => {
 		expect(screen.getByText("homes.sortLargest")).toBeOnTheScreen();
 		expect(screen.getByText("homes.sortNewest")).toBeOnTheScreen();
 		expect(
-			screen.getByRole("button", { name: "homes.sortLargest" }).props
-				.accessibilityState,
-		).toMatchObject({ selected: true });
+			screen.getByRole("button", { name: "homes.sortLargest" }).props[
+				"aria-pressed"
+			],
+		).toBe(true);
 		expect(
-			screen.getByRole("button", { name: "homes.sortNewest" }).props
-				.accessibilityState,
-		).toMatchObject({ selected: false });
+			screen.getByRole("button", { name: "homes.sortNewest" }).props[
+				"aria-pressed"
+			],
+		).toBe(false);
 
 		fireEvent.press(screen.getByRole("button", { name: "homes.sortNewest" }));
 
 		expect(
-			screen.getByRole("button", { name: "homes.sortLargest" }).props
-				.accessibilityState,
-		).toMatchObject({ selected: false });
+			screen.getByRole("button", { name: "homes.sortLargest" }).props[
+				"aria-pressed"
+			],
+		).toBe(false);
 		expect(
-			screen.getByRole("button", { name: "homes.sortNewest" }).props
-				.accessibilityState,
-		).toMatchObject({ selected: true });
+			screen.getByRole("button", { name: "homes.sortNewest" }).props[
+				"aria-pressed"
+			],
+		).toBe(true);
 	});
 
 	it("at denseBreakpoint shows both sort choices and updates selection", () => {

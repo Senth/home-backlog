@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Image, useWindowDimensions, View } from "react-native";
+import { Image, Pressable, useWindowDimensions, View } from "react-native";
 import {
 	Chip,
 	Divider,
@@ -180,17 +180,22 @@ export default function AttachmentsInventory() {
 						{sortOptions.map(({ value, label }) => {
 							const selected = order === value;
 							return (
-								<Chip
+								<Pressable
 									key={value}
-									mode={selected ? "flat" : "outlined"}
-									selected={selected}
-									showSelectedCheck={false}
+									accessibilityRole="button"
 									aria-pressed={selected}
 									onPress={() => setOrder(value)}
-									style={{ minHeight: outlinedTouchTarget }}
 								>
-									{label}
-								</Chip>
+									<Chip
+										mode={selected ? "flat" : "outlined"}
+										selected={selected}
+										showSelectedCheck={false}
+										accessibilityRole="none"
+										style={{ minHeight: outlinedTouchTarget }}
+									>
+										{label}
+									</Chip>
+								</Pressable>
 							);
 						})}
 					</View>

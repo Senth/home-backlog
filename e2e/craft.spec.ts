@@ -1289,6 +1289,45 @@ test("21: at 195px app bars, tabs, list rows and attachment sorting stay readabl
 	await page.goto(`${homePath}/attachments`);
 	await page.getByText(copy.homes.sortLargest, { exact: true }).waitFor();
 	await checkScreen("Huset", false);
+	const largestSort = page.getByRole("button", {
+		name: copy.homes.sortLargest,
+		exact: true,
+	});
+	const newestSort = page.getByRole("button", {
+		name: copy.homes.sortNewest,
+		exact: true,
+	});
+	await expect(largestSort).toHaveAttribute("aria-pressed", "true");
+	await expect(newestSort).toHaveAttribute("aria-pressed", "false");
+	await expect(
+		page.getByRole("button", {
+			name: copy.homes.sortLargest,
+			pressed: true,
+			exact: true,
+		}),
+	).toBeVisible();
+	await expect(
+		page.getByRole("button", {
+			name: copy.homes.sortNewest,
+			pressed: false,
+			exact: true,
+		}),
+	).toBeVisible();
+	await newestSort.click();
+	await expect(
+		page.getByRole("button", {
+			name: copy.homes.sortNewest,
+			pressed: true,
+			exact: true,
+		}),
+	).toBeVisible();
+	await expect(
+		page.getByRole("button", {
+			name: copy.homes.sortLargest,
+			pressed: false,
+			exact: true,
+		}),
+	).toBeVisible();
 	await checkText(
 		page
 			.getByText(copy.homes.sortLargest, { exact: true })
