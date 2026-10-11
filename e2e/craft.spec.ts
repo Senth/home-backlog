@@ -1355,6 +1355,25 @@ test("21: at 195px app bars, tabs, list rows and attachment sorting stay readabl
 	const toggleBox = await toggle.boundingBox();
 	expect(toggleBox?.width).toBeGreaterThanOrEqual(touchTarget);
 	expect(toggleBox?.height).toBeGreaterThanOrEqual(touchTarget);
+	const glyphRects = await toggle.locator("xpath=..").evaluate((lead) =>
+		Array.from(lead.querySelectorAll("*"))
+			.filter((element) => element.getAttribute("aria-hidden") === "true")
+			.map((element) => {
+				const { left, right, top, bottom } = element.getBoundingClientRect();
+				return { left, right, top, bottom };
+			}),
+	);
+	expect(glyphRects).toHaveLength(2);
+	const [chevronRect, placeGlyphRect] = glyphRects;
+	expect(chevronRect).toBeDefined();
+	expect(placeGlyphRect).toBeDefined();
+	expect(
+		chevronRect.left < placeGlyphRect.right &&
+			placeGlyphRect.left < chevronRect.right &&
+			chevronRect.top < placeGlyphRect.bottom &&
+			placeGlyphRect.top < chevronRect.bottom,
+		"chevron and place glyph rectangles at 195px",
+	).toBe(false);
 	await toggle.click({ timeout: 5_000 });
 	await expect(toggle).toHaveAttribute("aria-expanded", "false");
 	await toggle.click();

@@ -417,23 +417,31 @@ export function LocationRow({
 									aria-expanded={expanded}
 									onPress={() => onToggle(location.id)}
 									style={{
-										// The band stays `icon.sm + space.xs` wide on the page —
-										// the rails are centred on it — and the touch box is the
-										// full `touchTarget`, pulled back so nothing after it
-										// moves. The overlap lands on the glyph, whose tap earns
-										// nothing.
+										// The band stays `icon.sm + space.xs` wide on the page,
+										// centred on the rails. At dense widths the glyph stays in
+										// that band while its full `touchTarget` reaches the
+										// pointer-events-none place glyph.
 										width: touchTarget,
 										marginRight: icon.sm + space.xs - touchTarget,
 										height: touchTarget,
-										alignItems: "center",
+										alignItems: "flex-start",
 										justifyContent: "center",
 									}}
 								>
-									<Icon
-										source={expanded ? "chevron-down" : "chevron-right"}
-										size={icon.sm}
-										color={theme.colors.onSurfaceVariant}
-									/>
+									<View
+										style={{
+											width: dense ? icon.sm + space.xs : touchTarget,
+											height: touchTarget,
+											alignItems: "center",
+											justifyContent: "center",
+										}}
+									>
+										<Icon
+											source={expanded ? "chevron-down" : "chevron-right"}
+											size={icon.sm}
+											color={theme.colors.onSurfaceVariant}
+										/>
+									</View>
 								</Pressable>
 							) : (
 								<View style={{ width: icon.sm + space.xs }} />
