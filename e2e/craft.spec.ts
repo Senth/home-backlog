@@ -1603,6 +1603,41 @@ test("33: at 195px the filter sheet's reach answers are whole on their own lines
 		.getByTestId("board-filter-sheet")
 		.locator('[data-testid="chip"]');
 	await expect(reachChips).toHaveCount(2);
+	const thisBoard = page.getByRole("button", {
+		name: strings.board.filter.thisBoard,
+		pressed: true,
+		exact: true,
+	});
+	const everythingBelow = page.getByRole("button", {
+		name: strings.board.filter.everythingBelow,
+		pressed: false,
+		exact: true,
+	});
+	await expect(thisBoard).toBeVisible();
+	await expect(everythingBelow).toBeVisible();
+	await everythingBelow.click();
+	await expect(
+		page.getByRole("button", {
+			name: strings.board.filter.everythingBelow,
+			pressed: true,
+			exact: true,
+		}),
+	).toBeVisible();
+	await expect(
+		page.getByRole("button", {
+			name: strings.board.filter.thisBoard,
+			pressed: false,
+			exact: true,
+		}),
+	).toBeVisible();
+	await page
+		.getByRole("button", {
+			name: strings.board.filter.thisBoard,
+			pressed: false,
+			exact: true,
+		})
+		.click();
+	await expect(thisBoard).toBeVisible();
 
 	for (const label of [
 		strings.board.filter.thisBoard,
@@ -1631,7 +1666,6 @@ test("33: at 195px the filter sheet's reach answers are whole on their own lines
 		).toBeGreaterThanOrEqual(touchTarget - 1);
 	}
 
-	// Escape dismisses without writing: the sheet edits the live filter, and
-	// this test sets nothing.
+	// Restore the default reach above; Escape dismisses without leaving a filter.
 	await page.keyboard.press("Escape");
 });

@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import * as ReactNative from "react-native";
 import { Provider } from "react-native-paper";
 import { BoardFilterSheet } from "@/components/board/BoardFilterSheet";
 import { PriorityDot } from "@/components/board/PriorityDot";
@@ -10,6 +9,18 @@ import type { LabelWithId } from "@/models/label";
 import type { Location } from "@/models/locations";
 import { lightTheme } from "@/theme";
 import { denseBreakpoint } from "@/theme/tokens";
+
+let mockWidth = denseBreakpoint;
+const mockHeight = 844;
+jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
+	__esModule: true,
+	default: () => ({
+		width: mockWidth,
+		height: mockHeight,
+		scale: 1,
+		fontScale: 1,
+	}),
+}));
 
 jest.mock("react-i18next", () => ({
 	// Keys asserted, not sentences — `CheckListPicker.test.tsx` for the reasoning.
@@ -59,13 +70,15 @@ const filter = (partial: Partial<BoardFilter>): BoardFilter => ({
 	...partial,
 });
 
-function renderSheet(props: {
+type SheetProps = {
 	filter?: BoardFilter | null;
 	onChange?: (next: BoardFilter | null) => void;
 	showEveryone?: boolean;
 	onShowEveryone?: (value: boolean) => void;
-}) {
-	return render(
+};
+
+function sheetElement(props: SheetProps) {
+	return (
 		<Provider theme={lightTheme}>
 			<BoardFilterSheet
 				visible
@@ -78,12 +91,19 @@ function renderSheet(props: {
 				showEveryone={props.showEveryone ?? false}
 				onShowEveryone={props.onShowEveryone ?? jest.fn()}
 			/>
-		</Provider>,
+		</Provider>
 	);
 }
 
+function renderSheet(props: SheetProps) {
+	return render(sheetElement(props));
+}
+
 describe("BoardFilterSheet", () => {
-	afterEach(() => jest.restoreAllMocks());
+	afterEach(() => {
+		jest.restoreAllMocks();
+		mockWidth = denseBreakpoint;
+	});
 
 	it("renders the nine fields, an unset one reading Not set", () => {
 		renderSheet({});
@@ -202,19 +222,36 @@ describe("BoardFilterSheet", () => {
 	 * render and a tap still writes the chosen reach.
 	 */
 	it("below denseBreakpoint the reach answers wrap as chips and still write the reach", () => {
-		jest.spyOn(ReactNative, "useWindowDimensions").mockReturnValue({
-			...ReactNative.Dimensions.get("window"),
-			width: denseBreakpoint - 1,
-		});
+		mockWidth = denseBreakpoint - 1;
 		const onChange = jest.fn();
-		renderSheet({ onChange });
+		const rendered = renderSheet({ onChange });
 
+		const thisBoard = screen.getByRole("button", {
+			name: "board.filter.thisBoard",
+		});
+		const everythingBelow = screen.getByRole("button", {
+			name: "board.filter.everythingBelow",
+		});
+		expect(thisBoard.props["aria-pressed"]).toBe(true);
+		expect(everythingBelow.props["aria-pressed"]).toBe(false);
 		expect(
 			screen.getByText("board.filter.thisBoardDescription"),
 		).toBeOnTheScreen();
-		fireEvent.press(screen.getByText("board.filter.everythingBelow"));
+		fireEvent.press(everythingBelow);
 
 		expect(onChange).toHaveBeenCalledWith(filter({ reach: "subtree" }));
+		rendered.rerender(
+			sheetElement({ filter: filter({ reach: "subtree" }), onChange }),
+		);
+		expect(
+			screen.getByRole("button", { name: "board.filter.thisBoard" }).props[
+				"aria-pressed"
+			],
+		).toBe(false);
+		expect(
+			screen.getByRole("button", { name: "board.filter.everythingBelow" })
+				.props["aria-pressed"],
+		).toBe(true);
 	});
 
 	it("the moved switch writes the participant preference, not a condition", () => {

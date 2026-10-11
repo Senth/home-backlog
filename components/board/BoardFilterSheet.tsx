@@ -1,6 +1,6 @@
 import { type RefObject, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions, View } from "react-native";
+import { Pressable, useWindowDimensions, View } from "react-native";
 import {
 	Appbar,
 	Button,
@@ -245,12 +245,16 @@ export function BoardFilterSheet({
 							>
 								{(["board", "subtree"] as const).map((reach) => {
 									const chosen = (filter?.reach ?? "board") === reach;
+									const label = t(
+										reach === "board"
+											? "board.filter.thisBoard"
+											: "board.filter.everythingBelow",
+									);
 									return (
-										<Chip
+										<Pressable
 											key={reach}
-											mode={chosen ? "flat" : "outlined"}
-											selected={chosen}
-											showSelectedCheck={false}
+											accessibilityRole="button"
+											accessibilityLabel={label}
 											aria-pressed={chosen}
 											onPress={() =>
 												onChange({
@@ -259,14 +263,17 @@ export function BoardFilterSheet({
 													conditions,
 												})
 											}
-											style={{ minHeight: outlinedTouchTarget }}
 										>
-											{t(
-												reach === "board"
-													? "board.filter.thisBoard"
-													: "board.filter.everythingBelow",
-											)}
-										</Chip>
+											<Chip
+												mode={chosen ? "flat" : "outlined"}
+												selected={chosen}
+												showSelectedCheck={false}
+												accessibilityRole="none"
+												style={{ minHeight: outlinedTouchTarget }}
+											>
+												{label}
+											</Chip>
+										</Pressable>
 									);
 								})}
 							</View>
