@@ -117,7 +117,9 @@ export default function Login() {
 					    stay readable for. */}
 					<View
 						style={{
+							width: "100%",
 							flexDirection: "row",
+							flexWrap: "wrap",
 							justifyContent: "center",
 							gap: space.sm,
 						}}
