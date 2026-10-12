@@ -29,6 +29,9 @@
 	"jest": {
 		"preset": "jest-expo",
 		"clearMocks": true,
+		"setupFiles": [
+			"<rootDir>/tests/jest-setup.ts"
+		],
 		"testPathIgnorePatterns": [
 			"<rootDir>/node_modules/",
 			"<rootDir>/tests/rules/",
