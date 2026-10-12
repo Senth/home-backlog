@@ -1,7 +1,6 @@
 {
 	"app": {
-		"name": "Home Backlog",
-		"tagline": "Every job around the house, in one place."
+		"name": "Home Backlog"
 	},
 	"common": {
 		"back": "Back",
@@ -64,7 +63,7 @@
 	"screen": {
 		"login": {
 			"title": "Home Backlog",
-			"tagline": "Every job around the house, in one place.",
+			"tagline": "A shared plan for your house and garden projects.",
 			"google": "Continue with Google",
 			"offlineHint": "Signing in needs a connection."
 		},
