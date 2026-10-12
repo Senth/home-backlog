@@ -29,6 +29,9 @@
 	"jest": {
 		"preset": "jest-expo",
 		"clearMocks": true,
+		"setupFiles": [
+			"<rootDir>/tests/jest-setup.ts"
+		],
 		"testPathIgnorePatterns": [
 			"<rootDir>/node_modules/",
 			"<rootDir>/tests/rules/",
@@ -61,7 +64,7 @@
 		"react-dom": "19.3.0",
 		"react-i18next": "17.0.16",
 		"react-native": "0.83.10",
-		"react-native-gesture-handler": "~2.33.0",
+		"react-native-gesture-handler": "~3.3.0",
 		"react-native-paper": "5.15.3",
 		"react-native-paper-dates": "^0.24.0",
 		"react-native-reanimated": "4.7.1",
