@@ -1,7 +1,6 @@
 {
 	"app": {
-		"name": "Home Backlog",
-		"tagline": "Allt som behöver göras hemma, på ett ställe."
+		"name": "Home Backlog"
 	},
 	"common": {
 		"back": "Tillbaka",

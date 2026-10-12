@@ -634,6 +634,42 @@ for (const scheme of ["light", "dark"] as const) {
 
 				expect(offenders, `craft findings on /login (${scheme})`).toEqual([]);
 			});
+
+			test("29: /login legal labels fit at 195px", async ({
+				page,
+			}, testInfo) => {
+				test.skip(
+					page.viewportSize()?.width !== VIEWPORTS.phone.width,
+					"195px login check runs in phone projects",
+				);
+				await page.setViewportSize(VIEWPORTS.phoneZoomed);
+				await gotoAndSettle(page, LOGIN_ROUTE);
+
+				const locale = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
+				const labels = [locale.screen.privacy.title, locale.screen.terms.title];
+				const buttonBounds = await Promise.all(
+					labels.map(async (label) => {
+						const button = page.getByRole("button", { name: label });
+						const labelFits = await button.evaluate((element) => {
+							const range = document.createRange();
+							range.selectNodeContents(element);
+							return (
+								range.getBoundingClientRect().width <=
+								element.getBoundingClientRect().width
+							);
+						});
+
+						expect(labelFits, `${label} fits in its button at 195px`).toBe(
+							true,
+						);
+						return button.boundingBox();
+					}),
+				);
+
+				expect(buttonBounds[0]).not.toBeNull();
+				expect(buttonBounds[1]).not.toBeNull();
+				expect(buttonBounds[1]?.y).toBeGreaterThan(buttonBounds[0]?.y ?? 0);
+			});
 		});
 	});
 }

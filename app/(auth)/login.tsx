@@ -97,11 +97,6 @@ export default function Login() {
 						</Text>
 					</View>
 
-					{/* Deliberately empty: the room the "who invited you" context line
-					    of #22 will take, reserved so adding it does not move the
-					    button out from under anyone's thumb. */}
-					<View style={{ height: space.md }} />
-
 					<View style={{ width: "100%", gap: space.sm }}>
 						<GoogleSignInButton onError={setError} disabled={!online} />
 						{online ? null : (
@@ -122,7 +117,9 @@ export default function Login() {
 					    stay readable for. */}
 					<View
 						style={{
+							width: "100%",
 							flexDirection: "row",
+							flexWrap: "wrap",
 							justifyContent: "center",
 							gap: space.sm,
 						}}
