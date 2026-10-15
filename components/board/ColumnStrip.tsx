@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { Chip } from "react-native-paper";
 import { chipKey } from "@/components/board/use-board-drag";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
@@ -13,7 +13,7 @@ interface ColumnStripProps {
 	current: number;
 	onSelect: (index: number) => void;
 	/** Registers each chip as a drop target, while a card is being dragged. */
-	register?: (key: string) => (view: View | null) => void;
+	register?: (key: string) => (view: ViewInstance | null) => void;
 	/** The chip a held card is over, which is marked while it is. */
 	dropOn?: Status | null;
 }

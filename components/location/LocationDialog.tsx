@@ -1,6 +1,6 @@
 import { type RefObject, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import {
 	Button,
 	HelperText,
@@ -36,7 +36,7 @@ interface LocationDialogProps {
 	siblings: readonly Location[];
 	onDismiss: () => void;
 	testID: string;
-	returnFocusTo?: RefObject<View | null>;
+	returnFocusTo?: RefObject<ViewInstance | null>;
 }
 
 /**

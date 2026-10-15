@@ -2,7 +2,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions, View } from "react-native";
+import { useWindowDimensions, View, type ViewInstance } from "react-native";
 import { ActivityIndicator, Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
@@ -85,7 +85,7 @@ export default function NodeBoard() {
 	);
 	const { locations } = useLocations(homeId);
 	const [filterOpen, setFilterOpen] = useState(false);
-	const filterAnchor = useRef<View>(null);
+	const filterAnchor = useRef<ViewInstance>(null);
 	const filterSet =
 		filter !== null &&
 		(filter.conditions.length > 0 || filter.reach === "subtree");

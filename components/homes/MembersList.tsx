@@ -1,6 +1,6 @@
-import { useCallback, useRef, useState } from "react";
+import { type Ref, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { Chip, IconButton, Menu, Text } from "react-native-paper";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { AppMenu } from "@/components/ui/AppMenu";
@@ -92,7 +92,7 @@ function MemberRow({
 	// reasoning, and the same fix, as `components/board/CardMenu.tsx`.
 	const closeMenu = useCallback(() => setMenuOpen(false), []);
 	const [confirmRemove, setConfirmRemove] = useState(false);
-	const menuAnchorRef = useRef<View | null>(null);
+	const menuAnchorRef = useRef<ViewInstance | null>(null);
 
 	const isMe = member.uid === myUid;
 	const lastOwner = isLastOwner(home, member.uid);
@@ -139,7 +139,7 @@ function MemberRow({
 								anchorPosition="bottom"
 								anchor={
 									<IconButton
-										ref={menuAnchorRef}
+										ref={menuAnchorRef as Ref<typeof View>}
 										icon="dots-vertical"
 										accessibilityLabel={t("members.manage", { name })}
 										onPress={() => setMenuOpen(true)}

@@ -1,11 +1,12 @@
 import { useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { type Ref, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	Platform,
 	type TextStyle,
 	useWindowDimensions,
 	View,
+	type ViewInstance,
 } from "react-native";
 import {
 	Button,
@@ -77,7 +78,7 @@ export default function Homes() {
 	const [nameError, setNameError] = useState<HomeNameError | null>(null);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const createButtonRef = useRef<View | null>(null);
+	const createButtonRef = useRef<ViewInstance | null>(null);
 	/**
 	 * Which home a Join is waiting on, held *here* rather than inside the cards.
 	 *
@@ -284,7 +285,7 @@ export default function Homes() {
 						<Divider />
 
 						<Button
-							ref={createButtonRef}
+							ref={createButtonRef as Ref<typeof View>}
 							mode="contained"
 							icon="plus"
 							onPress={openCreate}

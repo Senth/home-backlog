@@ -1,7 +1,7 @@
 import * as Clipboard from "expo-clipboard";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { IconButton, Menu, Snackbar } from "react-native-paper";
 import { AppMenu } from "@/components/ui/AppMenu";
 import { type Card, exportCard, seedTitleKeys } from "@/models/overview-cards";
@@ -61,7 +61,7 @@ export function CardActionsMenu({
 	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const [copied, setCopied] = useState(false);
-	const anchor = useRef<View | null>(null);
+	const anchor = useRef<ViewInstance | null>(null);
 
 	const close = useCallback(() => setOpen(false), []);
 

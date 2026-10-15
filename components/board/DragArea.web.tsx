@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import type {
 	DragAreaProps,
 	DragPoint,
@@ -65,7 +65,7 @@ export function DragArea({
 	onCancel,
 	children,
 }: DragAreaProps) {
-	const host = useRef<View | null>(null);
+	const host = useRef<ViewInstance | null>(null);
 
 	// The callbacks change identity on every render of the board — a card
 	// arriving from another member is enough — and re-attaching the listeners

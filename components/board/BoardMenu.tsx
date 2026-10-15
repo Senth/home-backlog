@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { type RefObject, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { Appbar, Menu } from "react-native-paper";
 import { detailsHref } from "@/components/board/board-href";
 import { TitleDialog } from "@/components/board/TitleDialog";
@@ -18,7 +18,7 @@ interface BoardMenuProps {
 	node: Node | null;
 	onFilter?: () => void;
 	filterSet?: boolean;
-	anchorRef?: RefObject<View | null>;
+	anchorRef?: RefObject<ViewInstance | null>;
 }
 
 /**
@@ -43,7 +43,7 @@ export function BoardMenu({
 	const theme = useAppTheme();
 	const [open, setOpen] = useState(false);
 	const [renaming, setRenaming] = useState(false);
-	const ownAnchor = useRef<View | null>(null);
+	const ownAnchor = useRef<ViewInstance | null>(null);
 	const anchor = anchorRef ?? ownAnchor;
 
 	// Stable so Paper keeps its Escape handler: it attaches that to `document`

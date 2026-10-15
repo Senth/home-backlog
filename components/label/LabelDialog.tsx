@@ -1,7 +1,7 @@
-import type { RefObject } from "react";
+import type { Ref, RefObject } from "react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import {
 	Button,
 	HelperText,
@@ -40,7 +40,7 @@ interface LabelDialogProps {
 	/** A queued write was refused — the dialog has already closed. */
 	onError: () => void;
 	testID: string;
-	returnFocusTo?: RefObject<View | null>;
+	returnFocusTo?: RefObject<ViewInstance | null>;
 }
 
 export function LabelDialog({
@@ -64,7 +64,7 @@ export function LabelDialog({
 	);
 	const [pickingIcon, setPickingIcon] = useState(false);
 	const [deleting, setDeleting] = useState(false);
-	const deleteAnchor = useRef<View | null>(null);
+	const deleteAnchor = useRef<ViewInstance | null>(null);
 
 	const labels = homes.find((home) => home.id === homeId)?.labels ?? [];
 
@@ -141,7 +141,7 @@ export function LabelDialog({
 							: [
 									<Button
 										key="delete"
-										ref={deleteAnchor}
+										ref={deleteAnchor as Ref<typeof View>}
 										mode="text"
 										textColor={theme.colors.error}
 										onPress={() => setDeleting(true)}

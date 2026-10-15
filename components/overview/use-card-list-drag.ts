@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Animated, type View } from "react-native";
+import { Animated, type ViewInstance } from "react-native";
 import type { DragPoint } from "@/components/board/DragArea.types";
 import type {
 	CardDragHandlers,
@@ -56,7 +56,7 @@ export interface ListDrag {
 	overlay: Overlay | null;
 	offset: Animated.ValueXY;
 	/** A ref callback for the list container and for one row. */
-	register: (key: string) => (view: View | null) => void;
+	register: (key: string) => (view: ViewInstance | null) => void;
 	handlers: (id: string) => CardDragHandlers;
 }
 
@@ -81,14 +81,16 @@ export function useCardListDrag({
 	const grabbed = useRef(0);
 	const offset = useRef(new Animated.ValueXY()).current;
 
-	const views = useRef(new Map<string, View>());
-	const refCallbacks = useRef(new Map<string, (view: View | null) => void>());
+	const views = useRef(new Map<string, ViewInstance>());
+	const refCallbacks = useRef(
+		new Map<string, (view: ViewInstance | null) => void>(),
+	);
 
 	const register = useCallback((key: string) => {
 		const known = refCallbacks.current.get(key);
 		if (known !== undefined) return known;
 
-		const callback = (view: View | null) => {
+		const callback = (view: ViewInstance | null) => {
 			if (view === null) views.current.delete(key);
 			else views.current.set(key, view);
 		};
@@ -132,7 +134,7 @@ export function useCardListDrag({
 	);
 
 	const boxOf = useCallback(
-		(view: View | undefined): Promise<Box | null> =>
+		(view: ViewInstance | undefined): Promise<Box | null> =>
 			view === undefined
 				? Promise.resolve(null)
 				: new Promise((resolve) => {

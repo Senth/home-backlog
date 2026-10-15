@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Animated, type View } from "react-native";
+import { Animated, type ViewInstance } from "react-native";
 import type { Notice } from "@/components/board/CardMenu";
 import type { DragPoint } from "@/components/board/DragArea.types";
 import { moveNodes } from "@/data/nodes";
@@ -50,7 +50,7 @@ export interface ColumnDrag {
 	gapAt: number | null;
 	/** How tall the gap is: exactly the card it is holding a place for. */
 	gapHeight: number;
-	register: (key: string) => (view: View | null) => void;
+	register: (key: string) => (view: ViewInstance | null) => void;
 	handlers: (node: Node) => CardDragHandlers;
 }
 
@@ -130,7 +130,7 @@ export interface BoardDrag {
 	/** How far the finger has carried it. */
 	offset: Animated.ValueXY;
 	/** A ref callback for one of the things a drop is measured against. */
-	register: (key: string) => (view: View | null) => void;
+	register: (key: string) => (view: ViewInstance | null) => void;
 	handlers: (node: Node) => CardDragHandlers;
 	/** Which screen edge the card is resting in, below the breakpoint. */
 	edge: "left" | "right" | null;
@@ -208,14 +208,16 @@ export function useBoardDrag({
 	// completion moves the pane, and the pane belongs to a screen.
 	useEffect(() => stopWalking, [stopWalking]);
 
-	const views = useRef(new Map<string, View>());
-	const refCallbacks = useRef(new Map<string, (view: View | null) => void>());
+	const views = useRef(new Map<string, ViewInstance>());
+	const refCallbacks = useRef(
+		new Map<string, (view: ViewInstance | null) => void>(),
+	);
 
 	const register = useCallback((key: string) => {
 		const known = refCallbacks.current.get(key);
 		if (known !== undefined) return known;
 
-		const callback = (view: View | null) => {
+		const callback = (view: ViewInstance | null) => {
 			if (view === null) views.current.delete(key);
 			else views.current.set(key, view);
 		};
@@ -745,7 +747,7 @@ function isMeasured(
 }
 
 /** One view's frame in window coordinates, or `null` if it is not mounted. */
-function boxOf(view: View | undefined): Promise<Box | null> {
+function boxOf(view: ViewInstance | undefined): Promise<Box | null> {
 	if (view === undefined) return Promise.resolve(null);
 
 	return new Promise((resolve) => {

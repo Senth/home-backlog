@@ -1,7 +1,7 @@
 import { getDocsFromServer } from "firebase/firestore";
 import { Fragment, type RefObject, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { ActivityIndicator, Icon, Text, TextInput } from "react-native-paper";
 import { MetaChip } from "@/components/board/MetaChip";
 import { AppSheet } from "@/components/ui/AppSheet";
@@ -45,7 +45,7 @@ interface BlockerSearchDialogProps {
 	onPick: (id: string) => void;
 	onUnpick: (id: string) => void;
 	testID: string;
-	returnFocusTo?: RefObject<View | null>;
+	returnFocusTo?: RefObject<ViewInstance | null>;
 }
 
 /**

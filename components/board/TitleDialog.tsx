@@ -1,6 +1,6 @@
 import { type RefObject, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { View } from "react-native";
+import type { ViewInstance } from "react-native";
 import { Button, HelperText, TextInput } from "react-native-paper";
 import { AppDialog } from "@/components/ui/AppDialog";
 import { type TitleError, titleError } from "@/models/node";
@@ -21,7 +21,7 @@ interface TitleDialogProps {
 	onSubmit: (title: string) => void;
 	/** Unique per dialog: the focus trap finds the surface by `${testID}-surface`. */
 	testID: string;
-	returnFocusTo?: RefObject<View | null>;
+	returnFocusTo?: RefObject<ViewInstance | null>;
 }
 
 /**

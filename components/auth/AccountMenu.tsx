@@ -1,9 +1,9 @@
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import type { User } from "firebase/auth";
-import { useCallback, useRef, useState } from "react";
+import { type Ref, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions, View } from "react-native";
+import { useWindowDimensions, View, type ViewInstance } from "react-native";
 import {
 	Divider,
 	Menu,
@@ -74,7 +74,7 @@ export function AccountMenu() {
 	const closeMenu = useCallback(() => setMenuOpen(false), []);
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [error, setError] = useState<AuthErrorKey | null>(null);
-	const triggerRef = useRef<View | null>(null);
+	const triggerRef = useRef<ViewInstance | null>(null);
 
 	const closeConfirm = useCallback(() => setConfirmOpen(false), []);
 
@@ -118,7 +118,7 @@ export function AccountMenu() {
 				contentStyle={{ maxWidth: width - space.md * 2 }}
 				anchor={
 					<TouchableRipple
-						ref={triggerRef}
+						ref={triggerRef as Ref<typeof View>}
 						accessibilityRole="button"
 						accessibilityLabel={t("account.labelFor", { name })}
 						testID={triggerTestID}

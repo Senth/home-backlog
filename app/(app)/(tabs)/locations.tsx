@@ -1,8 +1,13 @@
 import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type Ref, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, useWindowDimensions, View } from "react-native";
+import {
+	Pressable,
+	useWindowDimensions,
+	View,
+	type ViewInstance,
+} from "react-native";
 import {
 	ActivityIndicator,
 	Button,
@@ -117,7 +122,7 @@ export default function Locations() {
 		intentId?: string;
 	} | null>(null);
 	const [fabHeight, setFabHeight] = useState(0);
-	const openerRef = useRef<View | null>(null);
+	const openerRef = useRef<ViewInstance | null>(null);
 	const visitingPlace = useRef(false);
 	const navigation = useNavigation();
 
@@ -349,7 +354,7 @@ export default function Locations() {
 							{t("locations.emptyBody")}
 						</Text>
 						<Button
-							ref={openerRef}
+							ref={openerRef as Ref<typeof View>}
 							mode="contained"
 							icon="plus"
 							onPress={() => setAdding({ parent: null })}
@@ -547,7 +552,7 @@ export default function Locations() {
 			    the loudest shape on the screen, and the mode is unmistakable. */}
 			{showTree && !moveActive ? (
 				<FAB
-					ref={openerRef}
+					ref={openerRef as Ref<typeof View>}
 					icon={width < denseBreakpoint ? undefined : "plus"}
 					label={t("locations.add")}
 					onPress={() => setAdding({ parent: null })}

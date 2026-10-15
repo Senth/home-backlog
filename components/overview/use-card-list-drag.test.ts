@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react-native";
-import type { View } from "react-native";
+import type { ViewInstance } from "react-native";
 import {
 	listKey,
 	rowKey,
@@ -30,12 +30,12 @@ function card(id: string, rank: string): { id: string; rank: string } {
 }
 
 /** A view that answers `measureInWindow` on a later turn, as the real one does. */
-function box(top: number, height: number, left = 0, width = 300): View {
+function box(top: number, height: number, left = 0, width = 300): ViewInstance {
 	return {
 		measureInWindow: (callback: (...frame: number[]) => void) => {
 			setTimeout(() => callback(left, top, width, height), 0);
 		},
-	} as unknown as View;
+	} as unknown as ViewInstance;
 }
 
 type ListCard = { id: string; rank: string };

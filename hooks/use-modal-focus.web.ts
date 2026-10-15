@@ -1,5 +1,5 @@
 import { type RefObject, useEffect, useRef } from "react";
-import type { View } from "react-native";
+import type { ViewInstance } from "react-native";
 
 /**
  * Everything inside a modal that a Tab can land on.
@@ -34,7 +34,7 @@ function byTestID(testID: string): HTMLElement | null {
  * React Native Web hands back the DOM node as the `View` ref, which the React
  * Native types have no way to say.
  */
-function domNode(ref: RefObject<View | null>): HTMLElement | null {
+function domNode(ref: RefObject<ViewInstance | null>): HTMLElement | null {
 	const node = ref.current as unknown;
 	return node instanceof HTMLElement ? node : null;
 }
@@ -60,7 +60,7 @@ interface ModalFocusOptions {
 	 * belongs to a screen that is `display: none`. Focusing that drops focus on
 	 * `<body>`, which is the failure this option exists to prevent.
 	 */
-	returnFocusTo?: RefObject<View | null>;
+	returnFocusTo?: RefObject<ViewInstance | null>;
 	/**
 	 * What the scrim behind the dialog is called, translated.
 	 *

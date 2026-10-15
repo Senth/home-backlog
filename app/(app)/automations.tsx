@@ -1,7 +1,7 @@
 import * as Clipboard from "expo-clipboard";
-import { useCallback, useRef, useState } from "react";
+import { type Ref, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import {
 	ActivityIndicator,
 	Button,
@@ -59,7 +59,7 @@ export default function Automations() {
 	const [saving, setSaving] = useState(false);
 	const [token, setToken] = useState<string | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
-	const createButtonRef = useRef<View | null>(null);
+	const createButtonRef = useRef<ViewInstance | null>(null);
 
 	const closeCreate = useCallback(() => setCreateOpen(false), []);
 
@@ -172,7 +172,7 @@ export default function Automations() {
 				<Divider />
 
 				<Button
-					ref={createButtonRef}
+					ref={createButtonRef as Ref<typeof View>}
 					mode="contained"
 					icon="plus"
 					onPress={openCreate}
@@ -318,7 +318,7 @@ function ApiKeyRow({
 }) {
 	const { t, i18n } = useTranslation();
 	const [confirming, setConfirming] = useState(false);
-	const anchorRef = useRef<View | null>(null);
+	const anchorRef = useRef<ViewInstance | null>(null);
 
 	const confirmRevoke = () => {
 		setConfirming(false);
@@ -349,7 +349,7 @@ function ApiKeyRow({
 				}
 				right={
 					<IconButton
-						ref={anchorRef}
+						ref={anchorRef as Ref<typeof View>}
 						icon="close"
 						accessibilityLabel={t("automations.revoke.for", {
 							name: apiKey.name,

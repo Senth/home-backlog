@@ -8,7 +8,7 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import {
 	ActivityIndicator,
 	Appbar,
@@ -161,7 +161,7 @@ export default function NodeDetails() {
 	const [labelling, setLabelling] = useState(false);
 	const [locating, setLocating] = useState(false);
 	const [editor, setEditor] = useState<Editor | null>(null);
-	const menuAnchor = useRef<View | null>(null);
+	const menuAnchor = useRef<ViewInstance | null>(null);
 
 	// Stable so Paper keeps its Escape handler — see `components/board/CardMenu.tsx`.
 	const closeMenu = useCallback(() => setMenuOpen(false), []);

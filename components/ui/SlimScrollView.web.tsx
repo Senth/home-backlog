@@ -6,6 +6,7 @@ import {
 	type NativeScrollEvent,
 	type NativeSyntheticEvent,
 	ScrollView,
+	type ScrollViewInstance,
 	type ScrollViewProps,
 	View,
 } from "react-native";
@@ -16,7 +17,7 @@ import { radius, scrollbar } from "@/theme/tokens";
 
 export type SlimScrollViewProps = ScrollViewProps & {
 	fadeEdges?: boolean;
-	ref?: Ref<ScrollView>;
+	ref?: Ref<ScrollViewInstance>;
 };
 
 type Size = ScrollMetrics["contentSize"];

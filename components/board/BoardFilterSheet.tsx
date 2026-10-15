@@ -1,6 +1,11 @@
 import { type RefObject, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, useWindowDimensions, View } from "react-native";
+import {
+	Pressable,
+	useWindowDimensions,
+	View,
+	type ViewInstance,
+} from "react-native";
 import {
 	Appbar,
 	Button,
@@ -58,7 +63,7 @@ interface BoardFilterSheetProps {
 	locations: readonly Location[];
 	showEveryone: boolean;
 	onShowEveryone: (value: boolean) => void;
-	returnFocusTo?: RefObject<View | null>;
+	returnFocusTo?: RefObject<ViewInstance | null>;
 }
 
 /**
@@ -426,7 +431,7 @@ interface BoardFilterActionProps {
 	set: boolean;
 	onPress: () => void;
 	/** Shared with the sheet, so dismissal hands focus back to the funnel. */
-	anchorRef: RefObject<View | null>;
+	anchorRef: RefObject<ViewInstance | null>;
 }
 
 /**

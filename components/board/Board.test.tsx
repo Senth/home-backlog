@@ -30,7 +30,7 @@ jest.mock("@/data/outbox-store", () => ({
 	intentMetadata: jest.fn(() => ({ id: "intent-1" })),
 }));
 
-import { Dimensions, Platform, type View } from "react-native";
+import { Dimensions, Platform, type ViewInstance } from "react-native";
 import { DragArea } from "@/components/board/DragArea";
 import {
 	SelectCardsAction,
@@ -301,7 +301,7 @@ describe("Board", () => {
 					({
 						measureInWindow: (callback: (...values: number[]) => void) =>
 							callback(0, top, 300, height),
-					}) as unknown as View;
+					}) as unknown as ViewInstance;
 				register(boardKey)(frame(0, 600));
 				for (const status of defaultColumns)
 					register(columnKey(status))(
