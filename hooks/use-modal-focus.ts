@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { View } from "react-native";
+import type { ViewInstance } from "react-native";
 
 /**
  * Native variant of `use-modal-focus.web.ts`. React Native's own modals are
@@ -11,7 +11,7 @@ export function useModalFocus(
 	_testID: string,
 	_onDismiss: () => void,
 	_options: {
-		returnFocusTo?: RefObject<View | null>;
+		returnFocusTo?: RefObject<ViewInstance | null>;
 		scrim?: { testID: string; label: string };
 	} = {},
 ) {}

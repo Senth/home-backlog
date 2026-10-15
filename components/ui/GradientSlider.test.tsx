@@ -70,6 +70,7 @@ describe("GradientSlider", () => {
 		fireEvent(screen.getByRole("adjustable"), "keyDown", {
 			key,
 			preventDefault,
+			nativeEvent: { key },
 		});
 		expect(preventDefault).toHaveBeenCalled();
 		expect(onChange).toHaveBeenCalledWith(expected);

@@ -1,9 +1,14 @@
 import type { Ref } from "react";
-import { FlatList, ScrollView, type ScrollViewProps } from "react-native";
+import {
+	FlatList,
+	ScrollView,
+	type ScrollViewInstance,
+	type ScrollViewProps,
+} from "react-native";
 
 export type SlimScrollViewProps = ScrollViewProps & {
 	fadeEdges?: boolean;
-	ref?: Ref<ScrollView>;
+	ref?: Ref<ScrollViewInstance>;
 };
 
 /** Native keeps the platform's own indicator, and has no CSS mask to fade with. */

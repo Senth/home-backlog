@@ -1,5 +1,5 @@
 import { type RefObject, useEffect, useState } from "react";
-import type { View } from "react-native";
+import type { ViewInstance } from "react-native";
 import {
 	type DropPhase,
 	type DropState,
@@ -7,7 +7,7 @@ import {
 } from "@/models/attachment";
 
 export function useFileDrop(
-	section: RefObject<View | null>,
+	section: RefObject<ViewInstance | null>,
 	onFiles: (files: FileList) => void,
 ): DropPhase {
 	const [state, setState] = useState<DropState>({ phase: "idle", depth: 0 });

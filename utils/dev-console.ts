@@ -1,26 +1,18 @@
 /**
  * The framework warnings this app cannot fix, silenced in development only.
  *
- * Three warnings fired on every load of every screen, none of them from code in
- * this repository: `react-native-paper` hands `react-native-web` a
- * `pointerEvents` prop, a `shadow*` style and an `Animated` config with
- * `useNativeDriver: true`, and `react-native-web` warns about all three. They
- * are pinned to the current versions in the sense that matters — `react-native-web`
- * is at its latest release and `react-native-paper`'s latest still passes all
- * three, so there is no bump that clears them and no change here that avoids
- * them short of not using Paper.
+ * One warning fires without any code in this repository causing it: an
+ * `Animated` config with `useNativeDriver: true` on the web, where
+ * `react-native-paper` hands `react-native-web` a config the web cannot honor.
+ * `react-native-web` used to warn about three more — a `pointerEvents` prop, a
+ * `shadow*` style and a rendered `TouchableWithoutFeedback` — but 0.21.4
+ * removed all three deprecation warnings at the source, so their entries went
+ * with them; the ones below are the remainder.
  *
- * A fourth rides along on one screen's path, not every load: opening
- * "Add a date" on a node's details renders `react-native-paper-dates`'s
- * `DatePickerModal`, which mounts `react-native-web`'s deprecated
- * `TouchableWithoutFeedback`. Same shape as the other three — a dependency we
- * do not control handing the web an old prop — so it takes an entry of its own
- * rather than a wider filter.
- *
- * Three of the four are `react-native-web` deprecations and are filtered
- * everywhere; the `useNativeDriver` one is filtered on the web only, because off
- * the web those same words report a genuinely missing native module. See
- * `webOnly` below.
+ * It is pinned to the current versions in the sense that matters —
+ * `react-native-web` is at its latest release and `react-native-paper`'s latest
+ * still passes it, so there is no bump that clears it and no change here that
+ * avoids it short of not using Paper.
  *
  * They matter because the review gate treats the console as a
  * gate. A console that is never quiet teaches the next reviewer, human or agent,
@@ -67,16 +59,6 @@ type KnownWarning = {
 
 export const KNOWN_FRAMEWORK_WARNINGS: readonly KnownWarning[] = [
 	{
-		id: "pointerEvents",
-		prefix: "props.pointerEvents is deprecated",
-		why: "react-native-paper passes the prop; every current release still does.",
-	},
-	{
-		id: "shadowStyles",
-		prefix: '"shadow*" style props are deprecated',
-		why: "react-native-paper's Surface builds its elevation from shadow* styles.",
-	},
-	{
 		id: "useNativeDriver",
 		prefix:
 			"Animated: `useNativeDriver` is not supported because the native animated module is missing",
@@ -88,11 +70,6 @@ export const KNOWN_FRAMEWORK_WARNINGS: readonly KnownWarning[] = [
 		// a blind spot in the one line that explains a broken autolink, on the
 		// native builds this project has not done yet.
 		webOnly: true,
-	},
-	{
-		id: "touchableWithoutFeedback",
-		prefix: "TouchableWithoutFeedback is deprecated",
-		why: "react-native-paper-dates' DatePickerModal renders it; every current release still does.",
 	},
 ];
 
@@ -194,7 +171,7 @@ export function installDevConsoleFilter(
  *
  * A module's imports are all evaluated before the first statement of its body,
  * so a call anywhere in `app/` runs *after* the router, its dependencies and
- * whatever they touch — and the `shadow*` warning fires in there, before the
+ * whatever they touch — and framework warnings fire in there, before the
  * root layout is ever reached. `index.ts` imports this module and then
  * `expo-router/entry`, which is the only ordering that catches it, and this is
  * why `package.json`'s `main` is a file in this repository.

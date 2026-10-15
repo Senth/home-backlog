@@ -1,6 +1,6 @@
 import type { ReactNode, RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions, View } from "react-native";
+import { useWindowDimensions, View, type ViewInstance } from "react-native";
 import { Modal, Portal } from "react-native-paper";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useModalFocus } from "@/hooks/use-modal-focus";
@@ -14,7 +14,7 @@ interface AppSheetProps {
 	testID: string;
 	children?: ReactNode;
 	/** Whatever opened the sheet, so a keyboard user is not dropped on `<body>`. */
-	returnFocusTo?: RefObject<View | null>;
+	returnFocusTo?: RefObject<ViewInstance | null>;
 }
 
 /**

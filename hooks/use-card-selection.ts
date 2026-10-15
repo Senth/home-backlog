@@ -1,6 +1,6 @@
 import { useIsFocused } from "@react-navigation/native";
 import { useCallback, useState } from "react";
-import type { View } from "react-native";
+import type { ViewInstance } from "react-native";
 import { useEscapeCancel } from "@/hooks/use-escape-cancel";
 import type { Node } from "@/models/node";
 import { prune, range, type SelectionState, toggle } from "@/models/selection";
@@ -58,7 +58,7 @@ export function useCardSelection(board: string, enabled: boolean) {
 	);
 
 	const start = useCallback(() => setSelecting(true), []);
-	const openMove = useCallback((anchor: View | null) => {
+	const openMove = useCallback((anchor: ViewInstance | null) => {
 		anchor?.measureInWindow((x, y, _width, height) => {
 			setMoveAnchor({ x, y: y + height });
 		});

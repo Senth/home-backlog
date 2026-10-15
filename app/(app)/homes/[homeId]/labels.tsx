@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { type Ref, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions, View } from "react-native";
+import { useWindowDimensions, View, type ViewInstance } from "react-native";
 import {
 	Button,
 	FAB,
@@ -58,7 +58,7 @@ export default function LabelsScreen() {
 	const [creating, setCreating] = useState(false);
 	const [failed, setFailed] = useState(false);
 	const [fabHeight, setFabHeight] = useState(0);
-	const opener = useRef<View | null>(null);
+	const opener = useRef<ViewInstance | null>(null);
 
 	const fabInset = fabHeight > 0 ? fabHeight + space.md + space.md : space.xxl;
 
@@ -124,7 +124,7 @@ export default function LabelsScreen() {
 							{t("labels.emptyBody")}
 						</Text>
 						<Button
-							ref={opener}
+							ref={opener as Ref<typeof View>}
 							mode="contained"
 							icon="plus"
 							onPress={() => setCreating(true)}
@@ -155,7 +155,7 @@ export default function LabelsScreen() {
 			    `denseBreakpoint`. Stands down while the empty state is up. */}
 			{home !== null && labels.length > 0 ? (
 				<FAB
-					ref={opener}
+					ref={opener as Ref<typeof View>}
 					icon={width < denseBreakpoint ? undefined : "plus"}
 					label={t("labels.newLabel")}
 					onPress={() => setCreating(true)}
@@ -220,7 +220,7 @@ function LabelRow({
 	onError,
 }: LabelRowProps) {
 	const { t } = useTranslation();
-	const anchor = useRef<View | null>(null);
+	const anchor = useRef<ViewInstance | null>(null);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [editing, setEditing] = useState(false);
 

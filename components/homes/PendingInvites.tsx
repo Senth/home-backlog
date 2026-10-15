@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { type Ref, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { IconButton, Text } from "react-native-paper";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { Row } from "@/components/ui/Row";
@@ -63,7 +63,7 @@ function PendingInviteRow({
 }) {
 	const { t, i18n } = useTranslation();
 	const [confirming, setConfirming] = useState(false);
-	const anchorRef = useRef<View | null>(null);
+	const anchorRef = useRef<ViewInstance | null>(null);
 
 	const confirmRevoke = () => {
 		setConfirming(false);
@@ -91,7 +91,7 @@ function PendingInviteRow({
 				}
 				right={
 					<IconButton
-						ref={anchorRef}
+						ref={anchorRef as Ref<typeof View>}
 						icon="close"
 						accessibilityLabel={t("invite.revokeFor", { email: invite.email })}
 						onPress={() => setConfirming(true)}

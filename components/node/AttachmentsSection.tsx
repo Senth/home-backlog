@@ -8,6 +8,7 @@ import {
 	Pressable,
 	useWindowDimensions,
 	View,
+	type ViewInstance,
 } from "react-native";
 import { Button, Icon, Text } from "react-native-paper";
 import { urlOf } from "@/components/board/CardThumbnails";
@@ -214,7 +215,7 @@ export function AttachmentsSection({
 		[addFiles],
 	);
 
-	const section = useRef<View>(null);
+	const section = useRef<ViewInstance>(null);
 	const phase = useFileDrop(section, addFiles);
 
 	// Pasting a copied image attaches it, wherever the focus happens to be on

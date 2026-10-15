@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions, View } from "react-native";
+import { useWindowDimensions, View, type ViewInstance } from "react-native";
 import { Appbar, Button } from "react-native-paper";
 import { AppHeader } from "@/components/ui/AppHeader";
 import type { useCardSelection } from "@/hooks/use-card-selection";
@@ -30,7 +30,7 @@ export function SelectionBar({
 }) {
 	const { t } = useTranslation();
 	const { width } = useWindowDimensions();
-	const anchor = useRef<View>(null);
+	const anchor = useRef<ViewInstance>(null);
 	const count = selection.state.ids.length;
 	return (
 		<AppHeader

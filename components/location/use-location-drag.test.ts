@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react-native";
-import type { View } from "react-native";
+import type { ViewInstance } from "react-native";
 import {
 	rowKey,
 	screenKey,
@@ -70,12 +70,12 @@ function location(
 }
 
 /** A view that answers `measureInWindow` on a later turn, as the real one does. */
-function box(top: number, height: number, left = 0, width = 400): View {
+function box(top: number, height: number, left = 0, width = 400): ViewInstance {
 	return {
 		measureInWindow: (callback: (...frame: number[]) => void) => {
 			setTimeout(() => callback(left, top, width, height), 0);
 		},
-	} as unknown as View;
+	} as unknown as ViewInstance;
 }
 
 // House → Garden → Shed, a second root, and a place with nothing under it.

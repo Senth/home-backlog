@@ -7,7 +7,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
@@ -103,7 +103,7 @@ export default function Projects() {
 	);
 	const { locations } = useLocations(homeId);
 	const [filterOpen, setFilterOpen] = useState(false);
-	const filterAnchor = useRef<View>(null);
+	const filterAnchor = useRef<ViewInstance>(null);
 
 	// The card face's location facts (#100): id → place, from the one listener
 	// this screen holds. Every card here is a root, so the trail passes down no

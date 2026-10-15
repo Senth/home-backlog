@@ -1,6 +1,12 @@
 import { Fragment, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Animated, Pressable, useWindowDimensions, View } from "react-native";
+import {
+	Animated,
+	Pressable,
+	useWindowDimensions,
+	View,
+	type ViewInstance,
+} from "react-native";
 import { Icon, IconButton, Menu, Surface, Text } from "react-native-paper";
 import { DragArea } from "@/components/board/DragArea";
 import { LocationCards } from "@/components/location/LocationCards";
@@ -292,7 +298,7 @@ export function LocationRow({
 	const { intents, submit } = useOutbox();
 	const locationColor = useLocationColors(location.color).fill;
 	const count = counts.get(location.id) ?? 0;
-	const anchor = useRef<View | null>(null);
+	const anchor = useRef<ViewInstance | null>(null);
 	const [open, setOpen] = useState(false);
 	const [editing, setEditing] = useState(false);
 	const [deleting, setDeleting] = useState(false);

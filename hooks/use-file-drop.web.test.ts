@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react-native";
 import type { RefObject } from "react";
-import type { View } from "react-native";
+import type { ViewInstance } from "react-native";
 import { useFileDrop } from "@/hooks/use-file-drop.web";
 
 function drag(type: string, files: File[] = []) {
@@ -20,7 +20,9 @@ it("arms on a window file drag, attaches only inside the section, and protects m
 		value: target,
 	});
 	const onFiles = jest.fn();
-	const ref = { current: section as unknown as View } as RefObject<View>;
+	const ref = {
+		current: section as unknown as ViewInstance,
+	} as RefObject<ViewInstance>;
 	const { result, unmount } = renderHook(() => useFileDrop(ref, onFiles));
 	const files = [{ name: "photo.jpg" }] as File[];
 	act(() => target.dispatchEvent(drag("dragenter", files)));

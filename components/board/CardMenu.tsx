@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { IconButton, Menu, Text } from "react-native-paper";
 import { TitleDialog } from "@/components/board/TitleDialog";
 import { LabelPicker } from "@/components/label/LabelPicker";
@@ -121,7 +121,7 @@ export function CardMenu({
 	const [deleting, setDeleting] = useState(false);
 	const [searching, setSearching] = useState(false);
 	const [labelling, setLabelling] = useState(false);
-	const anchor = useRef<View | null>(null);
+	const anchor = useRef<ViewInstance | null>(null);
 	/**
 	 * How tall the root page is, which is the only height Paper ever measured.
 	 *

@@ -7,45 +7,39 @@ import {
 	restoreGlobalConsole,
 } from "@/utils/dev-console";
 
+// The only remaining entry is web-only, and the module-scope suite below
+// exercises the self-install against the default `activeWarnings()`. jest-expo
+// reports `ios` unless told otherwise, so pin the platform the app ships: the
+// web.
+jest.mock("react-native", () => ({
+	Platform: { OS: "web", select: (o: { web: unknown }) => o.web },
+}));
+
 // Importing the module is what patches the real `console.warn`. Undo it here,
 // or a warning this suite emits for real is swallowed by the thing it is
 // testing — and every case below uses a fake console anyway.
 restoreGlobalConsole();
 
 /**
- * The three messages verbatim, as `react-native-web` emits them. They are
- * checked against the installed package below, so a framework release that
- * rewords one fails here rather than silently leaving the filter matching
- * nothing.
+ * The message verbatim, as `react-native-web` emits it. It is checked against
+ * the installed package below, so a framework release that rewords it fails
+ * here rather than silently leaving the filter matching nothing.
  */
 const REAL_MESSAGES = {
-	pointerEvents: "props.pointerEvents is deprecated. Use style.pointerEvents",
-	shadowStyles: '"shadow*" style props are deprecated. Use "boxShadow".',
 	useNativeDriver:
 		"Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation. To resolve this, add `RCTAnimation` module to this app, or remove `useNativeDriver`. Make sure to run `bundle exec pod install` first. Read more about autolinking: https://github.com/react-native-community/cli/blob/master/docs/autolinking.md",
-	touchableWithoutFeedback:
-		"TouchableWithoutFeedback is deprecated. Please use Pressable.",
 } as const;
 
 /**
- * Where each message is written, in the installed `react-native-web`.
+ * Where the message is written, in the installed `react-native-web`.
  *
  * Resolved from this file, not from the working directory: a jest run started
  * from a subdirectory, or a package that is not hoisted into the root
  * `node_modules`, must still find the installed source.
  */
 const UPSTREAM: Record<keyof typeof REAL_MESSAGES, string> = {
-	pointerEvents: require.resolve(
-		"react-native-web/dist/modules/createDOMProps/index.js",
-	),
-	shadowStyles: require.resolve(
-		"react-native-web/dist/exports/StyleSheet/preprocess.js",
-	),
 	useNativeDriver: require.resolve(
 		"react-native-web/dist/vendor/react-native/Animated/NativeAnimatedHelper.js",
-	),
-	touchableWithoutFeedback: require.resolve(
-		"react-native-web/dist/exports/TouchableWithoutFeedback/index.js",
 	),
 };
 
@@ -140,7 +134,7 @@ describe("isKnownFrameworkWarning", () => {
 		// deprecation while reporting something real must still be seen.
 		expect(
 			isKnownFrameworkWarning(
-				['Board render failed: "shadow*" style props are deprecated'],
+				[`Board render failed: ${REAL_MESSAGES.useNativeDriver}`],
 				ON_WEB,
 			),
 		).toBe(false);
@@ -162,21 +156,11 @@ describe("isKnownFrameworkWarning", () => {
 		expect(
 			isKnownFrameworkWarning([REAL_MESSAGES.useNativeDriver], native),
 		).toBe(false);
-		// The three real react-native-web deprecations stay filtered everywhere.
-		expect(isKnownFrameworkWarning([REAL_MESSAGES.shadowStyles], native)).toBe(
-			true,
-		);
-		expect(isKnownFrameworkWarning([REAL_MESSAGES.pointerEvents], native)).toBe(
-			true,
-		);
-		expect(
-			isKnownFrameworkWarning([REAL_MESSAGES.touchableWithoutFeedback], native),
-		).toBe(true);
 	});
 
 	it("passes a non-string first argument", () => {
 		expect(
-			isKnownFrameworkWarning([new Error(REAL_MESSAGES.pointerEvents)]),
+			isKnownFrameworkWarning([new Error(REAL_MESSAGES.useNativeDriver)]),
 		).toBe(false);
 		expect(isKnownFrameworkWarning([], ON_WEB)).toBe(false);
 	});
@@ -219,8 +203,8 @@ describe("installDevConsoleFilter", () => {
 		target.warn("Could not reach Firestore");
 		expect(target.info).not.toHaveBeenCalled();
 
-		target.warn(REAL_MESSAGES.pointerEvents);
-		target.warn(REAL_MESSAGES.shadowStyles);
+		target.warn(REAL_MESSAGES.useNativeDriver);
+		target.warn(REAL_MESSAGES.useNativeDriver);
 
 		// Info, not warn: the review gate counts warnings, and a filter that
 		// leaves one behind has traded three lines for one rather than cleaning
@@ -237,7 +221,7 @@ describe("installDevConsoleFilter", () => {
 		const warn = target.warn;
 		installDevConsoleFilter(target, ON_WEB);
 
-		target.warn(REAL_MESSAGES.shadowStyles);
+		target.warn(REAL_MESSAGES.useNativeDriver);
 
 		expect(warn).toHaveBeenCalledTimes(1);
 		expect(warn.mock.calls[0][0]).toContain("[dev-console]");
@@ -247,9 +231,9 @@ describe("installDevConsoleFilter", () => {
 		const target = fakeConsole();
 		installDevConsoleFilter(target, ON_WEB);
 
-		target.error(REAL_MESSAGES.pointerEvents);
+		target.error(REAL_MESSAGES.useNativeDriver);
 
-		expect(target.error).toHaveBeenCalledWith(REAL_MESSAGES.pointerEvents);
+		expect(target.error).toHaveBeenCalledWith(REAL_MESSAGES.useNativeDriver);
 	});
 
 	it("restores the original warn", () => {
@@ -262,8 +246,8 @@ describe("installDevConsoleFilter", () => {
 		restore();
 		expect(target.warn).toBe(original);
 
-		target.warn(REAL_MESSAGES.pointerEvents);
-		expect(original).toHaveBeenCalledWith(REAL_MESSAGES.pointerEvents);
+		target.warn(REAL_MESSAGES.useNativeDriver);
+		expect(original).toHaveBeenCalledWith(REAL_MESSAGES.useNativeDriver);
 	});
 
 	it("does not wrap twice when Fast Refresh re-runs the module", () => {
@@ -287,8 +271,8 @@ describe("installDevConsoleFilter", () => {
 		const restore = installDevConsoleFilter(target, ON_WEB);
 
 		expect(target.warn).toBe(original);
-		target.warn(REAL_MESSAGES.pointerEvents);
-		expect(original).toHaveBeenCalledWith(REAL_MESSAGES.pointerEvents);
+		target.warn(REAL_MESSAGES.useNativeDriver);
+		expect(original).toHaveBeenCalledWith(REAL_MESSAGES.useNativeDriver);
 		restore();
 		expect(target.warn).toBe(original);
 	});
@@ -310,7 +294,7 @@ describe("module scope", () => {
 		// itself must have swapped `console.warn`.
 		expect(console.warn).not.toBe(original);
 
-		console.warn(REAL_MESSAGES.pointerEvents);
+		console.warn(REAL_MESSAGES.useNativeDriver);
 		console.warn("Could not reach Firestore");
 		expect(original).toHaveBeenCalledTimes(1);
 		expect(original).toHaveBeenCalledWith("Could not reach Firestore");

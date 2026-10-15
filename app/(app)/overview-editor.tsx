@@ -1,7 +1,12 @@
 import { Redirect, useRouter } from "expo-router";
 import { Fragment, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Animated, useWindowDimensions, View } from "react-native";
+import {
+	Animated,
+	useWindowDimensions,
+	View,
+	type ViewInstance,
+} from "react-native";
 import {
 	ActivityIndicator,
 	Appbar,
@@ -471,7 +476,7 @@ interface EditorRowProps {
 		onDrop: () => void;
 		onCancel: () => void;
 	} | null;
-	register: (key: string) => (view: View | null) => void;
+	register: (key: string) => (view: ViewInstance | null) => void;
 	onEdit: (entry: EditorCard) => void;
 	onMoveUp: (entry: EditorCard) => void;
 	onMoveDown: (entry: EditorCard) => void;

@@ -1,6 +1,6 @@
 import type { ReactNode, RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions, type View } from "react-native";
+import { useWindowDimensions, type ViewInstance } from "react-native";
 import { Button, Dialog, Portal, Text } from "react-native-paper";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useModalFocus } from "@/hooks/use-modal-focus";
@@ -23,7 +23,7 @@ interface AppDialogProps {
 	 */
 	actions: ReactNode[];
 	/** Whatever opened the dialog, so a keyboard user is not dropped on `<body>`. */
-	returnFocusTo?: RefObject<View | null>;
+	returnFocusTo?: RefObject<ViewInstance | null>;
 }
 
 /**
@@ -104,7 +104,7 @@ interface ConfirmDialogProps {
 	/** Paints the confirming action in the error color and never as the default. */
 	destructive?: boolean;
 	testID: string;
-	returnFocusTo?: RefObject<View | null>;
+	returnFocusTo?: RefObject<ViewInstance | null>;
 }
 
 /**

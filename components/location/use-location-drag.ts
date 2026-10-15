@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Animated, type View } from "react-native";
+import { Animated, type ViewInstance } from "react-native";
 import { useOutbox } from "@/contexts/OutboxContext";
 import { moveLocation, reorderLocation } from "@/data/locations";
 import { intentMetadata, type OutboxIntent } from "@/data/outbox-store";
@@ -54,7 +54,7 @@ export interface LocationDrag {
 	/** How far the finger has carried it. */
 	offset: Animated.ValueXY;
 	/** A ref callback for the screen box and one per row. */
-	register: (key: string) => (view: View | null) => void;
+	register: (key: string) => (view: ViewInstance | null) => void;
 	handlers: (location: Location) => LocationDragHandlers;
 }
 
@@ -99,14 +99,16 @@ export function useLocationDrag({
 	const grabbed = useRef(0);
 	const offset = useRef(new Animated.ValueXY()).current;
 
-	const views = useRef(new Map<string, View>());
-	const refCallbacks = useRef(new Map<string, (view: View | null) => void>());
+	const views = useRef(new Map<string, ViewInstance>());
+	const refCallbacks = useRef(
+		new Map<string, (view: ViewInstance | null) => void>(),
+	);
 
 	const register = useCallback((key: string) => {
 		const known = refCallbacks.current.get(key);
 		if (known !== undefined) return known;
 
-		const callback = (view: View | null) => {
+		const callback = (view: ViewInstance | null) => {
 			if (view === null) views.current.delete(key);
 			else views.current.set(key, view);
 		};
@@ -145,14 +147,17 @@ export function useLocationDrag({
 	);
 
 	/** One view's frame in window coordinates, or `null` if it is not mounted. */
-	const boxOf = useCallback((view: View | undefined): Promise<Box | null> => {
-		if (view === undefined) return Promise.resolve(null);
-		return new Promise((resolve) => {
-			view.measureInWindow((x, y, width, height) =>
-				resolve({ left: x, top: y, right: x + width, bottom: y + height }),
-			);
-		});
-	}, []);
+	const boxOf = useCallback(
+		(view: ViewInstance | undefined): Promise<Box | null> => {
+			if (view === undefined) return Promise.resolve(null);
+			return new Promise((resolve) => {
+				view.measureInWindow((x, y, width, height) =>
+					resolve({ left: x, top: y, right: x + width, bottom: y + height }),
+				);
+			});
+		},
+		[],
+	);
 
 	const grab = useCallback(
 		async (location: Location, point: { x: number; y: number }) => {

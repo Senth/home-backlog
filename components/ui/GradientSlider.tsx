@@ -1,5 +1,5 @@
-import { type KeyboardEvent, useId, useMemo, useRef, useState } from "react";
-import { Platform, View } from "react-native";
+import { useId, useMemo, useRef, useState } from "react";
+import { type KeyDownEvent, Platform, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { useAppTheme } from "@/theme";
@@ -50,7 +50,7 @@ export function GradientSlider({
 				.onEnd((event) => setPosition(event.x)),
 		);
 	}, []);
-	const onKeyDown = (event: KeyboardEvent<View>) => {
+	const onKeyDown = (event: KeyDownEvent) => {
 		const steps: Record<string, number> = {
 			ArrowRight: 0.01,
 			ArrowUp: 0.01,
@@ -59,13 +59,14 @@ export function GradientSlider({
 			PageUp: 0.1,
 			PageDown: -0.1,
 		};
+		const key = event.nativeEvent.key;
 		const next =
-			event.key === "Home"
+			key === "Home"
 				? 0
-				: event.key === "End"
+				: key === "End"
 					? 1
-					: event.key in steps
-						? clamp(value + steps[event.key])
+					: key in steps
+						? clamp(value + steps[key])
 						: undefined;
 		if (next !== undefined) {
 			event.preventDefault();

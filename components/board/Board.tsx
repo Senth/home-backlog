@@ -6,6 +6,7 @@ import {
 	type GestureResponderEvent,
 	Platform,
 	View,
+	type ViewInstance,
 } from "react-native";
 import {
 	ActivityIndicator,
@@ -212,7 +213,7 @@ export function Board({
 	const [current, setCurrent] = useState(0);
 	const [adding, setAdding] = useState<Status | null>(null);
 	const [notice, setNotice] = useState<Notice | null>(null);
-	const moveFabAnchor = useRef<View>(null);
+	const moveFabAnchor = useRef<ViewInstance>(null);
 	useTabTrap(selection.moveAnchor !== null, "selection-move-menu");
 
 	/**

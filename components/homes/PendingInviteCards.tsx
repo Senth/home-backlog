@@ -1,8 +1,8 @@
 import { useRouter } from "expo-router";
 import type { User } from "firebase/auth";
-import { useEffect, useRef, useState } from "react";
+import { type Ref, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { ActivityIndicator, Button, Card, Text } from "react-native-paper";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { useHome } from "@/contexts/HomeContext";
@@ -138,7 +138,7 @@ function PendingInviteCard({
 	const theme = useAppTheme();
 	const online = useOnlineStatus();
 	const [confirming, setConfirming] = useState(false);
-	const declineRef = useRef<View | null>(null);
+	const declineRef = useRef<ViewInstance | null>(null);
 
 	const confirmDecline = () => {
 		setConfirming(false);
@@ -173,7 +173,7 @@ function PendingInviteCard({
 			</Card.Content>
 			<Card.Actions>
 				<Button
-					ref={declineRef}
+					ref={declineRef as Ref<typeof View>}
 					mode="text"
 					onPress={() => setConfirming(true)}
 					disabled={busy || !online}

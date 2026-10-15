@@ -1,6 +1,6 @@
 import { type ReactNode, type RefObject, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { Button, Text, TextInput } from "react-native-paper";
 import { AppSheet } from "@/components/ui/AppSheet";
 import { CheckRow } from "@/components/ui/CheckRow";
@@ -23,7 +23,7 @@ interface CheckListPickerProps {
 	onDismiss: () => void;
 	/** Unique per sheet: the focus trap finds the surface by `${testID}-surface`. */
 	testID: string;
-	returnFocusTo?: RefObject<View | null>;
+	returnFocusTo?: RefObject<ViewInstance | null>;
 	/** The sheet's heading, and the one action beside it. */
 	title?: string;
 	headerAction?: ReactNode;
