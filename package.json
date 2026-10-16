@@ -82,7 +82,7 @@
 		"@axe-core/playwright": "4.13.0",
 		"@babel/plugin-transform-dynamic-import": "^8.0.0",
 		"@biomejs/biome": "2.5.15",
-		"@firebase/rules-unit-testing": "^5.0.0",
+		"@firebase/rules-unit-testing": "^6.0.0",
 		"@mdi/svg": "7.4.47",
 		"@playwright/test": "1.64.0",
 		"@react-native/assets-registry": "0.87.1",
