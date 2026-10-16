@@ -59,7 +59,7 @@
 		"expo-web-browser": "~55.0.18",
 		"firebase": "12.19.0",
 		"fractional-indexing": "^4.0.0",
-		"i18next": "26.4.2",
+		"i18next": "26.4.4",
 		"react": "19.3.0",
 		"react-dom": "19.3.0",
 		"react-i18next": "17.0.16",
@@ -69,14 +69,14 @@
 		"react-native-paper-dates": "^0.24.0",
 		"react-native-reanimated": "4.7.1",
 		"react-native-safe-area-context": "~5.10.0",
-		"react-native-screens": "~4.28.0",
+		"react-native-screens": "~4.29.0",
 		"react-native-svg": "15.15.5",
 		"react-native-web": "0.21.4",
 		"react-native-worklets": "0.13.0"
 	},
 	"resolutions": {
 		"@react-native/babel-preset": "0.87.1",
-		"hermes-parser": "0.36.1"
+		"hermes-parser": "0.37.0"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "4.13.0",
@@ -84,7 +84,7 @@
 		"@biomejs/biome": "2.5.15",
 		"@firebase/rules-unit-testing": "^5.0.0",
 		"@mdi/svg": "7.4.47",
-		"@playwright/test": "1.63.0",
+		"@playwright/test": "1.64.0",
 		"@react-native/assets-registry": "0.87.1",
 		"@react-native/jest-preset": "0.87.1",
 		"@testing-library/react-native": "~13",
