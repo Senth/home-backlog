@@ -62,9 +62,9 @@ says which group a thing belongs to. One color never does two of them.
   ring, the brand mark. Never a background for a block of content, never a status, never a
   card's identity.
 - **`background` / `surface`** — the page.
-- **`boardColumn` / `boardCard` / `boardCardBorder`** — the board's own surfaces. Read by the
-  card face, the drag overlay and the drop landing zone alike, so a lifted card is never a
-  different shade from the gap it left.
+- **`boardColumn` / `boardCard` / `boardCardGutter` / `boardCardBorder`** — the board's own
+  surfaces. The gutter has its own fill between column and card in luminance; selection keeps
+  `primaryContainer`. The card face, drag overlay and drop landing zone share `boardCard`.
 - **`outline`** — a boundary that has to be seen. **`outlineVariant`** — a divider between
   related content, deliberately faint, and never the only thing separating two things a user
   must tell apart. They are not interchangeable.
@@ -191,6 +191,8 @@ The board's rule, in both schemes, is **column recessed, page in the middle, car
 `boardColumn` → `background` → `boardCard`. `boardCardBorder` is the card's edge below
 `compactBreakpoint`, where the column carries no fill and that border is the only thing
 separating a card from the page.
+
+The left gutter uses `boardCardGutter`, between `boardColumn` and `boardCard` in luminance.
 
 `border.hairline` is used where a fill cannot do the job, and is the only weight an outline
 takes. **Nesting stops at one level** — no card inside a card. Elevation stops at
