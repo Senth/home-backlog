@@ -359,13 +359,6 @@ export const appBarStackBreakpoint = 360;
 export const denseBreakpoint = 320;
 
 /**
- * Width from which the tab bar puts each label beside its icon, React
- * Navigation's own tablet cut-off. Below it the label goes under the icon
- * unless the window is landscape.
- */
-export const tabBesideIconBreakpoint = 768;
-
-/**
  * Width below which a card's left gutter gives up room it does not have (#100):
  * the gutter narrows, the right gutter disappears and the menu floats in the
  * card's top-right corner. A 390px phone at 200 % text is a 195px viewport, so

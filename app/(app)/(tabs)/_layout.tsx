@@ -1,18 +1,30 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { PlatformPressable } from "@react-navigation/elements";
 import { Redirect, Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { Text } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHome } from "@/contexts/HomeContext";
+import { desktopLayout } from "@/models/desktop-layout";
 import { useAppTheme } from "@/theme";
 import {
+	border,
 	denseBreakpoint,
 	icon,
+	radius,
+	railWidth,
 	size,
 	space,
-	tabBesideIconBreakpoint,
+	touchTarget,
 } from "@/theme/tokens";
+
+const tabIcons = {
+	overview: "view-dashboard-outline",
+	projects: "view-column-outline",
+	locations: "home-outline",
+	maintenance: "calendar-refresh-outline",
+} as const;
 
 /**
  * The boards, and the gate that keeps them scoped to a home.
@@ -27,7 +39,10 @@ export default function TabsLayout() {
 	const theme = useAppTheme();
 	const { activeHome } = useHome();
 	const { width, height } = useWindowDimensions();
-	const besideIcon = width >= tabBesideIconBreakpoint || width > height;
+	const rail =
+		desktopLayout({ windowWidth: width, columnCount: 0, screen: "flow" })
+			.nav === "rail";
+	const besideIcon = !rail && width > height;
 	const insets = useSafeAreaInsets();
 
 	if (!activeHome) return <Redirect href="/homes" />;
@@ -39,25 +54,89 @@ export default function TabsLayout() {
 			backBehavior="fullHistory"
 			screenOptions={({ route }) => ({
 				headerShown: false,
+				tabBarPosition: rail ? "left" : "bottom",
+				tabBarVariant: rail ? "material" : "uikit",
 				tabBarActiveTintColor: theme.colors.primary,
 				tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
+				tabBarActiveBackgroundColor: rail ? theme.colors.surface : undefined,
 				tabBarStyle: {
 					backgroundColor: theme.colors.surface,
+					...(rail && {
+						width: railWidth,
+						paddingHorizontal: space.xs,
+						paddingTop: space.md + insets.top,
+						paddingBottom: space.md + insets.bottom,
+						borderRightWidth: border.hairline,
+						borderRightColor: theme.colors.outlineVariant,
+					}),
 					height:
-						width < denseBreakpoint
+						!rail && width < denseBreakpoint
 							? size.appBarSmall + insets.bottom
 							: undefined,
 				},
+				tabBarItemStyle: rail
+					? { overflow: "visible", marginVertical: space.xs }
+					: undefined,
+				tabBarButton: rail
+					? ({ style, ...props }) => (
+							<PlatformPressable
+								{...props}
+								style={[
+									style,
+									{
+										padding: space.xs,
+										minWidth: touchTarget,
+										minHeight: touchTarget,
+										borderRadius: radius.md,
+									},
+								]}
+							/>
+						)
+					: undefined,
 				tabBarLabelPosition: besideIcon ? "beside-icon" : "below-icon",
-				tabBarIconStyle: besideIcon
-					? { width: icon.md, height: icon.md }
-					: { height: icon.md, marginTop: -space.xs },
+				tabBarIconStyle: rail
+					? {
+							width: touchTarget + space.sm,
+							height: space.xl,
+							marginBottom: space.xs,
+						}
+					: besideIcon
+						? { width: icon.md, height: icon.md }
+						: { height: icon.md, marginTop: -space.xs },
+				tabBarIcon: ({ color, size, focused }) => {
+					const glyph = (
+						<MaterialCommunityIcons
+							name={tabIcons[route.name as keyof typeof tabIcons]}
+							color={color}
+							size={rail ? icon.md : size}
+						/>
+					);
+					return rail ? (
+						<View
+							testID="navigation-pill"
+							style={{
+								width: touchTarget + space.sm,
+								height: space.xl,
+								borderRadius: radius.full,
+								alignItems: "center",
+								justifyContent: "center",
+								backgroundColor: focused
+									? theme.colors.primaryContainer
+									: theme.colors.surface,
+							}}
+						>
+							{glyph}
+						</View>
+					) : (
+						glyph
+					);
+				},
 				tabBarAccessibilityLabel: t(`tab.${route.name}`),
 				// Soft hyphens keep the same words readable when each tab is narrow.
 				tabBarLabel: ({ color, children, position }) => (
 					<Text
 						variant="labelMedium"
-						numberOfLines={width < denseBreakpoint ? undefined : 1}
+						numberOfLines={rail || width < denseBreakpoint ? undefined : 1}
 						aria-label={children}
 						style={
 							position === "beside-icon"
@@ -71,7 +150,9 @@ export default function TabsLayout() {
 									}
 						}
 					>
-						{width < denseBreakpoint ? t(`tab.${route.name}Narrow`) : children}
+						{rail || width < denseBreakpoint
+							? t(`tab.${route.name}Narrow`)
+							: children}
 					</Text>
 				),
 			})}
@@ -82,52 +163,24 @@ export default function TabsLayout() {
 				name="overview"
 				options={{
 					title: t("tab.overview"),
-					tabBarIcon: ({ color, size }) => (
-						<MaterialCommunityIcons
-							name="view-dashboard-outline"
-							color={color}
-							size={size}
-						/>
-					),
 				}}
 			/>
 			<Tabs.Screen
 				name="projects"
 				options={{
 					title: t("tab.projects"),
-					tabBarIcon: ({ color, size }) => (
-						<MaterialCommunityIcons
-							name="view-column-outline"
-							color={color}
-							size={size}
-						/>
-					),
 				}}
 			/>
 			<Tabs.Screen
 				name="locations"
 				options={{
 					title: t("tab.locations"),
-					tabBarIcon: ({ color, size }) => (
-						<MaterialCommunityIcons
-							name="home-outline"
-							color={color}
-							size={size}
-						/>
-					),
 				}}
 			/>
 			<Tabs.Screen
 				name="maintenance"
 				options={{
 					title: t("tab.maintenance"),
-					tabBarIcon: ({ color, size }) => (
-						<MaterialCommunityIcons
-							name="calendar-refresh-outline"
-							color={color}
-							size={size}
-						/>
-					),
 				}}
 			/>
 		</Tabs>

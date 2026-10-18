@@ -46,6 +46,19 @@ test("the project's locale is actually in effect", async ({
 	await expect(
 		page.getByRole("heading", { name: expectedTitle(testInfo.project.name) }),
 	).toBeVisible();
+	await gotoAndSettle(page, ROUTES[2]);
+	const copy = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
+	const navigation = page.getByRole("tablist");
+	for (const name of [
+		"overview",
+		"projects",
+		"locations",
+		"maintenance",
+	] as const) {
+		await expect(
+			navigation.getByRole("tab", { name: copy.tab[name], exact: true }),
+		).toBeVisible();
+	}
 });
 
 for (const route of ROUTES) {

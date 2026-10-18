@@ -31,6 +31,7 @@ import {
 	markTargetMinimum,
 	outlinedTouchTarget,
 	radius,
+	railWidth,
 	segmentedLabelLineHeight,
 	size,
 	space,
@@ -1058,6 +1059,12 @@ test("at 320px full tab labels fit on one line without changing tab bar height, 
 	const copy = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
 	await gotoAndSettle(page, OVERVIEW);
 	const tab = page.getByRole("tab").first();
+	const bottomBar = await page.getByRole("tablist").boundingBox();
+	expect(bottomBar?.x).toBe(0);
+	expect(bottomBar?.width).toBe(VIEWPORTS.phone.width);
+	expect((bottomBar?.y ?? 0) + (bottomBar?.height ?? 0)).toBe(
+		VIEWPORTS.phone.height,
+	);
 	const originalHeight = await tab.evaluate(
 		(node) => node.parentElement?.getBoundingClientRect().height,
 	);
@@ -1095,53 +1102,88 @@ test("at 320px full tab labels fit on one line without changing tab bar height, 
 	).toBe(originalHeight);
 });
 
-test("on desktop every tab's label and icon share the tab bar's centre line, in this locale", async ({
+test("desktop navigation is a labelled rail with reachable destinations and visible keyboard focus, in this locale", async ({
 	page,
 }, testInfo) => {
 	test.skip(
 		page.viewportSize()?.width !== VIEWPORTS.desktop.width,
-		"the label sits beside the icon only from tabBesideIconBreakpoint",
+		"the phone projects cover the unchanged bottom tabs",
 	);
 	await gotoAndSettle(page, OVERVIEW);
-	await page.evaluate(() => document.fonts.ready);
-	const offsets = await page.getByRole("tab").evaluateAll((tabs) =>
-		tabs.map((tab) => {
-			const label = tab.querySelector("[aria-label]");
-			const icon = tab.firstElementChild;
-			const bar = tab.closest('[role="tablist"]');
-			if (!label || !icon || !bar)
-				throw new Error("missing tab label, icon or tab bar");
-			const range = document.createRange();
-			range.selectNodeContents(label);
-			const text = range.getBoundingClientRect();
-			const iconBox = icon.getBoundingClientRect();
-			const barBox = bar.getBoundingClientRect();
-			const centre = (box: DOMRect) => box.top + box.height / 2;
-			return {
-				name: label.textContent,
-				label: centre(text) - centre(barBox),
-				icon: centre(iconBox) - centre(barBox),
-				gap: text.left - iconBox.right,
-			};
-		}),
-	);
-	expect(offsets).toHaveLength(4);
-	for (const offset of offsets) {
-		const where = `${offset.name} (${testInfo.project.name})`;
-		expect(
-			Math.abs(offset.label),
-			`label centre of ${where}`,
-		).toBeLessThanOrEqual(1);
-		expect(
-			Math.abs(offset.icon),
-			`icon centre of ${where}`,
-		).toBeLessThanOrEqual(1);
-		expect(offset.gap, `icon to label gap of ${where}`).toBeCloseTo(
-			space.sm,
-			0,
+	const copy = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
+	for (const width of [compactBreakpoint, 1024, 1440, 2560]) {
+		await page.setViewportSize({ ...VIEWPORTS.desktop, width });
+		const bar = page.getByRole("tablist");
+		await expect(bar).toHaveCount(1);
+		await expect
+			.poll(() =>
+				bar.evaluate((node) => {
+					const box = node.parentElement?.getBoundingClientRect();
+					return box && { x: box.x, width: box.width, height: box.height };
+				}),
+			)
+			.toEqual({ x: 0, width: railWidth, height: VIEWPORTS.desktop.height });
+		await page.evaluate(() => document.fonts.ready);
+		expect(await clippedTabLabels(page), `rail labels at ${width}px`).toEqual(
+			[],
 		);
+		for (const name of [
+			"overview",
+			"projects",
+			"locations",
+			"maintenance",
+		] as const) {
+			const tab = bar.getByRole("tab", { name: copy.tab[name], exact: true });
+			await tab.click();
+			await expect(page).toHaveURL(new RegExp(`/${name}$`));
+			await expect(tab).toHaveAttribute("aria-selected", "true");
+			const box = await tab.boundingBox();
+			expect(box?.width).toBeGreaterThanOrEqual(touchTarget);
+			expect(box?.height).toBeGreaterThanOrEqual(touchTarget);
+			expect(
+				canonicalColor(
+					await tab
+						.getByTestId("navigation-pill")
+						.first()
+						.evaluate((node) => getComputedStyle(node).backgroundColor),
+				),
+			).toBe(themeColor("light", "primaryContainer"));
+			await page.keyboard.press("Tab");
+			await tab.focus();
+			const focus = await tab.evaluate((node) => {
+				const style = getComputedStyle(node);
+				const box = node.getBoundingClientRect();
+				const edge =
+					Number.parseFloat(style.outlineWidth) +
+					Number.parseFloat(style.outlineOffset);
+				let parent = node.parentElement;
+				const clipped: string[] = [];
+				while (parent) {
+					const bounds = parent.getBoundingClientRect();
+					const overflow = getComputedStyle(parent).overflow;
+					if (
+						overflow === "hidden" &&
+						(box.left - edge < bounds.left ||
+							box.right + edge > bounds.right ||
+							box.top - edge < bounds.top ||
+							box.bottom + edge > bounds.bottom)
+					)
+						clipped.push(parent.tagName);
+					parent = parent.parentElement;
+				}
+				return {
+					visible: node.matches(":focus-visible"),
+					width: style.outlineWidth,
+					clipped,
+				};
+			});
+			expect(focus).toEqual({
+				visible: true,
+				width: `${focusRing.width}px`,
+				clipped: [],
+			});
+		}
 	}
-	expect(await clippedTabLabels(page), "tab labels on desktop").toEqual([]);
 });
 
 test("21: at 195px app bars, tabs, list rows and attachment sorting stay readable, locations toolbar stays one line, in this locale", async ({

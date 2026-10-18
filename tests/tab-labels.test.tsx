@@ -6,11 +6,12 @@ import sv from "@/i18n/locales/sv-SE.json";
 import { lightTheme } from "@/theme";
 
 let mockWidth = 195;
+let mockHeight = 844;
 let mockTabs = en.tab;
 
 jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
 	__esModule: true,
-	default: () => ({ width: mockWidth }),
+	default: () => ({ width: mockWidth, height: mockHeight }),
 }));
 jest.mock("react-i18next", () => ({
 	useTranslation: () => ({
@@ -48,7 +49,7 @@ describe.each([
 		["Över\u00adsikt", "Projekt", "Platser", "Under\u00adhåll"],
 	],
 ] as const)("%s tab labels", (_locale, translations, narrowLabels) => {
-	it.each([195, 320, 390])(
+	it.each([195, 320, 390, 720, 1024, 1440, 2560])(
 		"keeps whole words and clean accessible names at %ipx",
 		(width) => {
 			mockWidth = width;
@@ -78,10 +79,33 @@ describe.each([
 					children: full,
 				}) as ReactElement<{ children: string; "aria-label": string }>;
 				expect(label.props.children).toBe(
-					width < 320 ? narrowLabels[index] : full,
+					width < 320 || width >= 720 ? narrowLabels[index] : full,
 				);
 				expect(label.props["aria-label"]).toBe(full);
 			}
 		},
 	);
 });
+
+it.each([
+	[195, 844, "bottom", "below-icon"],
+	[390, 844, "bottom", "below-icon"],
+	[719, 390, "bottom", "beside-icon"],
+	[720, 390, "left", "below-icon"],
+	[1024, 900, "left", "below-icon"],
+	[1440, 900, "left", "below-icon"],
+	[2560, 1440, "left", "below-icon"],
+] as const)(
+	"chooses navigation at %ix%i",
+	(width, height, position, labelPosition) => {
+		mockWidth = width;
+		mockHeight = height;
+		const layout = TabsLayout();
+		const options = layout.props.screenOptions({ route: { name: "overview" } });
+		expect(options.tabBarPosition).toBe(position);
+		expect(options.tabBarVariant).toBe(
+			position === "left" ? "material" : "uikit",
+		);
+		expect(options.tabBarLabelPosition).toBe(labelPosition);
+	},
+);

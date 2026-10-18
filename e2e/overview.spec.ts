@@ -130,9 +130,9 @@ test("1: the app opens on Overview, and Overview is the first tab", async ({
 		.waitFor({ state: "visible", timeout: 30_000 });
 	expect(new URL(page.url()).pathname).toBe("/overview");
 
-	await expect(page.getByRole("tab").first()).toHaveAccessibleName(
-		new RegExp(enUS.tab.overview),
-	);
+	await expect(
+		page.getByRole("tablist").getByRole("tab").first(),
+	).toHaveAccessibleName(new RegExp(enUS.tab.overview));
 });
 
 test("2: a missing config seeds the seven cards once, and a seed removed in the app never returns", async ({
