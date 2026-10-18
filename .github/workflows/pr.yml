@@ -19,7 +19,8 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 22.x
+          # @firebase/rules-unit-testing 6 requires Node >= 24.12.0.
+          node-version: 24.x
 
       # The Firestore and Storage emulators are Java processes, and
       # firebase-tools 15 refuses to launch them on anything below JDK 21.
