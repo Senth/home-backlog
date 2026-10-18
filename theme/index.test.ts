@@ -1,4 +1,4 @@
-import { contrast, fillFloor, parseHex } from "@/models/label-color";
+import { contrast, fillFloor, onFloor, parseHex } from "@/models/label-color";
 import { darkTheme, type LabelHueName, labelHues, lightTheme } from "@/theme";
 
 /**
@@ -70,5 +70,40 @@ describe("the board ramp's card-over-column separation", () => {
 				parseHex(theme.colors.boardColumn),
 			),
 		).toBeGreaterThanOrEqual(1.4);
+	});
+});
+
+const lightTextRoles = [
+	["primary", lightTheme.colors.primary],
+	["warning", lightTheme.colors.warning],
+	["success", lightTheme.colors.success],
+	["error", lightTheme.colors.error],
+	["onSurface", lightTheme.colors.onSurface],
+	["onSurfaceVariant", lightTheme.colors.onSurfaceVariant],
+	["onCardMuted", lightTheme.colors.onCardMuted],
+] as const;
+
+const lightTextSurfaces = [
+	["background", lightTheme.colors.background],
+	["boardCard", lightTheme.colors.boardCard],
+	["elevation.level1", lightTheme.colors.elevation.level1],
+	["elevation.level2", lightTheme.colors.elevation.level2],
+	["elevation.level3", lightTheme.colors.elevation.level3],
+] as const;
+
+describe("light text roles against every surface", () => {
+	it.each(
+		lightTextRoles.flatMap(([role, textColor]) =>
+			lightTextSurfaces.map(([surface, surfaceColor]) => ({
+				role,
+				textColor,
+				surface,
+				surfaceColor,
+			})),
+		),
+	)("$role clears 4.5:1 against $surface", ({ textColor, surfaceColor }) => {
+		expect(
+			contrast(parseHex(textColor), parseHex(surfaceColor)),
+		).toBeGreaterThanOrEqual(onFloor);
 	});
 });
