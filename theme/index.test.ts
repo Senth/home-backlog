@@ -1,5 +1,12 @@
 import { readFileSync } from "node:fs";
-import { contrast, fillFloor, onFloor, parseHex } from "@/models/label-color";
+import {
+	contrast,
+	fillFloor,
+	isHexColor,
+	onFloor,
+	parseHex,
+	type Rgb,
+} from "@/models/label-color";
 import {
 	darkTheme,
 	type LabelHueName,
@@ -98,6 +105,30 @@ const lightTextSurfaces = [
 	["elevation.level3", lightTheme.colors.elevation.level3],
 ] as const;
 
+function parseThemeColor(color: string): Rgb {
+	const normalized = color.trim();
+	if (isHexColor(normalized)) return parseHex(normalized);
+
+	const rgba =
+		/^rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d+(?:\.\d+)?)\s*\)$/i.exec(
+			normalized,
+		);
+	if (rgba) {
+		const [red, green, blue, alpha] = rgba.slice(1).map(Number);
+		if (alpha === 1 && [red, green, blue].every((channel) => channel <= 255)) {
+			return [red, green, blue];
+		}
+	}
+
+	throw new Error(`Unsupported color format: ${color}`);
+}
+
+function expectTextContrast(textColor: string, surfaceColor: string) {
+	expect(
+		contrast(parseThemeColor(textColor), parseThemeColor(surfaceColor)),
+	).toBeGreaterThanOrEqual(onFloor);
+}
+
 describe("light text roles against every surface", () => {
 	it.each(
 		lightTextRoles.flatMap(([role, textColor]) =>
@@ -109,9 +140,22 @@ describe("light text roles against every surface", () => {
 			})),
 		),
 	)("$role clears 4.5:1 against $surface", ({ textColor, surfaceColor }) => {
-		expect(
-			contrast(parseHex(textColor), parseHex(surfaceColor)),
-		).toBeGreaterThanOrEqual(onFloor);
+		expectTextContrast(textColor, surfaceColor);
+	});
+
+	it("rejects low-contrast rgba text against elevation.level3", () => {
+		expect(() =>
+			expectTextContrast(
+				"rgba(230, 235, 230, 1)",
+				lightTheme.colors.elevation.level3,
+			),
+		).toThrow();
+	});
+
+	it("rejects unsupported color formats", () => {
+		expect(() => parseThemeColor("rgba(230, 235, 230, 0.5)")).toThrow(
+			"Unsupported color format: rgba(230, 235, 230, 0.5)",
+		);
 	});
 });
 
