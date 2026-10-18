@@ -68,6 +68,7 @@ interface BoardColumnProps {
 	onAdd: () => void;
 	onOpen: (node: Node, event: GestureResponderEvent) => void;
 	selectedIds: readonly string[];
+	openDetailsId?: string | null;
 	/** The card's overflow menu, which the board owns because the actions do. */
 	renderMenu?: (node: Node) => ReactNode;
 	/**
@@ -124,6 +125,7 @@ export function BoardColumn({
 	onAdd,
 	onOpen,
 	selectedIds,
+	openDetailsId,
 	renderMenu,
 	drag,
 	blockers,
@@ -369,6 +371,7 @@ export function BoardColumn({
 										node={node}
 										onOpen={(event) => onOpen(node, event)}
 										selected={selectedIds.includes(node.id)}
+										openDetails={openDetailsId === node.id}
 										menu={renderMenu?.(node)}
 										wide={wide}
 										onColumn={wide}
@@ -385,6 +388,7 @@ export function BoardColumn({
 											node={node}
 											onOpen={(event) => onOpen(node, event)}
 											selected={selectedIds.includes(node.id)}
+											openDetails={openDetailsId === node.id}
 											menu={renderMenu?.(node)}
 											wide={wide}
 											onColumn={wide}

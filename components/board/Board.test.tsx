@@ -4,10 +4,10 @@ import type { ComponentProps } from "react";
 import { Provider, Snackbar, TextInput } from "react-native-paper";
 // Paper's Snackbar reads the safe-area insets its provider carries.
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import type { ReactTestInstance } from "react-test-renderer";
 import { Board } from "@/components/board/Board";
 import { BoardColumn } from "@/components/board/BoardColumn";
 import { CardMenu } from "@/components/board/CardMenu";
+import { DetailsPane } from "@/components/node/DetailsPane";
 import type { OutboxIntent } from "@/data/outbox-store";
 
 let mockIntents: OutboxIntent[] = [];
@@ -74,9 +74,13 @@ jest.mock("@/contexts/HomeContext", () => ({
 }));
 
 const mockPush = jest.fn();
+const mockSetParams = jest.fn();
+let mockSearchParams: { card?: string } = {};
 jest.mock("expo-router", () => ({
-	useRouter: () => ({ push: mockPush }),
+	useRouter: () => ({ push: mockPush, setParams: mockSetParams }),
+	useLocalSearchParams: () => mockSearchParams,
 }));
+jest.mock("@/components/node/DetailsPane", () => ({ DetailsPane: () => null }));
 jest.mock("@react-navigation/native", () => ({
 	useIsFocused: () => true,
 }));
@@ -235,9 +239,7 @@ function renderBoard(props: TestBoardProps) {
 	// carries `onLayout` — not the providers around it.
 	const boardView = utils
 		.UNSAFE_getByType(Board)
-		.children.find(
-			(child): child is ReactTestInstance => typeof child !== "string",
-		);
+		.find((child) => child.props.collapsable === false && child.props.onLayout);
 	if (!boardView) throw new Error("Board rendered no root view");
 	fireEvent(boardView, "layout", {
 		nativeEvent: { layout: { width: props.viewport } },
@@ -261,6 +263,46 @@ function measureAnchors() {
 }
 
 describe("Board", () => {
+	it.each([390, 720, 1440, 1920])(
+		"opens details using the phone route or current board query at %ipx",
+		(viewport) => {
+			const card = node("backlog");
+			renderBoard({ loading: false, viewport, nodes: [card] });
+			fireEvent.press(screen.getByText(card.title));
+			if (viewport < 720) {
+				expect(mockPush).toHaveBeenCalledWith({
+					pathname: "/projects/[nodeId]/details",
+					params: { nodeId: card.id },
+				});
+				expect(mockSetParams).not.toHaveBeenCalled();
+			} else {
+				expect(mockPush).not.toHaveBeenCalled();
+				expect(mockSetParams).toHaveBeenCalledWith({ card: card.id });
+			}
+		},
+	);
+
+	it("opens project details from its menu, switches cards, closes, and clears details before drilling in", () => {
+		mockSearchParams = { card: "other-card" };
+		const project = { ...node("backlog"), childCount: 1 };
+		renderBoard({ loading: false, viewport: 1920, nodes: [project] });
+		const pane = screen.UNSAFE_getByType(DetailsPane);
+		expect(pane.props.nodeId).toBe("other-card");
+		act(() => screen.UNSAFE_getAllByType(CardMenu)[0].props.onDetails());
+		expect(mockSetParams).toHaveBeenLastCalledWith({ card: project.id });
+		act(() => pane.props.onOpenNode("third-card"));
+		expect(mockSetParams).toHaveBeenLastCalledWith({ card: "third-card" });
+		act(() => pane.props.onClose());
+		expect(mockSetParams).toHaveBeenLastCalledWith({ card: undefined });
+		fireEvent.press(screen.getByText(project.title));
+		expect(mockSetParams).toHaveBeenLastCalledWith({ card: undefined });
+		expect(mockPush).toHaveBeenCalledWith({
+			pathname: "/projects/[nodeId]",
+			params: { nodeId: project.id },
+		});
+		mockSearchParams = {};
+	});
+
 	it.each([false, true])(
 		"keeps an interleaved participant-hidden sibling in displayed order for range selection and drag with filter=%s",
 		async (filtered) => {
@@ -377,6 +419,7 @@ describe("Board", () => {
 	beforeEach(() => {
 		mockIntents = [];
 		mockFeedbackVisible = false;
+		mockSearchParams = {};
 	});
 
 	it.each(["ctrlKey", "metaKey"])(
@@ -405,7 +448,7 @@ describe("Board", () => {
 				).toBeOnTheScreen();
 				fireEvent.press(screen.getByLabelText("board.stopSelecting"));
 				fireEvent.press(screen.getByText("Fix the gutter"));
-				expect(mockPush).toHaveBeenCalled();
+				expect(mockSetParams).toHaveBeenCalledWith({ card: "node-backlog" });
 			} finally {
 				jest.restoreAllMocks();
 			}
@@ -625,7 +668,7 @@ describe("Board", () => {
 			fireEvent.press(screen.getByText("Fix the gutter"), {
 				nativeEvent: { ctrlKey: true },
 			});
-			expect(mockPush).toHaveBeenCalled();
+			expect(mockSetParams).toHaveBeenCalledWith({ card: "node-backlog" });
 			expect(screen.queryByLabelText(/^board.selectedCardA11y:/)).toBeNull();
 		} finally {
 			jest.restoreAllMocks();

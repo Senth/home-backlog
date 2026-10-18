@@ -13,6 +13,7 @@ import {
 	ActivityIndicator,
 	Appbar,
 	Divider,
+	IconButton,
 	Menu,
 	Snackbar,
 	Text,
@@ -89,11 +90,15 @@ export function DetailsView({
 	width,
 	onClose,
 	onOpenNode,
+	onOpenBoard,
+	presentation = "page",
 }: {
 	nodeId: string;
 	width: number;
 	onClose?: () => void;
 	onOpenNode: (nodeId: string) => void;
+	onOpenBoard?: (nodeId: string | null) => void;
+	presentation?: "page" | "pane";
 }) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
@@ -241,7 +246,11 @@ export function DetailsView({
 					key="steps"
 					homeId={homeId}
 					node={current}
-					onOpenBoard={() => router.push(boardHref(current.id))}
+					onOpenBoard={() =>
+						onOpenBoard
+							? onOpenBoard(current.id)
+							: router.push(boardHref(current.id))
+					}
 				/>
 			),
 			<DetailRow
@@ -415,6 +424,33 @@ export function DetailsView({
 	if (id === null) return null;
 	const rows = node === null ? [] : rowsOf(node);
 	const steps = layout.split ? rows.shift() : null;
+	const menu =
+		node === null ? null : (
+			<AppMenu
+				visible={menuOpen}
+				onDismiss={closeMenu}
+				overlayAccessibilityLabel={t("common.closeMenu")}
+				anchor={
+					<View ref={menuAnchor}>
+						<Appbar.Action
+							style={touchTargetStyle}
+							icon="dots-vertical"
+							accessibilityLabel={t("board.actions")}
+							onPress={() => setMenuOpen(true)}
+						/>
+					</View>
+				}
+			>
+				<Menu.Item
+					leadingIcon="pencil-outline"
+					title={t("board.rename")}
+					onPress={() => {
+						closeMenu();
+						setRenaming(true);
+					}}
+				/>
+			</AppMenu>
+		);
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -426,50 +462,51 @@ export function DetailsView({
 			{/* The bar names the screen, not the card — the card face below is
 			    where the card says its own name, and repeating it here left a
 			    long title with nowhere to go (#237, the settled mock). */}
-			<AppHeader
-				title={t("detail.title")}
-				leading={
-					<BackAction
-						accessibilityLabel={t("board.up")}
-						onPress={
-							onClose ??
-							(() => goBack(boardHref(node?.parentId ?? null), "dismissTo"))
-						}
-					/>
-				}
-				// The card is the screen's subject, and the face at the top of the
-				// scroll is where it says so (#237): the bar merges into the page
-				// instead of drawing a band of its own above it. `transparent`
-				// names an absence, and no palette entry could replace it.
-				style={{ backgroundColor: "transparent" }}
-			>
-				{node === null ? null : (
-					<AppMenu
-						visible={menuOpen}
-						onDismiss={closeMenu}
-						overlayAccessibilityLabel={t("common.closeMenu")}
-						anchor={
-							<View ref={menuAnchor}>
-								<Appbar.Action
-									style={touchTargetStyle}
-									icon="dots-vertical"
-									accessibilityLabel={t("board.actions")}
-									onPress={() => setMenuOpen(true)}
-								/>
-							</View>
-						}
+			{presentation === "pane" ? (
+				<View
+					style={{
+						flexDirection: "row",
+						alignItems: "center",
+						padding: space.sm,
+						gap: space.sm,
+					}}
+				>
+					<Text
+						variant="titleMedium"
+						accessibilityRole="header"
+						style={{ flex: 1 }}
 					>
-						<Menu.Item
-							leadingIcon="pencil-outline"
-							title={t("board.rename")}
-							onPress={() => {
-								closeMenu();
-								setRenaming(true);
-							}}
+						{t("detail.title")}
+					</Text>
+					{menu}
+					<IconButton
+						icon="close"
+						accessibilityLabel={t("detail.close")}
+						onPress={onClose}
+						style={touchTargetStyle}
+					/>
+				</View>
+			) : (
+				<AppHeader
+					title={t("detail.title")}
+					leading={
+						<BackAction
+							accessibilityLabel={t("board.up")}
+							onPress={
+								onClose ??
+								(() => goBack(boardHref(node?.parentId ?? null), "dismissTo"))
+							}
 						/>
-					</AppMenu>
-				)}
-			</AppHeader>
+					}
+					// The card is the screen's subject, and the face at the top of the
+					// scroll is where it says so (#237): the bar merges into the page
+					// instead of drawing a band of its own above it. `transparent`
+					// names an absence, and no palette entry could replace it.
+					style={{ backgroundColor: "transparent" }}
+				>
+					{menu}
+				</AppHeader>
+			)}
 
 			{/* Mounted only while open — see `CardMenu`'s identical dialog. */}
 			{renaming && node !== null ? (
@@ -523,7 +560,9 @@ export function DetailsView({
 									locations={locationsById}
 									onRename={() => setRenaming(true)}
 									onOpenCrumb={(crumbId) =>
-										router.dismissTo(boardHref(crumbId))
+										onOpenBoard
+											? onOpenBoard(crumbId)
+											: router.dismissTo(boardHref(crumbId))
 									}
 								/>
 							)}

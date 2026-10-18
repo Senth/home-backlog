@@ -1,8 +1,14 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { useWindowDimensions } from "react-native";
-import { detailsHref } from "@/components/board/board-href";
+import {
+	boardHref,
+	detailsCardId,
+	detailsHref,
+} from "@/components/board/board-href";
 import { DetailsView } from "@/components/node/DetailsView";
-import { contentWidth } from "@/theme/tokens";
+import { useHome } from "@/contexts/HomeContext";
+import { useNode } from "@/hooks/use-node";
+import { compactBreakpoint, contentWidth } from "@/theme/tokens";
 
 function closeToLocations() {
 	router.dismissTo("/projects");
@@ -15,6 +21,8 @@ export default function NodeDetails() {
 		from?: string;
 	}>();
 	const { width } = useWindowDimensions();
+	if (width >= compactBreakpoint)
+		return <DesktopDetailsRedirect nodeId={nodeId} />;
 
 	return (
 		<DetailsView
@@ -25,4 +33,13 @@ export default function NodeDetails() {
 			onOpenNode={(id) => router.push(detailsHref(id))}
 		/>
 	);
+}
+
+function DesktopDetailsRedirect({ nodeId }: { nodeId: string }) {
+	const { activeHome } = useHome();
+	const id = detailsCardId(nodeId);
+	const { node, gone } = useNode(activeHome?.id ?? null, id);
+	if (id === null || gone) return <Redirect href={boardHref(null)} />;
+	if (node === null) return null;
+	return <Redirect href={boardHref(node.parentId, node.id)} />;
 }
