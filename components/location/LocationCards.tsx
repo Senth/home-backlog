@@ -97,16 +97,20 @@ export function LocationCards({
 							// The card sits inside the very place's row; the footer
 							// saying the place's name again is the row twice.
 							hideLocation
-							onOpen={() =>
-								router.push(
-									hasSteps(node)
-										? boardHref(node.id)
-										: {
-												pathname: "/projects/[nodeId]/details",
-												params: { nodeId: node.id, from: "locations" },
-											},
-								)
-							}
+							onOpen={() => {
+								if (hasSteps(node)) {
+									if (width >= compactBreakpoint)
+										router.setParams({ card: undefined });
+									router.push(boardHref(node.id));
+								} else if (width >= compactBreakpoint) {
+									router.setParams({ card: node.id });
+								} else {
+									router.push({
+										pathname: "/projects/[nodeId]/details",
+										params: { nodeId: node.id, from: "locations" },
+									});
+								}
+							}}
 						/>
 					</View>
 				))}

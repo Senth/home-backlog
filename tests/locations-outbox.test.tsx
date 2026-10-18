@@ -79,6 +79,7 @@ jest.mock("@/components/ui/BackAction", () => ({ BackAction: () => null }));
 jest.mock("@/components/location/LocationDialog", () => ({
 	LocationDialog: () => null,
 }));
+jest.mock("@/components/node/DetailsPane", () => ({ DetailsPane: () => null }));
 jest.mock("@/components/location/use-location-drag", () => ({
 	screenKey: "screen",
 	useLocationDrag: jest.fn(() => ({
@@ -91,7 +92,10 @@ jest.mock("@/components/location/use-location-drag", () => ({
 jest.mock("@react-navigation/native", () => ({
 	useNavigation: () => ({ addListener: jest.fn(() => jest.fn()) }),
 }));
-jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
+jest.mock("expo-router", () => ({
+	useRouter: () => ({ push: jest.fn(), setParams: jest.fn() }),
+	useLocalSearchParams: () => ({}),
+}));
 jest.mock("react-i18next", () => ({
 	useTranslation: () => ({
 		t: (key: string, values?: Record<string, unknown>) =>

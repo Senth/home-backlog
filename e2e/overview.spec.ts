@@ -479,7 +479,7 @@ test("9: going back after opening a card from Overview returns to Overview", asy
 	// shows five rows and the seed's own taskless steps already fill it, so a
 	// fifth+ row hides behind "+N more". A childless execution root is on the
 	// ongoing card with room to spare, and its tap still opens details.
-	await createFixtureNode({
+	const detailsId = await createFixtureNode({
 		title: detailsTitle,
 		parentId: null,
 		ancestorIds: [],
@@ -507,10 +507,32 @@ test("9: going back after opening a card from Overview returns to Overview", asy
 		timeout: 30_000,
 	});
 
-	// The second arm: the card without steps, whose tap opens details.
+	// The second arm: the card without steps, whose tap opens details in place
+	// on desktop and keeps the page route on a phone.
+	await page.setViewportSize({ width: 1920, height: 1080 });
 	await gotoOverview(page);
 	await ongoing.locator(CARD, { hasText: detailsTitle }).click();
-	await page.waitForURL(/\/projects\/[^/]+\/details$/, { timeout: 30_000 });
+	await page.waitForURL(
+		(url) =>
+			url.pathname === "/overview" &&
+			url.searchParams.get("card") === detailsId,
+		{ timeout: 30_000 },
+	);
+	const pane = page.getByTestId("details-pane");
+	await expect(pane.getByTestId(`field-priority-${detailsId}`)).toBeVisible();
+	await expect.poll(async () => (await pane.boundingBox())?.width).toBe(400);
+
+	await page.setViewportSize({ width: 1440, height: 1080 });
+	await expect(pane.getByTestId(`field-priority-${detailsId}`)).toBeVisible();
+	await expect.poll(async () => (await pane.boundingBox())?.width).toBe(400);
+	await page.keyboard.press("Escape");
+	await page.waitForURL((url) => url.pathname === "/overview");
+	await expect(pane).toBeHidden();
+
+	await page.setViewportSize({ width: 390, height: 844 });
+	await gotoOverview(page);
+	await ongoing.locator(CARD, { hasText: detailsTitle }).click();
+	await page.waitForURL(`/projects/${detailsId}/details`, { timeout: 30_000 });
 	await page.getByRole("button", { name: enUS.board.up }).click();
 	await page.waitForURL((url) => url.pathname === "/overview", {
 		timeout: 30_000,

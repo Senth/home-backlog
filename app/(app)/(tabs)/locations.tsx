@@ -1,5 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
 	type Ref,
 	useCallback,
@@ -24,6 +24,7 @@ import {
 	Text,
 } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
+import { boardHref, detailsCardId } from "@/components/board/board-href";
 import { LocationDialog } from "@/components/location/LocationDialog";
 import {
 	LocationDragOverlay,
@@ -33,6 +34,7 @@ import {
 	screenKey,
 	useLocationDrag,
 } from "@/components/location/use-location-drag";
+import { DetailsPane } from "@/components/node/DetailsPane";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { AppMenu } from "@/components/ui/AppMenu";
 import { BackAction } from "@/components/ui/BackAction";
@@ -48,6 +50,7 @@ import { useEscapeCancel } from "@/hooks/use-escape-cancel";
 import { useLocationCounts } from "@/hooks/use-location-counts";
 import { useLocations } from "@/hooks/use-locations";
 import { locationFilter } from "@/models/board-filter";
+import { desktopLayout } from "@/models/desktop-layout";
 import { dropHint } from "@/models/location-drag";
 import {
 	beginMove,
@@ -57,7 +60,7 @@ import {
 	selectDestination,
 } from "@/models/location-move";
 import { childLocations, type Location } from "@/models/locations";
-import { rankAtEnd } from "@/models/node";
+import { defaultColumns, rankAtEnd } from "@/models/node";
 import { projectLocations } from "@/models/outbox";
 import { useAppTheme } from "@/theme";
 import {
@@ -96,8 +99,16 @@ export default function Locations() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const router = useRouter();
+	const { card } = useLocalSearchParams<{ card?: string | string[] }>();
 	const { activeHome } = useHome();
 	const { width } = useWindowDimensions();
+	const layout = desktopLayout({
+		windowWidth: width,
+		columnCount: defaultColumns.length,
+		screen: "flow",
+	});
+	const cardId = detailsCardId(card);
+	const showDetails = layout.nav === "rail" && cardId !== null;
 	const { intents, submit, undo } = useOutbox();
 
 	const homeId = activeHome?.id ?? null;
@@ -199,6 +210,22 @@ export default function Locations() {
 			return next;
 		});
 	};
+
+	const closeDetails = useCallback(
+		() => router.setParams({ card: undefined }),
+		[router],
+	);
+	const openDetails = useCallback(
+		(id: string) => router.setParams({ card: id }),
+		[router],
+	);
+	const openBoard = useCallback(
+		(id: string | null) => {
+			if (showDetails) closeDetails();
+			router.push(boardHref(id));
+		},
+		[closeDetails, router, showDetails],
+	);
 
 	const collapseAll = () => {
 		setCollapsed(
@@ -305,261 +332,276 @@ export default function Locations() {
 				<AccountMenu />
 			</AppHeader>
 
-			<SlimScrollView
-				testID="locations-scroll"
-				contentContainerStyle={{
-					padding: width < compactBreakpoint ? gutter.compact : gutter.wide,
-					paddingBottom: rail && !moveActive ? space.md : fabInset,
-					alignSelf: "center",
-					width: "100%",
-					maxWidth: contentWidth.tree,
-				}}
-			>
-				{loading ? (
-					<ActivityIndicator
-						accessibilityLabel={t("common.loading")}
-						style={{ marginTop: space.xl }}
-					/>
-				) : null}
+			<View style={{ flex: 1, flexDirection: "row", position: "relative" }}>
+				<SlimScrollView
+					style={{ flex: 1 }}
+					testID="locations-scroll"
+					contentContainerStyle={{
+						padding: width < compactBreakpoint ? gutter.compact : gutter.wide,
+						paddingBottom: rail && !moveActive ? space.md : fabInset,
+						alignSelf: "center",
+						width: "100%",
+						maxWidth: contentWidth.tree,
+					}}
+				>
+					{loading ? (
+						<ActivityIndicator
+							accessibilityLabel={t("common.loading")}
+							style={{ marginTop: space.xl }}
+						/>
+					) : null}
 
-				{/* Said instead of the empty state, never next to it: "add the
+					{/* Said instead of the empty state, never next to it: "add the
 				    places around your home" and "could not load" are contradictory
 				    instructions, and only one of them is true. */}
-				{failed ? (
-					<View style={{ gap: space.md, paddingVertical: space.lg }}>
-						<Text
-							variant="bodyLarge"
-							style={{
-								color: theme.colors.onSurfaceVariant,
-								textAlign: "center",
-							}}
-						>
-							{t("screen.locations.loadFailed")}
-						</Text>
-						<Button
-							mode="contained-tonal"
-							icon="refresh"
-							onPress={retry}
-							contentStyle={{ minHeight: touchTarget }}
-						>
-							{t("common.retry")}
-						</Button>
-					</View>
-				) : null}
-
-				{/* The homes screen's empty-state-onboarding: what the places are
-				    for, and the one create control. The FAB stands down while this
-				    is up — one primary action per surface. */}
-				{empty ? (
-					<View
-						style={{
-							alignItems: "center",
-							gap: space.md,
-							paddingVertical: space.xl,
-						}}
-					>
-						<Text variant="titleMedium">{t("locations.emptyTitle")}</Text>
-						<Text
-							variant="bodyLarge"
-							style={{
-								color: theme.colors.onSurfaceVariant,
-								textAlign: "center",
-							}}
-						>
-							{t("locations.emptyBody")}
-						</Text>
-						{!rail ? (
-							<Button
-								ref={openerRef as Ref<typeof View>}
-								mode="contained"
-								icon="plus"
-								onPress={openAdd}
-								contentStyle={{ minHeight: touchTarget }}
-							>
-								{t("locations.add")}
-							</Button>
-						) : null}
-					</View>
-				) : null}
-
-				{/* The control row: the tree's two disclosures in one place, so
-				    a deep tree never needs a walk to tidy; the cards toggle rides
-				    beside them. Session-only, like the collapsed set itself. */}
-				{showTree || pendingCount > 0 ? (
-					<View
-						style={{
-							flexDirection: "row",
-							flexWrap: "wrap",
-							gap: space.sm,
-							marginBottom: space.md,
-						}}
-					>
-						{showTree && width < denseBreakpoint ? (
-							<AppMenu
-								visible={viewMenuOpen}
-								onDismiss={() => setViewMenuOpen(false)}
-								overlayAccessibilityLabel={t("common.closeMenu")}
-								anchor={
-									<Button
-										mode="outlined"
-										icon="tune-variant"
-										onPress={() => setViewMenuOpen(true)}
-										contentStyle={{ minHeight: touchTarget }}
-									>
-										{t("locations.view")}
-									</Button>
-								}
-							>
-								<Menu.Item
-									leadingIcon="unfold-less-horizontal"
-									title={t("locations.collapseAll")}
-									onPress={() => {
-										setViewMenuOpen(false);
-										collapseAll();
-									}}
-								/>
-								<Menu.Item
-									leadingIcon="unfold-more-horizontal"
-									title={t("locations.expandAll")}
-									onPress={() => {
-										setViewMenuOpen(false);
-										expandAll();
-									}}
-								/>
-								<Menu.Item
-									leadingIcon={cardsOpen ? "eye-off-outline" : "eye-outline"}
-									title={t(
-										cardsOpen ? "locations.hideCards" : "locations.showCards",
-									)}
-									onPress={() => {
-										setViewMenuOpen(false);
-										setCardsOpen((open) => !open);
-									}}
-								/>
-							</AppMenu>
-						) : showTree ? (
-							<>
-								<Button
-									mode="outlined"
-									icon="unfold-less-horizontal"
-									onPress={collapseAll}
-									// The row wraps below the phone's width, and a wrapped line
-									// starts at the same left edge as the one above it — buttons
-									// that stretch to the row's rhythm keep their edges exactly
-									// on each other's instead of a fraction of a pixel off.
-									style={{ flexGrow: 1 }}
-									contentStyle={{ minHeight: touchTarget }}
-								>
-									{t("locations.collapseAll")}
-								</Button>
-								<Button
-									mode="outlined"
-									icon="unfold-more-horizontal"
-									onPress={expandAll}
-									style={{ flexGrow: 1 }}
-									contentStyle={{ minHeight: touchTarget }}
-								>
-									{t("locations.expandAll")}
-								</Button>
-								<Button
-									mode="outlined"
-									icon={cardsOpen ? "eye-off-outline" : "eye-outline"}
-									onPress={() => setCardsOpen((open) => !open)}
-									accessibilityRole="button"
-									style={{ flexGrow: 1 }}
-									contentStyle={{ minHeight: touchTarget }}
-								>
-									{t(cardsOpen ? "locations.hideCards" : "locations.showCards")}
-								</Button>
-							</>
-						) : null}
-						{pendingCount > 0 ? (
+					{failed ? (
+						<View style={{ gap: space.md, paddingVertical: space.lg }}>
 							<Text
-								variant="bodySmall"
+								variant="bodyLarge"
 								style={{
 									color: theme.colors.onSurfaceVariant,
-									alignSelf: "center",
+									textAlign: "center",
 								}}
 							>
-								{t("outbox.pendingChanges", { count: pendingCount })}
+								{t("screen.locations.loadFailed")}
 							</Text>
-						) : null}
-					</View>
-				) : null}
+							<Button
+								mode="contained-tonal"
+								icon="refresh"
+								onPress={retry}
+								contentStyle={{ minHeight: touchTarget }}
+							>
+								{t("common.retry")}
+							</Button>
+						</View>
+					) : null}
 
-				{/* The mode's synthetic row, pinned above the tree and visible only
+					{/* The homes screen's empty-state-onboarding: what the places are
+				    for, and the one create control. The FAB stands down while this
+				    is up — one primary action per surface. */}
+					{empty ? (
+						<View
+							style={{
+								alignItems: "center",
+								gap: space.md,
+								paddingVertical: space.xl,
+							}}
+						>
+							<Text variant="titleMedium">{t("locations.emptyTitle")}</Text>
+							<Text
+								variant="bodyLarge"
+								style={{
+									color: theme.colors.onSurfaceVariant,
+									textAlign: "center",
+								}}
+							>
+								{t("locations.emptyBody")}
+							</Text>
+							{!rail ? (
+								<Button
+									ref={openerRef as Ref<typeof View>}
+									mode="contained"
+									icon="plus"
+									onPress={openAdd}
+									contentStyle={{ minHeight: touchTarget }}
+								>
+									{t("locations.add")}
+								</Button>
+							) : null}
+						</View>
+					) : null}
+
+					{/* The control row: the tree's two disclosures in one place, so
+				    a deep tree never needs a walk to tidy; the cards toggle rides
+				    beside them. Session-only, like the collapsed set itself. */}
+					{showTree || pendingCount > 0 ? (
+						<View
+							style={{
+								flexDirection: "row",
+								flexWrap: "wrap",
+								gap: space.sm,
+								marginBottom: space.md,
+							}}
+						>
+							{showTree && width < denseBreakpoint ? (
+								<AppMenu
+									visible={viewMenuOpen}
+									onDismiss={() => setViewMenuOpen(false)}
+									overlayAccessibilityLabel={t("common.closeMenu")}
+									anchor={
+										<Button
+											mode="outlined"
+											icon="tune-variant"
+											onPress={() => setViewMenuOpen(true)}
+											contentStyle={{ minHeight: touchTarget }}
+										>
+											{t("locations.view")}
+										</Button>
+									}
+								>
+									<Menu.Item
+										leadingIcon="unfold-less-horizontal"
+										title={t("locations.collapseAll")}
+										onPress={() => {
+											setViewMenuOpen(false);
+											collapseAll();
+										}}
+									/>
+									<Menu.Item
+										leadingIcon="unfold-more-horizontal"
+										title={t("locations.expandAll")}
+										onPress={() => {
+											setViewMenuOpen(false);
+											expandAll();
+										}}
+									/>
+									<Menu.Item
+										leadingIcon={cardsOpen ? "eye-off-outline" : "eye-outline"}
+										title={t(
+											cardsOpen ? "locations.hideCards" : "locations.showCards",
+										)}
+										onPress={() => {
+											setViewMenuOpen(false);
+											setCardsOpen((open) => !open);
+										}}
+									/>
+								</AppMenu>
+							) : showTree ? (
+								<>
+									<Button
+										mode="outlined"
+										icon="unfold-less-horizontal"
+										onPress={collapseAll}
+										// The row wraps below the phone's width, and a wrapped line
+										// starts at the same left edge as the one above it — buttons
+										// that stretch to the row's rhythm keep their edges exactly
+										// on each other's instead of a fraction of a pixel off.
+										style={{ flexGrow: 1 }}
+										contentStyle={{ minHeight: touchTarget }}
+									>
+										{t("locations.collapseAll")}
+									</Button>
+									<Button
+										mode="outlined"
+										icon="unfold-more-horizontal"
+										onPress={expandAll}
+										style={{ flexGrow: 1 }}
+										contentStyle={{ minHeight: touchTarget }}
+									>
+										{t("locations.expandAll")}
+									</Button>
+									<Button
+										mode="outlined"
+										icon={cardsOpen ? "eye-off-outline" : "eye-outline"}
+										onPress={() => setCardsOpen((open) => !open)}
+										accessibilityRole="button"
+										style={{ flexGrow: 1 }}
+										contentStyle={{ minHeight: touchTarget }}
+									>
+										{t(
+											cardsOpen ? "locations.hideCards" : "locations.showCards",
+										)}
+									</Button>
+								</>
+							) : null}
+							{pendingCount > 0 ? (
+								<Text
+									variant="bodySmall"
+									style={{
+										color: theme.colors.onSurfaceVariant,
+										alignSelf: "center",
+									}}
+								>
+									{t("outbox.pendingChanges", { count: pendingCount })}
+								</Text>
+							) : null}
+						</View>
+					) : null}
+
+					{/* The mode's synthetic row, pinned above the tree and visible only
 				    during a move (Q14): every destination, the top level included,
 				    is then one list. Refused is impossible here — the top level is
 				    no place's subtree. */}
-				{moveActive ? (
-					<Pressable
-						accessible
-						accessibilityRole="button"
-						accessibilityLabel={t("locations.moveUnderTop")}
-						accessibilityState={{
-							selected: move.phase === "confirm" && move.parent === null,
-						}}
-						onPress={() => setMove(selectDestination(move, null))}
-						style={{
-							flexDirection: "row",
-							alignItems: "center",
-							gap: space.sm,
-							minHeight: touchTarget,
-							marginBottom: space.sm,
-							paddingHorizontal: space.sm,
-							borderRadius: radius.md,
-							borderWidth: border.hairline,
-							borderColor:
-								move.phase === "confirm" && move.parent === null
-									? theme.colors.primary
-									: theme.colors.outlineVariant,
-						}}
-					>
-						<Icon
-							source="home-variant-outline"
-							size={icon.md}
-							color={theme.colors.onSurfaceVariant}
-						/>
-						<Text variant="bodyLarge" style={{ flex: 1 }}>
-							{t("locations.moveUnderTop")}
-						</Text>
-						{move.phase === "confirm" && move.parent === null ? (
+					{moveActive ? (
+						<Pressable
+							accessible
+							accessibilityRole="button"
+							accessibilityLabel={t("locations.moveUnderTop")}
+							accessibilityState={{
+								selected: move.phase === "confirm" && move.parent === null,
+							}}
+							onPress={() => setMove(selectDestination(move, null))}
+							style={{
+								flexDirection: "row",
+								alignItems: "center",
+								gap: space.sm,
+								minHeight: touchTarget,
+								marginBottom: space.sm,
+								paddingHorizontal: space.sm,
+								borderRadius: radius.md,
+								borderWidth: border.hairline,
+								borderColor:
+									move.phase === "confirm" && move.parent === null
+										? theme.colors.primary
+										: theme.colors.outlineVariant,
+							}}
+						>
 							<Icon
-								source="check"
+								source="home-variant-outline"
 								size={icon.md}
-								color={theme.colors.primary}
+								color={theme.colors.onSurfaceVariant}
 							/>
-						) : null}
-					</Pressable>
-				) : null}
+							<Text variant="bodyLarge" style={{ flex: 1 }}>
+								{t("locations.moveUnderTop")}
+							</Text>
+							{move.phase === "confirm" && move.parent === null ? (
+								<Icon
+									source="check"
+									size={icon.md}
+									color={theme.colors.primary}
+								/>
+							) : null}
+						</Pressable>
+					) : null}
 
-				{showTree ? (
-					<LocationTree
-						locations={locations}
-						waitingIds={waitingIds}
-						parentId={null}
-						collapsed={collapsed}
-						counts={counts}
-						cardsOpen={cardsOpen}
-						pool={pool}
-						locationTitles={locationsById}
-						mode={move}
-						onToggle={toggle}
-						onOpen={openPlace}
-						onAddUnder={(parent) => setAdding({ parent })}
-						onMoveUnder={(location) => setMove(beginMove(location))}
-						onSelectDestination={(parent) =>
-							setMove(selectDestination(move, parent))
-						}
-						onError={showError}
-						onQueued={onQueued}
-						homeId={homeId ?? ""}
-						drag={drag}
-						hint={hint}
-						gapHeight={gapHeight}
+					{showTree ? (
+						<LocationTree
+							locations={locations}
+							waitingIds={waitingIds}
+							parentId={null}
+							collapsed={collapsed}
+							counts={counts}
+							cardsOpen={cardsOpen}
+							pool={pool}
+							locationTitles={locationsById}
+							mode={move}
+							onToggle={toggle}
+							onOpen={openPlace}
+							onAddUnder={(parent) => setAdding({ parent })}
+							onMoveUnder={(location) => setMove(beginMove(location))}
+							onSelectDestination={(parent) =>
+								setMove(selectDestination(move, parent))
+							}
+							onError={showError}
+							onQueued={onQueued}
+							homeId={homeId ?? ""}
+							drag={drag}
+							hint={hint}
+							gapHeight={gapHeight}
+						/>
+					) : null}
+				</SlimScrollView>
+				{showDetails ? (
+					<DetailsPane
+						nodeId={cardId}
+						width={layout.panelWidth}
+						overlay={layout.details === "overlay"}
+						onClose={closeDetails}
+						onOpenNode={openDetails}
+						onOpenBoard={openBoard}
 					/>
 				) : null}
-			</SlimScrollView>
+			</View>
 
 			{/* The same two footprint caps the board's and Overview's FABs carry:
 			    a share of the width it floats over, and the words over the glyph
