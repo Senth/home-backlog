@@ -40,6 +40,7 @@ interface PeopleSectionProps {
 	 * and *Who's doing it* the assignees. Absent renders both, as always.
 	 */
 	only?: "participants" | "assignees";
+	onOpenNode?: (nodeId: string) => void;
 }
 
 /**
@@ -73,6 +74,7 @@ export function PeopleSection({
 	flip,
 	only,
 	uid,
+	onOpenNode,
 }: PeopleSectionProps) {
 	const { t } = useTranslation();
 
@@ -226,7 +228,11 @@ export function PeopleSection({
 					    action would push to the screen you are standing on, so it is
 					    the step's editor that carries it. */}
 					{rootIdOf(node) === node.id ? null : (
-						<WhoSeesStepNote project={rootTitle} rootId={rootIdOf(node)} />
+						<WhoSeesStepNote
+							project={rootTitle}
+							rootId={rootIdOf(node)}
+							onOpenNode={onOpenNode}
+						/>
 					)}
 				</View>
 			) : null}
@@ -267,10 +273,12 @@ export function WhoSeesProjectNote() {
 export function WhoSeesStepNote({
 	project,
 	rootId,
+	onOpenNode,
 }: {
 	project: string;
 	/** The project this step belongs to — where the action goes. */
 	rootId: string;
+	onOpenNode?: (nodeId: string) => void;
 }) {
 	const { t } = useTranslation();
 
@@ -280,7 +288,9 @@ export function WhoSeesStepNote({
 			<Hint>{t("detail.whoSeesStepBody")}</Hint>
 			<Action
 				icon="account-multiple-outline"
-				onPress={() => router.push(detailsHref(rootId))}
+				onPress={() =>
+					onOpenNode ? onOpenNode(rootId) : router.push(detailsHref(rootId))
+				}
 			>
 				{t("detail.assigneesChange", { project })}
 			</Action>

@@ -5,9 +5,13 @@ import {
 	screen,
 	waitFor,
 } from "@testing-library/react-native";
+import { router } from "expo-router";
 import { Provider } from "react-native-paper";
 import { FlipDialog, useFlip } from "@/components/node/FlipDialog";
-import { PeopleSection } from "@/components/node/PeopleSection";
+import {
+	PeopleSection,
+	WhoSeesStepNote,
+} from "@/components/node/PeopleSection";
 import { VisibilityField } from "@/components/node/VisibilityField";
 import { flipVisibility } from "@/data/nodes";
 import type { OutboxIntent } from "@/data/outbox-store";
@@ -74,6 +78,35 @@ const pending: OutboxIntent = {
 	target: "private",
 };
 const onSave = jest.fn();
+
+it("opens the parent card through the host callback instead of pushing a route", () => {
+	const onOpenNode = jest.fn();
+	render(
+		<Provider theme={lightTheme}>
+			<WhoSeesStepNote
+				project="Project"
+				rootId="project"
+				onOpenNode={onOpenNode}
+			/>
+		</Provider>,
+	);
+	fireEvent.press(screen.getByText("detail.assigneesChange"));
+	expect(onOpenNode).toHaveBeenCalledWith("project");
+	expect(router.push).not.toHaveBeenCalled();
+});
+
+it("keeps route navigation when no host callback is supplied", () => {
+	render(
+		<Provider theme={lightTheme}>
+			<WhoSeesStepNote project="Project" rootId="project" />
+		</Provider>,
+	);
+	fireEvent.press(screen.getByText("detail.assigneesChange"));
+	expect(router.push).toHaveBeenCalledWith({
+		pathname: "/projects/[nodeId]/details",
+		params: { nodeId: "project" },
+	});
+});
 
 function Surface({
 	subject = node,

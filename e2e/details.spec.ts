@@ -3,8 +3,10 @@ import { expect, test } from "@playwright/test";
 import {
 	cardSelector,
 	clickMenuItem,
+	columnSelector,
 	gotoAndSettle,
 	ROUTES,
+	recordConsole,
 	VIEWPORTS,
 } from "@/e2e/support/app";
 import {
@@ -45,6 +47,123 @@ const PREFIX = "E2E details ";
 
 /** What every location this file creates is titled, for the same reason. */
 const LOC_PREFIX = "E2E loc ";
+
+test("desktop details stays beside or over the cards, replaces selections, and restores the URL", async ({
+	page,
+}) => {
+	const consoleLog = recordConsole(page);
+	const ids = await Promise.all(
+		[1, 2, 3].map((n) => newRootCard(`${PREFIX}desktop ${n}`)),
+	);
+	await page.setViewportSize(VIEWPORTS.desktop);
+	await gotoAndSettle(page, ROUTES[5]);
+	await page.getByRole("tab", { name: enUS.tab.projects, exact: true }).click();
+	const pane = page.getByTestId("details-pane");
+	await expect(pane.getByText(enUS.detail.emptyTitle)).toBeVisible();
+	for (const [index, id] of ids.entries()) {
+		await page
+			.locator(columnSelector("backlog"))
+			.getByText(`${PREFIX}desktop ${index + 1}`, { exact: true })
+			.click();
+		await expect(page).toHaveURL(new RegExp(`/projects\\?card=${id}$`));
+		await expect(pane.getByTestId(`field-priority-${id}`)).toBeVisible();
+	}
+	await page.goBack();
+	await expect(page).toHaveURL(/\/overview$/);
+	await page.goto(`/projects?card=${ids[0]}`);
+	await expect(pane.getByTestId(`field-priority-${ids[0]}`)).toBeVisible();
+	await page.reload();
+	await expect(pane.getByTestId(`field-priority-${ids[0]}`)).toBeVisible();
+	for (const [width, panelWidth, columnWidth] of [
+		[1920, 400, 340],
+		[2560, 800, 400],
+		[1440, 400, 320],
+		[1024, 400, 300],
+		[720, 400, 300],
+	]) {
+		await page.setViewportSize({ width, height: 1080 });
+		await expect
+			.poll(async () => (await pane.boundingBox())?.width)
+			.toBe(panelWidth);
+		for (const status of ["backlog", "next_up", "execution", "done"]) {
+			await expect
+				.poll(
+					async () =>
+						(await page.locator(columnSelector(status)).boundingBox())?.width,
+				)
+				.toBe(columnWidth);
+		}
+		const card = await pane.getByTestId("board-card").boundingBox();
+		const field = await pane
+			.getByTestId(`field-priority-${ids[0]}`)
+			.boundingBox();
+		expect(card).not.toBeNull();
+		expect(field).not.toBeNull();
+		expect((field?.x ?? 0) > (card?.x ?? 0) + (card?.width ?? 0)).toBe(
+			width === 2560,
+		);
+		if (width >= 1760) {
+			const done = await page.locator(columnSelector("done")).boundingBox();
+			const panel = await pane.boundingBox();
+			expect((done?.x ?? 0) + (done?.width ?? 0)).toBeLessThanOrEqual(
+				panel?.x ?? 0,
+			);
+		}
+	}
+	await page.setViewportSize({ width: 1440, height: 1080 });
+	const selected = page
+		.locator(columnSelector("backlog"))
+		.getByTestId("board-card-container")
+		.filter({ hasText: `${PREFIX}desktop 1` });
+	await expect(selected).toHaveCSS("border-left-width", "2px");
+	await pane.getByTestId(`field-priority-${ids[0]}`).click();
+	await page
+		.getByTestId(`editor-priority-${ids[0]}-surface`)
+		.getByRole("button", { name: enUS.priority.high })
+		.click();
+	await page.keyboard.press("Escape");
+	await expect(pane).toBeVisible();
+	await expect
+		.poll(async () => (await nodeFields(ids[0])).priority)
+		.toBe("high");
+	await clickMenuItem(
+		page,
+		pane.getByRole("button", { name: enUS.board.actions }),
+		enUS.board.rename,
+	);
+	const renameDialog = page.getByTestId(`rename-details-${ids[0]}-surface`);
+	await expect(renameDialog).toBeVisible();
+	await page.keyboard.press("Escape");
+	await expect(renameDialog).toBeHidden();
+	await expect(pane).toBeVisible();
+	await page.keyboard.press("Escape");
+	await expect(pane).toBeHidden();
+	await expect(page).toHaveURL(/\/projects$/);
+	await page
+		.locator(columnSelector("backlog"))
+		.getByText(`${PREFIX}desktop 2`, { exact: true })
+		.click();
+	await pane.getByRole("button", { name: enUS.detail.close }).click();
+	await expect(pane).toBeHidden();
+	await page.goto(`/projects/${ids[0]}/details`);
+	await expect(page).toHaveURL(new RegExp(`/projects\\?card=${ids[0]}$`));
+	await pane.getByRole("button", { name: enUS.detail.steps }).click();
+	await expect(page).toHaveURL(new RegExp(`/projects/${ids[0]}$`));
+	await expect(pane).toBeHidden();
+	await page.setViewportSize(VIEWPORTS.desktop);
+	await page.goto("/projects?card=unknown-card");
+	await expect(pane.getByText(enUS.detail.emptyTitle)).toBeVisible();
+	const { projectId, cardId } = await narrowBoardCard();
+	await page.goto(`/projects/${cardId}/details`);
+	await expect(page).toHaveURL(
+		new RegExp(`/projects/${projectId}\\?card=${cardId}$`),
+	);
+	await expect(pane.getByTestId(`field-priority-${cardId}`)).toBeVisible();
+	await deleteNodesByTitlePrefix(`${PREFIX}narrow card`);
+	await expect(pane.getByText(enUS.detail.emptyTitle)).toBeVisible();
+	expect(consoleLog.errors()).toEqual([]);
+	expect(consoleLog.warnings()).toEqual([]);
+});
 
 test.afterEach(async () => {
 	await deleteNodesByTitlePrefix(PREFIX);

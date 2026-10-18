@@ -82,9 +82,9 @@ const darkElevation = {
  * The board's own surfaces, named once and read everywhere they matter.
  *
  * The rule they encode is **column recessed, page in the middle, card raised**,
- * in both schemes. Before this, a dark card was `surface` — the same color as
- * the page — on a column of `elevation.level1`, so the board read dark → grey →
- * dark with the card darker than the thing it sat on.
+ * in both schemes. The card's left gutter has its own fill between the column
+ * and card in luminance, so it reads as part of the card without sharing the
+ * column color.
  *
  * `boardCard` is read by the card face, by the drag overlay and by the drop
  * landing zone, so a lifted card cannot be a different shade from the gap it
@@ -99,6 +99,7 @@ const lightBoard = {
 	// only separation technique. Still ~1.42:1 below the page, so the recess
 	// reads, and the column's `primary` add button keeps a 3:1 pairing.
 	boardColumn: "#CADACD",
+	boardCardGutter: "#DBE6DD",
 	boardCard: "#F8FFFA",
 	// Darker than its dark-scheme twin, and deliberately: the light card fill is
 	// within 1.01:1 of the light page, so below `compactBreakpoint` — where the
@@ -112,6 +113,7 @@ const lightBoard = {
 
 const darkBoard = {
 	boardColumn: "#080F0A",
+	boardCardGutter: "#181F1A",
 	boardCard: "#28302A",
 	boardCardBorder: "#636C64",
 	onCardMuted: "#98A199",

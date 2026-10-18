@@ -1,3 +1,4 @@
+import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -101,6 +102,7 @@ export function AttachmentsSection({
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
 	const router = useRouter();
+	const focused = useIsFocused();
 	const { user } = useAuth();
 	const online = useOnlineStatus();
 	const coarse = useCoarsePointer();
@@ -221,7 +223,8 @@ export function AttachmentsSection({
 	// Pasting a copied image attaches it, wherever the focus happens to be on
 	// this screen. A paste that carries no files — text, mostly — is left alone.
 	useEffect(() => {
-		if (Platform.OS !== "web" || typeof document === "undefined") return;
+		if (!focused || Platform.OS !== "web" || typeof document === "undefined")
+			return;
 		const paste = (event: ClipboardEvent) => {
 			if (!event.clipboardData?.files.length) return;
 			event.preventDefault();
@@ -229,7 +232,7 @@ export function AttachmentsSection({
 		};
 		document.addEventListener("paste", paste);
 		return () => document.removeEventListener("paste", paste);
-	}, [addFiles]);
+	}, [addFiles, focused]);
 
 	// Tap is the route that always exists — the viewer and its bar — and the
 	// gestures are the shortcut on top: long-press on a phone, right-click on

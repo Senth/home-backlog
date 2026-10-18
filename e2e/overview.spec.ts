@@ -130,9 +130,9 @@ test("1: the app opens on Overview, and Overview is the first tab", async ({
 		.waitFor({ state: "visible", timeout: 30_000 });
 	expect(new URL(page.url()).pathname).toBe("/overview");
 
-	await expect(page.getByRole("tab").first()).toHaveAccessibleName(
-		new RegExp(enUS.tab.overview),
-	);
+	await expect(
+		page.getByRole("tablist").getByRole("tab").first(),
+	).toHaveAccessibleName(new RegExp(enUS.tab.overview));
 });
 
 test("2: a missing config seeds the seven cards once, and a seed removed in the app never returns", async ({
@@ -479,7 +479,7 @@ test("9: going back after opening a card from Overview returns to Overview", asy
 	// shows five rows and the seed's own taskless steps already fill it, so a
 	// fifth+ row hides behind "+N more". A childless execution root is on the
 	// ongoing card with room to spare, and its tap still opens details.
-	await createFixtureNode({
+	const detailsId = await createFixtureNode({
 		title: detailsTitle,
 		parentId: null,
 		ancestorIds: [],
@@ -507,12 +507,102 @@ test("9: going back after opening a card from Overview returns to Overview", asy
 		timeout: 30_000,
 	});
 
-	// The second arm: the card without steps, whose tap opens details.
+	// The second arm: the card without steps, whose tap opens details in place
+	// on desktop and keeps the page route on a phone.
+	await page.setViewportSize({ width: 1920, height: 1080 });
 	await gotoOverview(page);
 	await ongoing.locator(CARD, { hasText: detailsTitle }).click();
-	await page.waitForURL(/\/projects\/[^/]+\/details$/, { timeout: 30_000 });
+	await page.waitForURL(
+		(url) =>
+			url.pathname === "/overview" &&
+			url.searchParams.get("card") === detailsId,
+		{ timeout: 30_000 },
+	);
+	const pane = page.getByTestId("details-pane");
+	await expect(pane.getByTestId(`field-priority-${detailsId}`)).toBeVisible();
+	await expect.poll(async () => (await pane.boundingBox())?.width).toBe(400);
+
+	await page.setViewportSize({ width: 1440, height: 1080 });
+	await expect(pane.getByTestId(`field-priority-${detailsId}`)).toBeVisible();
+	await expect.poll(async () => (await pane.boundingBox())?.width).toBe(400);
+	await page.keyboard.press("Escape");
+	await page.waitForURL((url) => url.pathname === "/overview");
+	await expect(pane).toBeHidden();
+
+	await page.setViewportSize({ width: 390, height: 844 });
+	await gotoOverview(page);
+	await ongoing.locator(CARD, { hasText: detailsTitle }).click();
+	await page.waitForURL(`/projects/${detailsId}/details`, { timeout: 30_000 });
 	await page.getByRole("button", { name: enUS.board.up }).click();
 	await page.waitForURL((url) => url.pathname === "/overview", {
 		timeout: 30_000,
 	});
 });
+
+for (const openPane of [false, true]) {
+	test(`10: a single desktop section fits beside the rail with details ${openPane ? "open" : "closed"}`, async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 1920, height: 1080 });
+		await gotoOverview(page);
+		const uid = await memberUid("Marcus");
+		const url = dashboardConfigUrl(uid);
+		const response = await fetch(url, { headers: OWNER });
+		expect(response.ok).toBe(true);
+		const config = await response.json();
+		const ongoing = config.fields.cards.mapValue.fields.ongoing;
+		expect(ongoing).toBeDefined();
+		try {
+			const saved = await fetch(url, {
+				method: "PATCH",
+				headers: { ...OWNER, "Content-Type": "application/json" },
+				body: JSON.stringify({
+					fields: {
+						...config.fields,
+						cards: { mapValue: { fields: { ongoing } } },
+					},
+				}),
+			});
+			expect(saved.ok).toBe(true);
+			await expect(
+				page.locator('[data-testid^="overview-section-"]'),
+			).toHaveCount(1);
+			const section = page.getByTestId("overview-section-ongoing");
+			if (openPane) {
+				const title = `${PREFIX}single section details`;
+				await createFixtureNode({
+					title,
+					status: "execution",
+					parentId: null,
+					ancestorIds: [],
+					visibility: "shared",
+					participantIds: [],
+					dueDate: null,
+					completedAt: null,
+				});
+				await section.locator(CARD, { hasText: title }).click();
+				await expect(page.getByTestId("details-pane")).toBeVisible();
+			}
+			await expect
+				.poll(async () => (await section.boundingBox())?.width)
+				.toBe(openPane ? 1408 : 1808);
+			const menu = await page
+				.getByTestId("overview-card-menu-ongoing")
+				.boundingBox();
+			const pane = openPane
+				? await page.getByTestId("details-pane").boundingBox()
+				: null;
+			expect(menu).not.toBeNull();
+			expect((menu?.x ?? 0) + (menu?.width ?? 0)).toBeLessThanOrEqual(
+				(pane?.x ?? 1920) - 16,
+			);
+		} finally {
+			const restored = await fetch(url, {
+				method: "PATCH",
+				headers: { ...OWNER, "Content-Type": "application/json" },
+				body: JSON.stringify({ fields: config.fields }),
+			});
+			expect(restored.ok).toBe(true);
+		}
+	});
+}

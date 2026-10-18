@@ -87,6 +87,34 @@ describe("the board ramp's card-over-column separation", () => {
 	});
 });
 
+describe("the card gutter's recessed fill", () => {
+	it.each([
+		["light", lightTheme],
+		["dark", darkTheme],
+	])("sits between the card and column in $name", (_name, theme) => {
+		const cardToGutter = contrast(
+			parseHex(theme.colors.boardCard),
+			parseHex(theme.colors.boardCardGutter),
+		);
+		const gutterToColumn = contrast(
+			parseHex(theme.colors.boardCardGutter),
+			parseHex(theme.colors.boardColumn),
+		);
+		const cardToColumn = contrast(
+			parseHex(theme.colors.boardCard),
+			parseHex(theme.colors.boardColumn),
+		);
+
+		expect(cardToGutter).toBeGreaterThan(1);
+		expect(gutterToColumn).toBeGreaterThan(1);
+		expect(cardToGutter).toBeLessThan(cardToColumn);
+		expect(gutterToColumn).toBeLessThan(cardToColumn);
+		expect(theme.colors.boardCardGutter).not.toBe(
+			theme.colors.primaryContainer,
+		);
+	});
+});
+
 const lightTextRoles = [
 	["primary", lightTheme.colors.primary],
 	["warning", lightTheme.colors.warning],

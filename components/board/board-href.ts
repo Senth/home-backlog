@@ -4,10 +4,25 @@ import type { Href } from "expo-router";
  * Every board is a real route, so browser back, the PWA back gesture, reload
  * and a shared link all work. `null` is the root board.
  */
-export function boardHref(nodeId: string | null): Href {
+export function boardHref(nodeId: string | null, cardId?: string): Href {
+	const card = cardId === undefined ? {} : { card: cardId };
 	return nodeId === null
-		? { pathname: "/projects" }
-		: { pathname: "/projects/[nodeId]", params: { nodeId } };
+		? cardId === undefined
+			? { pathname: "/projects" }
+			: { pathname: "/projects", params: card }
+		: { pathname: "/projects/[nodeId]", params: { nodeId, ...card } };
+}
+
+export function detailsCardId(
+	value: string | string[] | undefined,
+): string | null {
+	return typeof value === "string" &&
+		value.length > 0 &&
+		!value.includes("/") &&
+		value !== "." &&
+		value !== ".."
+		? value
+		: null;
 }
 
 /**

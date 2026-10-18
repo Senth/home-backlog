@@ -285,8 +285,9 @@ test("5: a deep link straight to a nested board lands on that board", async ({
 test("6: back from a place returns to Locations", async ({ page }) => {
 	const place = `Show the work at Badrummet`;
 	const chip = page.getByTestId("board-filter-pill-locationId");
-	const locations = page.getByRole("tab", { name: enUS.tab.locations });
-	const projects = page.getByRole("tab", { name: enUS.tab.projects });
+	const navigation = page.getByRole("tablist");
+	const locations = navigation.getByRole("tab", { name: enUS.tab.locations });
+	const projects = navigation.getByRole("tab", { name: enUS.tab.projects });
 
 	await gotoAndSettle(page, ROUTES[5]);
 	await projects.click();

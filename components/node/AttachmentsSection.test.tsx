@@ -5,6 +5,7 @@ import {
 	screen,
 	waitFor,
 } from "@testing-library/react-native";
+import { createContext } from "react";
 import { Platform } from "react-native";
 import { Provider } from "react-native-paper";
 import { AttachmentsSection } from "@/components/node/AttachmentsSection";
@@ -14,6 +15,12 @@ import { attachmentAccept, photoAccept } from "@/models/attachment";
 import type { Attachment, Node } from "@/models/node";
 import { newNodeData } from "@/models/node";
 import { lightTheme } from "@/theme";
+
+const mockScreenFocus = createContext(true);
+jest.mock("@react-navigation/native", () => ({
+	...jest.requireActual("@react-navigation/native"),
+	useIsFocused: () => require("react").useContext(mockScreenFocus),
+}));
 
 jest.mock("react-i18next", () => ({
 	Trans: ({ i18nKey }: { i18nKey: string }) => i18nKey,
@@ -245,6 +252,76 @@ describe("AttachmentsSection", () => {
 		view.unmount();
 		Platform.OS = original;
 		Reflect.deleteProperty(globalThis, "document");
+	});
+
+	it("pastes only into the focused pane while both attachment sections stay mounted", async () => {
+		const original = Platform.OS;
+		Platform.OS = "web";
+		const listeners = new Set<(event: ClipboardEvent) => void>();
+		Object.defineProperty(globalThis, "document", {
+			configurable: true,
+			value: {
+				addEventListener: (
+					type: string,
+					listener: (event: ClipboardEvent) => void,
+				) => {
+					if (type === "paste") listeners.add(listener);
+				},
+				removeEventListener: (
+					type: string,
+					listener: (event: ClipboardEvent) => void,
+				) => {
+					if (type === "paste") listeners.delete(listener);
+				},
+			},
+		});
+		const panes = (focused: string | null) => (
+			<Provider theme={lightTheme}>
+				{["projects", "locations"].map((id) => (
+					<mockScreenFocus.Provider key={id} value={focused === id}>
+						<AttachmentsSection
+							homeId="home"
+							node={aNode([], { id })}
+							onSave={() => {}}
+						/>
+					</mockScreenFocus.Provider>
+				))}
+			</Provider>
+		);
+		const file = {
+			name: "photo.jpg",
+			type: "image/jpeg",
+			size: photoBytes,
+		} as File;
+		const paste = {
+			clipboardData: { files: [file] },
+			preventDefault: jest.fn(),
+		} as unknown as ClipboardEvent;
+		jest.mocked(uploadAttachment).mockResolvedValue(anAttachment());
+		const view = render(panes("projects"));
+		try {
+			for (const id of ["projects", "locations"]) {
+				view.rerender(panes(id));
+				await act(async () => {
+					for (const listener of [...listeners]) listener(paste);
+				});
+				expect(uploadAttachment).toHaveBeenCalledTimes(1);
+				expect(uploadAttachment).toHaveBeenCalledWith("home", id, "me", {
+					name: file.name,
+					contentType: file.type,
+					size: file.size,
+					blob: file,
+				});
+				jest.mocked(uploadAttachment).mockClear();
+			}
+			view.rerender(panes(null));
+			expect(listeners.size).toBe(0);
+		} finally {
+			view.unmount();
+			Platform.OS = original;
+			Reflect.deleteProperty(globalThis, "document");
+		}
+		expect(listeners.size).toBe(0);
 	});
 
 	it("leads with the first image and grids the rest three across", async () => {

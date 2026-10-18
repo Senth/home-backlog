@@ -1,5 +1,5 @@
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View } from "react-native";
 import {
@@ -11,9 +11,14 @@ import {
 } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { BoardCard } from "@/components/board/BoardCard";
-import { boardHref, detailsHref } from "@/components/board/board-href";
+import {
+	boardHref,
+	detailsCardId,
+	detailsHref,
+} from "@/components/board/board-href";
 import { expandedColumnWidth } from "@/components/board/column-width";
 import { TitleDialog } from "@/components/board/TitleDialog";
+import { DetailsPane } from "@/components/node/DetailsPane";
 import { CardActionsMenu } from "@/components/overview/CardActionsMenu";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { AppHeader } from "@/components/ui/AppHeader";
@@ -23,15 +28,18 @@ import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
 import { useHome } from "@/contexts/HomeContext";
+import { useRegisterRailAction } from "@/contexts/RailActionContext";
 import { deleteScopeCard, saveHiddenShared } from "@/data/cards";
 import { createNode } from "@/data/nodes";
 import { useLabelAncestors } from "@/hooks/use-label-ancestors";
 import { useLocations } from "@/hooks/use-locations";
 import { useOverview } from "@/hooks/use-overview";
+import { desktopLayout } from "@/models/desktop-layout";
 import { effectiveLabels } from "@/models/label";
 import type { Location } from "@/models/locations";
 import {
 	crumbTitlesOf,
+	defaultColumns,
 	effectiveLocation,
 	hasSteps,
 	inheritedLocation,
@@ -43,10 +51,10 @@ import { useAppTheme } from "@/theme";
 import {
 	border,
 	cardGutterBreakpoint,
-	compactBreakpoint,
 	denseBreakpoint,
 	fab as fabTokens,
 	gutter,
+	railWidth,
 	space,
 	touchTarget,
 } from "@/theme/tokens";
@@ -70,12 +78,20 @@ export default function Overview() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const router = useRouter();
+	const { card } = useLocalSearchParams<{ card?: string | string[] }>();
 	const { user } = useAuth();
 	const { activeHome } = useHome();
 	const { width } = useWindowDimensions();
 
 	const homeId = activeHome?.id ?? null;
 	const uid = user?.uid ?? null;
+	const cardId = detailsCardId(card);
+	const layout = desktopLayout({
+		windowWidth: width,
+		columnCount: defaultColumns.length,
+		screen: "flow",
+	});
+	const showDetails = layout.nav === "rail" && cardId !== null;
 	const { roots, pool, done } = useOverview(homeId);
 	const { locations } = useLocations(homeId);
 	const {
@@ -154,7 +170,11 @@ export default function Overview() {
 	// same minimum but with no ceiling: the sections expand across the whole
 	// desktop width instead of stopping at the board's maximum and leaving the
 	// right side empty (#348). Below it, one full-width stack as ever.
-	const flowing = width >= compactBreakpoint;
+	const flowing = layout.nav === "rail";
+	const contentWidth =
+		width -
+		(flowing ? railWidth : 0) -
+		(showDetails && layout.details === "beside" ? layout.panelWidth : 0);
 	// The cards' gutters give their room back below `cardGutterBreakpoint`
 	// (#100) — a 390px phone at 200% text is a 195px viewport, and there the
 	// title outranks both gutters.
@@ -162,7 +182,7 @@ export default function Overview() {
 	// A failed pair nulls its card's section, so the width divides by what
 	// actually renders, not by what is configured.
 	const sectionWidth = expandedColumnWidth(
-		width,
+		contentWidth,
 		cards.filter(
 			(card) =>
 				!(card.kind === "open" && pool.failed) &&
@@ -171,6 +191,12 @@ export default function Overview() {
 	);
 
 	const [adding, setAdding] = useState(false);
+	const openAdd = useCallback(() => setAdding(true), []);
+	useRegisterRailAction(
+		flowing
+			? { label: t("overview.add"), icon: "plus", onPress: openAdd }
+			: null,
+	);
 	const [fabHeight, setFabHeight] = useState(0);
 	/** The card whose *Remove* is waiting for its confirmation. */
 	const [removing, setRemoving] = useState<Card | null>(null);
@@ -236,8 +262,25 @@ export default function Overview() {
 	 * A tap goes where a board card's tap goes: the board once the project has a
 	 * step in it, its details until then.
 	 */
+	const closeDetails = useCallback(
+		() => router.setParams({ card: undefined }),
+		[router],
+	);
+	const openDetails = useCallback(
+		(id: string) => router.setParams({ card: id }),
+		[router],
+	);
+	const openBoard = useCallback(
+		(id: string | null) => {
+			if (showDetails) closeDetails();
+			router.push(boardHref(id));
+		},
+		[closeDetails, router, showDetails],
+	);
 	const open = (node: Node) => {
-		router.push(hasSteps(node) ? boardHref(node.id) : detailsHref(node.id));
+		if (hasSteps(node)) openBoard(node.id);
+		else if (flowing) openDetails(node.id);
+		else router.push(detailsHref(node.id));
 	};
 
 	/**
@@ -355,96 +398,111 @@ export default function Overview() {
 				<AccountMenu />
 			</AppHeader>
 
-			<SlimScrollView
-				contentContainerStyle={{
-					paddingBottom: fabInset,
-					gap: space.md,
-				}}
-			>
-				{/* The install offer belongs on whatever the app opens on, and that is
+			<View style={{ flex: 1, flexDirection: "row", position: "relative" }}>
+				<SlimScrollView
+					style={{ flex: 1 }}
+					contentContainerStyle={{
+						paddingBottom: flowing ? space.md : fabInset,
+						gap: space.md,
+					}}
+				>
+					{/* The install offer belongs on whatever the app opens on, and that is
 				    now this screen — behind a tab tap it is never seen by the member
 				    who never opens Projects. Inside the scroller rather than pinned
 				    under the app bar: it renders only when the browser says an install
 				    is possible, and when it does it should scroll away rather than
 				    hold a phone's worth of height for a one-time offer. */}
-				<InstallCard />
+					<InstallCard />
 
-				{loading ? (
-					<ActivityIndicator
-						accessibilityLabel={t("common.loading")}
-						style={{ marginTop: space.xl }}
-					/>
-				) : null}
+					{loading ? (
+						<ActivityIndicator
+							accessibilityLabel={t("common.loading")}
+							style={{ marginTop: space.xl }}
+						/>
+					) : null}
 
-				{nothingAtAll ? (
-					<Text
-						variant="bodyLarge"
-						style={{
-							color: theme.colors.onSurfaceVariant,
-							textAlign: "center",
-							padding: space.xl,
-						}}
-					>
-						{t("overview.empty")}
-					</Text>
-				) : roots.failed ? (
-					/* Said once, with one Try again: the roots pair feeds every
+					{nothingAtAll ? (
+						<Text
+							variant="bodyLarge"
+							style={{
+								color: theme.colors.onSurfaceVariant,
+								textAlign: "center",
+								padding: space.xl,
+							}}
+						>
+							{t("overview.empty")}
+						</Text>
+					) : roots.failed ? (
+						/* Said once, with one Try again: the roots pair feeds every
 					   card's hide predicate, so when it fails every card would fail
 					   with it — one failure reported as one, not as seven. */
-					<LoadFailed onRetry={retryRoots} />
-				) : configFailed ? (
-					<LoadFailed onRetry={retryConfig} />
-				) : (
-					<>
-						{pool.failed ? (
-							/* One load failure for the whole pool: every filter card
+						<LoadFailed onRetry={retryRoots} />
+					) : configFailed ? (
+						<LoadFailed onRetry={retryConfig} />
+					) : (
+						<>
+							{pool.failed ? (
+								/* One load failure for the whole pool: every filter card
 							   reads the same pair, and five copies of the same sentence
 							   over five retry buttons would be one failure reported as
 							   five. The completed card reads the done pair and still
 							   renders. */
-							<LoadFailed onRetry={pool.retry} />
-						) : null}
-						<View
-							style={[
-								{
-									gap: space.md,
-									paddingHorizontal: flowing ? gutter.wide : gutter.compact,
-								},
-								flowing && { flexDirection: "row", flexWrap: "wrap" },
-							]}
-						>
-							{sections}
-						</View>
-						{done.failed ? (
-							/* The done pair is the completed card's alone, so its failure
+								<LoadFailed onRetry={pool.retry} />
+							) : null}
+							<View
+								style={[
+									{
+										gap: space.md,
+										paddingHorizontal: flowing ? gutter.wide : gutter.compact,
+									},
+									flowing && { flexDirection: "row", flexWrap: "wrap" },
+								]}
+							>
+								{sections}
+							</View>
+							{done.failed ? (
+								/* The done pair is the completed card's alone, so its failure
 							   is said where that card would have been. */
-							<LoadFailed
-								onRetry={() => {
-									roots.retry();
-									done.retry();
-								}}
-							/>
-						) : null}
-					</>
-				)}
-			</SlimScrollView>
+								<LoadFailed
+									onRetry={() => {
+										roots.retry();
+										done.retry();
+									}}
+								/>
+							) : null}
+						</>
+					)}
+				</SlimScrollView>
+				{showDetails ? (
+					<DetailsPane
+						nodeId={cardId}
+						width={layout.panelWidth}
+						overlay={layout.details === "overlay"}
+						onClose={closeDetails}
+						onOpenNode={openDetails}
+						onOpenBoard={openBoard}
+					/>
+				) : null}
+			</View>
 
 			{/* The same two footprint caps the board's FAB carries — a share of the
 			    width it floats over, and the words over the glyph below
 			    `denseBreakpoint` — so the claim about the FAB's room holds on the
 			    screen Ingrid opens, not only on the board. */}
-			<FAB
-				icon={width < denseBreakpoint ? undefined : "plus"}
-				label={t("overview.add")}
-				onPress={() => setAdding(true)}
-				onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
-				style={{
-					position: "absolute",
-					right: space.md,
-					bottom: space.md,
-					maxWidth: width * fabTokens.widthShare,
-				}}
-			/>
+			{!flowing ? (
+				<FAB
+					icon={width < denseBreakpoint ? undefined : "plus"}
+					label={t("overview.add")}
+					onPress={openAdd}
+					onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
+					style={{
+						position: "absolute",
+						right: space.md,
+						bottom: space.md,
+						maxWidth: width * fabTokens.widthShare,
+					}}
+				/>
+			) : null}
 
 			<TitleDialog
 				visible={adding}

@@ -1,6 +1,5 @@
 import { useIsFocused } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
-import { useWindowDimensions } from "react-native";
 import { IconButton } from "react-native-paper";
 import { BoardCard } from "@/components/board/BoardCard";
 import { useAncestors } from "@/hooks/use-ancestors";
@@ -9,7 +8,6 @@ import type { Location } from "@/models/locations";
 import { inheritedLocation, type Node } from "@/models/node";
 import {
 	cardGutterBreakpoint,
-	contentWidth,
 	icon,
 	space,
 	touchTargetStyle,
@@ -19,6 +17,7 @@ interface DetailCardProps {
 	homeId: string | null;
 	/** The card this screen is about — the one that was tapped. */
 	node: Node;
+	width: number;
 	/** Location id → place, read by the screen and handed down. */
 	locations: ReadonlyMap<string, Location>;
 	/** Opens the rename dialog the overflow menu also opens. */
@@ -43,13 +42,13 @@ interface DetailCardProps {
 export function DetailCard({
 	homeId,
 	node,
+	width,
 	locations,
 	onRename,
 	onOpenCrumb,
 }: DetailCardProps) {
 	const { t } = useTranslation();
 	const focused = useIsFocused();
-	const { width } = useWindowDimensions();
 
 	const { crumbs } = useAncestors(homeId, node.ancestorIds);
 	const blockers = useBlockerReads(homeId, node.blockedBy, focused);
@@ -57,8 +56,7 @@ export function DetailCard({
 	// The card fills the screen's form column, so its own width — not the
 	// window's — is what the gutter breakpoint names. The screen hands this
 	// down rather than the card measuring itself; see `BoardCard`.
-	const narrow =
-		Math.min(width - space.md * 2, contentWidth.form) < cardGutterBreakpoint;
+	const narrow = width < cardGutterBreakpoint;
 
 	const menu = (
 		<IconButton

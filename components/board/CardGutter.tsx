@@ -28,8 +28,8 @@ interface CardGutterProps {
  * **Always drawn**, even when the card has neither a priority nor a label: a
  * gutter that appears and disappears makes every card a different shape, and
  * the whole point of the column is that a board of cards reads as a set. The
- * fill is the column color — recessed, the one thing on a raised card that
- * is allowed to be — and the hairline on its right edge is the edge the fill
+ * fill is `boardCardGutter`, recessed from the card and between it and the
+ * column in luminance. The hairline on its right edge is the edge the fill
  * alone cannot make crisp against the card.
  *
  * The priority dot is a glyph, not the word the chip used to be: the ramp is
@@ -59,7 +59,7 @@ export function CardGutter({
 				minHeight: gutterMinHeight((step === null ? 0 : 1) + labels.length),
 				backgroundColor: selected
 					? theme.colors.primaryContainer
-					: theme.colors.boardColumn,
+					: theme.colors.boardCardGutter,
 				borderRightWidth: border.hairline,
 				borderColor: theme.colors.outlineVariant,
 				alignItems: "center",

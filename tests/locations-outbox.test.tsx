@@ -55,6 +55,9 @@ jest.mock("@/contexts/AuthContext", () => ({
 jest.mock("@/contexts/HomeContext", () => ({
 	useHome: () => ({ activeHome: { id: "huset", name: "Huset" } }),
 }));
+jest.mock("@/contexts/RailActionContext", () => ({
+	useRegisterRailAction: jest.fn(),
+}));
 jest.mock("@/hooks/use-online-status", () => ({ isOnline: jest.fn() }));
 jest.mock("@/hooks/use-locations", () => ({
 	useLocations: () => ({
@@ -76,6 +79,7 @@ jest.mock("@/components/ui/BackAction", () => ({ BackAction: () => null }));
 jest.mock("@/components/location/LocationDialog", () => ({
 	LocationDialog: () => null,
 }));
+jest.mock("@/components/node/DetailsPane", () => ({ DetailsPane: () => null }));
 jest.mock("@/components/location/use-location-drag", () => ({
 	screenKey: "screen",
 	useLocationDrag: jest.fn(() => ({
@@ -88,7 +92,10 @@ jest.mock("@/components/location/use-location-drag", () => ({
 jest.mock("@react-navigation/native", () => ({
 	useNavigation: () => ({ addListener: jest.fn(() => jest.fn()) }),
 }));
-jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
+jest.mock("expo-router", () => ({
+	useRouter: () => ({ push: jest.fn(), setParams: jest.fn() }),
+	useLocalSearchParams: () => ({}),
+}));
 jest.mock("react-i18next", () => ({
 	useTranslation: () => ({
 		t: (key: string, values?: Record<string, unknown>) =>

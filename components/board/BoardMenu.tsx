@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { type RefObject, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View, type ViewInstance } from "react-native";
+import { useWindowDimensions, View, type ViewInstance } from "react-native";
 import { Appbar, Menu } from "react-native-paper";
 import { detailsHref } from "@/components/board/board-href";
 import { TitleDialog } from "@/components/board/TitleDialog";
@@ -10,7 +10,13 @@ import { updateNode } from "@/data/nodes";
 import { useTabTrap } from "@/hooks/use-modal-focus";
 import { hasDetails, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { radius, size, space, touchTargetStyle } from "@/theme/tokens";
+import {
+	compactBreakpoint,
+	radius,
+	size,
+	space,
+	touchTargetStyle,
+} from "@/theme/tokens";
 
 interface BoardMenuProps {
 	homeId: string | null;
@@ -40,6 +46,7 @@ export function BoardMenu({
 }: BoardMenuProps) {
 	const { t } = useTranslation();
 	const router = useRouter();
+	const { width } = useWindowDimensions();
 	const theme = useAppTheme();
 	const [open, setOpen] = useState(false);
 	const [renaming, setRenaming] = useState(false);
@@ -121,7 +128,9 @@ export function BoardMenu({
 							title={t("detail.title")}
 							onPress={() => {
 								close();
-								router.push(detailsHref(node.id));
+								if (width < compactBreakpoint)
+									router.push(detailsHref(node.id));
+								else router.setParams({ card: node.id });
 							}}
 						/>
 					)}

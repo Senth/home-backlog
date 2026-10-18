@@ -498,6 +498,9 @@
 		"retry": "Försök igen"
 	},
 	"detail": {
+		"close": "Stäng detaljer",
+		"emptyTitle": "Välj ett kort så syns detaljerna här",
+		"emptyHint": "Anteckningar och steg visas bredvid korten.",
 		"title": "Detaljer",
 		"participants": "Vilka är med?",
 		"participantsPrivate": "Vilka ser det här?",

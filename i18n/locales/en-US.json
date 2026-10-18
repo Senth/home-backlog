@@ -498,6 +498,9 @@
 		"retry": "Try again"
 	},
 	"detail": {
+		"close": "Close details",
+		"emptyTitle": "Pick a card to see its details here",
+		"emptyHint": "Its notes and steps show up next to the cards.",
 		"title": "Details",
 		"participants": "Who's in on this?",
 		"participantsPrivate": "Who can see this?",

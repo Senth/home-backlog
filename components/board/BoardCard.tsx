@@ -23,6 +23,7 @@ import type { Attachment } from "@/models/node";
 import { hasSteps, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import {
+	border,
 	elevation,
 	icon,
 	radius,
@@ -41,6 +42,7 @@ interface BoardCardProps {
 	 */
 	onOpen?: (event: GestureResponderEvent) => void;
 	selected?: boolean;
+	openDetails?: boolean;
 	/** The overflow menu. Everything that is not "open" lives in there. */
 	menu?: ReactNode;
 	/**
@@ -208,6 +210,7 @@ export function BoardCard({
 	node,
 	onOpen,
 	selected = false,
+	openDetails = false,
 	menu,
 	wide = false,
 	onColumn = false,
@@ -356,6 +359,12 @@ export function BoardCard({
 					? theme.colors.secondaryContainer
 					: theme.colors.boardCard,
 				borderColor: theme.colors.boardCardBorder,
+				...(openDetails
+					? {
+							borderWidth: border.hairline * 2,
+							borderColor: theme.colors.primary,
+						}
+					: {}),
 			}}
 		>
 			<CardBody

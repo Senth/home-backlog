@@ -666,7 +666,7 @@ for f in "${SRC[@]}"; do
 		"$f" == "components/board/BoardFilterSheet.tsx" ||
 		"$f" == "app/(app)/homes/[homeId]/labels.tsx" ||
 		"$f" == "app/(app)/homes/[homeId].tsx" ||
-		"$f" == "app/(app)/(tabs)/projects/[nodeId]/details.tsx" ]] && continue
+		"$f" == "components/node/DetailsView.tsx" ]] && continue
 	GLYPH_FILES+=("$f")
 done
 PATTERN='<LabelGlyph'
