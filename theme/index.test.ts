@@ -1,5 +1,19 @@
-import { contrast, fillFloor, parseHex } from "@/models/label-color";
-import { darkTheme, type LabelHueName, labelHues, lightTheme } from "@/theme";
+import { readFileSync } from "node:fs";
+import {
+	contrast,
+	fillFloor,
+	isHexColor,
+	onFloor,
+	parseHex,
+	type Rgb,
+} from "@/models/label-color";
+import {
+	darkTheme,
+	type LabelHueName,
+	labelHues,
+	lightTheme,
+	themeColor,
+} from "@/theme";
 
 /**
  * The ink floor (#205): a bare colored glyph — a location drawn in a hue, no
@@ -70,5 +84,87 @@ describe("the board ramp's card-over-column separation", () => {
 				parseHex(theme.colors.boardColumn),
 			),
 		).toBeGreaterThanOrEqual(1.4);
+	});
+});
+
+const lightTextRoles = [
+	["primary", lightTheme.colors.primary],
+	["warning", lightTheme.colors.warning],
+	["success", lightTheme.colors.success],
+	["error", lightTheme.colors.error],
+	["onSurface", lightTheme.colors.onSurface],
+	["onSurfaceVariant", lightTheme.colors.onSurfaceVariant],
+	["onCardMuted", lightTheme.colors.onCardMuted],
+] as const;
+
+const lightTextSurfaces = [
+	["background", lightTheme.colors.background],
+	["boardCard", lightTheme.colors.boardCard],
+	["elevation.level1", lightTheme.colors.elevation.level1],
+	["elevation.level2", lightTheme.colors.elevation.level2],
+	["elevation.level3", lightTheme.colors.elevation.level3],
+] as const;
+
+function parseThemeColor(color: string): Rgb {
+	const normalized = color.trim();
+	if (isHexColor(normalized)) return parseHex(normalized);
+
+	const rgba =
+		/^rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d+(?:\.\d+)?)\s*\)$/i.exec(
+			normalized,
+		);
+	if (rgba) {
+		const [red, green, blue, alpha] = rgba.slice(1).map(Number);
+		if (alpha === 1 && [red, green, blue].every((channel) => channel <= 255)) {
+			return [red, green, blue];
+		}
+	}
+
+	throw new Error(`Unsupported color format: ${color}`);
+}
+
+function expectTextContrast(textColor: string, surfaceColor: string) {
+	expect(
+		contrast(parseThemeColor(textColor), parseThemeColor(surfaceColor)),
+	).toBeGreaterThanOrEqual(onFloor);
+}
+
+describe("light text roles against every surface", () => {
+	it.each(
+		lightTextRoles.flatMap(([role, textColor]) =>
+			lightTextSurfaces.map(([surface, surfaceColor]) => ({
+				role,
+				textColor,
+				surface,
+				surfaceColor,
+			})),
+		),
+	)("$role clears 4.5:1 against $surface", ({ textColor, surfaceColor }) => {
+		expectTextContrast(textColor, surfaceColor);
+	});
+
+	it("rejects low-contrast rgba text against elevation.level3", () => {
+		expect(() =>
+			expectTextContrast(
+				"rgba(230, 235, 230, 1)",
+				lightTheme.colors.elevation.level3,
+			),
+		).toThrow();
+	});
+
+	it("rejects unsupported color formats", () => {
+		expect(() => parseThemeColor("rgba(230, 235, 230, 0.5)")).toThrow(
+			"Unsupported color format: rgba(230, 235, 230, 0.5)",
+		);
+	});
+});
+
+describe("the PWA manifest", () => {
+	it("uses the light primary as its theme color", () => {
+		const manifest = JSON.parse(
+			readFileSync("public/manifest.webmanifest", "utf8"),
+		) as { theme_color: string };
+
+		expect(manifest.theme_color).toBe(themeColor.light);
 	});
 });

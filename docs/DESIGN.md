@@ -475,3 +475,7 @@ block and the loudest label on the screen; the dots are marks at the floor, not 
 ### 2026-09-26 — Custom fills drop the 3:1 floor (#337)
 
 Presets sit 1.15–1.55:1 against `boardCard`; the floor made custom dots heavier.
+
+### 2026-10-18 — Light text clears raised surfaces
+
+Every light text role clears 4.5:1 on page and raised surfaces. `theme/index.test.ts` enforces the floor.

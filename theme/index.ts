@@ -215,7 +215,7 @@ export const defaultLabelHue: LabelHueName = "blue";
 
 const lightColors = {
 	...MD3LightTheme.colors,
-	primary: "#2E7D32",
+	primary: "#207126",
 	onPrimary: "#FFFFFF",
 	primaryContainer: "#C8E6C9",
 	onPrimaryContainer: "#0B2E12",
@@ -227,7 +227,7 @@ const lightColors = {
 	onTertiary: "#FFFFFF",
 	tertiaryContainer: "#BCEBF1",
 	onTertiaryContainer: "#002023",
-	warning: "#B45309",
+	warning: "#A04A08",
 	onWarning: "#FFFFFF",
 	warningContainer: "#FEF3C7",
 	onWarningContainer: "#78350F",
@@ -315,7 +315,7 @@ export const useAppTheme = () => usePaperTheme<AppTheme>();
 
 /**
  * The browser tab / status bar color per scheme. Kept next to the palettes so
- * `app/+html.tsx` and `app.json` cannot drift away from `primary`.
+ * `app/+html.tsx` and `public/manifest.webmanifest` follow `primary`.
  */
 export const themeColor = {
 	light: lightColors.primary,
