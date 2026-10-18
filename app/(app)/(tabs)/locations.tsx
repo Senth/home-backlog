@@ -1,6 +1,13 @@
 import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { type Ref, useEffect, useMemo, useRef, useState } from "react";
+import {
+	type Ref,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
 	Pressable,
@@ -33,6 +40,7 @@ import { OutboxSnackbar } from "@/components/ui/OutboxSnackbar";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useHome } from "@/contexts/HomeContext";
 import { useOutbox } from "@/contexts/OutboxContext";
+import { useRegisterRailAction } from "@/contexts/RailActionContext";
 import { locationErrorKey, moveLocation } from "@/data/locations";
 import { intentMetadata, type OutboxIntent } from "@/data/outbox-store";
 import { useBoardFilter } from "@/hooks/use-board-filter";
@@ -250,6 +258,13 @@ export default function Locations() {
 	const empty = !loading && !failed && locations.length === 0;
 	const showTree = !loading && !failed && locations.length > 0;
 	const moveActive = move.phase !== "idle";
+	const rail = width >= compactBreakpoint;
+	const openAdd = useCallback(() => setAdding({ parent: null }), []);
+	useRegisterRailAction(
+		rail && !moveActive && (empty || showTree)
+			? { label: t("locations.add"), icon: "plus", onPress: openAdd }
+			: null,
+	);
 
 	const footBarStyle = {
 		position: "absolute" as const,
@@ -294,7 +309,7 @@ export default function Locations() {
 				testID="locations-scroll"
 				contentContainerStyle={{
 					padding: width < compactBreakpoint ? gutter.compact : gutter.wide,
-					paddingBottom: fabInset,
+					paddingBottom: rail && !moveActive ? space.md : fabInset,
 					alignSelf: "center",
 					width: "100%",
 					maxWidth: contentWidth.tree,
@@ -353,15 +368,17 @@ export default function Locations() {
 						>
 							{t("locations.emptyBody")}
 						</Text>
-						<Button
-							ref={openerRef as Ref<typeof View>}
-							mode="contained"
-							icon="plus"
-							onPress={() => setAdding({ parent: null })}
-							contentStyle={{ minHeight: touchTarget }}
-						>
-							{t("locations.add")}
-						</Button>
+						{!rail ? (
+							<Button
+								ref={openerRef as Ref<typeof View>}
+								mode="contained"
+								icon="plus"
+								onPress={openAdd}
+								contentStyle={{ minHeight: touchTarget }}
+							>
+								{t("locations.add")}
+							</Button>
+						) : null}
 					</View>
 				) : null}
 
@@ -550,12 +567,12 @@ export default function Locations() {
 			    its button is then the one create control. */}
 			{/* The FAB stands down while a move runs — the foot bar below is then
 			    the loudest shape on the screen, and the mode is unmistakable. */}
-			{showTree && !moveActive ? (
+			{!rail && showTree && !moveActive ? (
 				<FAB
 					ref={openerRef as Ref<typeof View>}
 					icon={width < denseBreakpoint ? undefined : "plus"}
 					label={t("locations.add")}
-					onPress={() => setAdding({ parent: null })}
+					onPress={openAdd}
 					onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
 					style={{
 						position: "absolute",

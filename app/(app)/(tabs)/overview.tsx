@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View } from "react-native";
 import {
@@ -23,6 +23,7 @@ import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
 import { useHome } from "@/contexts/HomeContext";
+import { useRegisterRailAction } from "@/contexts/RailActionContext";
 import { deleteScopeCard, saveHiddenShared } from "@/data/cards";
 import { createNode } from "@/data/nodes";
 import { useLabelAncestors } from "@/hooks/use-label-ancestors";
@@ -171,6 +172,12 @@ export default function Overview() {
 	);
 
 	const [adding, setAdding] = useState(false);
+	const openAdd = useCallback(() => setAdding(true), []);
+	useRegisterRailAction(
+		flowing
+			? { label: t("overview.add"), icon: "plus", onPress: openAdd }
+			: null,
+	);
 	const [fabHeight, setFabHeight] = useState(0);
 	/** The card whose *Remove* is waiting for its confirmation. */
 	const [removing, setRemoving] = useState<Card | null>(null);
@@ -357,7 +364,7 @@ export default function Overview() {
 
 			<SlimScrollView
 				contentContainerStyle={{
-					paddingBottom: fabInset,
+					paddingBottom: flowing ? space.md : fabInset,
 					gap: space.md,
 				}}
 			>
@@ -433,18 +440,20 @@ export default function Overview() {
 			    width it floats over, and the words over the glyph below
 			    `denseBreakpoint` — so the claim about the FAB's room holds on the
 			    screen Ingrid opens, not only on the board. */}
-			<FAB
-				icon={width < denseBreakpoint ? undefined : "plus"}
-				label={t("overview.add")}
-				onPress={() => setAdding(true)}
-				onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
-				style={{
-					position: "absolute",
-					right: space.md,
-					bottom: space.md,
-					maxWidth: width * fabTokens.widthShare,
-				}}
-			/>
+			{!flowing ? (
+				<FAB
+					icon={width < denseBreakpoint ? undefined : "plus"}
+					label={t("overview.add")}
+					onPress={openAdd}
+					onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
+					style={{
+						position: "absolute",
+						right: space.md,
+						bottom: space.md,
+						maxWidth: width * fabTokens.widthShare,
+					}}
+				/>
+			) : null}
 
 			<TitleDialog
 				visible={adding}

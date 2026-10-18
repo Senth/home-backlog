@@ -1117,8 +1117,8 @@ test("desktop navigation is a labelled rail with reachable destinations and visi
 		await expect(bar).toHaveCount(1);
 		await expect
 			.poll(() =>
-				bar.evaluate((node) => {
-					const box = node.parentElement?.getBoundingClientRect();
+				page.getByTestId("navigation-rail").evaluate((node) => {
+					const box = node.getBoundingClientRect();
 					return box && { x: box.x, width: box.width, height: box.height };
 				}),
 			)
@@ -1137,6 +1137,43 @@ test("desktop navigation is a labelled rail with reachable destinations and visi
 			await tab.click();
 			await expect(page).toHaveURL(new RegExp(`/${name}$`));
 			await expect(tab).toHaveAttribute("aria-selected", "true");
+			const rail = page.getByTestId("navigation-rail");
+			const label =
+				name === "overview"
+					? copy.overview.add
+					: name === "locations"
+						? copy.locations.add
+						: null;
+			await expect(rail.getByRole("button")).toHaveCount(label ? 1 : 0);
+			if (label) {
+				const add = page.getByRole("button", { name: label, exact: true });
+				await expect(add).toHaveCount(1);
+				await expect(rail.getByRole("button", { name: label })).toBeVisible();
+				const fit = await add
+					.getByText(label, { exact: true })
+					.evaluate((node) => {
+						const style = getComputedStyle(node);
+						return {
+							lines:
+								node.getBoundingClientRect().height /
+								Number.parseFloat(style.lineHeight),
+							overflow: node.scrollWidth > node.clientWidth,
+						};
+					});
+				expect(fit.overflow).toBe(false);
+				expect(fit.lines).toBeLessThanOrEqual(3);
+				if (width === 1440) {
+					await add.click();
+					const dialog = page.getByTestId(
+						name === "overview" ? "new-project-dialog" : "new-location-dialog",
+					);
+					await expect(dialog).toBeVisible();
+					await dialog
+						.getByRole("button", { name: copy.common.cancel })
+						.click();
+					await expect(dialog).not.toBeVisible();
+				}
+			}
 			const box = await tab.boundingBox();
 			expect(box?.width).toBeGreaterThanOrEqual(touchTarget);
 			expect(box?.height).toBeGreaterThanOrEqual(touchTarget);

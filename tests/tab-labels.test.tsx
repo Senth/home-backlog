@@ -54,7 +54,7 @@ describe.each([
 		(width) => {
 			mockWidth = width;
 			mockTabs = translations;
-			const layout = TabsLayout();
+			const layout = TabsLayout().props.children;
 			const screens = layout.props.children as ReactElement<{
 				name: keyof typeof translations;
 				options: BottomTabNavigationOptions;
@@ -100,7 +100,7 @@ it.each([
 	(width, height, position, labelPosition) => {
 		mockWidth = width;
 		mockHeight = height;
-		const layout = TabsLayout();
+		const layout = TabsLayout().props.children;
 		const options = layout.props.screenOptions({ route: { name: "overview" } });
 		expect(options.tabBarPosition).toBe(position);
 		expect(options.tabBarVariant).toBe(
