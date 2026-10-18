@@ -326,6 +326,18 @@ export const scrollbar = {
  */
 export const compactBreakpoint = 720;
 
+/** Width of the desktop navigation rail, including its icon and labelled add action. */
+export const railWidth = 80;
+
+/** Smallest details panel that keeps card content and fields readable side by side. */
+export const detailsPanelMin = 400;
+
+/** Largest details panel; beyond it, keep remaining desktop width blank rather than stretch reading. */
+export const detailsPanelMax = 800;
+
+/** Panel width where the card face and its fields can each keep a full column. */
+export const detailsSplitMin = 720;
+
 /**
  * Used only by `AppHeader`.
  * Below this, an app bar puts its title on its own line.
