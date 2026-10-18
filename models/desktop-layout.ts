@@ -4,6 +4,7 @@ import {
 } from "@/components/board/column-width";
 import {
 	compactBreakpoint,
+	contentWidth,
 	detailsPanelMax,
 	detailsPanelMin,
 	detailsSplitMin,
@@ -59,5 +60,17 @@ export function desktopLayout({
 		panelWidth,
 		columnWidth,
 		split: panelWidth >= detailsSplitMin,
+	};
+}
+
+export function detailsContentLayout(width: number) {
+	const split = width >= detailsSplitMin;
+	const fieldsWidth = detailsSplitMin - contentWidth.form;
+	const available = split ? width : Math.min(width, contentWidth.form);
+	return {
+		split,
+		contentWidth: available,
+		fieldsWidth,
+		cardWidth: available - space.md * 2 - (split ? fieldsWidth + space.lg : 0),
 	};
 }

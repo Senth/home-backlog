@@ -1,4 +1,23 @@
-import { desktopLayout } from "@/models/desktop-layout";
+import { desktopLayout, detailsContentLayout } from "@/models/desktop-layout";
+
+describe("detailsContentLayout", () => {
+	it.each([
+		{ panelWidth: 195, split: false, contentWidth: 195, cardWidth: 163 },
+		{ panelWidth: 390, split: false, contentWidth: 390, cardWidth: 358 },
+		{ panelWidth: 400, split: false, contentWidth: 400, cardWidth: 368 },
+		{ panelWidth: 719, split: false, contentWidth: 400, cardWidth: 368 },
+		{ panelWidth: 720, split: true, contentWidth: 720, cardWidth: 344 },
+		{ panelWidth: 800, split: true, contentWidth: 800, cardWidth: 424 },
+	])(
+		"allocates details at $panelWidth pixels",
+		({ panelWidth, ...expected }) => {
+			expect(detailsContentLayout(panelWidth)).toEqual({
+				...expected,
+				fieldsWidth: 320,
+			});
+		},
+	);
+});
 
 describe("desktopLayout model", () => {
 	it.each([
