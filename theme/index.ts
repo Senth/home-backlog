@@ -315,7 +315,7 @@ export const useAppTheme = () => usePaperTheme<AppTheme>();
 
 /**
  * The browser tab / status bar color per scheme. Kept next to the palettes so
- * `app/+html.tsx` and `app.json` cannot drift away from `primary`.
+ * `app/+html.tsx` and `public/manifest.webmanifest` follow `primary`.
  */
 export const themeColor = {
 	light: lightColors.primary,

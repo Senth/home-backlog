@@ -1,5 +1,12 @@
+import { readFileSync } from "node:fs";
 import { contrast, fillFloor, onFloor, parseHex } from "@/models/label-color";
-import { darkTheme, type LabelHueName, labelHues, lightTheme } from "@/theme";
+import {
+	darkTheme,
+	type LabelHueName,
+	labelHues,
+	lightTheme,
+	themeColor,
+} from "@/theme";
 
 /**
  * The ink floor (#205): a bare colored glyph — a location drawn in a hue, no
@@ -105,5 +112,15 @@ describe("light text roles against every surface", () => {
 		expect(
 			contrast(parseHex(textColor), parseHex(surfaceColor)),
 		).toBeGreaterThanOrEqual(onFloor);
+	});
+});
+
+describe("the PWA manifest", () => {
+	it("uses the light primary as its theme color", () => {
+		const manifest = JSON.parse(
+			readFileSync("public/manifest.webmanifest", "utf8"),
+		) as { theme_color: string };
+
+		expect(manifest.theme_color).toBe(themeColor.light);
 	});
 });

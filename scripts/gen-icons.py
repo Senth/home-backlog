@@ -24,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / ".tmp/icons"
 
-# Must match `primary` in theme/index.ts and `theme_color` in the manifest.
+# Icon artwork keeps the brand green #2E7D32 on purpose; it does not track primary.
 GREEN = "#2E7D32"
 WHITE = "#FFFFFF"
 NONE = "none"
