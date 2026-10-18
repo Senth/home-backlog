@@ -7,7 +7,7 @@ import type { Node } from "@/models/node";
 import { lightTheme } from "@/theme";
 
 let mockWidth = 1440;
-let mockHeight = 0;
+const mockHeight = 0;
 
 jest.mock("expo-router", () => ({
 	router: { push: jest.fn(), setParams: jest.fn() },
