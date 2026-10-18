@@ -231,9 +231,11 @@ the job of the surface rather than by taste:
   is `space.md` at and above it; section cards and dividers align to the gutter, with headings
   inset by `space.sm`.
 
-A reviewer cites which job the surface is doing. **Content clamps rather than stretching:**
+A reviewer cites which job the surface is doing. **Reading surfaces clamp rather than stretching:**
 `contentWidth.form` for a form, `.dialog` and `.snackbar` for the two Paper components that
 do not clamp themselves on web.
+
+Boards and Overview have no width ceiling. Blank space on the right at 2560px is intended, not a reason to stretch content.
 
 ## Shape
 
@@ -292,6 +294,9 @@ and every row's controls as dimmed.
   destination, and that is the half that matters. A FAB quieted to `surface` is also a
   finding: it answers with color a question color never asked, and costs the app its one
   way forward. See Decisions.
+  From `compactBreakpoint` up, Overview and Locations put their add button at the top of the navigation rail.
+  It keeps `primaryContainer` and its label, wrapped under the glyph. The floating-width cap applies only below `compactBreakpoint`.
+  Boards put no add button in the rail. Their inline "+ Add to …" at each column foot is the way in.
 - **Control height** — `touchTarget` is a floor and Paper does not give it to you. `Button` is
   40dp, `Dialog.Actions` 38dp, `IconButton` and `Appbar.Action` render 40dp containers, and
   `SegmentedButtons` needs `segmentedLabelLineHeight` because that is the only way to reach
@@ -325,6 +330,48 @@ and every row's controls as dimmed.
   is not finished. Text and an action, never an illustration.
 - **Tables and charts** — there are none, and charts are on the never list above.
 
+### Details beside the board
+
+Window width `W` chooses the navigation and details layout:
+
+| Width band | Navigation | Details on a board |
+| --- | --- | --- |
+| `W < compactBreakpoint` (720px) | Bottom tabs | Separate page, unchanged |
+| `compactBreakpoint ≤ W < besideMin` | Rail | Sheet sliding from the right, without a scrim |
+| `W ≥ besideMin` | Rail | Reserved area beside the board, always drawn |
+
+The reserved area stays visible with nothing selected. Its empty state asks the reader to select a card, without an illustration.
+Below `besideMin`, details overlays the board rather than shrinking its columns below `boardColumnMin` (300px).
+
+`besideMin = rail + n × boardColumnMin + gutters + detailsPanelMin`, where `n` is the board's column count, never a literal four.
+Gutters total `(n + 1) × gutter.wide`.
+With four columns, the threshold is `80 + 4 × 300 + 5 × 16 + 400 = 1760px`.
+
+Columns grow towards `boardColumnMax` (400px) first. Details takes the remaining width, between `detailsPanelMin` (400px) and `detailsPanelMax` (800px).
+With `avail = W − rail − gutters`, allocate:
+
+- `panel = clamp(avail − n × 400, 400, 800)`.
+- `column = clamp((avail − panel) / n, 300, 400)`.
+
+At 1920px with four columns, details is 400px wide and columns are 340px.
+At 2560px, columns are 400px and details is 800px, leaving the remaining space blank.
+
+From `detailsSplitMin` (720px) panel width, details splits into two columns.
+Card face, notes, steps and files sit on the left; field rows sit on the right.
+
+Overview and Locations reserve no empty area. At `W ≥ besideMin`, opening details adds an area beside them and content reflows.
+Below that threshold, details overlays them without a scrim.
+
+The open card lives in the URL as `?card=<nodeId>`. Picking another card replaces the history entry.
+X and Escape close details. Clicking another visible card switches the panel to that card.
+Drilling into a project's own board clears the panel to its empty state.
+
+`/projects/[nodeId]/details` stays the phone page.
+At `W ≥ compactBreakpoint`, it redirects with replace to the parent board with `?card=<nodeId>`.
+Card taps keep their meaning: projects drill in, and existing details actions open details.
+Pickers inside details (`AppSheet`) keep opening as they do today.
+Phones otherwise remain unchanged; the card gutter alone gains its own recessed fill instead of the column color.
+
 ## Hierarchy
 
 **The content is the signature, and the labels on it are what carry it.** This app nests
@@ -336,8 +383,8 @@ card titles**, then **the meta on each card**. On Overview it is the card's head
 title, then its meta — the household composes those headings, so the node title underneath
 has to carry itself.
 
-- The app bar names the **home**, not the screen. The tab bar already names the screen, and
-  work on the cabin recorded on the house board is the failure this prevents.
+- The app bar names the **home**, not the screen. The tab bar or rail already names the screen.
+  Work on the cabin recorded on the house board is the failure this prevents.
 - A breadcrumb trail is never truncated to nothing. It scrolls.
 - **One primary action per surface.** A second saturated block of brand color is a finding.
 - The loudest **shape** is the FAB; the loudest **text** is a card title. Different axes,
@@ -391,6 +438,9 @@ Three breakpoints, each earned by a real failure and none of them a device size:
 between `boardColumnMin` and `boardColumnMax`), `appBarStackBreakpoint` (below it the app bar
 puts its title on its own line), `denseBreakpoint` (below it comfortable padding costs more
 than it is worth and the controls take the room).
+
+`besideMin` is computed, not a fourth window breakpoint: its threshold depends on the board's column count.
+`detailsSplitMin` measures panel width, not window width.
 
 **Overflow** — long text wraps rather than ellipsizing a title. Rows of controls wrap before
 they shrink below `touchTarget`. A fixed rail that cannot wrap is the first thing to break at
@@ -479,3 +529,10 @@ Presets sit 1.15–1.55:1 against `boardCard`; the floor made custom dots heavie
 ### 2026-10-18 — Light text clears raised surfaces
 
 Every light text role clears 4.5:1 on page and raised surfaces. `theme/index.test.ts` enforces the floor.
+
+### 2026-10-18 — The add button moves into the rail, still labelled
+
+Grilling Q7 and Q11 challenged the add button's placement and label when the rail replaces bottom tabs.
+From `compactBreakpoint` up, Overview and Locations move it to the rail's top, keeping `primaryContainer` and words wrapped under the glyph.
+Boards keep their inline column-foot actions instead. Moving the button changes its footprint, not its emphasis or meaning.
+The rule stands: the add button stays labelled, and a card title remains the loudest text.
