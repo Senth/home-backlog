@@ -54,6 +54,7 @@ import {
 	denseBreakpoint,
 	fab as fabTokens,
 	gutter,
+	railWidth,
 	space,
 	touchTarget,
 } from "@/theme/tokens";
@@ -172,6 +173,7 @@ export default function Overview() {
 	const flowing = layout.nav === "rail";
 	const contentWidth =
 		width -
+		(flowing ? railWidth : 0) -
 		(showDetails && layout.details === "beside" ? layout.panelWidth : 0);
 	// The cards' gutters give their room back below `cardGutterBreakpoint`
 	// (#100) — a 390px phone at 200% text is a 195px viewport, and there the

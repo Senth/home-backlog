@@ -538,3 +538,71 @@ test("9: going back after opening a card from Overview returns to Overview", asy
 		timeout: 30_000,
 	});
 });
+
+for (const openPane of [false, true]) {
+	test(`10: a single desktop section fits beside the rail with details ${openPane ? "open" : "closed"}`, async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 1920, height: 1080 });
+		await gotoOverview(page);
+		const uid = await memberUid("Marcus");
+		const url = dashboardConfigUrl(uid);
+		const response = await fetch(url, { headers: OWNER });
+		expect(response.ok).toBe(true);
+		const config = await response.json();
+		const ongoing = config.fields.cards.mapValue.fields.ongoing;
+		expect(ongoing).toBeDefined();
+		try {
+			const saved = await fetch(url, {
+				method: "PATCH",
+				headers: { ...OWNER, "Content-Type": "application/json" },
+				body: JSON.stringify({
+					fields: {
+						...config.fields,
+						cards: { mapValue: { fields: { ongoing } } },
+					},
+				}),
+			});
+			expect(saved.ok).toBe(true);
+			await expect(
+				page.locator('[data-testid^="overview-section-"]'),
+			).toHaveCount(1);
+			const section = page.getByTestId("overview-section-ongoing");
+			if (openPane) {
+				const title = `${PREFIX}single section details`;
+				await createFixtureNode({
+					title,
+					status: "execution",
+					parentId: null,
+					ancestorIds: [],
+					visibility: "shared",
+					participantIds: [],
+					dueDate: null,
+					completedAt: null,
+				});
+				await section.locator(CARD, { hasText: title }).click();
+				await expect(page.getByTestId("details-pane")).toBeVisible();
+			}
+			await expect
+				.poll(async () => (await section.boundingBox())?.width)
+				.toBe(openPane ? 1408 : 1808);
+			const menu = await page
+				.getByTestId("overview-card-menu-ongoing")
+				.boundingBox();
+			const pane = openPane
+				? await page.getByTestId("details-pane").boundingBox()
+				: null;
+			expect(menu).not.toBeNull();
+			expect((menu?.x ?? 0) + (menu?.width ?? 0)).toBeLessThanOrEqual(
+				(pane?.x ?? 1920) - 16,
+			);
+		} finally {
+			const restored = await fetch(url, {
+				method: "PATCH",
+				headers: { ...OWNER, "Content-Type": "application/json" },
+				body: JSON.stringify({ fields: config.fields }),
+			});
+			expect(restored.ok).toBe(true);
+		}
+	});
+}
