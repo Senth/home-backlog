@@ -1,7 +1,25 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { act, render } from "@testing-library/react-native";
+import type { ComponentProps } from "react";
 import { Avatar, ThemeProvider } from "react-native-paper";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
+import type { RecordedComponent } from "@/tests/support/record-props";
 import { lightTheme } from "@/theme";
+
+jest.mock("react-native-paper", () => {
+	const { recordProps } = require("@/tests/support/record-props");
+	const actual = jest.requireActual("react-native-paper");
+	return {
+		...actual,
+		Avatar: {
+			...actual.Avatar,
+			Image: recordProps(actual.Avatar.Image),
+		},
+	};
+});
+
+const mockAvatarImage = Avatar.Image as unknown as RecordedComponent<
+	ComponentProps<typeof Avatar.Image>
+>;
 
 function renderAvatar(photoURL: string | null) {
 	return render(
@@ -19,7 +37,7 @@ describe("PersonAvatar", () => {
 		const screen = renderAvatar("https://example.com/a.png");
 		expect(screen.queryByText("M")).toBeTruthy();
 
-		fireEvent(screen.UNSAFE_getByType(Avatar.Image), "onLoad");
+		act(() => mockAvatarImage.getProps()[0].onLoad?.({} as never));
 		expect(screen.queryByText("M")).toBeNull();
 
 		screen.rerender(
@@ -37,8 +55,8 @@ describe("PersonAvatar", () => {
 	it("recovers the image attempt when a failed URL is swapped for another", () => {
 		const screen = renderAvatar("https://example.com/a.png");
 
-		fireEvent(screen.UNSAFE_getByType(Avatar.Image), "onError");
-		expect(screen.UNSAFE_queryByType(Avatar.Image)).toBeNull();
+		act(() => mockAvatarImage.getProps()[0].onError?.({} as never));
+		expect(mockAvatarImage.getProps()).toHaveLength(0);
 
 		screen.rerender(
 			<ThemeProvider theme={lightTheme}>
@@ -49,6 +67,6 @@ describe("PersonAvatar", () => {
 				/>
 			</ThemeProvider>,
 		);
-		expect(screen.UNSAFE_queryByType(Avatar.Image)).toBeTruthy();
+		expect(mockAvatarImage.getProps()).toHaveLength(1);
 	});
 });

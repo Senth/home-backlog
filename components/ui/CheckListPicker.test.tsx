@@ -153,10 +153,14 @@ describe("CheckListPicker", () => {
 		renderPicker([item("a"), item("b")], ["b"]);
 
 		expect(
-			screen.UNSAFE_getAllByProps({ source: "checkbox-marked" }),
+			screen.getAllByTestId("checkbox-marked", {
+				includeHiddenElements: true,
+			}),
 		).toHaveLength(1);
 		expect(
-			screen.UNSAFE_getAllByProps({ source: "checkbox-blank-outline" }),
+			screen.getAllByTestId("checkbox-blank-outline", {
+				includeHiddenElements: true,
+			}),
 		).toHaveLength(1);
 	});
 
@@ -200,10 +204,14 @@ describe("CheckListPicker", () => {
 		// No tick drawn on any row: the fill and the a11y state are the only
 		// selected signals, and both are asserted above.
 		expect(
-			screen.UNSAFE_queryAllByProps({ source: "checkbox-marked" }),
+			screen.queryAllByTestId("checkbox-marked", {
+				includeHiddenElements: true,
+			}),
 		).toHaveLength(0);
 		expect(
-			screen.UNSAFE_queryAllByProps({ source: "checkbox-blank-outline" }),
+			screen.queryAllByTestId("checkbox-blank-outline", {
+				includeHiddenElements: true,
+			}),
 		).toHaveLength(0);
 
 		// Still a multi-select: the next pick joins the selection.

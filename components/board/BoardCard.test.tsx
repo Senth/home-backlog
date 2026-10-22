@@ -111,7 +111,9 @@ describe("BoardCard", () => {
 				'board.selectedCardA11y:{"title":"Fix the gutter"}',
 			),
 		).toHaveProp("accessibilityState", { selected: true });
-		expect(screen.UNSAFE_queryAllByProps({ name: "check" })).toHaveLength(0);
+		expect(
+			screen.queryAllByTestId("check", { includeHiddenElements: true }),
+		).toHaveLength(0);
 	});
 
 	it("renders no path and no check without the props", () => {
@@ -119,7 +121,9 @@ describe("BoardCard", () => {
 
 		expect(screen.getByText("Fix the gutter")).toBeOnTheScreen();
 		expect(screen.queryByText("board.crumbHidden")).toBeNull();
-		expect(screen.UNSAFE_queryAllByProps({ name: "check" })).toHaveLength(0);
+		expect(
+			screen.queryAllByTestId("check", { includeHiddenElements: true }),
+		).toHaveLength(0);
 	});
 
 	it("renders nothing at all for an empty path", () => {
@@ -127,7 +131,7 @@ describe("BoardCard", () => {
 
 		expect(screen.queryByText("board.crumbHidden")).toBeNull();
 		expect(
-			screen.UNSAFE_queryAllByProps({ name: "chevron-right" }),
+			screen.queryAllByTestId("chevron-right", { includeHiddenElements: true }),
 		).toHaveLength(0);
 	});
 
@@ -145,9 +149,9 @@ describe("BoardCard", () => {
 		).toBeOnTheScreen();
 		expect(screen.getByText(/Projects/)).toBeOnTheScreen();
 		expect(screen.getByText(/Bathroom/)).toBeOnTheScreen();
-		expect(screen.UNSAFE_getAllByProps({ name: "chevron-right" })).toHaveLength(
-			1,
-		);
+		expect(
+			screen.getAllByTestId("chevron-right", { includeHiddenElements: true }),
+		).toHaveLength(1);
 	});
 
 	it("renders a hidden crumb in its own position, not a gap", () => {
@@ -181,7 +185,9 @@ describe("BoardCard", () => {
 	it("marks a done card with a check and a muted title", () => {
 		renderCard(<BoardCard node={node({ status: "done" })} onOpen={() => {}} />);
 
-		expect(screen.UNSAFE_getAllByProps({ name: "check" })).toHaveLength(1);
+		expect(
+			screen.getAllByTestId("check", { includeHiddenElements: true }),
+		).toHaveLength(1);
 	});
 
 	it("marks no other status with the check or the muted title", () => {
@@ -189,7 +195,9 @@ describe("BoardCard", () => {
 			<BoardCard node={node({ status: "execution" })} onOpen={() => {}} />,
 		);
 
-		expect(screen.UNSAFE_queryAllByProps({ name: "check" })).toHaveLength(0);
+		expect(
+			screen.queryAllByTestId("check", { includeHiddenElements: true }),
+		).toHaveLength(0);
 	});
 
 	it("draws the gutter even when the card has neither a priority nor a label", () => {
@@ -331,9 +339,7 @@ describe("BoardCard", () => {
 	it("renders no pressable at all without onOpen and a menu", () => {
 		renderCard(<BoardCard node={node()} />);
 
-		expect(
-			screen.UNSAFE_queryAllByProps({ onPress: expect.any(Function) }),
-		).toHaveLength(0);
+		expect(screen.queryAllByRole("button")).toHaveLength(0);
 	});
 
 	it("renders the linked trail as links that wrap, and the tap names the crumb's own node", () => {

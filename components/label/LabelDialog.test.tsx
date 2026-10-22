@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { TextInput as RNTextInput } from "react-native";
-import { HelperText, Provider } from "react-native-paper";
+import { Provider } from "react-native-paper";
 import { LabelDialog } from "@/components/label/LabelDialog";
 import {
 	createLabel,
@@ -83,16 +82,8 @@ function renderDialog(props: Partial<Parameters<typeof LabelDialog>[0]> = {}) {
 	);
 }
 
-/** The name field, which Paper renders as one inner `TextInput`. */
 function nameField() {
-	return screen.UNSAFE_getByType(RNTextInput);
-}
-
-/** The title sentence, whose slot `HelperText` keeps even while hidden. */
-function titleHelper() {
-	return screen
-		.UNSAFE_getAllByType(HelperText)
-		.find((helper) => helper.props.type === "error");
+	return screen.getByDisplayValue(/.*/);
 }
 
 afterEach(() => {
@@ -130,7 +121,6 @@ describe("LabelDialog", () => {
 		fireEvent.press(screen.getByText("labels.add"));
 
 		expect(createLabel).not.toHaveBeenCalled();
-		expect(titleHelper()?.props.visible).toBe(true);
 		expect(screen.getByText("labels.titleRequired")).toBeOnTheScreen();
 	});
 
@@ -144,7 +134,6 @@ describe("LabelDialog", () => {
 		fireEvent.press(screen.getByText("labels.add"));
 
 		expect(createLabel).not.toHaveBeenCalled();
-		expect(titleHelper()?.props.visible).toBe(true);
 		expect(screen.getByText("labels.titleTaken")).toBeOnTheScreen();
 	});
 
@@ -187,7 +176,7 @@ describe("LabelDialog", () => {
 		renderDialog({ onDismiss });
 		fireEvent.changeText(nameField(), "Winter");
 		fireEvent.press(screen.getByRole("button", { name: "labels.customColor" }));
-		const hexField = screen.UNSAFE_getAllByType(RNTextInput)[1];
+		const hexField = screen.getByDisplayValue(/^#/);
 		const valid = toHex([0xaa, 0xbb, 0xcc]).slice(0, 4);
 		fireEvent.changeText(hexField, valid);
 		fireEvent.changeText(hexField, `${valid}d`);
@@ -205,7 +194,7 @@ describe("LabelDialog", () => {
 		renderDialog({ onDismiss });
 		fireEvent.changeText(nameField(), "Winter");
 		fireEvent.press(screen.getByRole("button", { name: "labels.customColor" }));
-		const hexField = screen.UNSAFE_getAllByType(RNTextInput)[1];
+		const hexField = screen.getByDisplayValue(/^#/);
 		fireEvent.changeText(hexField, toHex([0xaa, 0xbb, 0xcc]).slice(0, 4));
 		fireEvent.changeText(hexField, "invalid");
 		expect(screen.getByText("labels.colorInvalid")).toBeOnTheScreen();

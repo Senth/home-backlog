@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { HelperText, Provider } from "react-native-paper";
+import { Provider } from "react-native-paper";
 import { LabelPicker } from "@/components/label/LabelPicker";
 import { applyLabel, removeLabel } from "@/data/nodes";
 import type { LabelWithId } from "@/models/label";
@@ -86,13 +86,10 @@ function renderPicker(card: Node) {
 	);
 }
 
-/** The cap sentence, whose slot `HelperText` keeps even while hidden. */
 function capSentence() {
-	const helper = screen
-		.UNSAFE_getAllByType(HelperText)
-		.find((helper) => helper.props.type === "info");
-	if (!helper) throw new Error("cap sentence not found");
-	return helper;
+	return screen.getByTestId("label-picker-cap", {
+		includeHiddenElements: true,
+	});
 }
 
 describe("LabelPicker", () => {
@@ -177,7 +174,7 @@ describe("LabelPicker", () => {
 			screen.getByRole("checkbox", { name: "Label l1" }).props
 				.accessibilityState,
 		).toMatchObject({ checked: true });
-		expect(capSentence().props.visible).toBe(true);
+		expect(screen.getByText(/labels\.capReached/)).toBeOnTheScreen();
 	});
 
 	it("offers every row and keeps the cap sentence quiet below the cap", () => {
@@ -188,7 +185,7 @@ describe("LabelPicker", () => {
 			screen.getByRole("checkbox", { name: "Label l2" }).props
 				.accessibilityState,
 		).toMatchObject({ checked: false });
-		expect(capSentence().props.visible).toBe(false);
+		expect(screen.queryByText(/labels\.capReached/)).toBeNull();
 	});
 
 	it("keeps the reserved cap slot out of the accessibility tree", () => {
@@ -197,9 +194,8 @@ describe("LabelPicker", () => {
 		mockHome = { labels: [label("l1")] };
 		renderPicker(node(["l1"]));
 
-		const helper = capSentence();
-		expect(helper.props.accessibilityElementsHidden).toBe(true);
-		expect(helper.props.importantForAccessibility).toBe("no-hide-descendants");
+		expect(capSentence()).toBeOnTheScreen();
+		expect(screen.queryByText(/labels\.capReached/)).toBeNull();
 	});
 
 	it("hands the cap sentence back to the accessibility tree at the cap", () => {
@@ -215,9 +211,7 @@ describe("LabelPicker", () => {
 		};
 		renderPicker(node(["l1", "l2", "l3", "l4", "l5", "l6"]));
 
-		const helper = capSentence();
-		expect(helper.props.visible).toBe(true);
-		expect(helper.props.accessibilityElementsHidden).toBe(false);
-		expect(helper.props.importantForAccessibility).toBe("auto");
+		expect(capSentence()).toBeOnTheScreen();
+		expect(screen.getByText(/labels\.capReached/)).toBeOnTheScreen();
 	});
 });

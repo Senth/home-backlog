@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { useState } from "react";
-import { TextInput as RNTextInput } from "react-native";
 import { Provider } from "react-native-paper";
 import { ColorSwatches } from "@/components/label/ColorSwatches";
 import {
@@ -46,7 +45,7 @@ function renderPicker(
 }
 
 function field() {
-	return screen.UNSAFE_getByType(RNTextInput);
+	return screen.getByDisplayValue(/^#/);
 }
 
 describe("ColorSwatches", () => {

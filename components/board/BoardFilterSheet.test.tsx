@@ -1,8 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+	fireEvent,
+	render,
+	screen,
+	within,
+} from "@testing-library/react-native";
 import { Provider } from "react-native-paper";
 import { BoardFilterSheet } from "@/components/board/BoardFilterSheet";
-import { PriorityDot } from "@/components/board/PriorityDot";
-import { LabelGlyph } from "@/components/label/LabelGlyph";
 import type { BoardFilter } from "@/models/board-filter";
 import type { Member } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
@@ -286,9 +289,14 @@ describe("BoardFilterSheet", () => {
 		// and the identity marks every label row carries stay ahead of the
 		// words.
 		expect(
-			screen.UNSAFE_queryAllByProps({ source: "checkbox-blank-outline" }),
+			screen.queryAllByTestId("checkbox-blank-outline", {
+				includeHiddenElements: true,
+			}),
 		).toHaveLength(0);
-		expect(screen.UNSAFE_getAllByType(LabelGlyph)).toHaveLength(2);
+		expect([
+			...screen.queryAllByTestId("flower", { includeHiddenElements: true }),
+			...screen.queryAllByTestId("shower", { includeHiddenElements: true }),
+		]).toHaveLength(2);
 	});
 
 	it("the priority picker reads as fill rows: ramp dot on every row, a ring on Not set", () => {
@@ -296,7 +304,17 @@ describe("BoardFilterSheet", () => {
 
 		fireEvent.press(screen.getByTestId("board-filter-row-priority"));
 
-		expect(screen.UNSAFE_getAllByType(PriorityDot)).toHaveLength(4);
+		const picker = within(screen.getByTestId("board-filter-priority"));
+		expect(
+			[
+				"thermometer-chevron-down",
+				"thermometer",
+				"thermometer-chevron-up",
+				"fire",
+			].flatMap((name) =>
+				picker.queryAllByTestId(name, { includeHiddenElements: true }),
+			),
+		).toHaveLength(4);
 		expect(screen.getByTestId("priority-not-set-dot")).toBeOnTheScreen();
 	});
 
@@ -321,10 +339,14 @@ describe("BoardFilterSheet", () => {
 
 		// The fill presentation draws no tick on any row.
 		expect(
-			screen.UNSAFE_queryAllByProps({ source: "checkbox-marked" }),
+			screen.queryAllByTestId("checkbox-marked", {
+				includeHiddenElements: true,
+			}),
 		).toHaveLength(0);
 		expect(
-			screen.UNSAFE_queryAllByProps({ source: "checkbox-blank-outline" }),
+			screen.queryAllByTestId("checkbox-blank-outline", {
+				includeHiddenElements: true,
+			}),
 		).toHaveLength(0);
 
 		// Multi-select is untouched: each tap offers its own value, and the
