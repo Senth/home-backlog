@@ -1,10 +1,18 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { Provider } from "react-native-paper";
+import type { ComponentProps } from "react";
+import { HelperText, Provider } from "react-native-paper";
 import { LabelPicker } from "@/components/label/LabelPicker";
 import { applyLabel, removeLabel } from "@/data/nodes";
 import type { LabelWithId } from "@/models/label";
 import { defaultColumns, type Node } from "@/models/node";
+import type { RecordedComponent } from "@/tests/support/record-props";
 import { lightTheme } from "@/theme";
+
+jest.mock("react-native-paper", () => {
+	const { recordProps } = require("@/tests/support/record-props");
+	const actual = jest.requireActual("react-native-paper");
+	return { ...actual, HelperText: recordProps(actual.HelperText) };
+});
 
 jest.mock("react-i18next", () => ({
 	// The keys are asserted rather than the sentences — the parity of the locale
@@ -90,6 +98,16 @@ function capSentence() {
 	return screen.getByTestId("label-picker-cap", {
 		includeHiddenElements: true,
 	});
+}
+
+const mockHelperText = HelperText as unknown as RecordedComponent<
+	ComponentProps<typeof HelperText>
+>;
+
+function capHelper() {
+	return mockHelperText
+		.getProps()
+		.find((helper) => helper.testID === "label-picker-cap");
 }
 
 describe("LabelPicker", () => {
@@ -178,6 +196,7 @@ describe("LabelPicker", () => {
 				.accessibilityState,
 		).toMatchObject({ checked: true });
 		expect(screen.getByText(/labels\.capReached/)).toBeOnTheScreen();
+		expect(capHelper()?.visible).toBe(true);
 	});
 
 	it("offers every row and keeps the cap sentence quiet below the cap", async () => {
@@ -199,6 +218,11 @@ describe("LabelPicker", () => {
 
 		expect(capSentence()).toBeOnTheScreen();
 		expect(screen.queryByText(/labels\.capReached/)).toBeNull();
+		expect(capHelper()?.visible).toBe(false);
+		expect(capSentence().props.accessibilityElementsHidden).toBe(true);
+		expect(capSentence().props.importantForAccessibility).toBe(
+			"no-hide-descendants",
+		);
 	});
 
 	it("hands the cap sentence back to the accessibility tree at the cap", async () => {
@@ -216,5 +240,8 @@ describe("LabelPicker", () => {
 
 		expect(capSentence()).toBeOnTheScreen();
 		expect(screen.getByText(/labels\.capReached/)).toBeOnTheScreen();
+		expect(capHelper()?.visible).toBe(true);
+		expect(capSentence().props.accessibilityElementsHidden).toBe(false);
+		expect(capSentence().props.importantForAccessibility).toBe("auto");
 	});
 });

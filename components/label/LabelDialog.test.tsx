@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { Provider } from "react-native-paper";
+import type { ComponentProps } from "react";
+import { HelperText, Provider } from "react-native-paper";
 import { LabelDialog } from "@/components/label/LabelDialog";
 import {
 	createLabel,
@@ -10,7 +11,14 @@ import {
 } from "@/data/homes";
 import type { LabelWithId } from "@/models/label";
 import { toHex } from "@/models/label-color";
+import type { RecordedComponent } from "@/tests/support/record-props";
 import { defaultLabelHue, lightTheme } from "@/theme";
+
+jest.mock("react-native-paper", () => {
+	const { recordProps } = require("@/tests/support/record-props");
+	const actual = jest.requireActual("react-native-paper");
+	return { ...actual, HelperText: recordProps(actual.HelperText) };
+});
 
 jest.mock("react-i18next", () => ({
 	// The keys are asserted rather than the sentences — the parity of the locale
@@ -86,6 +94,14 @@ function nameField() {
 	return screen.getByDisplayValue(/.*/);
 }
 
+const mockHelperText = HelperText as unknown as RecordedComponent<
+	ComponentProps<typeof HelperText>
+>;
+
+function titleHelper() {
+	return mockHelperText.getProps().find((helper) => helper.type === "error");
+}
+
 afterEach(() => {
 	mockHomes = [];
 });
@@ -121,6 +137,7 @@ describe("LabelDialog", () => {
 		await fireEvent.press(screen.getByText("labels.add"));
 
 		expect(createLabel).not.toHaveBeenCalled();
+		expect(titleHelper()?.visible).toBe(true);
 		expect(screen.getByText("labels.titleRequired")).toBeOnTheScreen();
 	});
 
@@ -134,6 +151,7 @@ describe("LabelDialog", () => {
 		await fireEvent.press(screen.getByText("labels.add"));
 
 		expect(createLabel).not.toHaveBeenCalled();
+		expect(titleHelper()?.visible).toBe(true);
 		expect(screen.getByText("labels.titleTaken")).toBeOnTheScreen();
 	});
 
