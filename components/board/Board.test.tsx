@@ -1,7 +1,13 @@
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	within,
+} from "@testing-library/react-native";
 import type { ComponentProps } from "react";
 // `Provider`, not `ThemeProvider`: the board's Snackbar mounts a Portal host.
-import { Provider, Snackbar, TextInput } from "react-native-paper";
+import { Provider } from "react-native-paper";
 // Paper's Snackbar reads the safe-area insets its provider carries.
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Board } from "@/components/board/Board";
@@ -51,8 +57,38 @@ import {
 	rankAtEnd,
 	rankSequence,
 } from "@/models/node";
+import type { RecordedComponent } from "@/tests/support/record-props";
 import { lightTheme } from "@/theme";
 import { space } from "@/theme/tokens";
+
+jest.mock("@/components/board/BoardColumn", () => {
+	const { recordProps } = require("@/tests/support/record-props");
+	const actual = jest.requireActual("@/components/board/BoardColumn");
+	return { ...actual, BoardColumn: recordProps(actual.BoardColumn) };
+});
+jest.mock("@/components/board/CardMenu", () => {
+	const { recordProps } = require("@/tests/support/record-props");
+	const actual = jest.requireActual("@/components/board/CardMenu");
+	return { ...actual, CardMenu: recordProps(actual.CardMenu) };
+});
+jest.mock("@/components/board/DragArea", () => {
+	const { recordProps } = require("@/tests/support/record-props");
+	const actual = jest.requireActual("@/components/board/DragArea");
+	return { ...actual, DragArea: recordProps(actual.DragArea) };
+});
+
+const mockBoardColumn = BoardColumn as RecordedComponent<
+	ComponentProps<typeof BoardColumn>
+>;
+const mockCardMenu = CardMenu as RecordedComponent<
+	ComponentProps<typeof CardMenu>
+>;
+const mockDragArea = DragArea as RecordedComponent<
+	ComponentProps<typeof DragArea>
+>;
+const mockDetailsPane = DetailsPane as RecordedComponent<
+	ComponentProps<typeof DetailsPane>
+>;
 
 jest.mock("react-i18next", () => ({
 	// Keys asserted, not sentences — `BoardCard.test.tsx` for the reasoning.
@@ -80,7 +116,10 @@ jest.mock("expo-router", () => ({
 	useRouter: () => ({ push: mockPush, setParams: mockSetParams }),
 	useLocalSearchParams: () => mockSearchParams,
 }));
-jest.mock("@/components/node/DetailsPane", () => ({ DetailsPane: () => null }));
+jest.mock("@/components/node/DetailsPane", () => {
+	const { recordProps } = require("@/tests/support/record-props");
+	return { DetailsPane: recordProps(() => null) };
+});
 jest.mock("@react-navigation/native", () => ({
 	useIsFocused: () => true,
 }));
@@ -286,13 +325,16 @@ describe("Board", () => {
 		mockSearchParams = { card: "other-card" };
 		const project = { ...node("backlog"), childCount: 1 };
 		renderBoard({ loading: false, viewport: 1920, nodes: [project] });
-		const pane = screen.UNSAFE_getByType(DetailsPane);
-		expect(pane.props.nodeId).toBe("other-card");
-		act(() => screen.UNSAFE_getAllByType(CardMenu)[0].props.onDetails());
+		const pane = () => mockDetailsPane.getProps()[0];
+		expect(pane().nodeId).toBe("other-card");
+		fireEvent.press(screen.getAllByLabelText("board.actions")[0], {
+			stopPropagation: jest.fn(),
+		});
+		fireEvent.press(screen.getByText("board.details"));
 		expect(mockSetParams).toHaveBeenLastCalledWith({ card: project.id });
-		act(() => pane.props.onOpenNode("third-card"));
+		act(() => pane().onOpenNode("third-card"));
 		expect(mockSetParams).toHaveBeenLastCalledWith({ card: "third-card" });
-		act(() => pane.props.onClose());
+		act(() => pane().onClose());
 		expect(mockSetParams).toHaveBeenLastCalledWith({ card: undefined });
 		fireEvent.press(screen.getByText(project.title));
 		expect(mockSetParams).toHaveBeenLastCalledWith({ card: undefined });
@@ -328,17 +370,19 @@ describe("Board", () => {
 							}
 						: null,
 				});
-				const column = () => screen.UNSAFE_getAllByType(BoardColumn)[0];
-				expect(column().props.nodes).toEqual([a, b, c]);
+				const column = () => mockBoardColumn.getProps()[0];
+				expect(column().nodes).toEqual([a, b, c]);
 				fireEvent.press(screen.getByText("a"), {
 					nativeEvent: { ctrlKey: true },
 				});
 				fireEvent.press(screen.getByText("b"), {
 					nativeEvent: { shiftKey: true },
 				});
-				expect(column().props.selectedIds).toEqual([a.id, b.id]);
+				expect(column().selectedIds).toEqual([a.id, b.id]);
 				fireEvent.press(screen.getByLabelText("board.stopSelecting"));
-				const { register } = column().props.drag;
+				const register = column().drag?.register;
+				if (!register)
+					throw new Error("Board column rendered no drag registry");
 				const frame = (top: number, height: number) =>
 					({
 						measureInWindow: (callback: (...values: number[]) => void) =>
@@ -349,24 +393,20 @@ describe("Board", () => {
 					register(columnKey(status))(
 						status === "backlog" ? frame(0, 600) : null,
 					);
-				column().props.nodes.forEach((card: Node, index: number) => {
+				column().nodes.forEach((card: Node, index: number) => {
 					register(cardKey(card.id))(frame(index * 100, 100));
 				});
 				await act(async () => {
-					screen
-						.UNSAFE_getAllByType(DragArea)[0]
-						.props.onGrab({ x: 10, y: 50 });
+					mockDragArea.getProps()[0].onGrab({ x: 10, y: 50 });
 				});
 				expect(screen.getByTestId("board-drag-overlay")).toBeOnTheScreen();
-				expect(column().props.nodes).toEqual([a, b, c]);
-				expect(column().props.drag.gapAt).toBe(0);
+				expect(column().nodes).toEqual([a, b, c]);
+				expect(column().drag?.gapAt).toBe(0);
 				act(() => {
-					screen
-						.UNSAFE_getAllByType(DragArea)[0]
-						.props.onMove({ x: 10, y: 175 });
+					mockDragArea.getProps()[0].onMove({ x: 10, y: 175 });
 				});
-				expect(column().props.drag.gapAt).toBe(1);
-				act(() => screen.UNSAFE_getAllByType(DragArea)[0].props.onDrop());
+				expect(column().drag?.gapAt).toBe(1);
+				act(() => mockDragArea.getProps()[0].onDrop({ x: 10, y: 175 }));
 				expect(moveNodes).toHaveBeenCalledTimes(1);
 				const move = jest.mocked(moveNodes).mock.calls[0][1][0];
 				expect(move.node.id).toBe(a.id);
@@ -465,16 +505,12 @@ describe("Board", () => {
 				rank: `a${index}`,
 			}));
 			const other = { ...node("execution"), title: "elsewhere" };
-			const board = renderBoard({
+			renderBoard({
 				loading: false,
 				viewport: 1440,
 				nodes: [...cards, other],
 			});
-			act(() =>
-				board
-					.UNSAFE_getAllByType(CardMenu)[0]
-					.props.onNotice({ text: "old notice" }),
-			);
+			act(() => mockCardMenu.getProps()[0].onNotice({ text: "old notice" }));
 			fireEvent.press(screen.getByText("first"), {
 				nativeEvent: { ctrlKey: true },
 			});
@@ -564,10 +600,12 @@ describe("Board", () => {
 						: "board.moveTo",
 				),
 			);
-			const menu = screen.getByTestId("selection-move-menu");
 			expect(
-				menu.findAll((instance) => instance.props.title === "status.backlog"),
-			).toHaveLength(0);
+				within(screen.getByTestId("selection-move-menu")).queryByRole(
+					"menuitem",
+					{ name: "status.backlog" },
+				),
+			).toBeNull();
 			fireEvent.press(screen.getByText("status.done"));
 			const ranks = appendRanks([destination], 3);
 			expect(moveNodes).toHaveBeenCalledWith(
@@ -693,7 +731,7 @@ describe("Board", () => {
 			const props = { loading: false, viewport: 800, nodes: [node("backlog")] };
 			const board = renderBoard(props);
 			act(() =>
-				board.UNSAFE_getByType(CardMenu).props.onNotice({
+				mockCardMenu.getProps()[0].onNotice({
 					text: "outbox.queuedDelete",
 					intentId: "intent-1",
 					undo: jest.fn(),
@@ -704,7 +742,6 @@ describe("Board", () => {
 			if (reason === "intent leaves outbox") mockIntents = [];
 			else mockFeedbackVisible = true;
 			board.rerenderBoard(props);
-			expect(board.UNSAFE_queryAllByType(Snackbar)).toHaveLength(0);
 			expect(screen.queryByText("outbox.queuedDelete")).toBeNull();
 			expect(screen.queryByText("common.undo")).toBeNull();
 		},
@@ -786,7 +823,7 @@ describe("Board", () => {
 		});
 
 		fireEvent.press(screen.getByText(/board\.addTo:/));
-		fireEvent.changeText(screen.UNSAFE_getByType(TextInput), "Paint the shed");
+		fireEvent.changeText(screen.getByDisplayValue(""), "Paint the shed");
 		fireEvent.press(screen.getByText("board.add"));
 
 		expect(createNode).toHaveBeenCalledWith(
@@ -898,21 +935,24 @@ describe("Board", () => {
 		expect(screen.getAllByText("Fix the gutter")).toHaveLength(1);
 		// The drag is off in subtree reach: nothing on this board can be
 		// carried, because nothing here has a neighbour to swap ranks with.
-		expect(screen.UNSAFE_queryAllByType(DragArea)).toHaveLength(0);
+		expect(mockDragArea.getProps()).toHaveLength(0);
 		// And the Done column says its bound.
 		expect(screen.getByText('board.doneWindow:{"count":30}')).toBeOnTheScreen();
 		await act(async () => {});
 	});
 
 	it("this-board reach keeps the drag and does not bound the Done column", () => {
-		renderBoard({
+		const props = {
 			loading: false,
 			viewport: 800,
 			nodes: [node("backlog")],
-		});
+		};
+		const board = renderBoard(props);
 
-		expect(screen.UNSAFE_queryAllByType(DragArea).length).toBeGreaterThan(0);
+		expect(mockDragArea.getProps().length).toBeGreaterThan(0);
 		expect(screen.queryByText(/board\.doneWindow/)).not.toBeOnTheScreen();
+		board.rerenderBoard({ ...props, reach: "subtree" });
+		expect(mockDragArea.getProps()).toHaveLength(0);
 	});
 
 	/**
