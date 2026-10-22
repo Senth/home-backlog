@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react-native";
+import { useState } from "react";
 import type { ViewInstance } from "react-native";
 import {
 	boardKey,
@@ -67,7 +68,7 @@ interface Board {
 	pane?: number;
 }
 
-function board({ cards, pane, selected = [] }: Board) {
+async function board({ cards, pane, selected = [] }: Board) {
 	const onNotice = jest.fn();
 	const onChange = jest.fn();
 	const clearSelection = jest.fn();
@@ -77,12 +78,10 @@ function board({ cards, pane, selected = [] }: Board) {
 		anchor: selected.at(-1) ?? null,
 	};
 
-	// The pane goes through props and comes back as a re-render, the way the
-	// board really moves: a walk that only called a spy would never change the
-	// index the drag reads, and the re-measure it triggers would never run.
-	const view = renderHook(
-		(props: { nodes: Node[]; index: number }) =>
-			useBoardDrag({
+	const view = await renderHook(
+		(props: { nodes: Node[]; index: number }) => {
+			const [index, setIndex] = useState(props.index);
+			return useBoardDrag({
 				homeId,
 				nodes: props.nodes,
 				shown,
@@ -92,16 +91,16 @@ function board({ cards, pane, selected = [] }: Board) {
 					pane === undefined
 						? undefined
 						: {
-								index: props.index,
+								index,
 								count: shown.length,
 								onChange: (next: number) => {
 									onChange(next);
-									props.index = next;
-									act(() => view.rerender({ nodes: props.nodes, index: next }));
+									setIndex(next);
 									showPane(next);
 								},
 							},
-			}),
+			});
+		},
 		{ initialProps: { nodes: cards, index: pane ?? 0 } },
 	);
 
@@ -136,8 +135,8 @@ function board({ cards, pane, selected = [] }: Board) {
 	};
 
 	/** The board's listeners delivering something while the card is in the air. */
-	const arrive = (nodes: Node[]) => {
-		act(() => view.rerender({ nodes, index: pane ?? 0 }));
+	const arrive = async (nodes: Node[]) => {
+		await view.rerender({ nodes, index: pane ?? 0 });
 	};
 
 	/**
@@ -146,17 +145,17 @@ function board({ cards, pane, selected = [] }: Board) {
 	 * runs against the board as it is now and not as it was when the card lifted.
 	 */
 	const gesture = (card: Node) => ({
-		grab: (point: { x: number; y: number }) => {
-			act(() => view.result.current.handlers(card).onGrab(point));
+		grab: async (point: { x: number; y: number }) => {
+			await act(() => view.result.current.handlers(card).onGrab(point));
 		},
-		move: (point: { x: number; y: number }) => {
-			act(() => view.result.current.handlers(card).onMove(point));
+		move: async (point: { x: number; y: number }) => {
+			await act(() => view.result.current.handlers(card).onMove(point));
 		},
-		drop: () => {
-			act(() => view.result.current.handlers(card).onDrop());
+		drop: async () => {
+			await act(() => view.result.current.handlers(card).onDrop());
 		},
-		cancel: () => {
-			act(() => view.result.current.handlers(card).onCancel());
+		cancel: async () => {
+			await act(() => view.result.current.handlers(card).onCancel());
 		},
 	});
 
@@ -188,33 +187,33 @@ const c = node("c", "V2");
 
 describe("useBoardDrag", () => {
 	it("ignores movement after cancellation while the stack settles", async () => {
-		const { view, gesture, measured } = board({
+		const { view, gesture, measured } = await board({
 			cards: [a, b, c],
 			selected: [a.id, c.id],
 		});
 		const card = gesture(c);
-		card.grab({ x: 10, y: 250 });
+		await card.grab({ x: 10, y: 250 });
 		await measured();
-		card.move({ x: 10, y: 400 });
-		card.cancel();
+		await card.move({ x: 10, y: 400 });
+		await card.cancel();
 		const home = view.result.current.over;
-		card.move({ x: 500, y: 700 });
+		await card.move({ x: 500, y: 700 });
 		expect(view.result.current.over).toEqual(home);
 		await measured();
 		expect(view.result.current.node).toBeNull();
 	});
 
 	it("puts a selected stack on a chip in order with one count notice", async () => {
-		const { gesture, measured, register, onNotice } = board({
+		const { gesture, measured, register, onNotice } = await board({
 			cards: [a, b, c],
 			selected: [c.id, a.id],
 		});
 		register(chipKey("next_up"))(box(0, 40, 100, 80));
 		const card = gesture(c);
-		card.grab({ x: 10, y: 250 });
+		await card.grab({ x: 10, y: 250 });
 		await measured();
-		card.move({ x: 150, y: 20 });
-		card.drop();
+		await card.move({ x: 150, y: 20 });
+		await card.drop();
 		expect(
 			moved.mock.calls[0]?.[1].map(({ node, status }) => [node.id, status]),
 		).toEqual([
@@ -228,29 +227,29 @@ describe("useBoardDrag", () => {
 	});
 
 	it("does not write or clear selection when a contiguous stack stays put", async () => {
-		const { gesture, measured, onNotice, clearSelection } = board({
+		const { gesture, measured, onNotice, clearSelection } = await board({
 			cards: [a, b, c],
 			selected: [a.id, b.id],
 		});
 		const card = gesture(a);
-		card.grab({ x: 10, y: 50 });
+		await card.grab({ x: 10, y: 50 });
 		await measured();
-		card.drop();
+		await card.drop();
 		expect(moved).not.toHaveBeenCalled();
 		expect(onNotice).not.toHaveBeenCalled();
 		expect(clearSelection).not.toHaveBeenCalled();
 	});
 
 	it("moves a selected stack contiguously in one write and one Undo", async () => {
-		const { gesture, measured, onNotice, clearSelection } = board({
+		const { gesture, measured, onNotice, clearSelection } = await board({
 			cards: [a, b, c],
 			selected: [c.id, a.id],
 		});
 		const card = gesture(c);
-		card.grab({ x: 10, y: 250 });
+		await card.grab({ x: 10, y: 250 });
 		await measured();
-		card.move({ x: 10, y: 290 });
-		card.drop();
+		await card.move({ x: 10, y: 290 });
+		await card.drop();
 		expect(moved).toHaveBeenCalledTimes(1);
 		const moves = moved.mock.calls[0]?.[1] ?? [];
 		expect(moves.map((move) => move.node.id)).toEqual([a.id, c.id]);
@@ -270,53 +269,55 @@ describe("useBoardDrag", () => {
 	});
 
 	it("keeps selection after moving an unselected card", async () => {
-		const { gesture, measured, clearSelection } = board({
+		const { gesture, measured, clearSelection } = await board({
 			cards: [a, b, c],
 			selected: [a.id],
 		});
 		const card = gesture(b);
-		card.grab({ x: 10, y: 150 });
+		await card.grab({ x: 10, y: 150 });
 		await measured();
-		card.move({ x: 10, y: 290 });
-		card.drop();
+		await card.move({ x: 10, y: 290 });
+		await card.drop();
 		expect(moved.mock.calls[0]?.[1]).toHaveLength(1);
 		expect(moved.mock.calls[0]?.[1][0].node.id).toBe(b.id);
 		expect(clearSelection).not.toHaveBeenCalled();
 	});
 
 	it("aborts the whole stack if any carried card was deleted", async () => {
-		const { gesture, measured, arrive, onNotice, clearSelection } = board({
-			cards: [a, b, c],
-			selected: [a.id, c.id],
-		});
+		const { gesture, measured, arrive, onNotice, clearSelection } = await board(
+			{
+				cards: [a, b, c],
+				selected: [a.id, c.id],
+			},
+		);
 		const card = gesture(c);
-		card.grab({ x: 10, y: 250 });
+		await card.grab({ x: 10, y: 250 });
 		await measured();
-		arrive([b, c]);
-		card.move({ x: 10, y: 290 });
-		card.drop();
+		await arrive([b, c]);
+		await card.move({ x: 10, y: 290 });
+		await card.drop();
 		expect(moved).not.toHaveBeenCalled();
 		expect(onNotice).toHaveBeenCalledWith({ text: "board.gone" });
 		expect(clearSelection).not.toHaveBeenCalled();
 	});
 
 	it("carries selected cards in board order with room for every card", async () => {
-		const { view, gesture, measured } = board({
+		const { view, gesture, measured } = await board({
 			cards: [a, b, c],
 			selected: [c.id, a.id],
 		});
-		gesture(c).grab({ x: 10, y: 250 });
+		await gesture(c).grab({ x: 10, y: 250 });
 		await measured();
 		expect(view.result.current).toHaveProperty("carried", [a, c]);
 		expect(view.result.current).toHaveProperty("gapHeight", 200 + space.sm);
 	});
 
 	it("carries only an unselected card and keeps selection", async () => {
-		const { view, gesture, measured, clearSelection, selection } = board({
+		const { view, gesture, measured, clearSelection, selection } = await board({
 			cards: [a, b, c],
 			selected: [a.id, c.id],
 		});
-		gesture(b).grab({ x: 10, y: 150 });
+		await gesture(b).grab({ x: 10, y: 150 });
 		await measured();
 		expect(view.result.current).toHaveProperty("carried", [b]);
 		expect(clearSelection).not.toHaveBeenCalled();
@@ -327,17 +328,17 @@ describe("useBoardDrag", () => {
 		"restores selected cards on %s without clearing selection",
 		async (end) => {
 			reducedMotion.mockReturnValue(true);
-			const { view, gesture, measured, clearSelection } = board({
+			const { view, gesture, measured, clearSelection } = await board({
 				cards: [a, b, c],
 				selected: [a.id, c.id],
 			});
 			const card = gesture(c);
-			card.grab({ x: 10, y: 250 });
+			await card.grab({ x: 10, y: 250 });
 			await measured();
 			if (end === "outside") {
-				card.move({ x: 500, y: 700 });
-				card.drop();
-			} else card.cancel();
+				await card.move({ x: 500, y: 700 });
+				await card.drop();
+			} else await card.cancel();
 			expect(view.result.current.node).toBeNull();
 			expect(view.result.current.cards).toEqual([a, b, c]);
 			expect(clearSelection).not.toHaveBeenCalled();
@@ -346,13 +347,13 @@ describe("useBoardDrag", () => {
 	);
 
 	it("writes the drop and offers the way back", async () => {
-		const { onNotice, measured, gesture } = board({ cards: [a, b, c] });
+		const { onNotice, measured, gesture } = await board({ cards: [a, b, c] });
 		const card = gesture(a);
 
-		card.grab({ x: 10, y: 50 });
+		await card.grab({ x: 10, y: 50 });
 		await measured();
-		card.move({ x: 10, y: 290 });
-		card.drop();
+		await card.move({ x: 10, y: 290 });
+		await card.drop();
 
 		expect(moved).toHaveBeenCalledTimes(1);
 		const move = moved.mock.calls[0]?.[1][0];
@@ -371,20 +372,20 @@ describe("useBoardDrag", () => {
 	});
 
 	it("says nothing and writes nothing for a card put back where it was", async () => {
-		const { onNotice, measured, gesture } = board({ cards: [a, b, c] });
+		const { onNotice, measured, gesture } = await board({ cards: [a, b, c] });
 		const card = gesture(b);
 
-		card.grab({ x: 10, y: 150 });
+		await card.grab({ x: 10, y: 150 });
 		await measured();
-		card.move({ x: 10, y: 160 });
-		card.drop();
+		await card.move({ x: 10, y: 160 });
+		await card.drop();
 
 		expect(moved).not.toHaveBeenCalled();
 		expect(onNotice).not.toHaveBeenCalled();
 	});
 
 	it("puts a card back, and says so, when it is dropped outside every column", async () => {
-		const { view, onNotice, register, measured, gesture } = board({
+		const { view, onNotice, register, measured, gesture } = await board({
 			cards: [a, b, c],
 		});
 		// The card is carried over the strip's chip first, so the gap has been
@@ -393,37 +394,37 @@ describe("useBoardDrag", () => {
 		register(chipKey("next_up"))(box(0, 40, 100, 80));
 		const card = gesture(a);
 
-		card.grab({ x: 10, y: 50 });
+		await card.grab({ x: 10, y: 50 });
 		await measured();
-		card.move({ x: 150, y: 20 });
-		card.move({ x: 500, y: 700 });
+		await card.move({ x: 150, y: 20 });
+		await card.move({ x: 500, y: 700 });
 		// The gap is the only indicator, so "nowhere" is shown by it being gone.
 		expect(view.result.current.over).toBeNull();
-		card.drop();
+		await card.drop();
 
 		expect(moved).not.toHaveBeenCalled();
 		expect(onNotice).toHaveBeenCalledWith({ text: "board.putBack" });
 	});
 
 	it("refuses to resurrect a card deleted while it was carried", async () => {
-		const { onNotice, measured, arrive, gesture } = board({
+		const { onNotice, measured, arrive, gesture } = await board({
 			cards: [a, b, c],
 		});
 		const card = gesture(a);
 
-		card.grab({ x: 10, y: 50 });
+		await card.grab({ x: 10, y: 50 });
 		await measured();
 		// Deleted by somebody else while it was in the air.
-		arrive([b, c]);
-		card.move({ x: 10, y: 290 });
-		card.drop();
+		await arrive([b, c]);
+		await card.move({ x: 10, y: 290 });
+		await card.drop();
 
 		expect(moved).not.toHaveBeenCalled();
 		expect(onNotice).toHaveBeenCalledWith({ text: "board.gone" });
 	});
 
 	it("drops a card on a chip by appending it to that column", async () => {
-		const { onNotice, register, measured, gesture } = board({
+		const { onNotice, register, measured, gesture } = await board({
 			cards: [a, b, c],
 		});
 		// The strip sits above the board, and its chips are the way across on a
@@ -431,22 +432,22 @@ describe("useBoardDrag", () => {
 		register(chipKey("next_up"))(box(0, 40, 100, 80));
 		const card = gesture(a);
 
-		card.grab({ x: 10, y: 50 });
+		await card.grab({ x: 10, y: 50 });
 		await measured();
-		card.move({ x: 150, y: 20 });
-		card.drop();
+		await card.move({ x: 150, y: 20 });
+		await card.drop();
 
 		expect(moved.mock.calls[0]?.[1][0].status).toBe("next_up");
 		expect(onNotice.mock.calls[0]?.[0].text).toContain("board.moved");
 	});
 
 	it("lifts nothing when the press is over before the measuring is", async () => {
-		const { view, measured, gesture } = board({ cards: [a, b, c] });
+		const { view, measured, gesture } = await board({ cards: [a, b, c] });
 		const card = gesture(a);
 
-		card.grab({ x: 10, y: 50 });
+		await card.grab({ x: 10, y: 50 });
 		// Released inside the measuring window — a click, not a drag.
-		card.drop();
+		await card.drop();
 		await measured();
 
 		expect(view.result.current.node).toBeNull();
@@ -456,17 +457,19 @@ describe("useBoardDrag", () => {
 
 	it("keeps drawing the board as it was when the card lifted", async () => {
 		const arrival = node("d", "V3");
-		const { view, measured, arrive, gesture } = board({ cards: [a, b, c] });
+		const { view, measured, arrive, gesture } = await board({
+			cards: [a, b, c],
+		});
 		const card = gesture(a);
 
-		card.grab({ x: 10, y: 50 });
+		await card.grab({ x: 10, y: 50 });
 		await measured();
-		arrive([a, b, c, arrival]);
+		await arrive([a, b, c, arrival]);
 
 		expect(view.result.current.cards).toEqual([a, b, c]);
 
-		card.cancel();
-		act(() => {
+		await card.cancel();
+		await act(() => {
 			jest.runAllTimers();
 		});
 
@@ -477,14 +480,14 @@ describe("useBoardDrag", () => {
 		// docs/DESIGN.md § Motion: no spring on release — the card is already
 		// where the finger left it, so it lands there without a timer running.
 		reducedMotion.mockReturnValue(true);
-		const { view, measured, gesture } = board({ cards: [a, b, c] });
+		const { view, measured, gesture } = await board({ cards: [a, b, c] });
 		const card = gesture(a);
 
-		card.grab({ x: 10, y: 50 });
+		await card.grab({ x: 10, y: 50 });
 		await measured();
 		expect(view.result.current.node).not.toBeNull();
 
-		card.cancel();
+		await card.cancel();
 
 		expect(view.result.current.node).toBeNull();
 		expect(view.result.current.overlay).toBeNull();
@@ -492,17 +495,17 @@ describe("useBoardDrag", () => {
 	});
 
 	it("walks the board one pane per dwell while a card rests at the edge", async () => {
-		const { onChange, measured, gesture } = board({
+		const { onChange, measured, gesture } = await board({
 			cards: [a, b, c],
 			pane: 1,
 		});
 		const card = gesture(a);
 
-		card.grab({ x: 10, y: 50 });
+		await card.grab({ x: 10, y: 50 });
 		await measured();
-		card.move({ x: 2, y: 300 });
+		await card.move({ x: 2, y: 300 });
 
-		act(() => {
+		await act(() => {
 			jest.advanceTimersByTime(paneDwellMs + 50);
 		});
 		expect(onChange).toHaveBeenLastCalledWith(0);
@@ -510,8 +513,8 @@ describe("useBoardDrag", () => {
 		// And the walk stops the moment the card is put down, rather than taking
 		// the board one more pane after the finger has gone.
 		onChange.mockClear();
-		card.cancel();
-		act(() => {
+		await card.cancel();
+		await act(() => {
 			jest.advanceTimersByTime(paneRepeatDwellMs * 2);
 		});
 		expect(onChange).not.toHaveBeenCalled();
@@ -520,17 +523,17 @@ describe("useBoardDrag", () => {
 	it("places the gap in the pane the walk arrived at, with the finger still", async () => {
 		// The cards are in the pane on screen; walking left reaches an empty one.
 		const later = [a, b, c].map((card) => ({ ...card, status: "next_up" }));
-		const { onChange, measured, gesture } = board({
+		const { onChange, measured, gesture } = await board({
 			cards: later as Node[],
 			pane: 1,
 		});
 		const card = gesture(later[0] as Node);
 
-		card.grab({ x: 10, y: 50 });
+		await card.grab({ x: 10, y: 50 });
 		await measured();
-		card.move({ x: 2, y: 300 });
+		await card.move({ x: 2, y: 300 });
 
-		act(() => {
+		await act(() => {
 			jest.advanceTimersByTime(paneDwellMs + 50);
 		});
 		expect(onChange).toHaveBeenLastCalledWith(0);
@@ -540,7 +543,7 @@ describe("useBoardDrag", () => {
 		await act(async () => {
 			jest.runAllTimers();
 		});
-		card.drop();
+		await card.drop();
 
 		expect(moved.mock.calls[0]?.[1][0].status).toBe("backlog");
 	});

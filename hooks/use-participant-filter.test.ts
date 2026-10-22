@@ -24,8 +24,8 @@ const nobodys = node("nobodys", []);
 const theirs = node("theirs", ["uid-b"]);
 
 describe("useParticipantFilter", () => {
-	it("hides somebody else's project and counts it", () => {
-		const { result } = renderHook(() =>
+	it("hides somebody else's project and counts it", async () => {
+		const { result } = await renderHook(() =>
 			useParticipantFilter([nobodys, mine, theirs]),
 		);
 
@@ -34,22 +34,22 @@ describe("useParticipantFilter", () => {
 		expect(result.current.showEveryone).toBe(false);
 	});
 
-	it("hides nothing on a board where no card names anyone", () => {
-		const { result } = renderHook(() => useParticipantFilter([nobodys]));
+	it("hides nothing on a board where no card names anyone", async () => {
+		const { result } = await renderHook(() => useParticipantFilter([nobodys]));
 
 		expect(result.current.nodes).toEqual([nobodys]);
 		expect(result.current.hiddenCount).toBe(0);
 	});
 
-	it("shows everything once the toggle is on, and keeps saying how many", () => {
+	it("shows everything once the toggle is on, and keeps saying how many", async () => {
 		// `hiddenCount` is what the app bar renders the toggle from. Recomputing
 		// it over the *filtered* list would take it to zero the moment the toggle
 		// went on, and the control would disappear under the hand that used it.
-		const { result } = renderHook(() =>
+		const { result } = await renderHook(() =>
 			useParticipantFilter([nobodys, theirs]),
 		);
 
-		act(() => result.current.setShowEveryone(true));
+		await act(() => result.current.setShowEveryone(true));
 
 		expect(result.current.nodes).toEqual([nobodys, theirs]);
 		expect(result.current.hiddenCount).toBe(1);

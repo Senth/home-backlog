@@ -1,7 +1,13 @@
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	within,
+} from "@testing-library/react-native";
 import type { ComponentProps } from "react";
 // `Provider`, not `ThemeProvider`: the board's Snackbar mounts a Portal host.
-import { Provider, Snackbar, TextInput } from "react-native-paper";
+import { Provider } from "react-native-paper";
 // Paper's Snackbar reads the safe-area insets its provider carries.
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Board } from "@/components/board/Board";
@@ -30,7 +36,7 @@ jest.mock("@/data/outbox-store", () => ({
 	intentMetadata: jest.fn(() => ({ id: "intent-1" })),
 }));
 
-import { Dimensions, Platform, type ViewInstance } from "react-native";
+import { Dimensions, Platform, View, type ViewInstance } from "react-native";
 import { DragArea } from "@/components/board/DragArea";
 import {
 	SelectCardsAction,
@@ -51,8 +57,38 @@ import {
 	rankAtEnd,
 	rankSequence,
 } from "@/models/node";
+import type { RecordedComponent } from "@/tests/support/record-props";
 import { lightTheme } from "@/theme";
 import { space } from "@/theme/tokens";
+
+jest.mock("@/components/board/BoardColumn", () => {
+	const { recordProps } = require("@/tests/support/record-props");
+	const actual = jest.requireActual("@/components/board/BoardColumn");
+	return { ...actual, BoardColumn: recordProps(actual.BoardColumn) };
+});
+jest.mock("@/components/board/CardMenu", () => {
+	const { recordProps } = require("@/tests/support/record-props");
+	const actual = jest.requireActual("@/components/board/CardMenu");
+	return { ...actual, CardMenu: recordProps(actual.CardMenu) };
+});
+jest.mock("@/components/board/DragArea", () => {
+	const { recordProps } = require("@/tests/support/record-props");
+	const actual = jest.requireActual("@/components/board/DragArea");
+	return { ...actual, DragArea: recordProps(actual.DragArea) };
+});
+
+const mockBoardColumn = BoardColumn as RecordedComponent<
+	ComponentProps<typeof BoardColumn>
+>;
+const mockCardMenu = CardMenu as RecordedComponent<
+	ComponentProps<typeof CardMenu>
+>;
+const mockDragArea = DragArea as RecordedComponent<
+	ComponentProps<typeof DragArea>
+>;
+const mockDetailsPane = DetailsPane as RecordedComponent<
+	ComponentProps<typeof DetailsPane>
+>;
 
 jest.mock("react-i18next", () => ({
 	// Keys asserted, not sentences — `BoardCard.test.tsx` for the reasoning.
@@ -80,7 +116,10 @@ jest.mock("expo-router", () => ({
 	useRouter: () => ({ push: mockPush, setParams: mockSetParams }),
 	useLocalSearchParams: () => mockSearchParams,
 }));
-jest.mock("@/components/node/DetailsPane", () => ({ DetailsPane: () => null }));
+jest.mock("@/components/node/DetailsPane", () => {
+	const { recordProps } = require("@/tests/support/record-props");
+	return { DetailsPane: recordProps(() => null) };
+});
 jest.mock("@react-navigation/native", () => ({
 	useIsFocused: () => true,
 }));
@@ -208,7 +247,7 @@ function SelectionBoard({ current }: { current: TestBoardProps }) {
 
 const viewportHeight = 844;
 
-function renderBoard(props: TestBoardProps) {
+async function renderBoard(props: TestBoardProps) {
 	Dimensions.set({
 		window: {
 			width: props.viewport,
@@ -233,15 +272,15 @@ function renderBoard(props: TestBoardProps) {
 			</Provider>
 		</SafeAreaProvider>
 	);
-	const utils = render(tree(props));
+	const utils = await render(tree(props));
 	// The board measures itself before drawing any column; the layout event is
 	// what a browser delivers on mount, and it is the board's own View that
 	// carries `onLayout` — not the providers around it.
-	const boardView = utils
-		.UNSAFE_getByType(Board)
-		.find((child) => child.props.collapsable === false && child.props.onLayout);
+	const boardView = utils.container.queryAll(
+		(child) => child.props.collapsable === false && child.props.onLayout,
+	)[0];
 	if (!boardView) throw new Error("Board rendered no root view");
-	fireEvent(boardView, "layout", {
+	await fireEvent(boardView, "layout", {
 		nativeEvent: { layout: { width: props.viewport } },
 	});
 	return {
@@ -251,24 +290,21 @@ function renderBoard(props: TestBoardProps) {
 }
 
 function measureAnchors() {
-	for (const instance of screen.UNSAFE_root.findAll(
-		(instance) => typeof instance.instance?.measureInWindow === "function",
-	)) {
-		instance.instance.measureInWindow.mockImplementation(
-			(
-				callback: (x: number, y: number, width: number, height: number) => void,
-			) => callback(100, 100, 100, 48),
+	jest
+		.spyOn(View.prototype as ViewInstance, "measureInWindow")
+		.mockImplementation(
+			(callback: Parameters<ViewInstance["measureInWindow"]>[0]) =>
+				callback(100, 100, 100, 48),
 		);
-	}
 }
 
 describe("Board", () => {
 	it.each([390, 720, 1440, 1920])(
 		"opens details using the phone route or current board query at %ipx",
-		(viewport) => {
+		async (viewport) => {
 			const card = node("backlog");
-			renderBoard({ loading: false, viewport, nodes: [card] });
-			fireEvent.press(screen.getByText(card.title));
+			await renderBoard({ loading: false, viewport, nodes: [card] });
+			await fireEvent.press(screen.getByText(card.title));
 			if (viewport < 720) {
 				expect(mockPush).toHaveBeenCalledWith({
 					pathname: "/projects/[nodeId]/details",
@@ -282,19 +318,22 @@ describe("Board", () => {
 		},
 	);
 
-	it("opens project details from its menu, switches cards, closes, and clears details before drilling in", () => {
+	it("opens project details from its menu, switches cards, closes, and clears details before drilling in", async () => {
 		mockSearchParams = { card: "other-card" };
 		const project = { ...node("backlog"), childCount: 1 };
-		renderBoard({ loading: false, viewport: 1920, nodes: [project] });
-		const pane = screen.UNSAFE_getByType(DetailsPane);
-		expect(pane.props.nodeId).toBe("other-card");
-		act(() => screen.UNSAFE_getAllByType(CardMenu)[0].props.onDetails());
+		await renderBoard({ loading: false, viewport: 1920, nodes: [project] });
+		const pane = () => mockDetailsPane.getProps()[0];
+		expect(pane().nodeId).toBe("other-card");
+		await fireEvent.press(screen.getAllByLabelText("board.actions")[0], {
+			stopPropagation: jest.fn(),
+		});
+		await fireEvent.press(screen.getByText("board.details"));
 		expect(mockSetParams).toHaveBeenLastCalledWith({ card: project.id });
-		act(() => pane.props.onOpenNode("third-card"));
+		await act(() => pane().onOpenNode("third-card"));
 		expect(mockSetParams).toHaveBeenLastCalledWith({ card: "third-card" });
-		act(() => pane.props.onClose());
+		await act(() => pane().onClose());
 		expect(mockSetParams).toHaveBeenLastCalledWith({ card: undefined });
-		fireEvent.press(screen.getByText(project.title));
+		await fireEvent.press(screen.getByText(project.title));
 		expect(mockSetParams).toHaveBeenLastCalledWith({ card: undefined });
 		expect(mockPush).toHaveBeenCalledWith({
 			pathname: "/projects/[nodeId]",
@@ -315,7 +354,7 @@ describe("Board", () => {
 					rank: rankSequence(null, null, 3)[index],
 					participantIds: [title === "b" ? "uid-other" : "uid-me"],
 				}));
-				renderBoard({
+				await renderBoard({
 					loading: false,
 					viewport: 1440,
 					nodes: [a, c],
@@ -328,17 +367,19 @@ describe("Board", () => {
 							}
 						: null,
 				});
-				const column = () => screen.UNSAFE_getAllByType(BoardColumn)[0];
-				expect(column().props.nodes).toEqual([a, b, c]);
-				fireEvent.press(screen.getByText("a"), {
+				const column = () => mockBoardColumn.getProps()[0];
+				expect(column().nodes).toEqual([a, b, c]);
+				await fireEvent.press(screen.getByText("a"), {
 					nativeEvent: { ctrlKey: true },
 				});
-				fireEvent.press(screen.getByText("b"), {
+				await fireEvent.press(screen.getByText("b"), {
 					nativeEvent: { shiftKey: true },
 				});
-				expect(column().props.selectedIds).toEqual([a.id, b.id]);
-				fireEvent.press(screen.getByLabelText("board.stopSelecting"));
-				const { register } = column().props.drag;
+				expect(column().selectedIds).toEqual([a.id, b.id]);
+				await fireEvent.press(screen.getByLabelText("board.stopSelecting"));
+				const register = column().drag?.register;
+				if (!register)
+					throw new Error("Board column rendered no drag registry");
 				const frame = (top: number, height: number) =>
 					({
 						measureInWindow: (callback: (...values: number[]) => void) =>
@@ -349,24 +390,20 @@ describe("Board", () => {
 					register(columnKey(status))(
 						status === "backlog" ? frame(0, 600) : null,
 					);
-				column().props.nodes.forEach((card: Node, index: number) => {
+				column().nodes.forEach((card: Node, index: number) => {
 					register(cardKey(card.id))(frame(index * 100, 100));
 				});
 				await act(async () => {
-					screen
-						.UNSAFE_getAllByType(DragArea)[0]
-						.props.onGrab({ x: 10, y: 50 });
+					mockDragArea.getProps()[0].onGrab({ x: 10, y: 50 });
 				});
 				expect(screen.getByTestId("board-drag-overlay")).toBeOnTheScreen();
-				expect(column().props.nodes).toEqual([a, b, c]);
-				expect(column().props.drag.gapAt).toBe(0);
-				act(() => {
-					screen
-						.UNSAFE_getAllByType(DragArea)[0]
-						.props.onMove({ x: 10, y: 175 });
+				expect(column().nodes).toEqual([a, b, c]);
+				expect(column().drag?.gapAt).toBe(0);
+				await act(() => {
+					mockDragArea.getProps()[0].onMove({ x: 10, y: 175 });
 				});
-				expect(column().props.drag.gapAt).toBe(1);
-				act(() => screen.UNSAFE_getAllByType(DragArea)[0].props.onDrop());
+				expect(column().drag?.gapAt).toBe(1);
+				await act(() => mockDragArea.getProps()[0].onDrop({ x: 10, y: 175 }));
 				expect(moveNodes).toHaveBeenCalledTimes(1);
 				const move = jest.mocked(moveNodes).mock.calls[0][1][0];
 				expect(move.node.id).toBe(a.id);
@@ -377,22 +414,22 @@ describe("Board", () => {
 		},
 	);
 
-	it("card menu starts selection and reuses batch move notice and Undo", () => {
+	it("card menu starts selection and reuses batch move notice and Undo", async () => {
 		const cards = [
 			node("backlog"),
 			{ ...node("backlog"), id: "second", title: "second", rank: "a1" },
 		];
-		renderBoard({ loading: false, viewport: 1440, nodes: cards });
-		fireEvent.press(screen.getAllByLabelText("board.actions")[0], {
+		await renderBoard({ loading: false, viewport: 1440, nodes: cards });
+		await fireEvent.press(screen.getAllByLabelText("board.actions")[0], {
 			stopPropagation: jest.fn(),
 		});
-		fireEvent.press(screen.getByText("board.select"));
-		fireEvent.press(screen.getByText("second"));
-		fireEvent.press(screen.getAllByLabelText("board.actions")[0], {
+		await fireEvent.press(screen.getByText("board.select"));
+		await fireEvent.press(screen.getByText("second"));
+		await fireEvent.press(screen.getAllByLabelText("board.actions")[0], {
 			stopPropagation: jest.fn(),
 		});
-		fireEvent.press(screen.getByText('board.moveCardsTo:{"count":2}'));
-		fireEvent.press(screen.getByText("status.done"));
+		await fireEvent.press(screen.getByText('board.moveCardsTo:{"count":2}'));
+		await fireEvent.press(screen.getByText("status.done"));
 		const ranks = appendRanks([], 2);
 		expect(moveNodes).toHaveBeenCalledWith(
 			"home-1",
@@ -406,7 +443,7 @@ describe("Board", () => {
 			screen.getByText('board.movedCardsTo:{"count":2,"column":"status.done"}'),
 		).toBeOnTheScreen();
 		expect(screen.getByLabelText("board.selectCards")).toBeOnTheScreen();
-		fireEvent.press(screen.getByText("common.undo"));
+		await fireEvent.press(screen.getByText("common.undo"));
 		expect(moveNodes).toHaveBeenLastCalledWith(
 			"home-1",
 			cards.map((card, index) => ({
@@ -424,30 +461,30 @@ describe("Board", () => {
 
 	it.each(["ctrlKey", "metaKey"])(
 		"%s starts selection, taps toggle instead of opening",
-		(key) => {
+		async (key) => {
 			jest.replaceProperty(Platform, "OS", "web");
 			try {
-				renderBoard({
+				await renderBoard({
 					loading: false,
 					viewport: 1440,
 					nodes: [node("backlog")],
 				});
-				fireEvent.press(screen.getByText("Fix the gutter"), {
+				await fireEvent.press(screen.getByText("Fix the gutter"), {
 					nativeEvent: { [key]: true },
 				});
 				expect(
 					screen.getByLabelText(/^board.selectedCardA11y:/),
 				).toBeOnTheScreen();
 				expect(mockPush).not.toHaveBeenCalled();
-				fireEvent.press(screen.getByText("Fix the gutter"));
+				await fireEvent.press(screen.getByText("Fix the gutter"));
 				expect(screen.queryByLabelText(/^board.selectedCardA11y:/)).toBeNull();
 				expect(mockPush).not.toHaveBeenCalled();
-				fireEvent.press(screen.getByText("Fix the gutter"));
+				await fireEvent.press(screen.getByText("Fix the gutter"));
 				expect(
 					screen.getByLabelText(/^board.selectedCardA11y:/),
 				).toBeOnTheScreen();
-				fireEvent.press(screen.getByLabelText("board.stopSelecting"));
-				fireEvent.press(screen.getByText("Fix the gutter"));
+				await fireEvent.press(screen.getByLabelText("board.stopSelecting"));
+				await fireEvent.press(screen.getByText("Fix the gutter"));
 				expect(mockSetParams).toHaveBeenCalledWith({ card: "node-backlog" });
 			} finally {
 				jest.restoreAllMocks();
@@ -455,7 +492,7 @@ describe("Board", () => {
 		},
 	);
 
-	it("shift-click selects a visible range, then another column replaces the notice without changing selection", () => {
+	it("shift-click selects a visible range, then another column replaces the notice without changing selection", async () => {
 		jest.replaceProperty(Platform, "OS", "web");
 		try {
 			const cards = ["first", "middle", "last"].map((title, index) => ({
@@ -465,26 +502,24 @@ describe("Board", () => {
 				rank: `a${index}`,
 			}));
 			const other = { ...node("execution"), title: "elsewhere" };
-			const board = renderBoard({
+			await renderBoard({
 				loading: false,
 				viewport: 1440,
 				nodes: [...cards, other],
 			});
-			act(() =>
-				board
-					.UNSAFE_getAllByType(CardMenu)[0]
-					.props.onNotice({ text: "old notice" }),
+			await act(() =>
+				mockCardMenu.getProps()[0].onNotice({ text: "old notice" }),
 			);
-			fireEvent.press(screen.getByText("first"), {
+			await fireEvent.press(screen.getByText("first"), {
 				nativeEvent: { ctrlKey: true },
 			});
-			fireEvent.press(screen.getByText("last"), {
+			await fireEvent.press(screen.getByText("last"), {
 				nativeEvent: { shiftKey: true },
 			});
 			expect(screen.getAllByLabelText(/^board.selectedCardA11y:/)).toHaveLength(
 				3,
 			);
-			fireEvent.press(screen.getByText("elsewhere"));
+			await fireEvent.press(screen.getByText("elsewhere"));
 			expect(
 				screen.getByText(
 					'board.selectionElsewhere:{"column":"status.backlog"}',
@@ -502,9 +537,9 @@ describe("Board", () => {
 
 	it.each([390, 1440])(
 		"select starts empty, Move is disabled or absent, and close restores the controls at %ipx",
-		(viewport) => {
-			renderBoard({ loading: false, viewport, nodes: [node("backlog")] });
-			fireEvent.press(screen.getByLabelText("board.selectCards"));
+		async (viewport) => {
+			await renderBoard({ loading: false, viewport, nodes: [node("backlog")] });
+			await fireEvent.press(screen.getByLabelText("board.selectCards"));
 			expect(
 				screen.getByText('board.selectedCount:{"count":0}'),
 			).toBeOnTheScreen();
@@ -513,7 +548,7 @@ describe("Board", () => {
 			if (viewport === 1440)
 				expect(screen.getByText("board.moveTo")).toBeDisabled();
 			else expect(screen.queryByText(/board\.moveCardsTo(?::|$)/)).toBeNull();
-			fireEvent.press(screen.getByText("Fix the gutter"));
+			await fireEvent.press(screen.getByText("Fix the gutter"));
 			expect(
 				screen.getByText('board.selectedCount:{"count":1}'),
 			).toBeOnTheScreen();
@@ -521,7 +556,7 @@ describe("Board", () => {
 				expect(
 					screen.getByText('board.moveCardsToFab:{"count":1}'),
 				).toBeOnTheScreen();
-			fireEvent.press(screen.getByLabelText("board.stopSelecting"));
+			await fireEvent.press(screen.getByLabelText("board.stopSelecting"));
 			expect(screen.getByLabelText("board.selectCards")).toBeOnTheScreen();
 			expect(screen.getAllByText(/board\.addTo:/).length).toBeGreaterThan(0);
 		},
@@ -529,7 +564,7 @@ describe("Board", () => {
 
 	it.each([390, 1440])(
 		"moves three selected cards in old order after a hidden destination card, and one Undo restores all at %ipx",
-		(viewport) => {
+		async (viewport) => {
 			const cards = ["first", "middle", "last"].map((title, index) => ({
 				...node("backlog"),
 				id: title,
@@ -542,7 +577,7 @@ describe("Board", () => {
 				rank: rankAtEnd(null),
 				priority: "high" as const,
 			};
-			renderBoard({
+			await renderBoard({
 				loading: false,
 				viewport,
 				nodes: [...cards, destination],
@@ -552,23 +587,25 @@ describe("Board", () => {
 					conditions: [{ field: "priority", anyOf: ["none"] }],
 				},
 			});
-			fireEvent.press(screen.getByLabelText("board.selectCards"));
+			await fireEvent.press(screen.getByLabelText("board.selectCards"));
 			for (const title of ["last", "first", "middle"])
-				fireEvent.press(screen.getByText(title));
+				await fireEvent.press(screen.getByText(title));
 			expect(screen.queryByText("hidden destination")).toBeNull();
 			measureAnchors();
-			fireEvent.press(
+			await fireEvent.press(
 				screen.getByText(
 					viewport === 390
 						? 'board.moveCardsToFab:{"count":3}'
 						: "board.moveTo",
 				),
 			);
-			const menu = screen.getByTestId("selection-move-menu");
 			expect(
-				menu.findAll((instance) => instance.props.title === "status.backlog"),
-			).toHaveLength(0);
-			fireEvent.press(screen.getByText("status.done"));
+				within(screen.getByTestId("selection-move-menu")).queryByRole(
+					"menuitem",
+					{ name: "status.backlog" },
+				),
+			).toBeNull();
+			await fireEvent.press(screen.getByText("status.done"));
 			const ranks = appendRanks([destination], 3);
 			expect(moveNodes).toHaveBeenCalledWith(
 				"home-1",
@@ -584,7 +621,7 @@ describe("Board", () => {
 					'board.movedCardsTo:{"count":3,"column":"status.done"}',
 				),
 			).toHaveLength(1);
-			fireEvent.press(screen.getByText("common.undo"));
+			await fireEvent.press(screen.getByText("common.undo"));
 			expect(moveNodes).toHaveBeenLastCalledWith(
 				"home-1",
 				cards.map((card, index) => ({
@@ -596,19 +633,23 @@ describe("Board", () => {
 		},
 	);
 
-	it("one selected card keeps the existing moved notice", () => {
-		renderBoard({ loading: false, viewport: 390, nodes: [node("backlog")] });
-		fireEvent.press(screen.getByLabelText("board.selectCards"));
-		fireEvent.press(screen.getByText("Fix the gutter"));
+	it("one selected card keeps the existing moved notice", async () => {
+		await renderBoard({
+			loading: false,
+			viewport: 390,
+			nodes: [node("backlog")],
+		});
+		await fireEvent.press(screen.getByLabelText("board.selectCards"));
+		await fireEvent.press(screen.getByText("Fix the gutter"));
 		measureAnchors();
-		fireEvent.press(screen.getByText('board.moveCardsToFab:{"count":1}'));
-		fireEvent.press(screen.getByText("status.done"));
+		await fireEvent.press(screen.getByText('board.moveCardsToFab:{"count":1}'));
+		await fireEvent.press(screen.getByText("status.done"));
 		expect(
 			screen.getByText('board.moved:{"column":"status.done"}'),
 		).toBeOnTheScreen();
 	});
 
-	it("filter changes prune hidden selections without selecting them again when cleared", () => {
+	it("filter changes prune hidden selections without selecting them again when cleared", async () => {
 		jest.replaceProperty(Platform, "OS", "web");
 		try {
 			const cards = [
@@ -626,12 +667,12 @@ describe("Board", () => {
 				},
 			];
 			const props = { loading: false, viewport: 390, nodes: cards };
-			const board = renderBoard(props);
-			fireEvent.press(screen.getByText("first"), {
+			const board = await renderBoard(props);
+			await fireEvent.press(screen.getByText("first"), {
 				nativeEvent: { metaKey: true },
 			});
-			fireEvent.press(screen.getByText("second"));
-			board.rerenderBoard({
+			await fireEvent.press(screen.getByText("second"));
+			await board.rerenderBoard({
 				...props,
 				filter: {
 					mode: "open",
@@ -643,7 +684,7 @@ describe("Board", () => {
 			expect(
 				screen.getByLabelText('board.selectedCardA11y:{"title":"first"}'),
 			).toBeOnTheScreen();
-			board.rerenderBoard(props);
+			await board.rerenderBoard(props);
 			expect(screen.getByText("second")).toBeOnTheScreen();
 			expect(
 				screen.getByLabelText('board.selectedCardA11y:{"title":"first"}'),
@@ -656,16 +697,16 @@ describe("Board", () => {
 		}
 	});
 
-	it("subtree reach ignores selection modifiers and opens the card", () => {
+	it("subtree reach ignores selection modifiers and opens the card", async () => {
 		jest.replaceProperty(Platform, "OS", "web");
 		try {
-			renderBoard({
+			await renderBoard({
 				loading: false,
 				viewport: 1440,
 				nodes: [node("backlog")],
 				reach: "subtree",
 			});
-			fireEvent.press(screen.getByText("Fix the gutter"), {
+			await fireEvent.press(screen.getByText("Fix the gutter"), {
 				nativeEvent: { ctrlKey: true },
 			});
 			expect(mockSetParams).toHaveBeenCalledWith({ card: "node-backlog" });
@@ -677,7 +718,7 @@ describe("Board", () => {
 
 	it.each(["intent leaves outbox", "global feedback appears"])(
 		"removes card menu queued snackbar immediately when %s",
-		(reason) => {
+		async (reason) => {
 			mockIntents = [
 				{
 					id: "intent-1",
@@ -691,9 +732,9 @@ describe("Board", () => {
 				},
 			];
 			const props = { loading: false, viewport: 800, nodes: [node("backlog")] };
-			const board = renderBoard(props);
-			act(() =>
-				board.UNSAFE_getByType(CardMenu).props.onNotice({
+			const board = await renderBoard(props);
+			await act(() =>
+				mockCardMenu.getProps()[0].onNotice({
 					text: "outbox.queuedDelete",
 					intentId: "intent-1",
 					undo: jest.fn(),
@@ -703,8 +744,7 @@ describe("Board", () => {
 			expect(screen.getByText("common.undo")).toBeOnTheScreen();
 			if (reason === "intent leaves outbox") mockIntents = [];
 			else mockFeedbackVisible = true;
-			board.rerenderBoard(props);
-			expect(board.UNSAFE_queryAllByType(Snackbar)).toHaveLength(0);
+			await board.rerenderBoard(props);
 			expect(screen.queryByText("outbox.queuedDelete")).toBeNull();
 			expect(screen.queryByText("common.undo")).toBeNull();
 		},
@@ -712,16 +752,16 @@ describe("Board", () => {
 
 	// #266: first launch holds `loading` while the cache-only snapshot waits for
 	// the server, and the board below the spinner must not read as empty.
-	it("shows the spinner instead of the columns while loading", () => {
-		renderBoard({ loading: true, viewport: 800 });
+	it("shows the spinner instead of the columns while loading", async () => {
+		await renderBoard({ loading: true, viewport: 800 });
 
 		expect(screen.getByLabelText("common.loading")).toBeOnTheScreen();
 		expect(screen.queryByTestId("board-column-backlog")).not.toBeOnTheScreen();
 		expect(screen.queryByTestId("board-column-done")).not.toBeOnTheScreen();
 	});
 
-	it("shows the columns once loading has ended", () => {
-		renderBoard({ loading: false, viewport: 800 });
+	it("shows the columns once loading has ended", async () => {
+		await renderBoard({ loading: false, viewport: 800 });
 
 		expect(screen.getByTestId("board-column-backlog")).toBeOnTheScreen();
 		// #310: the empty board is said per column, not once above them all.
@@ -729,8 +769,8 @@ describe("Board", () => {
 		expect(screen.queryByText("board.empty")).not.toBeOnTheScreen();
 	});
 
-	it("renders the cards it was given once loaded", () => {
-		renderBoard({
+	it("renders the cards it was given once loaded", async () => {
+		await renderBoard({
 			loading: false,
 			viewport: 800,
 			nodes: [node("backlog"), node("done")],
@@ -740,12 +780,12 @@ describe("Board", () => {
 		expect(screen.queryByText("board.empty")).not.toBeOnTheScreen();
 	});
 
-	it("leaves the private line off the cards of a private project's own board", () => {
+	it("leaves the private line off the cards of a private project's own board", async () => {
 		const privately = (status: Node["status"]): Node => ({
 			...node(status),
 			visibility: "private",
 		});
-		renderBoard({
+		await renderBoard({
 			loading: false,
 			viewport: 800,
 			parent: { ...privately("backlog"), id: "project" },
@@ -756,14 +796,14 @@ describe("Board", () => {
 		expect(screen.queryByText("board.private")).not.toBeOnTheScreen();
 	});
 
-	it("does not offer the compact add FAB while loading", () => {
-		renderBoard({ loading: true, viewport: 400 });
+	it("does not offer the compact add FAB while loading", async () => {
+		await renderBoard({ loading: true, viewport: 400 });
 
 		expect(screen.queryByText(/board\.addTo:/)).not.toBeOnTheScreen();
 	});
 
-	it("offers the compact add FAB once loading has ended", () => {
-		renderBoard({ loading: false, viewport: 400 });
+	it("offers the compact add FAB once loading has ended", async () => {
+		await renderBoard({ loading: false, viewport: 400 });
 
 		expect(screen.getByText(/board\.addTo:/)).toBeOnTheScreen();
 	});
@@ -773,21 +813,21 @@ describe("Board", () => {
 	 * still owns the column's end. A new card ranks after it — where the next
 	 * unhide finds it — instead of stacking on top of it.
 	 */
-	it("ranks a new card after the sibling the filter is hiding", () => {
+	it("ranks a new card after the sibling the filter is hiding", async () => {
 		const hiddenCard = node("backlog");
 		hiddenCard.id = "hidden";
 		hiddenCard.rank = "V5";
 		mockUser = { uid: "uid-me" };
-		renderBoard({
+		await renderBoard({
 			loading: false,
 			viewport: 400,
 			nodes: [],
 			hidden: [hiddenCard],
 		});
 
-		fireEvent.press(screen.getByText(/board\.addTo:/));
-		fireEvent.changeText(screen.UNSAFE_getByType(TextInput), "Paint the shed");
-		fireEvent.press(screen.getByText("board.add"));
+		await fireEvent.press(screen.getByText(/board\.addTo:/));
+		await fireEvent.changeText(screen.getByDisplayValue(""), "Paint the shed");
+		await fireEvent.press(screen.getByText("board.add"));
 
 		expect(createNode).toHaveBeenCalledWith(
 			"home-1",
@@ -799,7 +839,7 @@ describe("Board", () => {
 		);
 	});
 
-	it("hides the cards the stored filter's conditions do not answer to", () => {
+	it("hides the cards the stored filter's conditions do not answer to", async () => {
 		const matching = node("backlog");
 		matching.id = "matching";
 		matching.priority = "low";
@@ -807,7 +847,7 @@ describe("Board", () => {
 		held.id = "held";
 		held.priority = "urgent";
 
-		renderBoard({
+		await renderBoard({
 			loading: false,
 			viewport: 800,
 			nodes: [matching, held],
@@ -825,9 +865,9 @@ describe("Board", () => {
 		expect(screen.getByTestId("board-filter-pill-priority")).toBeOnTheScreen();
 	});
 
-	it("with a filter on and nothing matching, one board-level state replaces the columns", () => {
+	it("with a filter on and nothing matching, one board-level state replaces the columns", async () => {
 		const onChangeFilter = jest.fn();
-		renderBoard({
+		await renderBoard({
 			loading: false,
 			viewport: 800,
 			nodes: [],
@@ -843,14 +883,14 @@ describe("Board", () => {
 		expect(screen.queryByTestId("board-column-backlog")).not.toBeOnTheScreen();
 		expect(screen.queryByText("board.empty")).not.toBeOnTheScreen();
 
-		fireEvent.press(screen.getByText("board.clearFilters"));
+		await fireEvent.press(screen.getByText("board.clearFilters"));
 		expect(onChangeFilter).toHaveBeenCalledWith(null);
 	});
 
-	it("says the filter is hiding things even when the preference is what hides them", () => {
+	it("says the filter is hiding things even when the preference is what hides them", async () => {
 		// A participant-hidden card in every column and a filter on top: the
 		// filter is the active lens, so its sentence is the one on screen.
-		renderBoard({
+		await renderBoard({
 			loading: false,
 			viewport: 800,
 			nodes: [],
@@ -879,7 +919,7 @@ describe("Board", () => {
 		deep.ancestorIds = [boardId, "project"];
 		deep.labelIds = [];
 
-		renderBoard({
+		await renderBoard({
 			loading: false,
 			viewport: 800,
 			nodes: [deep],
@@ -898,21 +938,24 @@ describe("Board", () => {
 		expect(screen.getAllByText("Fix the gutter")).toHaveLength(1);
 		// The drag is off in subtree reach: nothing on this board can be
 		// carried, because nothing here has a neighbour to swap ranks with.
-		expect(screen.UNSAFE_queryAllByType(DragArea)).toHaveLength(0);
+		expect(mockDragArea.getProps()).toHaveLength(0);
 		// And the Done column says its bound.
 		expect(screen.getByText('board.doneWindow:{"count":30}')).toBeOnTheScreen();
 		await act(async () => {});
 	});
 
-	it("this-board reach keeps the drag and does not bound the Done column", () => {
-		renderBoard({
+	it("this-board reach keeps the drag and does not bound the Done column", async () => {
+		const props = {
 			loading: false,
 			viewport: 800,
 			nodes: [node("backlog")],
-		});
+		};
+		const board = await renderBoard(props);
 
-		expect(screen.UNSAFE_queryAllByType(DragArea).length).toBeGreaterThan(0);
+		expect(mockDragArea.getProps().length).toBeGreaterThan(0);
 		expect(screen.queryByText(/board\.doneWindow/)).not.toBeOnTheScreen();
+		await board.rerenderBoard({ ...props, reach: "subtree" });
+		expect(mockDragArea.getProps()).toHaveLength(0);
 	});
 
 	/**
@@ -921,7 +964,7 @@ describe("Board", () => {
 	 * boundary the answer stays wrong until some unrelated prop changes.
 	 * Reading the clock in the render body is what lets a re-render move it.
 	 */
-	it("re-reads the clock on re-render, so a stale now cannot hold a window edge", () => {
+	it("re-reads the clock on re-render, so a stale now cannot hold a window edge", async () => {
 		jest.useFakeTimers();
 		try {
 			// The card is due in five days — outside the filter's three-day
@@ -941,7 +984,7 @@ describe("Board", () => {
 				reach: "board",
 				conditions: [{ field: "dueDate", is: "comingUp", n: 3 }],
 			} as BoardFilter;
-			const board = renderBoard({
+			const board = await renderBoard({
 				loading: false,
 				viewport: 800,
 				nodes: cards,
@@ -953,7 +996,7 @@ describe("Board", () => {
 			// Three days pass with the board open. A re-render is what a live
 			// update delivers, and the window has since closed over the card.
 			jest.setSystemTime(new Date(2026, 8, 13, 12, 0, 0));
-			board.rerenderBoard({
+			await board.rerenderBoard({
 				loading: false,
 				viewport: 800,
 				nodes: cards,

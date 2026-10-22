@@ -71,12 +71,12 @@ function node(overrides: Partial<Node> = {}): Node {
 	};
 }
 
-function renderPicker(
+async function renderPicker(
 	card: Node,
 	siblings: Node[],
 	onPick: (id: string) => void = () => {},
 ) {
-	return render(
+	return await render(
 		<Provider theme={lightTheme}>
 			<BlockerSearchDialog
 				homeId="home-1"
@@ -94,8 +94,8 @@ function renderPicker(
 }
 
 describe("BlockerSearchDialog", () => {
-	it("marks a candidate that is itself waiting on this card", () => {
-		renderPicker(node(), [
+	it("marks a candidate that is itself waiting on this card", async () => {
+		await renderPicker(node(), [
 			node({ id: "sib-1", title: "Paint the fence", blockedBy: ["node-1"] }),
 			node({ id: "sib-2", title: "Oil the hinges" }),
 		]);
@@ -106,9 +106,9 @@ describe("BlockerSearchDialog", () => {
 		).toBeOnTheScreen();
 	});
 
-	it("still picks the cyclical candidate — the chip warns, it does not block", () => {
+	it("still picks the cyclical candidate — the chip warns, it does not block", async () => {
 		const onPick = jest.fn();
-		renderPicker(
+		await renderPicker(
 			node(),
 			[
 				node({
@@ -120,15 +120,17 @@ describe("BlockerSearchDialog", () => {
 			onPick,
 		);
 
-		fireEvent.press(
+		await fireEvent.press(
 			screen.getByRole("checkbox", { name: "Dig the post holes" }),
 		);
 
 		expect(onPick).toHaveBeenCalledWith("sib-1");
 	});
 
-	it("leaves a candidate with no cycle back unmarked", () => {
-		renderPicker(node(), [node({ id: "sib-1", title: "Oil the hinges" })]);
+	it("leaves a candidate with no cycle back unmarked", async () => {
+		await renderPicker(node(), [
+			node({ id: "sib-1", title: "Oil the hinges" }),
+		]);
 
 		expect(screen.queryByText("detail.blockerCycle")).toBeNull();
 	});

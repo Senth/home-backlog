@@ -92,13 +92,13 @@ function tree_() {
 	return tree.map((each) => ({ ...each }));
 }
 
-function screen() {
+async function screen() {
 	const onPutBack = jest.fn();
 	const onError = jest.fn();
 	const onQueued = jest.fn();
 	const locations = tree_();
 
-	const view = renderHook(
+	const view = await renderHook(
 		(props: { locations: Location[] }) =>
 			useLocationDrag({
 				homeId,
@@ -122,17 +122,17 @@ function screen() {
 	};
 
 	const gesture = (place: Location) => ({
-		grab: (point: { x: number; y: number }) => {
-			act(() => view.result.current.handlers(place).onGrab(point));
+		grab: async (point: { x: number; y: number }) => {
+			await act(() => view.result.current.handlers(place).onGrab(point));
 		},
-		move: (point: { x: number; y: number }) => {
-			act(() => view.result.current.handlers(place).onMove(point));
+		move: async (point: { x: number; y: number }) => {
+			await act(() => view.result.current.handlers(place).onMove(point));
 		},
-		drop: (point: { x: number; y: number }) => {
-			act(() => view.result.current.handlers(place).onDrop(point));
+		drop: async (point: { x: number; y: number }) => {
+			await act(() => view.result.current.handlers(place).onDrop(point));
 		},
-		cancel: () => {
-			act(() => view.result.current.handlers(place).onCancel());
+		cancel: async () => {
+			await act(() => view.result.current.handlers(place).onCancel());
 		},
 	});
 
@@ -158,12 +158,12 @@ afterEach(() => {
 describe("useLocationDrag", () => {
 	it("rank-only sibling drop uses native reorder without outbox intent", async () => {
 		mockSubmit.mockResolvedValue("queued");
-		const { measured, gesture, onQueued } = screen();
+		const { measured, gesture, onQueued } = await screen();
 		const attic = gesture(tree[4]);
-		attic.grab({ x: 200, y: 450 });
+		await attic.grab({ x: 200, y: 450 });
 		await measured();
-		attic.move({ x: 200, y: 8 });
-		attic.drop({ x: 200, y: 8 });
+		await attic.move({ x: 200, y: 8 });
+		await attic.drop({ x: 200, y: 8 });
 		await act(async () => {});
 		expect(reorderLocation).toHaveBeenCalledWith(
 			homeId,
@@ -191,13 +191,13 @@ describe("useLocationDrag", () => {
 		];
 		mockSubmit.mockResolvedValue("queued");
 		const projected = projectLocations(tree, mockIntents, homeId).locations;
-		const { view, measured, gesture, onQueued } = screen();
-		view.rerender({ locations: projected });
+		const { view, measured, gesture, onQueued } = await screen();
+		await view.rerender({ locations: projected });
 		const cellar = gesture(projected[3]);
-		cellar.grab({ x: 200, y: 350 });
+		await cellar.grab({ x: 200, y: 350 });
 		await measured();
-		cellar.move({ x: 200, y: 208 });
-		cellar.drop({ x: 200, y: 208 });
+		await cellar.move({ x: 200, y: 208 });
+		await cellar.drop({ x: 200, y: 208 });
 		await act(async () => {});
 		expect(mockSubmit).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -215,12 +215,13 @@ describe("useLocationDrag", () => {
 	});
 	it("offline drop submits and lands in projected tree without flying back", async () => {
 		mockSubmit.mockResolvedValue("queued");
-		const { view, measured, gesture, onQueued, onPutBack, onError } = screen();
+		const { view, measured, gesture, onQueued, onPutBack, onError } =
+			await screen();
 		const cellar = gesture(tree[3]);
-		cellar.grab({ x: 200, y: 350 });
+		await cellar.grab({ x: 200, y: 350 });
 		await measured();
-		cellar.move({ x: 200, y: 150 });
-		cellar.drop({ x: 200, y: 150 });
+		await cellar.move({ x: 200, y: 150 });
+		await cellar.drop({ x: 200, y: 150 });
 		await act(async () => {});
 		const intent = mockSubmit.mock.calls[0][0];
 		expect(intent).toEqual(
@@ -239,15 +240,15 @@ describe("useLocationDrag", () => {
 		expect(onPutBack).not.toHaveBeenCalled();
 		expect(onError).not.toHaveBeenCalled();
 		const projected = projectLocations(tree, [intent], homeId).locations;
-		view.rerender({ locations: projected });
+		await view.rerender({ locations: projected });
 		const movedCellar = projected.find((each) => each.id === "cellar");
 		if (!movedCellar) throw new Error("Projected cellar missing");
 		expect(movedCellar.parentId).toBe("garden");
 		const again = gesture(movedCellar);
-		again.grab({ x: 200, y: 350 });
+		await again.grab({ x: 200, y: 350 });
 		await measured();
-		again.move({ x: 200, y: 450 });
-		again.drop({ x: 200, y: 450 });
+		await again.move({ x: 200, y: 450 });
+		await again.drop({ x: 200, y: 450 });
 		await act(async () => {});
 		expect(mockSubmit.mock.calls[1][0]).toEqual(
 			expect.objectContaining({
@@ -258,14 +259,14 @@ describe("useLocationDrag", () => {
 		);
 	});
 	it("writes the re-parent a drop lands on", async () => {
-		const { measured, gesture } = screen();
+		const { measured, gesture } = await screen();
 		const cellar = gesture(tree[3]);
 
-		cellar.grab({ x: 200, y: 350 });
+		await cellar.grab({ x: 200, y: 350 });
 		await measured();
 		// The middle of the garden row: into the garden, appended.
-		cellar.move({ x: 200, y: 150 });
-		cellar.drop({ x: 200, y: 150 });
+		await cellar.move({ x: 200, y: 150 });
+		await cellar.drop({ x: 200, y: 150 });
 
 		expect(moved).toHaveBeenCalledWith(
 			homeId,
@@ -276,15 +277,15 @@ describe("useLocationDrag", () => {
 	});
 
 	it("writes the reorder a drop lands on, among the row's siblings", async () => {
-		const { measured, gesture } = screen();
+		const { measured, gesture } = await screen();
 		const shed = gesture(tree[2]);
 
-		shed.grab({ x: 200, y: 250 });
+		await shed.grab({ x: 200, y: 250 });
 		await measured();
 		// The bottom edge of the house row: after house, at the top level —
 		// the row's own siblings, not its children.
-		shed.move({ x: 200, y: 92 });
-		shed.drop({ x: 200, y: 92 });
+		await shed.move({ x: 200, y: 92 });
+		await shed.drop({ x: 200, y: 92 });
 
 		expect(moved).toHaveBeenCalledWith(
 			homeId,
@@ -295,14 +296,14 @@ describe("useLocationDrag", () => {
 	});
 
 	it("refuses a cycle: dropping a place into its own subtree writes nothing", async () => {
-		const { measured, gesture, onPutBack, onError } = screen();
+		const { measured, gesture, onPutBack, onError } = await screen();
 		const garden = gesture(tree[1]);
 
-		garden.grab({ x: 200, y: 150 });
+		await garden.grab({ x: 200, y: 150 });
 		await measured();
 		// The middle of shed, which is garden's own child.
-		garden.move({ x: 200, y: 250 });
-		garden.drop({ x: 200, y: 250 });
+		await garden.move({ x: 200, y: 250 });
+		await garden.drop({ x: 200, y: 250 });
 
 		expect(moved).not.toHaveBeenCalled();
 		expect(onPutBack).toHaveBeenCalled();
@@ -310,29 +311,29 @@ describe("useLocationDrag", () => {
 	});
 
 	it("puts a place back, and says so, when it is dropped outside every row", async () => {
-		const { measured, gesture, onPutBack } = screen();
+		const { measured, gesture, onPutBack } = await screen();
 		const attic = gesture(tree[4]);
 
-		attic.grab({ x: 200, y: 450 });
+		await attic.grab({ x: 200, y: 450 });
 		await measured();
 		// Below the last row entirely.
-		attic.move({ x: 200, y: 550 });
-		attic.drop({ x: 200, y: 550 });
+		await attic.move({ x: 200, y: 550 });
+		await attic.drop({ x: 200, y: 550 });
 
 		expect(moved).not.toHaveBeenCalled();
 		expect(onPutBack).toHaveBeenCalled();
 	});
 
 	it("says nothing and writes nothing for a place put back where it was", async () => {
-		const { measured, gesture, onPutBack } = screen();
+		const { measured, gesture, onPutBack } = await screen();
 		const shed = gesture(tree[2]);
 
-		shed.grab({ x: 200, y: 250 });
+		await shed.grab({ x: 200, y: 250 });
 		await measured();
 		// The top edge of shed's own row — refused, so put back, and the drop
 		// lands where it started: no write, no sentence.
-		shed.move({ x: 200, y: 208 });
-		shed.drop({ x: 200, y: 208 });
+		await shed.move({ x: 200, y: 208 });
+		await shed.drop({ x: 200, y: 208 });
 
 		expect(moved).not.toHaveBeenCalled();
 		expect(onPutBack).not.toHaveBeenCalled();
@@ -340,24 +341,24 @@ describe("useLocationDrag", () => {
 
 	it("lands the place at once instead of settling it when motion is reduced", async () => {
 		reducedMotion.mockReturnValue(true);
-		const { view, measured, gesture } = screen();
+		const { view, measured, gesture } = await screen();
 		const attic = gesture(tree[4]);
 
-		attic.grab({ x: 200, y: 450 });
+		await attic.grab({ x: 200, y: 450 });
 		await measured();
-		attic.move({ x: 200, y: 250 });
-		attic.drop({ x: 200, y: 250 });
+		await attic.move({ x: 200, y: 250 });
+		await attic.drop({ x: 200, y: 250 });
 
 		expect(moved).toHaveBeenCalled();
 		expect(view.result.current.dragged).toBeNull();
 	});
 
 	it("lifts nothing when the press is over before the measuring is", async () => {
-		const { view, gesture } = screen();
+		const { view, gesture } = await screen();
 		const attic = gesture(tree[4]);
 
-		attic.grab({ x: 200, y: 450 });
-		attic.drop({ x: 200, y: 450 });
+		await attic.grab({ x: 200, y: 450 });
+		await attic.drop({ x: 200, y: 450 });
 		await act(async () => {
 			jest.runAllTimers();
 		});

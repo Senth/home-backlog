@@ -46,8 +46,8 @@ function card(status: Status): Node {
 const label = (status: Status) =>
 	`detail.moveToColumn:${JSON.stringify({ column: `status.${status}` })}`;
 
-function renderBar(status: Status) {
-	render(
+async function renderBar(status: Status) {
+	await render(
 		<Provider theme={lightTheme}>
 			<ColumnBar
 				homeId="h1"
@@ -63,11 +63,11 @@ function renderBar(status: Status) {
 const part = 50;
 const whole = 1000;
 
-function layOutWide() {
-	const measured = screen.UNSAFE_root.findAll(
+async function layOutWide() {
+	const measured = screen.container.queryAll(
 		(n) => typeof n.type === "string" && typeof n.props.onLayout === "function",
 	);
-	act(() => {
+	await act(() => {
 		for (const n of measured) {
 			n.props.onLayout({
 				nativeEvent: { layout: { width: part, height: part } },
@@ -75,19 +75,17 @@ function layOutWide() {
 		}
 	});
 	const bar = screen.getByTestId("column-bar-n1");
-	act(() => {
-		fireEvent(bar, "layout", {
-			nativeEvent: { layout: { width: whole, height: part } },
-		});
+	await fireEvent(bar, "layout", {
+		nativeEvent: { layout: { width: whole, height: part } },
 	});
 }
 
 describe("ColumnBar", () => {
 	beforeEach(() => jest.mocked(moveNode).mockClear());
 
-	it("steps the last working column into done", () => {
-		renderBar("execution");
-		fireEvent.press(screen.getByLabelText(label("done")));
+	it("steps the last working column into done", async () => {
+		await renderBar("execution");
+		await fireEvent.press(screen.getByLabelText(label("done")));
 		expect(moveNode).toHaveBeenCalledWith(
 			"h1",
 			expect.anything(),
@@ -96,9 +94,9 @@ describe("ColumnBar", () => {
 		);
 	});
 
-	it("steps back to the previous column", () => {
-		renderBar("next_up");
-		fireEvent.press(screen.getByLabelText(label("backlog")));
+	it("steps back to the previous column", async () => {
+		await renderBar("next_up");
+		await fireEvent.press(screen.getByLabelText(label("backlog")));
 		expect(moveNode).toHaveBeenCalledWith(
 			"h1",
 			expect.anything(),
@@ -107,9 +105,9 @@ describe("ColumnBar", () => {
 		);
 	});
 
-	it("disables back in the first column, and it names nothing", () => {
-		renderBar("backlog");
-		layOutWide();
+	it("disables back in the first column, and it names nothing", async () => {
+		await renderBar("backlog");
+		await layOutWide();
 		const back = screen.getByRole("button", { disabled: true });
 		expect(back).not.toHaveAccessibleName();
 		expect(screen.queryByLabelText(label("backlog"))).toBeNull();
@@ -119,9 +117,9 @@ describe("ColumnBar", () => {
 		);
 	});
 
-	it("disables forward in done, and it names nothing", () => {
-		renderBar("done");
-		layOutWide();
+	it("disables forward in done, and it names nothing", async () => {
+		await renderBar("done");
+		await layOutWide();
 		const forward = screen.getByRole("button", { disabled: true });
 		expect(forward).not.toHaveAccessibleName();
 		expect(screen.queryByLabelText(label("done"))).toBeNull();
@@ -129,25 +127,25 @@ describe("ColumnBar", () => {
 		expect(screen.getByLabelText(label("execution"))).toHaveTextContent(
 			"status.execution",
 		);
-		fireEvent.press(forward);
+		await fireEvent.press(forward);
 		expect(moveNode).not.toHaveBeenCalled();
 	});
 
-	it("has no done button", () => {
-		renderBar("next_up");
+	it("has no done button", async () => {
+		await renderBar("next_up");
 		expect(screen.queryByText("common.done")).toBeNull();
 		expect(screen.queryByTestId("check")).toBeNull();
 	});
 
-	it("the centre opens a picker that jumps to any column", () => {
-		renderBar("backlog");
-		fireEvent.press(screen.getByTestId("column-name-n1"));
+	it("the centre opens a picker that jumps to any column", async () => {
+		await renderBar("backlog");
+		await fireEvent.press(screen.getByTestId("column-name-n1"));
 		const sheet = within(screen.getByTestId("editor-column-n1-surface"));
 
-		fireEvent.press(sheet.getByText("status.backlog"));
+		await fireEvent.press(sheet.getByText("status.backlog"));
 		expect(moveNode).not.toHaveBeenCalled();
 
-		fireEvent.press(sheet.getByText("status.done"));
+		await fireEvent.press(sheet.getByText("status.done"));
 		expect(moveNode).toHaveBeenCalledWith(
 			"h1",
 			expect.anything(),

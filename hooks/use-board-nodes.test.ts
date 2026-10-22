@@ -98,7 +98,7 @@ const node = (id: string, ancestorIds: string[]): Node => ({
 describe("useBoardNodes", () => {
 	it.each(["board", "subtree"] as const)(
 		"hides queued moves and deletes at %s reach but preserves raw pool",
-		(reach) => {
+		async (reach) => {
 			const entries = [
 				node("moved", ["board-1"]),
 				node("deleted", ["board-1"]),
@@ -136,7 +136,9 @@ describe("useBoardNodes", () => {
 				failed: false,
 				retry: jest.fn(),
 			});
-			const hook = renderHook(() => useBoardNodes("home-1", "board-1", reach));
+			const hook = await renderHook(() =>
+				useBoardNodes("home-1", "board-1", reach),
+			);
 			expect(hook.result.current.nodes.map((each) => each.id)).toEqual(
 				reach === "board"
 					? ["kept", "other-home"]
@@ -146,14 +148,14 @@ describe("useBoardNodes", () => {
 				true,
 			);
 			mockIntents = [];
-			hook.rerender(undefined);
+			await hook.rerender(undefined);
 			expect(
 				hook.result.current.nodes.some((each) => each.id === "moved"),
 			).toBe(true);
 		},
 	);
-	it("this-board reach builds the board pair and nothing else", () => {
-		renderHook(() => useBoardNodes("home-1", "board-1", "board"));
+	it("this-board reach builds the board pair and nothing else", async () => {
+		await renderHook(() => useBoardNodes("home-1", "board-1", "board"));
 
 		for (const { build } of pairs()) {
 			void build();
@@ -172,8 +174,8 @@ describe("useBoardNodes", () => {
 		expect(jest.mocked(sharedDoneQuery)).not.toHaveBeenCalled();
 	});
 
-	it("subtree reach builds the pool pair and the done pair, and not the board pair", () => {
-		renderHook(() => useBoardNodes("home-1", "board-1", "subtree"));
+	it("subtree reach builds the pool pair and the done pair, and not the board pair", async () => {
+		await renderHook(() => useBoardNodes("home-1", "board-1", "subtree"));
 
 		for (const { build } of pairs()) {
 			void build();
@@ -200,15 +202,15 @@ describe("useBoardNodes", () => {
 		expect(jest.mocked(participatingBoardQuery)).not.toHaveBeenCalled();
 	});
 
-	it("re-keys every pair when the reach changes, so no stale rows survive", () => {
-		const view = renderHook(
+	it("re-keys every pair when the reach changes, so no stale rows survive", async () => {
+		const view = await renderHook(
 			({ reach }: { reach: "board" | "subtree" }) =>
 				useBoardNodes("home-1", "board-1", reach),
 			{ initialProps: { reach: "board" as "board" | "subtree" } },
 		);
 		const before = pairs();
 
-		view.rerender({ reach: "subtree" });
+		await view.rerender({ reach: "subtree" });
 		const after = pairs();
 
 		expect(after).toHaveLength(before.length);

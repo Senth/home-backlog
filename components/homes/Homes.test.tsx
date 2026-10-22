@@ -33,18 +33,18 @@ jest.mock("@/hooks/use-pending-invites", () => ({
 }));
 jest.mock("@/components/auth/AccountMenu", () => ({ AccountMenu: () => null }));
 
-function renderHomes() {
-	return render(
+async function renderHomes() {
+	return await render(
 		<Provider theme={lightTheme}>
 			<Homes />
 		</Provider>,
 	);
 }
 
-it("opens the home by its name and keeps the current-home label", () => {
-	renderHomes();
+it("opens the home by its name and keeps the current-home label", async () => {
+	await renderHomes();
 
-	fireEvent.press(screen.getByText("Stugan"));
+	await fireEvent.press(screen.getByText("Stugan"));
 
 	expect(mockSetActiveHome).toHaveBeenCalledWith("cabin");
 	expect(mockReplace).toHaveBeenCalledWith("/(app)/(tabs)/overview");
@@ -53,8 +53,8 @@ it("opens the home by its name and keeps the current-home label", () => {
 	).toBeOnTheScreen();
 });
 
-it("manages a home without opening it or inheriting a row button", () => {
-	renderHomes();
+it("manages a home without opening it or inheriting a row button", async () => {
+	await renderHomes();
 
 	const buttons = screen.getAllByRole("button", {
 		name: "manageHome.manageNamed",
@@ -66,7 +66,7 @@ it("manages a home without opening it or inheriting a row button", () => {
 		expect(node).not.toBe(lead);
 		expect(node.props["aria-disabled"]).not.toBe(true);
 	}
-	fireEvent.press(manage);
+	await fireEvent.press(manage);
 
 	expect(mockPush).toHaveBeenCalledWith("/homes/home");
 	expect(mockSetActiveHome).not.toHaveBeenCalled();

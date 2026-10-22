@@ -48,12 +48,12 @@ describe.each([
 	["/overview-editor", OverviewEditor],
 	["/overview-card-edit", OverviewCardEdit],
 ] as const)("%s", (_path, Route) => {
-	it("redirects a signed-in account without an active home to /homes", () => {
+	it("redirects a signed-in account without an active home to /homes", async () => {
 		jest.mocked(useHome).mockReturnValue({
 			activeHome: null,
 		} as ReturnType<typeof useHome>);
 
-		render(
+		await render(
 			<Provider theme={lightTheme}>
 				<Route />
 			</Provider>,
@@ -64,11 +64,11 @@ describe.each([
 		expect(screen.queryByText(/^overview\.cards\.editor\.intro/)).toBeNull();
 	});
 
-	it("renders with the active home's name, then redirects if it is cleared", () => {
+	it("renders with the active home's name, then redirects if it is cleared", async () => {
 		jest.mocked(useHome).mockReturnValue({
 			activeHome: { id: "home-1", name: "Huset", members: {}, labels: [] },
 		} as unknown as ReturnType<typeof useHome>);
-		const { rerender } = render(
+		const { rerender } = await render(
 			<Provider theme={lightTheme}>
 				<Route />
 			</Provider>,
@@ -80,7 +80,7 @@ describe.each([
 		jest.mocked(useHome).mockReturnValue({
 			activeHome: null,
 		} as ReturnType<typeof useHome>);
-		rerender(
+		await rerender(
 			<Provider theme={lightTheme}>
 				<Route />
 			</Provider>,

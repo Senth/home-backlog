@@ -6,8 +6,8 @@ import { lightTheme } from "@/theme";
 
 Object.defineProperty(Platform, "OS", { value: "web", configurable: true });
 
-function slider(value: number, onChange = jest.fn()) {
-	render(
+async function slider(value: number, onChange = jest.fn()) {
+	await render(
 		<Provider theme={lightTheme}>
 			<GradientSlider
 				value={value}
@@ -23,8 +23,8 @@ function slider(value: number, onChange = jest.fn()) {
 }
 
 describe("GradientSlider", () => {
-	it("reports its accessible value", () => {
-		slider(0.5);
+	it("reports its accessible value", async () => {
+		await slider(0.5);
 		const control = screen.getByRole("adjustable", { name: "Hue" });
 		expect(control.props.accessibilityValue).toEqual({
 			min: 0,
@@ -45,9 +45,9 @@ describe("GradientSlider", () => {
 		["decrement", 0.5, 0.49],
 		["increment", 1, 1],
 		["decrement", 0, 0],
-	])("%s from %s gives %s", (actionName, value, expected) => {
-		const onChange = slider(value);
-		fireEvent(screen.getByRole("adjustable"), "accessibilityAction", {
+	])("%s from %s gives %s", async (actionName, value, expected) => {
+		const onChange = await slider(value);
+		await fireEvent(screen.getByRole("adjustable"), "accessibilityAction", {
 			nativeEvent: { actionName },
 		});
 		expect(onChange).toHaveBeenCalledWith(expected);
@@ -64,10 +64,10 @@ describe("GradientSlider", () => {
 		["End", 0.5, 1],
 		["ArrowLeft", 0, 0],
 		["PageUp", 1, 1],
-	])("%s from %s gives %s", (key, value, expected) => {
-		const onChange = slider(value);
+	])("%s from %s gives %s", async (key, value, expected) => {
+		const onChange = await slider(value);
 		const preventDefault = jest.fn();
-		fireEvent(screen.getByRole("adjustable"), "keyDown", {
+		await fireEvent(screen.getByRole("adjustable"), "keyDown", {
 			key,
 			preventDefault,
 			nativeEvent: { key },

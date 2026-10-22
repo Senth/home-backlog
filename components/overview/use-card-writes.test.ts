@@ -90,9 +90,9 @@ beforeEach(() => {
 });
 
 describe("useCardWrites", () => {
-	it("addTo appends the card to its own surface's list", () => {
+	it("addTo appends the card to its own surface's list", async () => {
 		const added: Card = { id: "c", rank: "V2" } as Card;
-		writesHook().result.current.addTo("home", added);
+		(await writesHook()).result.current.addTo("home", added);
 
 		expect(cards.saveScopeCards).toHaveBeenCalledWith(
 			"home",
@@ -102,8 +102,10 @@ describe("useCardWrites", () => {
 		);
 	});
 
-	it("createIn mints the id and takes the last rank on the screen", () => {
-		writesHook().result.current.createIn("global", { title: "New" } as Card);
+	it("createIn mints the id and takes the last rank on the screen", async () => {
+		(await writesHook()).result.current.createIn("global", {
+			title: "New",
+		} as Card);
 
 		expect(cards.newCardId).toHaveBeenCalledWith("global", "home-1", "uid-me");
 		expect(cards.saveScopeCards).toHaveBeenCalledWith(
@@ -121,9 +123,9 @@ describe("useCardWrites", () => {
 		);
 	});
 
-	it("replaceIn swaps the one card and leaves the rest standing", () => {
+	it("replaceIn swaps the one card and leaves the rest standing", async () => {
 		const edited: Card = { id: "a", rank: "V0", title: "Renamed" } as Card;
-		writesHook().result.current.replaceIn("global", edited);
+		(await writesHook()).result.current.replaceIn("global", edited);
 
 		expect(cards.saveScopeCards).toHaveBeenCalledWith(
 			"global",
@@ -133,8 +135,8 @@ describe("useCardWrites", () => {
 		);
 	});
 
-	it("removeFrom drops the one card", () => {
-		writesHook().result.current.removeFrom("global", "a");
+	it("removeFrom drops the one card", async () => {
+		(await writesHook()).result.current.removeFrom("global", "a");
 
 		expect(cards.deleteScopeCard).toHaveBeenCalledWith(
 			"global",
@@ -145,9 +147,9 @@ describe("useCardWrites", () => {
 		);
 	});
 
-	it("moveScope hands the batch the from-surface without the card, the to-surface as it is", () => {
+	it("moveScope hands the batch the from-surface without the card, the to-surface as it is", async () => {
 		const moved: Card = { id: "a", rank: "V0" } as Card;
-		writesHook().result.current.moveScope(moved, "global", "home");
+		(await writesHook()).result.current.moveScope(moved, "global", "home");
 
 		expect(cards.moveScopeCard).toHaveBeenCalledWith(
 			moved,
@@ -160,17 +162,17 @@ describe("useCardWrites", () => {
 		);
 	});
 
-	it("no user, no write", () => {
+	it("no user, no write", async () => {
 		authModule.__setUser(null);
-		writesHook().result.current.addTo("global", { id: "c" } as Card);
+		(await writesHook()).result.current.addTo("global", { id: "c" } as Card);
 
 		expect(cards.saveScopeCards).not.toHaveBeenCalled();
 	});
 
-	it("a home-scoped card with no active home writes nothing; a global one still does", () => {
+	it("a home-scoped card with no active home writes nothing; a global one still does", async () => {
 		homeModule.__setHome({ activeHome: null });
 
-		const hook = writesHook();
+		const hook = await writesHook();
 		hook.result.current.addTo("home", { id: "c" } as Card);
 		expect(cards.saveScopeCards).not.toHaveBeenCalled();
 

@@ -26,23 +26,23 @@ jest.mock("@/components/node/DetailsView", () => ({
 	},
 }));
 
-it("keeps the phone page without another document read", () => {
+it("keeps the phone page without another document read", async () => {
 	mockWidth = 719;
-	render(<NodeDetails />);
+	await render(<NodeDetails />);
 	expect(screen.getByText("Phone details card-1")).toBeTruthy();
 	expect(useNode).not.toHaveBeenCalled();
 });
 
 it.each([null, "project-1"])(
 	"replaces an old desktop URL with its parent board %s and selected card",
-	(parentId) => {
+	async (parentId) => {
 		mockWidth = 720;
 		jest.mocked(useNode).mockReturnValue({
 			node: { id: "card-1", parentId },
 			loading: false,
 			gone: false,
 		} as ReturnType<typeof useNode>);
-		render(<NodeDetails />);
+		await render(<NodeDetails />);
 		expect(useNode).toHaveBeenCalledWith("home-1", "card-1");
 		expect(
 			screen.getByText(
@@ -60,17 +60,17 @@ it.each([null, "project-1"])(
 	},
 );
 
-it("waits for the parent and sends a missing desktop card to the root board", () => {
+it("waits for the parent and sends a missing desktop card to the root board", async () => {
 	mockWidth = 1440;
 	jest
 		.mocked(useNode)
 		.mockReturnValue({ node: null, loading: true, gone: false });
-	const view = render(<NodeDetails />);
+	const view = await render(<NodeDetails />);
 	expect(view.toJSON()).toBeNull();
 	jest
 		.mocked(useNode)
 		.mockReturnValue({ node: null, loading: false, gone: true });
-	view.rerender(<NodeDetails />);
+	await view.rerender(<NodeDetails />);
 	expect(
 		screen.getByText(JSON.stringify({ pathname: "/projects" })),
 	).toBeTruthy();

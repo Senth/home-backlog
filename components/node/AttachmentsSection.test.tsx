@@ -96,8 +96,8 @@ function aNode(attachments: Attachment[], over: Partial<Node> = {}): Node {
 	};
 }
 
-function renderSection(node: Node) {
-	return render(
+async function renderSection(node: Node) {
+	return await render(
 		<Provider theme={lightTheme}>
 			<AttachmentsSection homeId="home" node={node} onSave={() => {}} />
 		</Provider>,
@@ -110,8 +110,8 @@ describe("AttachmentsSection", () => {
 		mockCoarse = false;
 	});
 
-	it("offers a named zone and states the limits on an empty card", () => {
-		renderSection(aNode([]));
+	it("offers a named zone and states the limits on an empty card", async () => {
+		await renderSection(aNode([]));
 
 		expect(screen.getByText("detail.attachments")).toBeOnTheScreen();
 		expect(
@@ -125,9 +125,11 @@ describe("AttachmentsSection", () => {
 		expect(screen.queryByText("detail.attachmentsOffline")).toBeNull();
 	});
 
-	it("offers photo and file pickers instead of a zone on coarse pointers, with limits on filled cards", () => {
+	it("offers photo and file pickers instead of a zone on coarse pointers, with limits on filled cards", async () => {
 		mockCoarse = true;
-		renderSection(aNode([anAttachment({ contentType: "application/pdf" })]));
+		await renderSection(
+			aNode([anAttachment({ contentType: "application/pdf" })]),
+		);
 		expect(screen.getByText("detail.attachmentsAddPhotos")).toBeOnTheScreen();
 		expect(screen.getByText("detail.attachmentsAddFiles")).toBeOnTheScreen();
 		expect(
@@ -138,7 +140,7 @@ describe("AttachmentsSection", () => {
 		).toBeOnTheScreen();
 	});
 
-	it("opens both coarse pickers with multiple selection and their own accepted types", () => {
+	it("opens both coarse pickers with multiple selection and their own accepted types", async () => {
 		mockCoarse = true;
 		const original = Platform.OS;
 		Platform.OS = "web";
@@ -167,9 +169,9 @@ describe("AttachmentsSection", () => {
 				removeEventListener: jest.fn(),
 			},
 		});
-		const view = renderSection(aNode([]));
-		fireEvent.press(screen.getByText("detail.attachmentsAddPhotos"));
-		fireEvent.press(screen.getByText("detail.attachmentsAddFiles"));
+		const view = await renderSection(aNode([]));
+		await fireEvent.press(screen.getByText("detail.attachmentsAddPhotos"));
+		await fireEvent.press(screen.getByText("detail.attachmentsAddFiles"));
 		expect(inputs).toMatchObject([
 			{ type: "file", multiple: true, accept: photoAccept },
 			{ type: "file", multiple: true, accept: attachmentAccept },
@@ -177,15 +179,15 @@ describe("AttachmentsSection", () => {
 		expect(inputs.every(({ click }) => click.mock.calls.length === 1)).toBe(
 			true,
 		);
-		view.unmount();
+		await view.unmount();
 		Platform.OS = original;
 		Reflect.deleteProperty(globalThis, "document");
 	});
 
-	it("disables both coarse pickers offline and replaces the limits sentence", () => {
+	it("disables both coarse pickers offline and replaces the limits sentence", async () => {
 		mockCoarse = true;
 		mockOnline = false;
-		renderSection(aNode([]));
+		await renderSection(aNode([]));
 		expect(screen.getByText("detail.attachmentsAddPhotos")).toBeDisabled();
 		expect(screen.getByText("detail.attachmentsAddFiles")).toBeDisabled();
 		expect(screen.getByText("detail.attachmentsOffline")).toBeOnTheScreen();
@@ -201,8 +203,8 @@ describe("AttachmentsSection", () => {
 					finish = resolve;
 				}),
 		);
-		renderSection(aNode([]));
-		act(() =>
+		await renderSection(aNode([]));
+		await act(() =>
 			mockDroppedFiles([
 				{ name: "photo.jpg", type: "image/jpeg", size: photoBytes },
 			] as File[]),
@@ -218,7 +220,7 @@ describe("AttachmentsSection", () => {
 		).toBeOnTheScreen();
 	});
 
-	it("opens the file picker when the zone is pressed", () => {
+	it("opens the file picker when the zone is pressed", async () => {
 		const original = Platform.OS;
 		Platform.OS = "web";
 		const click = jest.fn();
@@ -238,8 +240,8 @@ describe("AttachmentsSection", () => {
 				removeEventListener: jest.fn(),
 			},
 		});
-		const view = renderSection(aNode([]));
-		fireEvent.press(
+		const view = await renderSection(aNode([]));
+		await fireEvent.press(
 			screen.getByRole("button", { name: "detail.attachmentsChooseFiles" }),
 		);
 		expect(createElement).toHaveBeenCalledWith("input");
@@ -249,7 +251,7 @@ describe("AttachmentsSection", () => {
 			multiple: true,
 			accept: attachmentAccept,
 		});
-		view.unmount();
+		await view.unmount();
 		Platform.OS = original;
 		Reflect.deleteProperty(globalThis, "document");
 	});
@@ -298,10 +300,10 @@ describe("AttachmentsSection", () => {
 			preventDefault: jest.fn(),
 		} as unknown as ClipboardEvent;
 		jest.mocked(uploadAttachment).mockResolvedValue(anAttachment());
-		const view = render(panes("projects"));
+		const view = await render(panes("projects"));
 		try {
 			for (const id of ["projects", "locations"]) {
-				view.rerender(panes(id));
+				await view.rerender(panes(id));
 				await act(async () => {
 					for (const listener of [...listeners]) listener(paste);
 				});
@@ -314,10 +316,10 @@ describe("AttachmentsSection", () => {
 				});
 				jest.mocked(uploadAttachment).mockClear();
 			}
-			view.rerender(panes(null));
+			await view.rerender(panes(null));
 			expect(listeners.size).toBe(0);
 		} finally {
-			view.unmount();
+			await view.unmount();
 			Platform.OS = original;
 			Reflect.deleteProperty(globalThis, "document");
 		}
@@ -339,7 +341,7 @@ describe("AttachmentsSection", () => {
 				contentType: "application/pdf",
 			}),
 		];
-		renderSection(aNode([...images, ...documents]));
+		await renderSection(aNode([...images, ...documents]));
 
 		// Four images: the lead full width, then one row of three — a shorter
 		// row keeps the tile size, never stretching. The tiles arrive when the
@@ -381,7 +383,7 @@ describe("AttachmentsSection", () => {
 				name: "trasig.jpg",
 			}),
 		];
-		const view = renderSection(aNode(images));
+		const view = await renderSection(aNode(images));
 
 		await waitFor(() => {
 			expect(screen.getByLabelText("ett.jpg")).toBeOnTheScreen();
@@ -398,7 +400,7 @@ describe("AttachmentsSection", () => {
 
 		// A node write re-runs the fetch, but the shared cache keeps the
 		// not-found rejection — one 404 per session, not one per write.
-		view.rerender(
+		await view.rerender(
 			<Provider theme={lightTheme}>
 				<AttachmentsSection
 					homeId="home"
@@ -417,9 +419,9 @@ describe("AttachmentsSection", () => {
 		);
 	});
 
-	it("disables the way in offline, and says why", () => {
+	it("disables the way in offline, and says why", async () => {
 		mockOnline = false;
-		renderSection(aNode([]));
+		await renderSection(aNode([]));
 
 		expect(
 			screen.getByRole("button", { name: "detail.attachmentsChooseFiles" }),
@@ -435,13 +437,13 @@ describe("AttachmentsSection", () => {
 					rejectors.push(reject);
 				}),
 		);
-		renderSection(aNode([]));
+		await renderSection(aNode([]));
 		const files = ["first.zip", "second.zip", "third.zip"].map((name) => ({
 			name,
 			type: "application/zip",
 			size: photoBytes,
 		})) as File[];
-		act(() => mockDroppedFiles(files));
+		await act(() => mockDroppedFiles(files));
 		expect(
 			screen.getByText('detail.attachmentsUploadingCount:{"count":3}'),
 		).toBeOnTheScreen();
@@ -476,7 +478,7 @@ describe("AttachmentsSection", () => {
 		(uploadAttachment as jest.Mock).mockRejectedValue({
 			code: "attachment-type",
 		});
-		renderSection(aNode([]));
+		await renderSection(aNode([]));
 		await act(async () => {
 			mockDroppedFiles(
 				["same.jpg", "same.jpg"].map((name) => ({
@@ -519,12 +521,12 @@ describe("AttachmentsSection", () => {
 
 	it("opens the viewer from a tap, with every action in its bar", async () => {
 		const images = [anAttachment({ id: "bild", name: "badrum.jpg" })];
-		renderSection(aNode(images));
+		await renderSection(aNode(images));
 
 		await waitFor(() => {
 			expect(screen.getByLabelText("badrum.jpg")).toBeOnTheScreen();
 		});
-		fireEvent.press(screen.getByLabelText("badrum.jpg"));
+		await fireEvent.press(screen.getByLabelText("badrum.jpg"));
 		await act(async () => {});
 
 		// The bar is where the actions live — the gesture menu is only the
@@ -536,18 +538,18 @@ describe("AttachmentsSection", () => {
 		expect(screen.getByLabelText("detail.attachmentsDelete")).toBeOnTheScreen();
 		expect(screen.getByLabelText("detail.attachmentsClose")).toBeOnTheScreen();
 
-		fireEvent.press(screen.getByLabelText("detail.attachmentsClose"));
+		await fireEvent.press(screen.getByLabelText("detail.attachmentsClose"));
 		expect(screen.queryByLabelText("detail.attachmentsDelete")).toBeNull();
 	});
 
 	it("offers no hero action for the image that is already the hero", async () => {
 		const images = [anAttachment({ id: "bild", name: "badrum.jpg" })];
-		renderSection(aNode(images, { heroAttachmentId: "bild" }));
+		await renderSection(aNode(images, { heroAttachmentId: "bild" }));
 
 		await waitFor(() => {
 			expect(screen.getByLabelText("badrum.jpg")).toBeOnTheScreen();
 		});
-		fireEvent.press(screen.getByLabelText("badrum.jpg"));
+		await fireEvent.press(screen.getByLabelText("badrum.jpg"));
 		await act(async () => {});
 
 		expect(screen.queryByLabelText("detail.attachmentsHero")).toBeNull();
@@ -558,20 +560,20 @@ describe("AttachmentsSection", () => {
 
 	it("asks before deleting, naming the file, then deletes", async () => {
 		const entry = anAttachment({ id: "bild", name: "badrum.jpg" });
-		renderSection(aNode([entry]));
+		await renderSection(aNode([entry]));
 
 		await waitFor(() => {
 			expect(screen.getByLabelText("badrum.jpg")).toBeOnTheScreen();
 		});
-		fireEvent.press(screen.getByLabelText("badrum.jpg"));
+		await fireEvent.press(screen.getByLabelText("badrum.jpg"));
 		await act(async () => {});
-		fireEvent.press(screen.getByLabelText("detail.attachmentsDelete"));
+		await fireEvent.press(screen.getByLabelText("detail.attachmentsDelete"));
 
 		expect(
 			screen.getByText('detail.attachmentsDeleteTitle:{"name":"badrum.jpg"}'),
 		).toBeOnTheScreen();
 
-		fireEvent.press(screen.getByText("detail.attachmentsDelete"));
+		await fireEvent.press(screen.getByText("detail.attachmentsDelete"));
 		expect(deleteAttachment).toHaveBeenCalledWith("home", "card", entry);
 		await act(async () => {});
 	});

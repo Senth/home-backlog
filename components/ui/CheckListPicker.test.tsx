@@ -18,13 +18,13 @@ jest.mock("react-i18next", () => ({
 
 const item = (id: string, title = `Item ${id}`): CheckItem => ({ id, title });
 
-function renderPicker(
+async function renderPicker(
 	items: CheckItem[],
 	value: string[],
 	onChange = jest.fn(),
 	onDismiss = jest.fn(),
 ) {
-	return render(
+	return await render(
 		<Provider theme={lightTheme}>
 			<CheckListPicker
 				onDismiss={onDismiss}
@@ -39,8 +39,8 @@ function renderPicker(
 }
 
 describe("CheckListPicker", () => {
-	it("lists the items and marks the checked ones", () => {
-		renderPicker([item("a"), item("b")], ["b"]);
+	it("lists the items and marks the checked ones", async () => {
+		await renderPicker([item("a"), item("b")], ["b"]);
 
 		expect(
 			screen.getByRole("checkbox", { name: "Item a" }).props.accessibilityState,
@@ -50,10 +50,13 @@ describe("CheckListPicker", () => {
 		).toMatchObject({ checked: true });
 	});
 
-	it("folds the search, so Trädgård is found from trad", () => {
-		renderPicker([item("a", "Trädgård"), item("b", "Garden")], []);
+	it("folds the search, so Trädgård is found from trad", async () => {
+		await renderPicker([item("a", "Trädgård"), item("b", "Garden")], []);
 
-		fireEvent.changeText(screen.getByTestId("check-picker-search"), "trad");
+		await fireEvent.changeText(
+			screen.getByTestId("check-picker-search"),
+			"trad",
+		);
 
 		expect(
 			screen.getByRole("checkbox", { name: "Trädgård" }),
@@ -61,37 +64,37 @@ describe("CheckListPicker", () => {
 		expect(screen.queryByRole("checkbox", { name: "Garden" })).toBeNull();
 	});
 
-	it("hands the toggle to onChange as the whole next selection", () => {
+	it("hands the toggle to onChange as the whole next selection", async () => {
 		const onChange = jest.fn();
-		renderPicker([item("a"), item("b")], ["a"], onChange);
+		await renderPicker([item("a"), item("b")], ["a"], onChange);
 
-		fireEvent.press(screen.getByLabelText("Item b"));
+		await fireEvent.press(screen.getByLabelText("Item b"));
 
 		expect(onChange).toHaveBeenCalledWith(["a", "b"]);
 	});
 
-	it("Clear empties the selection without dismissing", () => {
+	it("Clear empties the selection without dismissing", async () => {
 		const onChange = jest.fn();
 		const onDismiss = jest.fn();
-		renderPicker([item("a"), item("b")], ["a", "b"], onChange, onDismiss);
+		await renderPicker([item("a"), item("b")], ["a", "b"], onChange, onDismiss);
 
-		fireEvent.press(screen.getByText("common.clear"));
+		await fireEvent.press(screen.getByText("common.clear"));
 
 		expect(onChange).toHaveBeenCalledWith([]);
 		expect(onDismiss).not.toHaveBeenCalled();
 	});
 
-	it("Done dismisses", () => {
+	it("Done dismisses", async () => {
 		const onDismiss = jest.fn();
-		renderPicker([item("a")], [], jest.fn(), onDismiss);
+		await renderPicker([item("a")], [], jest.fn(), onDismiss);
 
-		fireEvent.press(screen.getByText("common.done"));
+		await fireEvent.press(screen.getByText("common.done"));
 
 		expect(onDismiss).toHaveBeenCalledTimes(1);
 	});
 
-	it("keeps a caller's disabled rows untickable", () => {
-		render(
+	it("keeps a caller's disabled rows untickable", async () => {
+		await render(
 			<Provider theme={lightTheme}>
 				<CheckListPicker
 					onDismiss={() => {}}
@@ -110,8 +113,8 @@ describe("CheckListPicker", () => {
 		).toMatchObject({ disabled: true });
 	});
 
-	it("says when the list is empty and when the search matches nothing", () => {
-		const { rerender } = render(
+	it("says when the list is empty and when the search matches nothing", async () => {
+		const { rerender } = await render(
 			<Provider theme={lightTheme}>
 				<CheckListPicker
 					onDismiss={() => {}}
@@ -129,7 +132,7 @@ describe("CheckListPicker", () => {
 		expect(screen.getByText("empty-sentence")).toBeOnTheScreen();
 		expect(screen.queryByText("search-empty-sentence")).toBeNull();
 
-		rerender(
+		await rerender(
 			<Provider theme={lightTheme}>
 				<CheckListPicker
 					onDismiss={() => {}}
@@ -143,26 +146,33 @@ describe("CheckListPicker", () => {
 				/>
 			</Provider>,
 		);
-		fireEvent.changeText(screen.getByTestId("check-picker-search"), "nope");
+		await fireEvent.changeText(
+			screen.getByTestId("check-picker-search"),
+			"nope",
+		);
 
 		expect(screen.getByText("search-empty-sentence")).toBeOnTheScreen();
 		expect(screen.queryByText("empty-sentence")).toBeNull();
 	});
 
-	it("a picker without fill still draws its checkboxes", () => {
-		renderPicker([item("a"), item("b")], ["b"]);
+	it("a picker without fill still draws its checkboxes", async () => {
+		await renderPicker([item("a"), item("b")], ["b"]);
 
 		expect(
-			screen.UNSAFE_getAllByProps({ source: "checkbox-marked" }),
+			screen.getAllByTestId("checkbox-marked", {
+				includeHiddenElements: true,
+			}),
 		).toHaveLength(1);
 		expect(
-			screen.UNSAFE_getAllByProps({ source: "checkbox-blank-outline" }),
+			screen.getAllByTestId("checkbox-blank-outline", {
+				includeHiddenElements: true,
+			}),
 		).toHaveLength(1);
 	});
 
-	it("fill draws the selection as the fill, not a checkbox, and keeps the checkbox state", () => {
+	it("fill draws the selection as the fill, not a checkbox, and keeps the checkbox state", async () => {
 		const onChange = jest.fn();
-		render(
+		await render(
 			<Provider theme={lightTheme}>
 				<CheckListPicker
 					onDismiss={() => {}}
@@ -200,14 +210,18 @@ describe("CheckListPicker", () => {
 		// No tick drawn on any row: the fill and the a11y state are the only
 		// selected signals, and both are asserted above.
 		expect(
-			screen.UNSAFE_queryAllByProps({ source: "checkbox-marked" }),
+			screen.queryAllByTestId("checkbox-marked", {
+				includeHiddenElements: true,
+			}),
 		).toHaveLength(0);
 		expect(
-			screen.UNSAFE_queryAllByProps({ source: "checkbox-blank-outline" }),
+			screen.queryAllByTestId("checkbox-blank-outline", {
+				includeHiddenElements: true,
+			}),
 		).toHaveLength(0);
 
 		// Still a multi-select: the next pick joins the selection.
-		fireEvent.press(screen.getByLabelText("Item b"));
+		await fireEvent.press(screen.getByLabelText("Item b"));
 		expect(onChange).toHaveBeenCalledWith(["a", "b"]);
 	});
 });

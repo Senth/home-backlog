@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { TextInput as RNTextInput } from "react-native";
+import type { ComponentProps } from "react";
 import { HelperText, Provider } from "react-native-paper";
 import { LabelDialog } from "@/components/label/LabelDialog";
 import {
@@ -11,7 +11,14 @@ import {
 } from "@/data/homes";
 import type { LabelWithId } from "@/models/label";
 import { toHex } from "@/models/label-color";
+import type { RecordedComponent } from "@/tests/support/record-props";
 import { defaultLabelHue, lightTheme } from "@/theme";
+
+jest.mock("react-native-paper", () => {
+	const { recordProps } = require("@/tests/support/record-props");
+	const actual = jest.requireActual("react-native-paper");
+	return { ...actual, HelperText: recordProps(actual.HelperText) };
+});
 
 jest.mock("react-i18next", () => ({
 	// The keys are asserted rather than the sentences — the parity of the locale
@@ -83,16 +90,16 @@ function renderDialog(props: Partial<Parameters<typeof LabelDialog>[0]> = {}) {
 	);
 }
 
-/** The name field, which Paper renders as one inner `TextInput`. */
 function nameField() {
-	return screen.UNSAFE_getByType(RNTextInput);
+	return screen.getByDisplayValue(/.*/);
 }
 
-/** The title sentence, whose slot `HelperText` keeps even while hidden. */
+const mockHelperText = HelperText as unknown as RecordedComponent<
+	ComponentProps<typeof HelperText>
+>;
+
 function titleHelper() {
-	return screen
-		.UNSAFE_getAllByType(HelperText)
-		.find((helper) => helper.props.type === "error");
+	return mockHelperText.getProps().find((helper) => helper.type === "error");
 }
 
 afterEach(() => {
@@ -100,16 +107,16 @@ afterEach(() => {
 });
 
 describe("LabelDialog", () => {
-	it("creates at the end of the home's set", () => {
+	it("creates at the end of the home's set", async () => {
 		mockHomes = [{ id: "home-1", labels: [label("l1", { rank: "V0" })] }];
-		renderDialog();
+		await renderDialog();
 		expect(
 			screen.getByRole("button", { name: "icons.pick.star" }).props
 				.accessibilityState,
 		).toEqual({ selected: true });
 
-		fireEvent.changeText(nameField(), "Winter");
-		fireEvent.press(screen.getByText("labels.add"));
+		await fireEvent.changeText(nameField(), "Winter");
+		await fireEvent.press(screen.getByText("labels.add"));
 
 		expect(createLabel).toHaveBeenCalledWith(
 			"home-1",
@@ -124,111 +131,115 @@ describe("LabelDialog", () => {
 		expect(input.rank > "V0").toBe(true);
 	});
 
-	it("says what is missing in a sentence and writes nothing", () => {
-		renderDialog();
+	it("says what is missing in a sentence and writes nothing", async () => {
+		await renderDialog();
 
-		fireEvent.press(screen.getByText("labels.add"));
+		await fireEvent.press(screen.getByText("labels.add"));
 
 		expect(createLabel).not.toHaveBeenCalled();
-		expect(titleHelper()?.props.visible).toBe(true);
+		expect(titleHelper()?.visible).toBe(true);
 		expect(screen.getByText("labels.titleRequired")).toBeOnTheScreen();
 	});
 
-	it("refuses a name another label already carries and writes nothing", () => {
+	it("refuses a name another label already carries and writes nothing", async () => {
 		mockHomes = [
 			{ id: "home-1", labels: [label("taken", { title: "Winter" })] },
 		];
-		renderDialog();
+		await renderDialog();
 
-		fireEvent.changeText(nameField(), "winter");
-		fireEvent.press(screen.getByText("labels.add"));
+		await fireEvent.changeText(nameField(), "winter");
+		await fireEvent.press(screen.getByText("labels.add"));
 
 		expect(createLabel).not.toHaveBeenCalled();
-		expect(titleHelper()?.props.visible).toBe(true);
+		expect(titleHelper()?.visible).toBe(true);
 		expect(screen.getByText("labels.titleTaken")).toBeOnTheScreen();
 	});
 
-	it("saves a rename to the label's own title in another case", () => {
+	it("saves a rename to the label's own title in another case", async () => {
 		mockHomes = [{ id: "home-1", labels: [label("l1", { title: "Winter" })] }];
-		renderDialog({ label: label("l1", { title: "Winter" }) });
+		await renderDialog({ label: label("l1", { title: "Winter" }) });
 
-		fireEvent.changeText(nameField(), "winter");
-		fireEvent.press(screen.getByText("labels.save"));
+		await fireEvent.changeText(nameField(), "winter");
+		await fireEvent.press(screen.getByText("labels.save"));
 
 		expect(renameLabel).toHaveBeenCalledWith("home-1", "l1", "winter");
 	});
 
-	it("edits only what changed", () => {
+	it("edits only what changed", async () => {
 		mockHomes = [{ id: "home-1", labels: [] }];
-		renderDialog({ label: label("l1") });
+		await renderDialog({ label: label("l1") });
 
-		fireEvent.changeText(nameField(), "Renamed");
-		fireEvent.press(screen.getByLabelText("labels.hue.indigo"));
-		fireEvent.press(screen.getByText("labels.save"));
+		await fireEvent.changeText(nameField(), "Renamed");
+		await fireEvent.press(screen.getByLabelText("labels.hue.indigo"));
+		await fireEvent.press(screen.getByText("labels.save"));
 
 		expect(renameLabel).toHaveBeenCalledWith("home-1", "l1", "Renamed");
 		expect(recolorLabel).toHaveBeenCalledWith("home-1", "l1", "indigo");
 		expect(reiconLabel).not.toHaveBeenCalled();
 	});
 
-	it("writes nothing for a save that changes nothing", () => {
+	it("writes nothing for a save that changes nothing", async () => {
 		mockHomes = [{ id: "home-1", labels: [] }];
-		renderDialog({ label: label("l1") });
+		await renderDialog({ label: label("l1") });
 
-		fireEvent.press(screen.getByText("labels.save"));
+		await fireEvent.press(screen.getByText("labels.save"));
 
 		expect(renameLabel).not.toHaveBeenCalled();
 		expect(recolorLabel).not.toHaveBeenCalled();
 		expect(reiconLabel).not.toHaveBeenCalled();
 	});
 
-	it("keeps the dialog open and writes nothing while the custom color draft is invalid", () => {
+	it("keeps the dialog open and writes nothing while the custom color draft is invalid", async () => {
 		const onDismiss = jest.fn();
-		renderDialog({ onDismiss });
-		fireEvent.changeText(nameField(), "Winter");
-		fireEvent.press(screen.getByRole("button", { name: "labels.customColor" }));
-		const hexField = screen.UNSAFE_getAllByType(RNTextInput)[1];
+		await renderDialog({ onDismiss });
+		await fireEvent.changeText(nameField(), "Winter");
+		await fireEvent.press(
+			screen.getByRole("button", { name: "labels.customColor" }),
+		);
+		const hexField = screen.getByDisplayValue(/^#/);
 		const valid = toHex([0xaa, 0xbb, 0xcc]).slice(0, 4);
-		fireEvent.changeText(hexField, valid);
-		fireEvent.changeText(hexField, `${valid}d`);
+		await fireEvent.changeText(hexField, valid);
+		await fireEvent.changeText(hexField, `${valid}d`);
 		expect(screen.getByText("labels.colorInvalid")).toBeOnTheScreen();
-		fireEvent.press(screen.getByText("labels.add"));
+		await fireEvent.press(screen.getByText("labels.add"));
 		expect(onDismiss).not.toHaveBeenCalled();
 		expect(createLabel).not.toHaveBeenCalled();
-		fireEvent.changeText(hexField, valid);
-		fireEvent.press(screen.getByText("labels.add"));
+		await fireEvent.changeText(hexField, valid);
+		await fireEvent.press(screen.getByText("labels.add"));
 		expect(createLabel).toHaveBeenCalledTimes(1);
 	});
 
-	it("saves after IconPicker discards an invalid hex draft", () => {
+	it("saves after IconPicker discards an invalid hex draft", async () => {
 		const onDismiss = jest.fn();
-		renderDialog({ onDismiss });
-		fireEvent.changeText(nameField(), "Winter");
-		fireEvent.press(screen.getByRole("button", { name: "labels.customColor" }));
-		const hexField = screen.UNSAFE_getAllByType(RNTextInput)[1];
-		fireEvent.changeText(hexField, toHex([0xaa, 0xbb, 0xcc]).slice(0, 4));
-		fireEvent.changeText(hexField, "invalid");
+		await renderDialog({ onDismiss });
+		await fireEvent.changeText(nameField(), "Winter");
+		await fireEvent.press(
+			screen.getByRole("button", { name: "labels.customColor" }),
+		);
+		const hexField = screen.getByDisplayValue(/^#/);
+		await fireEvent.changeText(hexField, toHex([0xaa, 0xbb, 0xcc]).slice(0, 4));
+		await fireEvent.changeText(hexField, "invalid");
 		expect(screen.getByText("labels.colorInvalid")).toBeOnTheScreen();
-		fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
-		fireEvent.press(screen.getByRole("button", { name: "home-outline" }));
+		await fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
+		await fireEvent.press(screen.getByRole("button", { name: "home-outline" }));
 		expect(screen.queryByText("labels.colorInvalid")).toBeNull();
-		fireEvent.press(screen.getByText("labels.add"));
+		await fireEvent.press(screen.getByText("labels.add"));
 		expect(createLabel).toHaveBeenCalledTimes(1);
 		expect(onDismiss).toHaveBeenCalledTimes(1);
 	});
 
-	it("saves the picked icon without rendering a card preview", () => {
-		renderDialog({ label: label("l1") });
+	it("saves the picked icon without rendering a card preview", async () => {
+		await renderDialog({ label: label("l1") });
 		expect(screen.queryByText("labels.onCard")).toBeNull();
 
-		fireEvent.press(
+		await fireEvent.press(
 			screen.getByRole("button", { name: "icons.pick.hammer-wrench" }),
 		);
 		expect(
 			screen.getByRole("button", { name: "icons.pick.hammer-wrench" }).props
 				.accessibilityState,
 		).toEqual({ selected: true });
-		fireEvent.press(screen.getByText("labels.save"));
+		await fireEvent.press(screen.getByText("labels.save"));
 
 		expect(reiconLabel).toHaveBeenCalledTimes(1);
 		expect(reiconLabel).toHaveBeenCalledWith("home-1", "l1", "hammer-wrench");
@@ -236,39 +247,39 @@ describe("LabelDialog", () => {
 		expect(recolorLabel).not.toHaveBeenCalled();
 	});
 
-	it("deletes from the edit path only, after a confirmation of its own", () => {
-		renderDialog({ label: label("l1") });
+	it("deletes from the edit path only, after a confirmation of its own", async () => {
+		await renderDialog({ label: label("l1") });
 
-		fireEvent.press(screen.getByText("labels.delete"));
+		await fireEvent.press(screen.getByText("labels.delete"));
 		expect(screen.getByText("labels.deleteBody")).toBeOnTheScreen();
 
 		// The confirmation's confirming button shares its label with the action
 		// that opened it, so take the one the confirmation rendered last.
 		const answers = screen.getAllByText("labels.delete");
-		fireEvent.press(answers[answers.length - 1]);
+		await fireEvent.press(answers[answers.length - 1]);
 
 		expect(deleteLabel).toHaveBeenCalledWith("home-1", "l1");
 	});
 
-	it("offers no delete on the create path", () => {
-		renderDialog();
+	it("offers no delete on the create path", async () => {
+		await renderDialog();
 
 		expect(screen.queryByText("labels.delete")).toBeNull();
 	});
 
-	it("opens the icon picker and takes the chosen glyph back", () => {
+	it("opens the icon picker and takes the chosen glyph back", async () => {
 		mockHomes = [{ id: "home-1", labels: [] }];
-		renderDialog({ label: label("l1") });
+		await renderDialog({ label: label("l1") });
 
-		fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
+		await fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
 		expect(screen.getByText("labels.iconPickerTitle")).toBeOnTheScreen();
-		fireEvent.press(screen.getByRole("button", { name: "home-outline" }));
+		await fireEvent.press(screen.getByRole("button", { name: "home-outline" }));
 		expect(
 			screen.getByRole("button", { name: "icons.more" }).props
 				.accessibilityState,
 		).toEqual({ selected: true });
 
-		fireEvent.press(screen.getByText("labels.save"));
+		await fireEvent.press(screen.getByText("labels.save"));
 		expect(reiconLabel).toHaveBeenCalledWith("home-1", "l1", "home-outline");
 	});
 });

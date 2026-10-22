@@ -43,16 +43,16 @@ jest.mock("@/contexts/OutboxContext", () => ({
 	useOutbox: () => ({ intents: mockIntents }),
 }));
 
-function openSignOutDialog() {
-	fireEvent.press(screen.getByTestId("account-menu-trigger"));
-	fireEvent.press(screen.getByText("common.signOut"));
+async function openSignOutDialog() {
+	await fireEvent.press(screen.getByTestId("account-menu-trigger"));
+	await fireEvent.press(screen.getByText("common.signOut"));
 	return waitFor(() =>
 		expect(screen.getByTestId("sign-out-dialog")).toBeTruthy(),
 	);
 }
 
-function renderAccountMenu() {
-	return render(
+async function renderAccountMenu() {
+	return await render(
 		<Provider theme={lightTheme}>
 			<AccountMenu />
 		</Provider>,
@@ -72,7 +72,7 @@ afterEach(async () => {
 });
 
 it("shows sign-out question without a notice when outbox is empty", async () => {
-	renderAccountMenu();
+	await renderAccountMenu();
 	await openSignOutDialog();
 
 	expect(screen.getByText("account.signOut.body")).toBeTruthy();
@@ -81,7 +81,7 @@ it("shows sign-out question without a notice when outbox is empty", async () => 
 
 it("shows the queued change count in sign-out dialog", async () => {
 	mockIntents = [{}, {}];
-	renderAccountMenu();
+	await renderAccountMenu();
 	await openSignOutDialog();
 
 	expect(

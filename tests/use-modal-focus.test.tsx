@@ -24,18 +24,18 @@ describe("useModalFocus", () => {
 		globalThis.cancelAnimationFrame = () => {};
 	});
 
-	it("one Escape dismisses only the topmost of two mounted modals", () => {
+	it("one Escape dismisses only the topmost of two mounted modals", async () => {
 		const dismissOuter = jest.fn();
 		const dismissInner = jest.fn();
 
-		const view = render(
+		const view = await render(
 			<>
 				<Modal testID="outer" onDismiss={dismissOuter} />
 				<Modal testID="inner" onDismiss={dismissInner} />
 			</>,
 		);
 
-		act(() => {
+		await act(() => {
 			document.dispatchEvent(
 				new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
 			);
@@ -44,10 +44,8 @@ describe("useModalFocus", () => {
 		expect(dismissOuter).not.toHaveBeenCalled();
 
 		// With the inner one gone, the outer answers the next key.
-		act(() => {
-			view.rerender(<Modal testID="outer" onDismiss={dismissOuter} />);
-		});
-		act(() => {
+		await view.rerender(<Modal testID="outer" onDismiss={dismissOuter} />);
+		await act(() => {
 			document.dispatchEvent(
 				new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
 			);
@@ -55,6 +53,6 @@ describe("useModalFocus", () => {
 		expect(dismissInner).toHaveBeenCalledTimes(1);
 		expect(dismissOuter).toHaveBeenCalledTimes(1);
 
-		view.unmount();
+		await view.unmount();
 	});
 });

@@ -41,45 +41,45 @@ describe("useBoardFilter", () => {
 	});
 
 	it("set, reload, still there", async () => {
-		const first = openBoard();
+		const first = await openBoard();
 		await waitFor(() => expect(first.result.current.loading).toBe(false));
 		expect(first.result.current.filter).toBeNull();
 
-		act(() => first.result.current.setFilter(priorityFilter));
+		await act(() => first.result.current.setFilter(priorityFilter));
 		expect(first.result.current.filter).toEqual(priorityFilter);
-		first.unmount();
+		await first.unmount();
 
-		const second = openBoard();
+		const second = await openBoard();
 		await waitFor(() => expect(second.result.current.loading).toBe(false));
 		expect(second.result.current.filter).toEqual(priorityFilter);
-		second.unmount();
+		await second.unmount();
 	});
 
 	it("set, advance 25 hours, gone", async () => {
-		const first = openBoard();
+		const first = await openBoard();
 		await waitFor(() => expect(first.result.current.loading).toBe(false));
-		act(() => first.result.current.setFilter(priorityFilter));
-		first.unmount();
+		await act(() => first.result.current.setFilter(priorityFilter));
+		await first.unmount();
 
 		jest.mocked(Date.now).mockReturnValue(t0 + 25 * hour);
-		const second = openBoard();
+		const second = await openBoard();
 		await waitFor(() => expect(second.result.current.loading).toBe(false));
 		expect(second.result.current.filter).toBeNull();
 		// Gone is gone: the expired blob is dropped, not left half-alive.
 		await waitFor(() =>
 			expect(jest.mocked(AsyncStorage.removeItem)).toHaveBeenCalledWith(key),
 		);
-		second.unmount();
+		await second.unmount();
 	});
 
 	it("set, touch at hour 23, advance 23 more, still there", async () => {
-		const first = openBoard();
+		const first = await openBoard();
 		await waitFor(() => expect(first.result.current.loading).toBe(false));
-		act(() => first.result.current.setFilter(priorityFilter));
-		first.unmount();
+		await act(() => first.result.current.setFilter(priorityFilter));
+		await first.unmount();
 
 		jest.mocked(Date.now).mockReturnValue(t0 + 23 * hour);
-		const second = openBoard();
+		const second = await openBoard();
 		await waitFor(() =>
 			expect(second.result.current.filter).toEqual(priorityFilter),
 		);
@@ -87,32 +87,32 @@ describe("useBoardFilter", () => {
 		await waitFor(() =>
 			expect(JSON.parse(mockStore[key]).savedAt).toBe(t0 + 23 * hour),
 		);
-		second.unmount();
+		await second.unmount();
 
 		jest.mocked(Date.now).mockReturnValue(t0 + 46 * hour);
-		const third = openBoard();
+		const third = await openBoard();
 		await waitFor(() => expect(third.result.current.loading).toBe(false));
 		expect(third.result.current.filter).toEqual(priorityFilter);
-		third.unmount();
+		await third.unmount();
 	});
 
 	it("an open with no filter ever stored writes nothing", async () => {
-		const board = openBoard();
+		const board = await openBoard();
 		await waitFor(() => expect(board.result.current.loading).toBe(false));
 		expect(jest.mocked(AsyncStorage.setItem)).not.toHaveBeenCalled();
 		expect(jest.mocked(AsyncStorage.removeItem)).not.toHaveBeenCalled();
-		board.unmount();
+		await board.unmount();
 	});
 
 	it("every write lands on the one per-home key, never a per-board one", async () => {
-		const board = openBoard();
+		const board = await openBoard();
 		await waitFor(() => expect(board.result.current.loading).toBe(false));
-		act(() => board.result.current.setFilter(priorityFilter));
+		await act(() => board.result.current.setFilter(priorityFilter));
 		await waitFor(() => expect(mockStore[key]).toBeDefined());
-		board.unmount();
+		await board.unmount();
 
 		jest.mocked(Date.now).mockReturnValue(t0 + hour);
-		const reopened = openBoard();
+		const reopened = await openBoard();
 		await waitFor(() =>
 			expect(reopened.result.current.filter).toEqual(priorityFilter),
 		);
@@ -122,7 +122,7 @@ describe("useBoardFilter", () => {
 				expect.any(String),
 			),
 		);
-		reopened.unmount();
+		await reopened.unmount();
 
 		expect(Object.keys(mockStore)).toEqual([key]);
 		for (const set of jest.mocked(AsyncStorage.setItem).mock.calls) {
@@ -152,8 +152,8 @@ describe("useBoardFilter", () => {
 				}),
 		);
 
-		const board = openBoard();
-		act(() => board.result.current.setFilter(null));
+		const board = await openBoard();
+		await act(() => board.result.current.setFilter(null));
 		expect(board.result.current.filter).toBeNull();
 
 		// The read comes back with the filter the clear just removed.
@@ -163,24 +163,24 @@ describe("useBoardFilter", () => {
 		expect(board.result.current.filter).toBeNull();
 		// And the slide write must not put the cleared blob back in storage.
 		expect(mockStore[key]).toBeUndefined();
-		board.unmount();
+		await board.unmount();
 	});
 
 	it("refresh reads another screen's filter without undoing a later edit", async () => {
-		const board = openBoard();
+		const board = await openBoard();
 		await waitFor(() => expect(board.result.current.loading).toBe(false));
-		const otherScreen = openBoard();
+		const otherScreen = await openBoard();
 		await waitFor(() => expect(otherScreen.result.current.loading).toBe(false));
-		act(() => otherScreen.result.current.setFilter(priorityFilter));
+		await act(() => otherScreen.result.current.setFilter(priorityFilter));
 
-		act(() => board.result.current.refresh());
+		await act(() => board.result.current.refresh());
 		await waitFor(() =>
 			expect(board.result.current.filter).toEqual(priorityFilter),
 		);
-		act(() => otherScreen.result.current.setFilter(null));
-		act(() => board.result.current.refresh());
+		await act(() => otherScreen.result.current.setFilter(null));
+		await act(() => board.result.current.refresh());
 		await waitFor(() => expect(board.result.current.filter).toBeNull());
-		act(() => otherScreen.result.current.setFilter(priorityFilter));
+		await act(() => otherScreen.result.current.setFilter(priorityFilter));
 
 		let release!: (raw: string | null) => void;
 		jest.mocked(AsyncStorage.getItem).mockImplementationOnce(
@@ -189,8 +189,8 @@ describe("useBoardFilter", () => {
 					release = resolve;
 				}),
 		);
-		act(() => board.result.current.refresh());
-		act(() => board.result.current.setFilter(null));
+		await act(() => board.result.current.refresh());
+		await act(() => board.result.current.setFilter(null));
 		await act(async () =>
 			release(
 				JSON.stringify({
@@ -202,8 +202,8 @@ describe("useBoardFilter", () => {
 		);
 		expect(board.result.current.filter).toBeNull();
 		expect(mockStore[key]).toBeUndefined();
-		otherScreen.unmount();
-		board.unmount();
+		await otherScreen.unmount();
+		await board.unmount();
 	});
 
 	it("switching homes re-points: each home holds its own filter", async () => {
@@ -215,18 +215,26 @@ describe("useBoardFilter", () => {
 			conditions: [],
 		});
 
-		const board = renderHook(
+		const board = await renderHook(
 			({ homeId }: { homeId: string | null }) => useBoardFilter(homeId),
 			{
 				initialProps: { homeId: "huset" as string | null },
 			},
 		);
 		await waitFor(() => expect(board.result.current.loading).toBe(false));
-		act(() => board.result.current.setFilter(priorityFilter));
+		await act(() => board.result.current.setFilter(priorityFilter));
 
-		board.rerender({ homeId: "stugan" });
+		let release!: (raw: string | null) => void;
+		jest.mocked(AsyncStorage.getItem).mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					release = resolve;
+				}),
+		);
+		await board.rerender({ homeId: "stugan" });
 		expect(board.result.current.filter).toBeNull();
 		expect(board.result.current.loading).toBe(true);
+		await act(() => release(mockStore[boardFilterKey("stugan")]));
 		await waitFor(() =>
 			expect(board.result.current.filter).toEqual({
 				mode: "done",
@@ -234,6 +242,6 @@ describe("useBoardFilter", () => {
 				conditions: [],
 			}),
 		);
-		board.unmount();
+		await board.unmount();
 	});
 });

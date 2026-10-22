@@ -40,9 +40,9 @@ function box(top: number, height: number, left = 0, width = 300): ViewInstance {
 
 type ListCard = { id: string; rank: string };
 
-function list(cards: ListCard[]) {
+async function list(cards: ListCard[]) {
 	const onMove = jest.fn();
-	const view = renderHook(
+	const view = await renderHook(
 		(props: { cards: ListCard[] }) =>
 			useCardListDrag({ cards: props.cards, onMove }),
 		{ initialProps: { cards } },
@@ -62,17 +62,17 @@ function list(cards: ListCard[]) {
 	};
 
 	const gesture = (id: string) => ({
-		grab: (point: { x: number; y: number }) => {
-			act(() => view.result.current.handlers(id).onGrab(point));
+		grab: async (point: { x: number; y: number }) => {
+			await act(() => view.result.current.handlers(id).onGrab(point));
 		},
-		move: (point: { x: number; y: number }) => {
-			act(() => view.result.current.handlers(id).onMove(point));
+		move: async (point: { x: number; y: number }) => {
+			await act(() => view.result.current.handlers(id).onMove(point));
 		},
-		drop: () => {
-			act(() => view.result.current.handlers(id).onDrop());
+		drop: async () => {
+			await act(() => view.result.current.handlers(id).onDrop());
 		},
-		cancel: () => {
-			act(() => view.result.current.handlers(id).onCancel());
+		cancel: async () => {
+			await act(() => view.result.current.handlers(id).onCancel());
 		},
 	});
 
@@ -94,14 +94,14 @@ const c = card("c", "V2");
 
 describe("useCardListDrag", () => {
 	it("writes the rank between the neighbours a drop lands between", async () => {
-		const { onMove, measured, gesture } = list([a, b, c]);
+		const { onMove, measured, gesture } = await list([a, b, c]);
 		const drag = gesture("a");
 
-		drag.grab({ x: 10, y: 50 });
+		await drag.grab({ x: 10, y: 50 });
 		await measured();
 		// Past b's middle, short of c's: the slot between b and c.
-		drag.move({ x: 10, y: 200 });
-		drag.drop();
+		await drag.move({ x: 10, y: 200 });
+		await drag.drop();
 
 		expect(onMove).toHaveBeenCalledTimes(1);
 		const [id, rank] = onMove.mock.calls[0] ?? [];
@@ -111,56 +111,56 @@ describe("useCardListDrag", () => {
 	});
 
 	it("writes nothing for a card put back where it was", async () => {
-		const { onMove, measured, gesture } = list([a, b, c]);
+		const { onMove, measured, gesture } = await list([a, b, c]);
 		const drag = gesture("b");
 
-		drag.grab({ x: 10, y: 150 });
+		await drag.grab({ x: 10, y: 150 });
 		await measured();
-		drag.move({ x: 10, y: 160 });
-		drag.drop();
+		await drag.move({ x: 10, y: 160 });
+		await drag.drop();
 
 		expect(onMove).not.toHaveBeenCalled();
 	});
 
 	it("freezes the order while a card is up and hands back on cancel", async () => {
 		const arrival = card("d", "V3");
-		const { view, measured, gesture } = list([a, b, c]);
+		const { view, measured, gesture } = await list([a, b, c]);
 		const drag = gesture("a");
 
-		drag.grab({ x: 10, y: 50 });
+		await drag.grab({ x: 10, y: 50 });
 		await measured();
-		act(() => view.rerender({ cards: [a, b, c, arrival] }));
+		await view.rerender({ cards: [a, b, c, arrival] });
 
 		expect(view.result.current.order).toEqual([a, b, c]);
 
-		drag.cancel();
+		await drag.cancel();
 		expect(view.result.current.order).toEqual([a, b, c, arrival]);
 	});
 
 	it("opens a gap where the finger is, with the dragged row out of the list", async () => {
-		const { view, measured, gesture } = list([a, b, c]);
+		const { view, measured, gesture } = await list([a, b, c]);
 		const drag = gesture("a");
 
 		expect(view.result.current.gapIndex).toBeNull();
 
-		drag.grab({ x: 10, y: 50 });
+		await drag.grab({ x: 10, y: 50 });
 		await measured();
 		expect(view.result.current.draggedId).toBe("a");
 		expect(view.result.current.order).toEqual([a, b, c]);
 
 		// Down past b's middle, short of c's: the gap sits at slot 1 of the two
 		// rows left.
-		drag.move({ x: 10, y: 200 });
+		await drag.move({ x: 10, y: 200 });
 		expect(view.result.current.gapIndex).toBe(1);
 		expect(view.result.current.gapHeight).toBe(100);
 	});
 
 	it("lifts nothing when the press is over before the measuring is", async () => {
-		const { view, onMove, measured, gesture } = list([a, b, c]);
+		const { view, onMove, measured, gesture } = await list([a, b, c]);
 		const drag = gesture("a");
 
-		drag.grab({ x: 10, y: 50 });
-		drag.drop();
+		await drag.grab({ x: 10, y: 50 });
+		await drag.drop();
 		await measured();
 
 		expect(view.result.current.draggedId).toBeNull();
@@ -171,14 +171,14 @@ describe("useCardListDrag", () => {
 		// docs/DESIGN.md § Motion: no spring on release — the card is already
 		// where the finger left it, so it lands there without a timer running.
 		reducedMotion.mockReturnValue(true);
-		const { view, measured, gesture } = list([a, b, c]);
+		const { view, measured, gesture } = await list([a, b, c]);
 		const drag = gesture("a");
 
-		drag.grab({ x: 10, y: 50 });
+		await drag.grab({ x: 10, y: 50 });
 		await measured();
 		expect(view.result.current.draggedId).toBe("a");
 
-		drag.cancel();
+		await drag.cancel();
 
 		expect(view.result.current.draggedId).toBeNull();
 		expect(view.result.current.gapIndex).toBeNull();

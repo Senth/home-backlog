@@ -1732,11 +1732,6 @@
   dependencies:
     "@jest/types" "^29.6.3"
 
-"@jest/diff-sequences@30.4.0":
-  version "30.4.0"
-  resolved "https://registry.yarnpkg.com/@jest/diff-sequences/-/diff-sequences-30.4.0.tgz#8be2d260e6241d6cddddd102c304fe13b4fc8e3e"
-  integrity sha512-zOpzlfUs45l6u7jm39qr87JCHUDsaeCtvL+kQe/Vn9jSnRB4/5IPXISm0h9I1vZW/o00Kn4UTJ2MOlhnUGwv3g==
-
 "@jest/diff-sequences@30.5.0":
   version "30.5.0"
   resolved "https://registry.yarnpkg.com/@jest/diff-sequences/-/diff-sequences-30.5.0.tgz#b896d470df751cc0c7d1a0c5078f80a67ce108d4"
@@ -1816,11 +1811,6 @@
     jest-mock "^29.7.0"
     jest-util "^29.7.0"
 
-"@jest/get-type@30.1.0":
-  version "30.1.0"
-  resolved "https://registry.yarnpkg.com/@jest/get-type/-/get-type-30.1.0.tgz#4fcb4dc2ebcf0811be1c04fd1cb79c2dba431cbc"
-  integrity sha512-eMbZE2hUnx1WV0pmURZY9XoXPkUYjpc55mb0CrhtdWLtzMQPFvu/rZkTLZFTsdaVQa+Tr4eWAteqcUzoawq/uA==
-
 "@jest/get-type@30.5.0":
   version "30.5.0"
   resolved "https://registry.yarnpkg.com/@jest/get-type/-/get-type-30.5.0.tgz#0fc76dd792523bf05d7715a18041c185f9128cc4"
@@ -1892,13 +1882,6 @@
     slash "^3.0.0"
     string-length "^4.0.2"
     v8-to-istanbul "^9.0.1"
-
-"@jest/schemas@30.4.1":
-  version "30.4.1"
-  resolved "https://registry.yarnpkg.com/@jest/schemas/-/schemas-30.4.1.tgz#c3703fdd71357e2c83aa59bd38469e60a11529c6"
-  integrity sha512-i6b4qw5qnP8c5FEeBJg/uZQ4ddrkN6Ca8qISJh0pr7a5hfn3h3v5x60BEbOC7OYAGZNMs1LfFLwnW2CuK8F57Q==
-  dependencies:
-    "@sinclair/typebox" "^0.34.0"
 
 "@jest/schemas@30.5.0":
   version "30.5.0"
@@ -2700,14 +2683,14 @@
   dependencies:
     "@sinonjs/commons" "^3.0.1"
 
-"@testing-library/react-native@~13":
-  version "13.3.3"
-  resolved "https://registry.yarnpkg.com/@testing-library/react-native/-/react-native-13.3.3.tgz#4bf02911c4e18075df40b5de0e029c209fb45bda"
-  integrity sha512-k6Mjsd9dbZgvY4Bl7P1NIpePQNi+dfYtlJ5voi9KQlynxSyQkfOgJmYGCYmw/aSgH/rUcFvG8u5gd4npzgRDyg==
+"@testing-library/react-native@~14.1.0":
+  version "14.1.0"
+  resolved "https://registry.yarnpkg.com/@testing-library/react-native/-/react-native-14.1.0.tgz#e4449beacb10c0dab5421b1fcbc802d043e569e6"
+  integrity sha512-tWOam5U3aUE8XqStdWAN/OuUUdGRzh/vJMg7SfCaqXNKx7orRh04590Jp4JbORctYjORoRYfJSg04I2//wnxYw==
   dependencies:
-    jest-matcher-utils "^30.0.5"
+    jest-matcher-utils "^30.4.1"
     picocolors "^1.1.1"
-    pretty-format "^30.0.5"
+    pretty-format "^30.4.1"
     redent "^3.0.0"
 
 "@tootallnate/once@2":
@@ -2812,7 +2795,12 @@
   dependencies:
     undici-types "~6.21.0"
 
-"@types/react-test-renderer@^19.1.0", "@types/react-test-renderer@^19.3.0":
+"@types/react-reconciler@~0.34.0":
+  version "0.34.1"
+  resolved "https://registry.yarnpkg.com/@types/react-reconciler/-/react-reconciler-0.34.1.tgz#5948986c39f5546f656e455ff4223b148f3a1e87"
+  integrity sha512-XAzeH3rARrfApMETpkcFmfJQRS3rPpXsSR/XA8H3sV8WgA0bp6UE7sLNM92l1ZbCclUKmrH28Ik2fSejh9UxRg==
+
+"@types/react-test-renderer@^19.1.0":
   version "19.3.0"
   resolved "https://registry.yarnpkg.com/@types/react-test-renderer/-/react-test-renderer-19.3.0.tgz#719edd157d3982cbd905826e6a019d23709fc063"
   integrity sha512-TX4p2D4Z2oigM3SXU7+QyLSUnSR0vR1S1Pfxm/qFL9nHQ3jclgi6ioGoWQmlIr1DeKRVmPJrmNlhgM0JlWlLUg==
@@ -5082,16 +5070,6 @@ jest-config@30.5.2:
     slash "^3.0.0"
     strip-json-comments "^3.1.1"
 
-jest-diff@30.4.1:
-  version "30.4.1"
-  resolved "https://registry.yarnpkg.com/jest-diff/-/jest-diff-30.4.1.tgz#26691c73975768409af4a66b2754cea3182aa2dc"
-  integrity sha512-CRpFK0RtLriVDGcPPAnR6HMVI8bSR2jnUIgralhauzYQZIb4RH9AtEInTuQr65LmmGggGcRT6HIASxwqsVsmlA==
-  dependencies:
-    "@jest/diff-sequences" "30.4.0"
-    "@jest/get-type" "30.1.0"
-    chalk "^4.1.2"
-    pretty-format "30.4.1"
-
 jest-diff@30.5.2:
   version "30.5.2"
   resolved "https://registry.yarnpkg.com/jest-diff/-/jest-diff-30.5.2.tgz#0d96ecb53aac3949132a6ce2106790d9212edced"
@@ -5237,7 +5215,7 @@ jest-leak-detector@30.5.1:
     "@jest/get-type" "30.5.0"
     pretty-format "30.5.1"
 
-jest-matcher-utils@30.5.2:
+jest-matcher-utils@30.5.2, jest-matcher-utils@^30.4.1:
   version "30.5.2"
   resolved "https://registry.yarnpkg.com/jest-matcher-utils/-/jest-matcher-utils-30.5.2.tgz#360433048fea76513dd2ceed6dfaf5f488164ed5"
   integrity sha512-lFkB365PTIHOhPzwrb9T6gvlDnPpOZ7/c3ewOKKB7bzztqjVrtlyRL2MkyfJXpyY2u2SKw001JKrTx14fBUFcQ==
@@ -5256,16 +5234,6 @@ jest-matcher-utils@^29.7.0:
     jest-diff "^29.7.0"
     jest-get-type "^29.6.3"
     pretty-format "^29.7.0"
-
-jest-matcher-utils@^30.0.5:
-  version "30.4.1"
-  resolved "https://registry.yarnpkg.com/jest-matcher-utils/-/jest-matcher-utils-30.4.1.tgz#3fee8c89dbd8fc6e60eb590def9897e18f110ec4"
-  integrity sha512-zvYfX5CaeEkFrrLS9suWe9rvJrm9J1Iv3ua8kIBv9GEPzcnsfBf0bob37la7s67fs0nlBC3EuvkOLnXQKxtx4A==
-  dependencies:
-    "@jest/get-type" "30.1.0"
-    chalk "^4.1.2"
-    jest-diff "30.4.1"
-    pretty-format "30.4.1"
 
 jest-message-util@30.5.1:
   version "30.5.1"
@@ -6699,17 +6667,7 @@ postcss@^8.5.14:
     picocolors "^1.1.1"
     source-map-js "^1.2.1"
 
-pretty-format@30.4.1, pretty-format@^30.0.5:
-  version "30.4.1"
-  resolved "https://registry.yarnpkg.com/pretty-format/-/pretty-format-30.4.1.tgz#0911652e92e1e91f475e3e6a16e628e50649ea69"
-  integrity sha512-K6KiKMHTL4jjX4u3Kir2EW07nRfcqVTXIImx50wbjHQTcZPgg+gjVeNTIT3l3L1Rd4UefxfogquC9J37SoFyyw==
-  dependencies:
-    "@jest/schemas" "30.4.1"
-    ansi-styles "^5.2.0"
-    react-is-18 "npm:react-is@^18.3.1"
-    react-is-19 "npm:react-is@^19.2.5"
-
-pretty-format@30.5.1, pretty-format@^30.0.0:
+pretty-format@30.5.1, pretty-format@^30.0.0, pretty-format@^30.4.1:
   version "30.5.1"
   resolved "https://registry.yarnpkg.com/pretty-format/-/pretty-format-30.5.1.tgz#0dda910a75d12346b771977b1f328517b9e846d4"
   integrity sha512-byhRAPguVKMQIj4kjJwJ5lAskVhfuiSdiYl/aLTWpgkGEmic2jYhJh1yE9ih8Ox44Xg9ccCT11/S6QrzSJuNrg==
@@ -6853,16 +6811,6 @@ react-i18next@17.0.16:
     html-parse-stringify "^4.0.1"
     use-sync-external-store "^1.6.0"
 
-"react-is-18@npm:react-is@^18.3.1":
-  version "18.3.1"
-  resolved "https://registry.yarnpkg.com/react-is/-/react-is-18.3.1.tgz#e83557dc12eae63a99e003a46388b1dcbb44db7e"
-  integrity sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==
-
-"react-is-19@npm:react-is@^19.2.5":
-  version "19.2.8"
-  resolved "https://registry.yarnpkg.com/react-is/-/react-is-19.2.8.tgz#09826f9fbc187bc668e3e5c62edc001f804d5018"
-  integrity sha512-s5un28nYxKJw5gvUHyW5PCC28CvBqLu9r3cWgzHT4Vo/5fqqkFcdRYsGcKf50WMPpjjFZS5d76fn3YCo2njKwQ==
-
 react-is@^16.7.0:
   version "16.13.1"
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-16.13.1.tgz#789729a4dc36de2999dc156dd6c1d9c18cea56a4"
@@ -6873,7 +6821,7 @@ react-is@^18.0.0:
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-18.3.1.tgz#e83557dc12eae63a99e003a46388b1dcbb44db7e"
   integrity sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==
 
-react-is@^19.1.0, react-is@^19.3.0:
+react-is@^19.1.0:
   version "19.3.0"
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-19.3.0.tgz#716028d67e9993d23a2d353c6d08a3c1ef2bbeb4"
   integrity sha512-UpMYezM4v5/18F28aC66AEsjXIgE02kyEMH6yLdgLXu/UTfa1Ntwck/nNLrbqJsEXW7gPb0coNO9FQse9WTovA==
@@ -7013,6 +6961,13 @@ react-native@0.87.1:
     ws "^7.5.10"
     yargs "^17.6.2"
 
+react-reconciler@~0.34.0:
+  version "0.34.0"
+  resolved "https://registry.yarnpkg.com/react-reconciler/-/react-reconciler-0.34.0.tgz#07b160468e2605747ee09af1624d28c3b8419f25"
+  integrity sha512-eVibvB1fc9j5Qf1KRkiM3GzRPBdjg2P6G6QV2f3P6Eb3OGMxRBhdg2rrUwjbV5JrQaJj8nOa8uajmmJA5tJWjQ==
+  dependencies:
+    scheduler "^0.28.0"
+
 react-refresh@^0.14.0, react-refresh@^0.14.2:
   version "0.14.2"
   resolved "https://registry.yarnpkg.com/react-refresh/-/react-refresh-0.14.2.tgz#3833da01ce32da470f1f936b9d477da5c7028bf9"
@@ -7052,14 +7007,6 @@ react-test-renderer@19.2.3:
   dependencies:
     react-is "^19.2.3"
     scheduler "^0.27.0"
-
-react-test-renderer@19.3.0:
-  version "19.3.0"
-  resolved "https://registry.yarnpkg.com/react-test-renderer/-/react-test-renderer-19.3.0.tgz#ee5aa54edb563245649f1143aa33f05a48f8de0c"
-  integrity sha512-AUxgv+hRbqjRgx4xVwiWL6cvDDKPAva1VWLXQIMoevqQn9us//C5TX9LEnBGH47D0zvJpjwjxb1umzgOMvE8Wg==
-  dependencies:
-    react-is "^19.3.0"
-    scheduler "^0.28.0"
 
 react@19.3.0:
   version "19.3.0"
@@ -7631,6 +7578,14 @@ test-exclude@^7.0.1:
     "@istanbuljs/schema" "^0.1.2"
     glob "^10.4.1"
     minimatch "^10.2.2"
+
+test-renderer@~1.3.1:
+  version "1.3.1"
+  resolved "https://registry.yarnpkg.com/test-renderer/-/test-renderer-1.3.1.tgz#b12a3c368d277b2e60c29a6368d8fa45c2e67600"
+  integrity sha512-jL/PxpZJhKuryZkvsWdRRX8Fez229amt6CnoxC+Fs4lbuIbWqMtZBPfBM/FMjg1ovv7ZyGef2ltQD64f/RxkbA==
+  dependencies:
+    "@types/react-reconciler" "~0.34.0"
+    react-reconciler "~0.34.0"
 
 throat@^5.0.0:
   version "5.0.0"

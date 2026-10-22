@@ -1,8 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+	fireEvent,
+	render,
+	screen,
+	within,
+} from "@testing-library/react-native";
 import { Provider } from "react-native-paper";
 import { BoardFilterSheet } from "@/components/board/BoardFilterSheet";
-import { PriorityDot } from "@/components/board/PriorityDot";
-import { LabelGlyph } from "@/components/label/LabelGlyph";
 import type { BoardFilter } from "@/models/board-filter";
 import type { Member } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
@@ -95,8 +98,8 @@ function sheetElement(props: SheetProps) {
 	);
 }
 
-function renderSheet(props: SheetProps) {
-	return render(sheetElement(props));
+async function renderSheet(props: SheetProps) {
+	return await render(sheetElement(props));
 }
 
 describe("BoardFilterSheet", () => {
@@ -105,8 +108,8 @@ describe("BoardFilterSheet", () => {
 		mockWidth = denseBreakpoint;
 	});
 
-	it("renders the nine fields, an unset one reading Not set", () => {
-		renderSheet({});
+	it("renders the nine fields, an unset one reading Not set", async () => {
+		await renderSheet({});
 
 		for (const field of [
 			"assigneeIds",
@@ -124,8 +127,8 @@ describe("BoardFilterSheet", () => {
 		expect(screen.getAllByText("overview.cards.field.notSet")).toHaveLength(9);
 	});
 
-	it("a set row reads its value: words where it has none, its icon where it has one", () => {
-		renderSheet({
+	it("a set row reads its value: words where it has none, its icon where it has one", async () => {
+		await renderSheet({
 			filter: filter({
 				conditions: [
 					{ field: "priority", anyOf: ["urgent"] },
@@ -145,8 +148,8 @@ describe("BoardFilterSheet", () => {
 		expect(screen.getAllByText("overview.cards.field.notSet")).toHaveLength(6);
 	});
 
-	it("only a set row carries its ✕; an unset row has no dead control", () => {
-		renderSheet({
+	it("only a set row carries its ✕; an unset row has no dead control", async () => {
+		await renderSheet({
 			filter: filter({
 				conditions: [
 					{ field: "priority", anyOf: ["urgent"] },
@@ -179,9 +182,9 @@ describe("BoardFilterSheet", () => {
 		).toBeNull();
 	});
 
-	it("a row's ✕ clears that field without opening anything", () => {
+	it("a row's ✕ clears that field without opening anything", async () => {
 		const onChange = jest.fn();
-		renderSheet({
+		await renderSheet({
 			filter: filter({
 				conditions: [
 					{ field: "priority", anyOf: ["urgent"] },
@@ -191,7 +194,7 @@ describe("BoardFilterSheet", () => {
 			onChange,
 		});
 
-		fireEvent.press(
+		await fireEvent.press(
 			screen.getByLabelText(
 				'board.filter.removeFilter:{"what":"detail.priority"}',
 			),
@@ -202,14 +205,14 @@ describe("BoardFilterSheet", () => {
 		);
 	});
 
-	it("the reach control writes the stored filter, with its sentence following", () => {
+	it("the reach control writes the stored filter, with its sentence following", async () => {
 		const onChange = jest.fn();
-		renderSheet({ onChange });
+		await renderSheet({ onChange });
 
 		expect(
 			screen.getByText("board.filter.thisBoardDescription"),
 		).toBeOnTheScreen();
-		fireEvent.press(screen.getByText("board.filter.everythingBelow"));
+		await fireEvent.press(screen.getByText("board.filter.everythingBelow"));
 
 		expect(onChange).toHaveBeenCalledWith(filter({ reach: "subtree" }));
 	});
@@ -221,10 +224,10 @@ describe("BoardFilterSheet", () => {
 	 * swap as the card editor's mode control, so the same proof: the chips
 	 * render and a tap still writes the chosen reach.
 	 */
-	it("below denseBreakpoint the reach answers wrap as chips and still write the reach", () => {
+	it("below denseBreakpoint the reach answers wrap as chips and still write the reach", async () => {
 		mockWidth = denseBreakpoint - 1;
 		const onChange = jest.fn();
-		const rendered = renderSheet({ onChange });
+		const rendered = await renderSheet({ onChange });
 
 		const thisBoard = screen.getByRole("button", {
 			name: "board.filter.thisBoard",
@@ -237,10 +240,10 @@ describe("BoardFilterSheet", () => {
 		expect(
 			screen.getByText("board.filter.thisBoardDescription"),
 		).toBeOnTheScreen();
-		fireEvent.press(everythingBelow);
+		await fireEvent.press(everythingBelow);
 
 		expect(onChange).toHaveBeenCalledWith(filter({ reach: "subtree" }));
-		rendered.rerender(
+		await rendered.rerender(
 			sheetElement({ filter: filter({ reach: "subtree" }), onChange }),
 		);
 		expect(
@@ -254,57 +257,72 @@ describe("BoardFilterSheet", () => {
 		).toBe(true);
 	});
 
-	it("the moved switch writes the participant preference, not a condition", () => {
+	it("the moved switch writes the participant preference, not a condition", async () => {
 		const onShowEveryone = jest.fn();
-		renderSheet({ onShowEveryone });
+		await renderSheet({ onShowEveryone });
 
 		expect(screen.getByText("board.showEveryone")).toBeOnTheScreen();
-		fireEvent(screen.getByRole("switch"), "valueChange", true);
+		await fireEvent(screen.getByRole("switch"), "valueChange", true);
 		expect(onShowEveryone).toHaveBeenCalledWith(true);
 	});
 
-	it("Etikett opens the label picker, whose note names the inherited labels", () => {
+	it("Etikett opens the label picker, whose note names the inherited labels", async () => {
 		const onChange = jest.fn();
-		renderSheet({ onChange });
+		await renderSheet({ onChange });
 
-		fireEvent.press(screen.getByTestId("board-filter-row-labelIds"));
+		await fireEvent.press(screen.getByTestId("board-filter-row-labelIds"));
 
 		expect(screen.getByText("board.filter.labelsInherited")).toBeOnTheScreen();
-		fireEvent.press(screen.getByRole("checkbox", { name: "Trädgård" }));
+		await fireEvent.press(screen.getByRole("checkbox", { name: "Trädgård" }));
 
 		expect(onChange).toHaveBeenCalledWith(
 			filter({ conditions: [{ field: "labelIds", anyOf: ["l1"] }] }),
 		);
 	});
 
-	it("the label picker reads as fill rows, its glyphs leading", () => {
-		renderSheet({});
+	it("the label picker reads as fill rows, its glyphs leading", async () => {
+		await renderSheet({});
 
-		fireEvent.press(screen.getByTestId("board-filter-row-labelIds"));
+		await fireEvent.press(screen.getByTestId("board-filter-row-labelIds"));
 
 		// The sheet's one selection style (#314): no tick drawn on any row,
 		// and the identity marks every label row carries stay ahead of the
 		// words.
 		expect(
-			screen.UNSAFE_queryAllByProps({ source: "checkbox-blank-outline" }),
+			screen.queryAllByTestId("checkbox-blank-outline", {
+				includeHiddenElements: true,
+			}),
 		).toHaveLength(0);
-		expect(screen.UNSAFE_getAllByType(LabelGlyph)).toHaveLength(2);
+		expect([
+			...screen.queryAllByTestId("flower", { includeHiddenElements: true }),
+			...screen.queryAllByTestId("shower", { includeHiddenElements: true }),
+		]).toHaveLength(2);
 	});
 
-	it("the priority picker reads as fill rows: ramp dot on every row, a ring on Not set", () => {
-		renderSheet({});
+	it("the priority picker reads as fill rows: ramp dot on every row, a ring on Not set", async () => {
+		await renderSheet({});
 
-		fireEvent.press(screen.getByTestId("board-filter-row-priority"));
+		await fireEvent.press(screen.getByTestId("board-filter-row-priority"));
 
-		expect(screen.UNSAFE_getAllByType(PriorityDot)).toHaveLength(4);
+		const picker = within(screen.getByTestId("board-filter-priority"));
+		expect(
+			[
+				"thermometer-chevron-down",
+				"thermometer",
+				"thermometer-chevron-up",
+				"fire",
+			].flatMap((name) =>
+				picker.queryAllByTestId(name, { includeHiddenElements: true }),
+			),
+		).toHaveLength(4);
 		expect(screen.getByTestId("priority-not-set-dot")).toBeOnTheScreen();
 	});
 
-	it("the priority picker's rows stay checkboxes to the tree, and pick multi-select", () => {
+	it("the priority picker's rows stay checkboxes to the tree, and pick multi-select", async () => {
 		const onChange = jest.fn();
-		renderSheet({ onChange });
+		await renderSheet({ onChange });
 
-		fireEvent.press(screen.getByTestId("board-filter-row-priority"));
+		await fireEvent.press(screen.getByTestId("board-filter-row-priority"));
 
 		const names = [
 			"priority.urgent",
@@ -321,32 +339,36 @@ describe("BoardFilterSheet", () => {
 
 		// The fill presentation draws no tick on any row.
 		expect(
-			screen.UNSAFE_queryAllByProps({ source: "checkbox-marked" }),
+			screen.queryAllByTestId("checkbox-marked", {
+				includeHiddenElements: true,
+			}),
 		).toHaveLength(0);
 		expect(
-			screen.UNSAFE_queryAllByProps({ source: "checkbox-blank-outline" }),
+			screen.queryAllByTestId("checkbox-blank-outline", {
+				includeHiddenElements: true,
+			}),
 		).toHaveLength(0);
 
 		// Multi-select is untouched: each tap offers its own value, and the
 		// one condition carries both — the accumulation itself is
 		// `CheckListPicker`'s, proven there.
-		fireEvent.press(screen.getByText("priority.urgent"));
+		await fireEvent.press(screen.getByText("priority.urgent"));
 		expect(onChange).toHaveBeenCalledWith(
 			filter({ conditions: [{ field: "priority", anyOf: ["urgent"] }] }),
 		);
-		fireEvent.press(screen.getByText("priority.normal"));
+		await fireEvent.press(screen.getByText("priority.normal"));
 		expect(onChange).toHaveBeenLastCalledWith(
 			filter({ conditions: [{ field: "priority", anyOf: ["normal"] }] }),
 		);
 	});
 
-	it("Vem opens the people picker, and a pick writes the condition", () => {
+	it("Vem opens the people picker, and a pick writes the condition", async () => {
 		const onChange = jest.fn();
-		renderSheet({ onChange });
+		await renderSheet({ onChange });
 
-		fireEvent.press(screen.getByTestId("board-filter-row-assigneeIds"));
+		await fireEvent.press(screen.getByTestId("board-filter-row-assigneeIds"));
 
-		fireEvent.press(
+		await fireEvent.press(
 			screen.getByRole("checkbox", { name: "overview.cards.field.me" }),
 		);
 
@@ -355,17 +377,17 @@ describe("BoardFilterSheet", () => {
 		);
 	});
 
-	it("an is-field picker replaces and clears, one answer at a time", () => {
+	it("an is-field picker replaces and clears, one answer at a time", async () => {
 		const onChange = jest.fn();
-		renderSheet({
+		await renderSheet({
 			filter: filter({ conditions: [{ field: "notes", is: true }] }),
 			onChange,
 		});
 
-		fireEvent.press(screen.getByTestId("board-filter-row-notes"));
+		await fireEvent.press(screen.getByTestId("board-filter-row-notes"));
 
 		// Picking the other answer replaces the set one.
-		fireEvent.press(
+		await fireEvent.press(
 			screen.getByRole("checkbox", { name: "overview.cards.field.noNotes" }),
 		);
 		expect(onChange).toHaveBeenCalledWith(
@@ -373,16 +395,16 @@ describe("BoardFilterSheet", () => {
 		);
 
 		// Picking the set answer again clears the field.
-		fireEvent.press(
+		await fireEvent.press(
 			screen.getByRole("checkbox", { name: "overview.cards.field.withNotes" }),
 		);
 		expect(onChange).toHaveBeenCalledWith(null);
 	});
 
-	it("Clear all empties the filter; Done only dismisses", () => {
+	it("Clear all empties the filter; Done only dismisses", async () => {
 		const onChange = jest.fn();
 		const onDismiss = jest.fn();
-		render(
+		await render(
 			<Provider theme={lightTheme}>
 				<BoardFilterSheet
 					visible
@@ -400,10 +422,10 @@ describe("BoardFilterSheet", () => {
 			</Provider>,
 		);
 
-		fireEvent.press(screen.getByText("board.filter.clearAll"));
+		await fireEvent.press(screen.getByText("board.filter.clearAll"));
 		expect(onChange).toHaveBeenCalledWith(null);
 
-		fireEvent.press(screen.getByText("common.done"));
+		await fireEvent.press(screen.getByText("common.done"));
 		expect(onDismiss).toHaveBeenCalledTimes(1);
 		expect(onChange).toHaveBeenCalledTimes(1);
 	});

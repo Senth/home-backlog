@@ -25,7 +25,7 @@
 				"react-dom",
 				"react-native",
 				"react-native-web",
-				"react-test-renderer"
+				"test-renderer"
 			],
 			"groupName": "React and React Native (Expo SDK matrix)",
 			"automerge": false

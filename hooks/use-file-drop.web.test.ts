@@ -11,7 +11,7 @@ function drag(type: string, files: File[] = []) {
 	return event;
 }
 
-it("arms on a window file drag, attaches only inside the section, and protects missed drops", () => {
+it("arms on a window file drag, attaches only inside the section, and protects missed drops", async () => {
 	const target = new EventTarget();
 	const section = new EventTarget();
 	Object.defineProperty(section, "contains", { value: () => false });
@@ -23,23 +23,23 @@ it("arms on a window file drag, attaches only inside the section, and protects m
 	const ref = {
 		current: section as unknown as ViewInstance,
 	} as RefObject<ViewInstance>;
-	const { result, unmount } = renderHook(() => useFileDrop(ref, onFiles));
+	const { result, unmount } = await renderHook(() => useFileDrop(ref, onFiles));
 	const files = [{ name: "photo.jpg" }] as File[];
-	act(() => target.dispatchEvent(drag("dragenter", files)));
+	await act(() => target.dispatchEvent(drag("dragenter", files)));
 	expect(result.current).toBe("armed");
-	act(() => section.dispatchEvent(drag("dragenter", files)));
+	await act(() => section.dispatchEvent(drag("dragenter", files)));
 	expect(result.current).toBe("over");
 	const outside = drag("drop", files);
-	act(() => target.dispatchEvent(outside));
+	await act(() => target.dispatchEvent(outside));
 	expect(outside.defaultPrevented).toBe(true);
 	expect(onFiles).not.toHaveBeenCalled();
 	expect(result.current).toBe("idle");
 	const inside = drag("drop", files);
-	act(() => section.dispatchEvent(inside));
+	await act(() => section.dispatchEvent(inside));
 	expect(onFiles).toHaveBeenCalledWith(files);
 	const text = drag("dragover");
 	target.dispatchEvent(text);
 	expect(text.defaultPrevented).toBe(false);
-	unmount();
+	await unmount();
 	Reflect.deleteProperty(globalThis, "window");
 });

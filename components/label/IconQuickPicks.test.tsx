@@ -9,12 +9,12 @@ jest.mock("react-i18next", () => ({
 	useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-function renderPicks(
+async function renderPicks(
 	props: Partial<Parameters<typeof IconQuickPicks>[0]> = {},
 ) {
 	const onChange = jest.fn();
 	const onOpenPicker = jest.fn();
-	render(
+	await render(
 		<Provider theme={lightTheme}>
 			<IconQuickPicks
 				value="sofa"
@@ -31,18 +31,20 @@ function renderPicks(
 }
 
 describe("IconQuickPicks", () => {
-	it("chooses a pick and reports the chosen pick selected", () => {
-		const { onChange } = renderPicks();
+	it("chooses a pick and reports the chosen pick selected", async () => {
+		const { onChange } = await renderPicks();
 		expect(
 			screen.getByRole("button", { name: "icons.pick.sofa" }).props
 				.accessibilityState,
 		).toEqual({ selected: true });
-		fireEvent.press(screen.getByRole("button", { name: "icons.pick.bed" }));
+		await fireEvent.press(
+			screen.getByRole("button", { name: "icons.pick.bed" }),
+		);
 		expect(onChange).toHaveBeenCalledWith("bed");
 	});
 
-	it("selects only the search slot for a place glyph outside the picks", () => {
-		renderPicks({ value: "fridge" });
+	it("selects only the search slot for a place glyph outside the picks", async () => {
+		await renderPicks({ value: "fridge" });
 		expect(
 			screen.getByRole("button", { name: "icons.more" }).props
 				.accessibilityState,
@@ -55,14 +57,14 @@ describe("IconQuickPicks", () => {
 		}
 	});
 
-	it("opens the full picker from the search slot for a label", () => {
-		const { onOpenPicker } = renderPicks({
+	it("opens the full picker from the search slot for a label", async () => {
+		const { onOpenPicker } = await renderPicks({
 			value: "format-paint",
 			color: "teal",
 			variant: "label",
 			picks: labelIconPicks,
 		});
-		fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
+		await fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
 		expect(onOpenPicker).toHaveBeenCalledTimes(1);
 		expect(
 			screen.getByRole("button", { name: "icons.pick.format-paint" }).props
@@ -70,8 +72,8 @@ describe("IconQuickPicks", () => {
 		).toEqual({ selected: true });
 	});
 
-	it("keeps an off-list label glyph in the selected search slot", () => {
-		const { onOpenPicker } = renderPicks({
+	it("keeps an off-list label glyph in the selected search slot", async () => {
+		const { onOpenPicker } = await renderPicks({
 			value: "fridge",
 			color: "teal",
 			variant: "label",
@@ -87,7 +89,7 @@ describe("IconQuickPicks", () => {
 					.accessibilityState,
 			).toEqual({ selected: false });
 		}
-		fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
+		await fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
 		expect(onOpenPicker).toHaveBeenCalledTimes(1);
 	});
 });

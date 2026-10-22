@@ -56,10 +56,10 @@ jest.mock("@/hooks/use-paired-listener", () => ({
 	usePairedListener: () => ({ nodes: [], loading: false, failed: false }),
 }));
 
-function renderInventory(width: number) {
+async function renderInventory(width: number) {
 	mockWidth = width;
 
-	return render(
+	return await render(
 		<Provider theme={lightTheme}>
 			<AttachmentsInventory />
 		</Provider>,
@@ -67,8 +67,8 @@ function renderInventory(width: number) {
 }
 
 describe("AttachmentsInventory", () => {
-	it("below denseBreakpoint shows both sort choices and updates selection", () => {
-		renderInventory(denseBreakpoint - 1);
+	it("below denseBreakpoint shows both sort choices and updates selection", async () => {
+		await renderInventory(denseBreakpoint - 1);
 
 		expect(screen.getByText("homes.sortLargest")).toBeOnTheScreen();
 		expect(screen.getByText("homes.sortNewest")).toBeOnTheScreen();
@@ -83,7 +83,9 @@ describe("AttachmentsInventory", () => {
 			],
 		).toBe(false);
 
-		fireEvent.press(screen.getByRole("button", { name: "homes.sortNewest" }));
+		await fireEvent.press(
+			screen.getByRole("button", { name: "homes.sortNewest" }),
+		);
 
 		expect(
 			screen.getByRole("button", { name: "homes.sortLargest" }).props[
@@ -97,8 +99,8 @@ describe("AttachmentsInventory", () => {
 		).toBe(true);
 	});
 
-	it("at denseBreakpoint shows both sort choices and updates selection", () => {
-		renderInventory(denseBreakpoint);
+	it("at denseBreakpoint shows both sort choices and updates selection", async () => {
+		await renderInventory(denseBreakpoint);
 
 		expect(screen.getByText("homes.sortLargest")).toBeOnTheScreen();
 		expect(screen.getByText("homes.sortNewest")).toBeOnTheScreen();
@@ -111,7 +113,9 @@ describe("AttachmentsInventory", () => {
 				.accessibilityState,
 		).toMatchObject({ checked: false });
 
-		fireEvent.press(screen.getByRole("button", { name: "homes.sortNewest" }));
+		await fireEvent.press(
+			screen.getByRole("button", { name: "homes.sortNewest" }),
+		);
 
 		expect(
 			screen.getByRole("button", { name: "homes.sortLargest" }).props

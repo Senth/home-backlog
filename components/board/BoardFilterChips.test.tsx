@@ -1,7 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { BoardFilterChips } from "@/components/board/BoardFilterChips";
 import { fieldSpecs, type Translate } from "@/components/overview/CardEditForm";
-import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import type { BoardFilter } from "@/models/board-filter";
 import type { Member } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
@@ -62,12 +61,12 @@ const t = ((key: string, values?: Record<string, unknown>) =>
 		? key
 		: `${key}:${JSON.stringify(values)}`) as unknown as Translate;
 
-function renderChips(
+async function renderChips(
 	next: BoardFilter,
 	onChange = jest.fn(),
 	onOpen = jest.fn(),
 ) {
-	return render(
+	return await render(
 		// Light theme: the pills read against the page, which is where they sit.
 		<BoardFilterChips
 			filter={next}
@@ -87,17 +86,19 @@ function renderChips(
 }
 
 /** Drives the two measurements the overflow question is decided by. */
-const measure = (box: number, content: number) => {
-	const scroller = screen.UNSAFE_getByType(SlimScrollView);
-	fireEvent(scroller, "layout", {
+const measure = async (box: number, content: number) => {
+	const scroller = screen.container.queryAll(
+		(instance) => typeof instance.props.onContentSizeChange === "function",
+	)[0];
+	await fireEvent(scroller, "layout", {
 		nativeEvent: { layout: { width: box } },
 	});
-	fireEvent(scroller, "contentSizeChange", content, 60);
+	await fireEvent(scroller, "contentSizeChange", content, 60);
 };
 
 describe("BoardFilterChips", () => {
-	it("one pill per set condition, each with its own spoken remove phrase", () => {
-		renderChips(
+	it("one pill per set condition, each with its own spoken remove phrase", async () => {
+		await renderChips(
 			filter({
 				conditions: [
 					{ field: "assigneeIds", anyOf: ["me"] },
@@ -128,14 +129,14 @@ describe("BoardFilterChips", () => {
 		expect(screen.queryByTestId("board-filter-count")).not.toBeOnTheScreen();
 	});
 
-	it("several labels are one pill whose clear takes all of them off", () => {
+	it("several labels are one pill whose clear takes all of them off", async () => {
 		const onChange = jest.fn();
-		renderChips(
+		await renderChips(
 			filter({ conditions: [{ field: "labelIds", anyOf: ["l1", "l2"] }] }),
 			onChange,
 		);
 
-		fireEvent.press(
+		await fireEvent.press(
 			screen.getByLabelText(
 				'board.filter.removeFilter:{"what":"board.filter.labels"}',
 			),
@@ -144,10 +145,10 @@ describe("BoardFilterChips", () => {
 		expect(onChange).toHaveBeenCalledWith(null);
 	});
 
-	it("a pill's press opens the sheet, and its ✕ is the only remove control", () => {
+	it("a pill's press opens the sheet, and its ✕ is the only remove control", async () => {
 		const onChange = jest.fn();
 		const onOpen = jest.fn();
-		renderChips(
+		await renderChips(
 			filter({ conditions: [{ field: "priority", anyOf: ["urgent"] }] }),
 			onChange,
 			onOpen,
@@ -156,11 +157,11 @@ describe("BoardFilterChips", () => {
 		// An icon-only pill has no words to speak, so the chip carries its
 		// field's name — the thing a press on it opens — and the remove phrase
 		// lives on the ✕ alone, whose press clears and never opens.
-		fireEvent.press(screen.getByLabelText("detail.priority"));
+		await fireEvent.press(screen.getByLabelText("detail.priority"));
 		expect(onOpen).toHaveBeenCalledTimes(1);
 		expect(onChange).not.toHaveBeenCalled();
 
-		fireEvent.press(
+		await fireEvent.press(
 			screen.getByLabelText(
 				'board.filter.removeFilter:{"what":"detail.priority"}',
 			),
@@ -169,9 +170,9 @@ describe("BoardFilterChips", () => {
 		expect(onOpen).toHaveBeenCalledTimes(1);
 	});
 
-	it("the reach pill is last, and its clear drops back to this board", () => {
+	it("the reach pill is last, and its clear drops back to this board", async () => {
 		const onChange = jest.fn();
-		renderChips(
+		await renderChips(
 			filter({
 				reach: "subtree",
 				conditions: [{ field: "priority", anyOf: ["urgent"] }],
@@ -180,7 +181,7 @@ describe("BoardFilterChips", () => {
 		);
 
 		expect(screen.getByText("board.filter.everythingBelow")).toBeOnTheScreen();
-		fireEvent.press(
+		await fireEvent.press(
 			screen.getByLabelText(
 				`board.filter.removeFilter:${JSON.stringify({ what: "board.filter.reach" })}`,
 			),
@@ -191,7 +192,7 @@ describe("BoardFilterChips", () => {
 		);
 	});
 
-	it("the count chip is absent with three conditions and present with five, by measurement", () => {
+	it("the count chip is absent with three conditions and present with five, by measurement", async () => {
 		const three = filter({
 			conditions: [
 				{ field: "assigneeIds", anyOf: ["me"] },
@@ -209,12 +210,12 @@ describe("BoardFilterChips", () => {
 			],
 		});
 
-		renderChips(three);
+		await renderChips(three);
 		// The pills fit the row: no count, whatever the numbers say.
-		measure(1000, 900);
+		await measure(1000, 900);
 		expect(screen.queryByTestId("board-filter-count")).not.toBeOnTheScreen();
 
-		screen.rerender(
+		await screen.rerender(
 			<BoardFilterChips
 				filter={five}
 				compact={false}
@@ -232,16 +233,16 @@ describe("BoardFilterChips", () => {
 		);
 		// The same row, now wider than its box: the count answers what the
 		// overflow took away.
-		measure(1000, 1400);
+		await measure(1000, 1400);
 		expect(screen.getByTestId("board-filter-count")).toBeOnTheScreen();
 		expect(
 			screen.getByLabelText('board.filter.countA11y:{"count":5}'),
 		).toBeOnTheScreen();
 	});
 
-	it("a pill's clear removes only that condition", () => {
+	it("a pill's clear removes only that condition", async () => {
 		const onChange = jest.fn();
-		renderChips(
+		await renderChips(
 			filter({
 				conditions: [
 					{ field: "assigneeIds", anyOf: ["me"] },
@@ -251,7 +252,7 @@ describe("BoardFilterChips", () => {
 			onChange,
 		);
 
-		fireEvent.press(
+		await fireEvent.press(
 			screen.getByLabelText(
 				'board.filter.removeFilter:{"what":"detail.priority"}',
 			),

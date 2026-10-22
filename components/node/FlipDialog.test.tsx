@@ -79,9 +79,9 @@ const pending: OutboxIntent = {
 };
 const onSave = jest.fn();
 
-it("opens the parent card through the host callback instead of pushing a route", () => {
+it("opens the parent card through the host callback instead of pushing a route", async () => {
 	const onOpenNode = jest.fn();
-	render(
+	await render(
 		<Provider theme={lightTheme}>
 			<WhoSeesStepNote
 				project="Project"
@@ -90,18 +90,18 @@ it("opens the parent card through the host callback instead of pushing a route",
 			/>
 		</Provider>,
 	);
-	fireEvent.press(screen.getByText("detail.assigneesChange"));
+	await fireEvent.press(screen.getByText("detail.assigneesChange"));
 	expect(onOpenNode).toHaveBeenCalledWith("project");
 	expect(router.push).not.toHaveBeenCalled();
 });
 
-it("keeps route navigation when no host callback is supplied", () => {
-	render(
+it("keeps route navigation when no host callback is supplied", async () => {
+	await render(
 		<Provider theme={lightTheme}>
 			<WhoSeesStepNote project="Project" rootId="project" />
 		</Provider>,
 	);
-	fireEvent.press(screen.getByText("detail.assigneesChange"));
+	await fireEvent.press(screen.getByText("detail.assigneesChange"));
 	expect(router.push).toHaveBeenCalledWith({
 		pathname: "/projects/[nodeId]/details",
 		params: { nodeId: "project" },
@@ -168,14 +168,14 @@ beforeEach(() => {
 });
 
 async function confirmPrivate() {
-	fireEvent.press(screen.getByText("detail.visibilityPrivate"));
+	await fireEvent.press(screen.getByText("detail.visibilityPrivate"));
 	await act(async () =>
 		fireEvent.press(screen.getByText("visibility.confirmAction")),
 	);
 }
 
 it("offline confirmation queues a flip, keeps current chip selected and shows waiting line without progress", async () => {
-	const view = render(<Surface />);
+	const view = await render(<Surface />);
 	expect(screen.getByText("detail.visibilityPrivate")).toBeEnabled();
 	expect(screen.queryByText("board.offlineHint")).toBeNull();
 	await confirmPrivate();
@@ -192,7 +192,7 @@ it("offline confirmation queues a flip, keeps current chip selected and shows wa
 		expect.any(Function),
 	);
 	expect(flipVisibility).not.toHaveBeenCalled();
-	view.rerender(<Surface />);
+	await view.rerender(<Surface />);
 	expect(screen.getByText("outbox.pendingPrivate")).toBeTruthy();
 	expect(screen.queryByTestId("visibility-progress-dialog")).toBeNull();
 	expect(
@@ -210,21 +210,23 @@ it("offline confirmation queues a flip, keeps current chip selected and shows wa
 
 it("choosing current visibility cancels pending opposite flip rather than queuing another", async () => {
 	mockIntents = [pending];
-	const view = render(<Surface />);
-	await act(async () =>
-		fireEvent.press(screen.getByText("detail.visibilityShared")),
+	const view = await render(<Surface />);
+	await act(
+		async () =>
+			await fireEvent.press(screen.getByText("detail.visibilityShared")),
 	);
 	expect(mockUndo).toHaveBeenCalledWith("pending-1");
 	expect(mockSubmit).not.toHaveBeenCalled();
-	view.rerender(<Surface />);
+	await view.rerender(<Surface />);
 	expect(screen.queryByText("outbox.pendingPrivate")).toBeNull();
 });
 
 it("current chip does not cancel resumable flip whose root already reached target", async () => {
 	mockIntents = [pending];
-	render(<Surface subject={{ ...node, visibility: "private" }} />);
-	await act(async () =>
-		fireEvent.press(screen.getByText("detail.visibilityPrivate")),
+	await render(<Surface subject={{ ...node, visibility: "private" }} />);
+	await act(
+		async () =>
+			await fireEvent.press(screen.getByText("detail.visibilityPrivate")),
 	);
 	expect(mockUndo).not.toHaveBeenCalled();
 	expect(mockSubmit).not.toHaveBeenCalled();
@@ -233,10 +235,11 @@ it("current chip does not cancel resumable flip whose root already reached targe
 
 it("private root participants queue their chosen list offline, retaining actor and server value", async () => {
 	const subject = { ...node, visibility: "private" as const };
-	const view = render(<Surface subject={subject} participants />);
+	const view = await render(<Surface subject={subject} participants />);
 	expect(screen.getByRole("checkbox", { name: "Other" })).toBeEnabled();
-	await act(async () =>
-		fireEvent.press(screen.getByRole("checkbox", { name: "Other" })),
+	await act(
+		async () =>
+			await fireEvent.press(screen.getByRole("checkbox", { name: "Other" })),
 	);
 	expect(mockSubmit).toHaveBeenCalledWith(
 		expect.objectContaining({
@@ -248,7 +251,7 @@ it("private root participants queue their chosen list offline, retaining actor a
 	);
 	expect(onSave).not.toHaveBeenCalled();
 	expect(flipVisibility).not.toHaveBeenCalled();
-	view.rerender(<Surface subject={subject} participants />);
+	await view.rerender(<Surface subject={subject} participants />);
 	expect(screen.getByText("outbox.pendingParticipants")).toBeTruthy();
 	expect(screen.getByRole("checkbox", { name: "Other" })).toBeChecked();
 	expect(screen.getByRole("checkbox", { name: "Me" })).toBeDisabled();
@@ -258,12 +261,12 @@ it("private root participants queue their chosen list offline, retaining actor a
 
 it("private participant toggles accumulate pending selection and reverse without changing server ACL", async () => {
 	const subject = { ...node, visibility: "private" as const };
-	const view = render(<Surface subject={subject} participants />);
+	const view = await render(<Surface subject={subject} participants />);
 	for (const name of ["Other", "Bob", "Other"]) {
-		await act(async () =>
-			fireEvent.press(screen.getByRole("checkbox", { name })),
+		await act(
+			async () => await fireEvent.press(screen.getByRole("checkbox", { name })),
 		);
-		view.rerender(<Surface subject={subject} participants />);
+		await view.rerender(<Surface subject={subject} participants />);
 	}
 	expect(
 		mockSubmit.mock.calls.map(([intent]) => intent.participantIds),
@@ -280,13 +283,13 @@ it("private participant toggles accumulate pending selection and reverse without
 	expect(flipVisibility).not.toHaveBeenCalled();
 });
 
-it("pending shared flip says everyone in home, but other-home intents show no line", () => {
+it("pending shared flip says everyone in home, but other-home intents show no line", async () => {
 	mockIntents = [{ ...pending, target: "shared" }];
 	const subject = { ...node, visibility: "private" as const };
-	const view = render(<Surface subject={subject} />);
+	const view = await render(<Surface subject={subject} />);
 	expect(screen.getByText("outbox.pendingShared")).toBeTruthy();
 	mockIntents = [{ ...pending, homeId: "other-home" }];
-	view.rerender(<Surface subject={subject} />);
+	await view.rerender(<Surface subject={subject} />);
 	expect(screen.queryByText(/outbox.pending/)).toBeNull();
 });
 
@@ -299,7 +302,7 @@ it("online flip keeps progress dialog until writes finish", async () => {
 				finish = resolve;
 			}),
 	);
-	render(<Surface />);
+	await render(<Surface />);
 	await confirmPrivate();
 	expect(screen.getByTestId("visibility-progress-dialog")).toBeTruthy();
 	expect(flipVisibility).toHaveBeenCalledWith(
@@ -322,9 +325,9 @@ it("unavailable midway queues resumable flip and closes progress without failure
 			options?.onProgress?.({ done: 1, total: 3 });
 			throw { code: "unavailable" };
 		});
-	const view = render(<Surface />);
+	const view = await render(<Surface />);
 	await confirmPrivate();
-	view.rerender(<Surface />);
+	await view.rerender(<Surface />);
 	expect(mockIntents).toHaveLength(1);
 	expect(screen.getByText("outbox.pendingPrivate")).toBeTruthy();
 	expect(screen.queryByText("visibility.failed")).toBeNull();
@@ -338,12 +341,12 @@ it("non-network online failure still offers retry and does not queue", async () 
 		.mockRejectedValueOnce(new Error("Permission refused"));
 	const error = jest.spyOn(console, "error").mockImplementation(() => {});
 	try {
-		render(<Surface />);
+		await render(<Surface />);
 		await confirmPrivate();
 		expect(screen.getByText("visibility.failed")).toBeTruthy();
 		expect(mockIntents).toEqual([]);
-		await act(async () =>
-			fireEvent.press(screen.getByText("visibility.retry")),
+		await act(
+			async () => await fireEvent.press(screen.getByText("visibility.retry")),
 		);
 		await waitFor(() =>
 			expect(screen.queryByTestId("visibility-progress-dialog")).toBeNull(),

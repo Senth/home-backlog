@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react-native";
 import { useCoarsePointer, useFinePointer } from "@/hooks/use-pointer.web";
 
-it("tracks coarse pointer changes and removes the listener on unmount", () => {
+it("tracks coarse pointer changes and removes the listener on unmount", async () => {
 	let onChange: (event: MediaQueryListEvent) => void = () => {};
 	const addEventListener = jest.fn(
 		(_type: string, listener: typeof onChange) => {
@@ -18,17 +18,17 @@ it("tracks coarse pointer changes and removes the listener on unmount", () => {
 		configurable: true,
 		value: { matchMedia },
 	});
-	const { result, unmount } = renderHook(useCoarsePointer);
+	const { result, unmount } = await renderHook(useCoarsePointer);
 	expect(matchMedia).toHaveBeenCalledWith("(pointer: coarse)");
 	expect(result.current).toBe(true);
-	act(() => onChange({ matches: false } as MediaQueryListEvent));
+	await act(() => onChange({ matches: false } as MediaQueryListEvent));
 	expect(result.current).toBe(false);
-	unmount();
+	await unmount();
 	expect(removeEventListener).toHaveBeenCalledWith("change", onChange);
 	Reflect.deleteProperty(globalThis, "window");
 });
 
-it("asks for a fine pointer with hover, the query the scrollbar stylesheet uses", () => {
+it("asks for a fine pointer with hover, the query the scrollbar stylesheet uses", async () => {
 	const matchMedia = jest.fn(() => ({
 		matches: true,
 		addEventListener: jest.fn(),
@@ -38,7 +38,7 @@ it("asks for a fine pointer with hover, the query the scrollbar stylesheet uses"
 		configurable: true,
 		value: { matchMedia },
 	});
-	const { result } = renderHook(useFinePointer);
+	const { result } = await renderHook(useFinePointer);
 	expect(matchMedia).toHaveBeenCalledWith("(hover: hover) and (pointer: fine)");
 	expect(result.current).toBe(true);
 	Reflect.deleteProperty(globalThis, "window");

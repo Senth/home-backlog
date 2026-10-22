@@ -10,8 +10,8 @@ jest.mock("react-i18next", () => ({
 	}),
 }));
 
-function renderCrumbs(isPrivate?: boolean) {
-	render(
+async function renderCrumbs(isPrivate?: boolean) {
+	await render(
 		<Provider theme={lightTheme}>
 			<Breadcrumbs
 				crumbs={[{ id: "root", node: null }]}
@@ -24,8 +24,8 @@ function renderCrumbs(isPrivate?: boolean) {
 }
 
 describe("Breadcrumbs", () => {
-	it("ends the row with the private fact on a private project's board", () => {
-		renderCrumbs(true);
+	it("ends the row with the private fact on a private project's board", async () => {
+		await renderCrumbs(true);
 
 		expect(screen.getByText("board.private")).toBeOnTheScreen();
 		expect(
@@ -34,8 +34,8 @@ describe("Breadcrumbs", () => {
 		expect(screen.getByText("Kakla om")).toBeOnTheScreen();
 	});
 
-	it("says nothing about privacy otherwise", () => {
-		renderCrumbs();
+	it("says nothing about privacy otherwise", async () => {
+		await renderCrumbs();
 
 		expect(screen.queryByText("board.private")).toBeNull();
 	});
