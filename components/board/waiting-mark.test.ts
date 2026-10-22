@@ -55,20 +55,22 @@ function blocker(id: string, status: Status): Node {
 }
 
 describe("useWaitingMark", () => {
-	it("does not mark a card with no blockers", () => {
-		const { result } = renderHook(() => useWaitingMark(node(), new Map()));
+	it("does not mark a card with no blockers", async () => {
+		const { result } = await renderHook(() =>
+			useWaitingMark(node(), new Map()),
+		);
 		expect(result.current.isWaiting).toBe(false);
 	});
 
-	it("waits on a blocker nobody has answered for — missing waits", () => {
+	it("waits on a blocker nobody has answered for — missing waits", async () => {
 		const card = node({ blockedBy: ["blocker-1"] });
-		const { result } = renderHook(() => useWaitingMark(card, new Map()));
+		const { result } = await renderHook(() => useWaitingMark(card, new Map()));
 		expect(result.current.isWaiting).toBe(true);
 	});
 
-	it("stops waiting when the blocker is done, without being removed", () => {
+	it("stops waiting when the blocker is done, without being removed", async () => {
 		const card = node({ blockedBy: ["blocker-1"] });
-		const { result } = renderHook(() =>
+		const { result } = await renderHook(() =>
 			useWaitingMark(
 				card,
 				new Map([["blocker-1", blocker("blocker-1", "done")]]),
@@ -77,9 +79,9 @@ describe("useWaitingMark", () => {
 		expect(result.current.isWaiting).toBe(false);
 	});
 
-	it("never marks a card in Done, whatever its list holds", () => {
+	it("never marks a card in Done, whatever its list holds", async () => {
 		const card = node({ status: "done", blockedBy: ["blocker-1"] });
-		const { result } = renderHook(() =>
+		const { result } = await renderHook(() =>
 			useWaitingMark(
 				card,
 				new Map([["blocker-1", blocker("blocker-1", "backlog")]]),
@@ -88,9 +90,9 @@ describe("useWaitingMark", () => {
 		expect(result.current.isWaiting).toBe(false);
 	});
 
-	it("names the card it waits on", () => {
+	it("names the card it waits on", async () => {
 		const card = node({ blockedBy: ["blocker-1"] });
-		const { result } = renderHook(() =>
+		const { result } = await renderHook(() =>
 			useWaitingMark(
 				card,
 				new Map([["blocker-1", blocker("blocker-1", "backlog")]]),
@@ -101,9 +103,9 @@ describe("useWaitingMark", () => {
 		);
 	});
 
-	it("names every blocker it still waits on", () => {
+	it("names every blocker it still waits on", async () => {
 		const card = node({ blockedBy: ["blocker-1", "blocker-2"] });
-		const { result } = renderHook(() =>
+		const { result } = await renderHook(() =>
 			useWaitingMark(
 				card,
 				new Map([
@@ -117,9 +119,9 @@ describe("useWaitingMark", () => {
 		);
 	});
 
-	it("says plain Waiting for one blocker and carries the count past one", () => {
+	it("says plain Waiting for one blocker and carries the count past one", async () => {
 		const card = node({ blockedBy: ["blocker-1", "blocker-2"] });
-		const { result } = renderHook(() =>
+		const { result } = await renderHook(() =>
 			useWaitingMark(
 				card,
 				new Map([["blocker-1", blocker("blocker-1", "done")]]),
@@ -128,9 +130,9 @@ describe("useWaitingMark", () => {
 		expect(result.current.label).toBe("board.blocked");
 	});
 
-	it("carries the count and the plural a11y label for two waiting blockers", () => {
+	it("carries the count and the plural a11y label for two waiting blockers", async () => {
 		const card = node({ blockedBy: ["blocker-1", "blocker-2"] });
-		const { result } = renderHook(() => useWaitingMark(card, new Map()));
+		const { result } = await renderHook(() => useWaitingMark(card, new Map()));
 		expect(result.current.label).toBe("board.blocked · 2");
 		expect(result.current.a11yLabel).toBe('board.waitingLabel:{"count":2}');
 	});

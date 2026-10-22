@@ -81,15 +81,15 @@ function renderDialog(
 }
 
 describe("LocationDialog", () => {
-	it("trims the name on the create path", () => {
-		renderDialog();
+	it("trims the name on the create path", async () => {
+		await renderDialog();
 		expect(
 			screen.getByRole("button", { name: "icons.pick.sofa" }).props
 				.accessibilityState,
 		).toEqual({ selected: true });
 
-		fireEvent.changeText(screen.getByDisplayValue(""), "  Garden  ");
-		fireEvent.press(screen.getByText("board.add"));
+		await fireEvent.changeText(screen.getByDisplayValue(""), "  Garden  ");
+		await fireEvent.press(screen.getByText("board.add"));
 
 		expect(createLocation).toHaveBeenCalledWith(
 			"home-1",
@@ -102,57 +102,69 @@ describe("LocationDialog", () => {
 		);
 	});
 
-	it("trims the name on the edit path", () => {
-		renderDialog({ location: place() });
+	it("trims the name on the edit path", async () => {
+		await renderDialog({ location: place() });
 
-		fireEvent.changeText(screen.getByDisplayValue("Garden"), "  Trädgården  ");
-		fireEvent.press(screen.getByText("labels.save"));
+		await fireEvent.changeText(
+			screen.getByDisplayValue("Garden"),
+			"  Trädgården  ",
+		);
+		await fireEvent.press(screen.getByText("labels.save"));
 
 		expect(editLocation).toHaveBeenCalledWith("home-1", "garden", {
 			title: "Trädgården",
 		});
 	});
 
-	it("writes nothing when the trimmed name is the one already stored", () => {
-		renderDialog({ location: place() });
+	it("writes nothing when the trimmed name is the one already stored", async () => {
+		await renderDialog({ location: place() });
 
-		fireEvent.changeText(screen.getByDisplayValue("Garden"), "  Garden  ");
-		fireEvent.press(screen.getByText("labels.save"));
+		await fireEvent.changeText(
+			screen.getByDisplayValue("Garden"),
+			"  Garden  ",
+		);
+		await fireEvent.press(screen.getByText("labels.save"));
 
 		expect(editLocation).not.toHaveBeenCalled();
 	});
 
-	it("keeps the dialog open and writes nothing while the custom color draft is invalid", () => {
+	it("keeps the dialog open and writes nothing while the custom color draft is invalid", async () => {
 		const onDismiss = jest.fn();
-		renderDialog({ location: place(), onDismiss });
-		fireEvent.press(screen.getByRole("button", { name: "labels.customColor" }));
+		await renderDialog({ location: place(), onDismiss });
+		await fireEvent.press(
+			screen.getByRole("button", { name: "labels.customColor" }),
+		);
 		const hexField = screen.getByDisplayValue(/^#[\da-f]{6}$/i);
 		const valid = toHex([0xaa, 0xbb, 0xcc]).slice(0, 4);
-		fireEvent.changeText(hexField, valid);
-		fireEvent.changeText(hexField, `${valid}d`);
+		await fireEvent.changeText(hexField, valid);
+		await fireEvent.changeText(hexField, `${valid}d`);
 		expect(screen.getByText("labels.colorInvalid")).toBeOnTheScreen();
-		fireEvent.press(screen.getByText("labels.save"));
+		await fireEvent.press(screen.getByText("labels.save"));
 		expect(onDismiss).not.toHaveBeenCalled();
 		expect(editLocation).not.toHaveBeenCalled();
-		fireEvent.press(screen.getByRole("button", { name: "labels.hue.red" }));
-		fireEvent.press(screen.getByText("labels.save"));
+		await fireEvent.press(
+			screen.getByRole("button", { name: "labels.hue.red" }),
+		);
+		await fireEvent.press(screen.getByText("labels.save"));
 		expect(editLocation).toHaveBeenCalledWith("home-1", "garden", {
 			color: "red",
 		});
 	});
 
-	it("saves after IconPicker discards an invalid hex draft", () => {
+	it("saves after IconPicker discards an invalid hex draft", async () => {
 		const onDismiss = jest.fn();
-		renderDialog({ location: place(), onDismiss });
-		fireEvent.press(screen.getByRole("button", { name: "labels.customColor" }));
+		await renderDialog({ location: place(), onDismiss });
+		await fireEvent.press(
+			screen.getByRole("button", { name: "labels.customColor" }),
+		);
 		const hexField = screen.getByDisplayValue(/^#[\da-f]{6}$/i);
-		fireEvent.changeText(hexField, toHex([0xaa, 0xbb, 0xcc]).slice(0, 4));
-		fireEvent.changeText(hexField, "invalid");
+		await fireEvent.changeText(hexField, toHex([0xaa, 0xbb, 0xcc]).slice(0, 4));
+		await fireEvent.changeText(hexField, "invalid");
 		expect(screen.getByText("labels.colorInvalid")).toBeOnTheScreen();
-		fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
-		fireEvent.press(screen.getByRole("button", { name: "home" }));
+		await fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
+		await fireEvent.press(screen.getByRole("button", { name: "home" }));
 		expect(screen.queryByText("labels.colorInvalid")).toBeNull();
-		fireEvent.press(screen.getByText("labels.save"));
+		await fireEvent.press(screen.getByText("labels.save"));
 		expect(editLocation).toHaveBeenCalledWith("home-1", "garden", {
 			icon: "home",
 			color: expect.any(String),
@@ -160,8 +172,8 @@ describe("LocationDialog", () => {
 		expect(onDismiss).toHaveBeenCalledTimes(1);
 	});
 
-	it("paints the palette swatches in the ink tone the tree will draw", () => {
-		renderDialog();
+	it("paints the palette swatches in the ink tone the tree will draw", async () => {
+		await renderDialog();
 		expect(screen.getByText("labels.colorLabel")).toBeOnTheScreen();
 
 		const swatch = screen.getByLabelText("labels.hue.stone");
@@ -169,8 +181,8 @@ describe("LocationDialog", () => {
 		expect(dot.props.style.backgroundColor).toBe(labelHues.stone.light.ink);
 	});
 
-	it("tints the icon preview with the color the tree will draw", () => {
-		renderDialog();
+	it("tints the icon preview with the color the tree will draw", async () => {
+		await renderDialog();
 
 		const glyph = screen.getByTestId("sofa", {
 			includeHiddenElements: true,
@@ -178,31 +190,33 @@ describe("LocationDialog", () => {
 		expect(glyph.props.style.backgroundColor).toBe(labelHues.stone.light.ink);
 	});
 
-	it("saves only the quick-picked icon on an existing place", () => {
-		renderDialog({ location: place({ icon: "sofa" }) });
+	it("saves only the quick-picked icon on an existing place", async () => {
+		await renderDialog({ location: place({ icon: "sofa" }) });
 
-		fireEvent.press(screen.getByRole("button", { name: "icons.pick.bed" }));
+		await fireEvent.press(
+			screen.getByRole("button", { name: "icons.pick.bed" }),
+		);
 		expect(
 			screen.getByRole("button", { name: "icons.pick.bed" }).props
 				.accessibilityState,
 		).toEqual({ selected: true });
-		fireEvent.press(screen.getByText("labels.save"));
+		await fireEvent.press(screen.getByText("labels.save"));
 
 		expect(editLocation).toHaveBeenCalledWith("home-1", "garden", {
 			icon: "bed",
 		});
 	});
 
-	it("returns an off-list glyph from the picker to the ringed search slot", () => {
-		renderDialog({ location: place() });
+	it("returns an off-list glyph from the picker to the ringed search slot", async () => {
+		await renderDialog({ location: place() });
 		expect(
 			screen.getByRole("button", { name: "icons.more" }).props
 				.accessibilityState,
 		).toEqual({ selected: true });
 
-		fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
+		await fireEvent.press(screen.getByRole("button", { name: "icons.more" }));
 		expect(screen.getByText("labels.iconPickerTitle")).toBeOnTheScreen();
-		fireEvent.press(screen.getByRole("button", { name: "home" }));
+		await fireEvent.press(screen.getByRole("button", { name: "home" }));
 
 		const search = screen.getByRole("button", { name: "icons.more" });
 		expect(search.props.accessibilityState).toEqual({ selected: true });
@@ -212,7 +226,7 @@ describe("LocationDialog", () => {
 		expect(
 			screen.getByTestId("magnify", { includeHiddenElements: true }),
 		).toBeOnTheScreen();
-		fireEvent.press(screen.getByText("labels.save"));
+		await fireEvent.press(screen.getByText("labels.save"));
 		expect(editLocation).toHaveBeenCalledWith("home-1", "garden", {
 			icon: "home",
 		});

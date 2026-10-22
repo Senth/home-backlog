@@ -33,14 +33,14 @@ function renderAvatar(photoURL: string | null) {
 // back after a failure, and — the point of the suite — back again when the
 // photoURL changes, because an account switch reuses this component.
 describe("PersonAvatar", () => {
-	it("hides the initials once the photo loads and shows them again when the URL changes", () => {
-		const screen = renderAvatar("https://example.com/a.png");
+	it("hides the initials once the photo loads and shows them again when the URL changes", async () => {
+		const screen = await renderAvatar("https://example.com/a.png");
 		expect(screen.queryByText("M")).toBeTruthy();
 
-		act(() => mockAvatarImage.getProps()[0].onLoad?.({} as never));
+		await act(() => mockAvatarImage.getProps()[0].onLoad?.({} as never));
 		expect(screen.queryByText("M")).toBeNull();
 
-		screen.rerender(
+		await screen.rerender(
 			<ThemeProvider theme={lightTheme}>
 				<PersonAvatar
 					name="Marcus"
@@ -52,13 +52,13 @@ describe("PersonAvatar", () => {
 		expect(screen.queryByText("M")).toBeTruthy();
 	});
 
-	it("recovers the image attempt when a failed URL is swapped for another", () => {
-		const screen = renderAvatar("https://example.com/a.png");
+	it("recovers the image attempt when a failed URL is swapped for another", async () => {
+		const screen = await renderAvatar("https://example.com/a.png");
 
-		act(() => mockAvatarImage.getProps()[0].onError?.({} as never));
+		await act(() => mockAvatarImage.getProps()[0].onError?.({} as never));
 		expect(mockAvatarImage.getProps()).toHaveLength(0);
 
-		screen.rerender(
+		await screen.rerender(
 			<ThemeProvider theme={lightTheme}>
 				<PersonAvatar
 					name="Marcus"

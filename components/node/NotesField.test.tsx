@@ -24,8 +24,8 @@ jest.mock("@/hooks/use-background", () => ({
 // `Provider`, not `ThemeProvider`: the editor is a sheet (#237), and the
 // portal it renders into needs the host `Provider` sets up — the same
 // renderer `LabelDialog.test.tsx` uses for its dialog.
-function renderNotes(stored: string, onSave: (notes: string) => void) {
-	return render(
+async function renderNotes(stored: string, onSave: (notes: string) => void) {
+	return await render(
 		<Provider theme={lightTheme}>
 			<NotesField label="Notes" stored={stored} onSave={onSave} />
 		</Provider>,
@@ -33,64 +33,64 @@ function renderNotes(stored: string, onSave: (notes: string) => void) {
 }
 
 describe("NotesField", () => {
-	it("reads as text on arrival, with the editor closed", () => {
-		renderNotes("Wait for the grout to cure.", () => {});
+	it("reads as text on arrival, with the editor closed", async () => {
+		await renderNotes("Wait for the grout to cure.", () => {});
 
 		expect(screen.getByText("Wait for the grout to cure.")).toBeOnTheScreen();
 		expect(screen.queryByPlaceholderText("detail.notesPlaceholder")).toBeNull();
 		expect(screen.getByText("Notes")).toBeOnTheScreen();
 	});
 
-	it("opens the editor from the pencil", () => {
-		renderNotes("", () => {});
+	it("opens the editor from the pencil", async () => {
+		await renderNotes("", () => {});
 
-		fireEvent.press(screen.getByLabelText("detail.notesEdit"));
+		await fireEvent.press(screen.getByLabelText("detail.notesEdit"));
 		expect(
 			screen.getByPlaceholderText("detail.notesPlaceholder"),
 		).toBeOnTheScreen();
 	});
 
-	it("opens the editor from the label too", () => {
-		renderNotes("Somebody wrote this.", () => {});
+	it("opens the editor from the label too", async () => {
+		await renderNotes("Somebody wrote this.", () => {});
 
-		fireEvent.press(screen.getByText("Notes"));
+		await fireEvent.press(screen.getByText("Notes"));
 		expect(
 			screen.getByPlaceholderText("detail.notesPlaceholder"),
 		).toBeOnTheScreen();
 	});
 
-	it("the dismissal writes and closes: the editor goes away again", () => {
+	it("the dismissal writes and closes: the editor goes away again", async () => {
 		const onSave = jest.fn();
-		renderNotes("", onSave);
+		await renderNotes("", onSave);
 
-		fireEvent.press(screen.getByLabelText("detail.notesEdit"));
-		fireEvent.changeText(
+		await fireEvent.press(screen.getByLabelText("detail.notesEdit"));
+		await fireEvent.changeText(
 			screen.getByPlaceholderText("detail.notesPlaceholder"),
 			"Acetyl fog, do not sand",
 		);
-		fireEvent.press(screen.getByTestId("notes-editor-backdrop"));
+		await fireEvent.press(screen.getByTestId("notes-editor-backdrop"));
 
 		expect(onSave).toHaveBeenCalledWith("Acetyl fog, do not sand");
 		expect(screen.queryByPlaceholderText("detail.notesPlaceholder")).toBeNull();
 	});
 
-	it("does not carry an unsaved draft across to the next card", () => {
+	it("does not carry an unsaved draft across to the next card", async () => {
 		const onSave = jest.fn();
-		const view = render(
+		const view = await render(
 			<Provider theme={lightTheme}>
 				<NotesField key="a" label="Notes" stored="First card" onSave={onSave} />
 			</Provider>,
 		);
 
-		fireEvent.press(screen.getByLabelText("detail.notesEdit"));
-		fireEvent.changeText(
+		await fireEvent.press(screen.getByLabelText("detail.notesEdit"));
+		await fireEvent.changeText(
 			screen.getByPlaceholderText("detail.notesPlaceholder"),
 			"A draft",
 		);
 
 		// Re-pointed at another card: the draft flushes to the card it was
 		// typed on, and the new card opens on its own note, in read mode.
-		view.rerender(
+		await view.rerender(
 			<Provider theme={lightTheme}>
 				<NotesField
 					key="b"

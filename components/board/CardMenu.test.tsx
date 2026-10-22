@@ -112,7 +112,7 @@ function node(id: string, overrides: Partial<Node> = {}): Node {
 	};
 }
 
-function renderMenu(props: {
+async function renderMenu(props: {
 	nodes: Node[];
 	hidden?: Node[];
 	node?: Node;
@@ -120,7 +120,7 @@ function renderMenu(props: {
 	onNotice?: (notice: Notice) => void;
 	selection?: ComponentProps<typeof CardMenu>["selection"];
 }) {
-	return render(
+	return await render(
 		<Provider theme={lightTheme}>
 			<CardMenu
 				homeId="home-1"
@@ -149,51 +149,60 @@ describe("CardMenu", () => {
 		moveTo: jest.fn(),
 	});
 
-	it("Select starts selection with this card", () => {
+	it("Select starts selection with this card", async () => {
 		const picking = selection();
-		renderMenu({ nodes: [node("self")], selection: picking });
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await renderMenu({ nodes: [node("self")], selection: picking });
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: jest.fn(),
 		});
 		expect(screen.getByText("board.moveTo")).toBeTruthy();
-		fireEvent.press(screen.getByText("board.select"));
+		await fireEvent.press(screen.getByText("board.select"));
 		expect(picking.toggleCard).toHaveBeenCalledWith(node("self"));
 	});
 
-	it("selected card offers Deselect and moves the whole selection through the batch path", () => {
+	it("selected card offers Deselect and moves the whole selection through the batch path", async () => {
 		const picking = selection(["self", "other"]);
-		renderMenu({ nodes: [node("self"), node("other")], selection: picking });
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await renderMenu({
+			nodes: [node("self"), node("other")],
+			selection: picking,
+		});
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: jest.fn(),
 		});
 		expect(screen.getByText("board.deselect")).toBeTruthy();
 		expect(screen.queryByText("board.select")).toBeNull();
-		fireEvent.press(screen.getByText('board.moveCardsTo:{"count":2}'));
-		fireEvent.press(screen.getByText("status.done"));
+		await fireEvent.press(screen.getByText('board.moveCardsTo:{"count":2}'));
+		await fireEvent.press(screen.getByText("status.done"));
 		expect(picking.moveTo).toHaveBeenCalledWith("done");
 		expect(moveNode).not.toHaveBeenCalled();
 	});
 
-	it("Deselect toggles only this card", () => {
+	it("Deselect toggles only this card", async () => {
 		const picking = selection(["self", "other"]);
-		renderMenu({ nodes: [node("self"), node("other")], selection: picking });
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await renderMenu({
+			nodes: [node("self"), node("other")],
+			selection: picking,
+		});
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: jest.fn(),
 		});
-		fireEvent.press(screen.getByText("board.deselect"));
+		await fireEvent.press(screen.getByText("board.deselect"));
 		expect(picking.toggleCard).toHaveBeenCalledWith(node("self"));
 		expect(picking.moveTo).not.toHaveBeenCalled();
 	});
 
-	it("unselected card in selection column offers Select but moves only itself", () => {
+	it("unselected card in selection column offers Select but moves only itself", async () => {
 		const picking = selection(["other"]);
-		renderMenu({ nodes: [node("self"), node("other")], selection: picking });
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await renderMenu({
+			nodes: [node("self"), node("other")],
+			selection: picking,
+		});
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: jest.fn(),
 		});
 		expect(screen.getByText("board.select")).toBeEnabled();
-		fireEvent.press(screen.getByText("board.moveTo"));
-		fireEvent.press(screen.getByText("status.done"));
+		await fireEvent.press(screen.getByText("board.moveTo"));
+		await fireEvent.press(screen.getByText("status.done"));
 		expect(moveNode).toHaveBeenCalledWith(
 			"home-1",
 			node("self"),
@@ -203,17 +212,17 @@ describe("CardMenu", () => {
 		expect(picking.moveTo).not.toHaveBeenCalled();
 	});
 
-	it("selected card Change position still moves only this card", () => {
+	it("selected card Change position still moves only this card", async () => {
 		const picking = selection(["self", "other"]);
-		renderMenu({
+		await renderMenu({
 			nodes: [node("self"), node("other", { rank: "V5" })],
 			selection: picking,
 		});
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: jest.fn(),
 		});
-		fireEvent.press(screen.getByText("board.changePosition"));
-		fireEvent.press(
+		await fireEvent.press(screen.getByText("board.changePosition"));
+		await fireEvent.press(
 			screen.getByText('board.positionAfter:{"title":"Card other"}'),
 		);
 		expect(moveNode).toHaveBeenCalledWith(
@@ -248,16 +257,16 @@ describe("CardMenu", () => {
 			);
 	});
 
-	it("offline enables Move under and Delete, removes root hint but keeps search gate", () => {
+	it("offline enables Move under and Delete, removes root hint but keeps search gate", async () => {
 		mockOnline = false;
-		renderMenu({ nodes: [node("self"), node("host")] });
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await renderMenu({ nodes: [node("self"), node("host")] });
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: jest.fn(),
 		});
 		expect(screen.getByText("board.moveUnder")).toBeEnabled();
 		expect(screen.getByText("board.delete")).toBeEnabled();
 		expect(screen.queryByText("board.offlineHint")).toBeNull();
-		fireEvent.press(screen.getByText("board.waitingOn"));
+		await fireEvent.press(screen.getByText("board.waitingOn"));
 		expect(screen.getByText("board.waitingSearch")).toBeDisabled();
 		expect(screen.getByText("board.offlineHint")).toBeTruthy();
 	});
@@ -265,12 +274,12 @@ describe("CardMenu", () => {
 	it("offline Delete submits hierarchy and offers queued Undo", async () => {
 		mockOnline = false;
 		const onNotice = jest.fn();
-		renderMenu({ nodes: [node("self")], onNotice });
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await renderMenu({ nodes: [node("self")], onNotice });
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: jest.fn(),
 		});
-		fireEvent.press(screen.getByText("board.delete"));
-		fireEvent.press(
+		await fireEvent.press(screen.getByText("board.delete"));
+		await fireEvent.press(
 			within(screen.getByTestId("delete-card-self")).getByText("board.delete"),
 		);
 		await waitFor(() => expect(onNotice).toHaveBeenCalled());
@@ -298,12 +307,12 @@ describe("CardMenu", () => {
 		jest.mocked(deleteNode).mockRejectedValueOnce({ code: "unavailable" });
 		mockUndo.mockRejectedValueOnce(new Error("Storage failed"));
 		const onNotice = jest.fn();
-		renderMenu({ nodes: [node("self")], onNotice });
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await renderMenu({ nodes: [node("self")], onNotice });
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: jest.fn(),
 		});
-		fireEvent.press(screen.getByText("board.delete"));
-		fireEvent.press(
+		await fireEvent.press(screen.getByText("board.delete"));
+		await fireEvent.press(
 			within(screen.getByTestId("delete-card-self")).getByText("board.delete"),
 		);
 		await waitFor(() => expect(onNotice).toHaveBeenCalled());
@@ -319,12 +328,12 @@ describe("CardMenu", () => {
 	it("offline Move under queues without fetching destination board and names target", async () => {
 		mockOnline = false;
 		const onNotice = jest.fn();
-		renderMenu({ nodes: [node("self"), node("host")], onNotice });
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await renderMenu({ nodes: [node("self"), node("host")], onNotice });
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: jest.fn(),
 		});
-		fireEvent.press(screen.getByText("board.moveUnder"));
-		fireEvent.press(screen.getByText("Card host"));
+		await fireEvent.press(screen.getByText("board.moveUnder"));
+		await fireEvent.press(screen.getByText("Card host"));
 		await waitFor(() => expect(onNotice).toHaveBeenCalled());
 		expect(mockSubmit.mock.calls[0][0]).toEqual(
 			expect.objectContaining({
@@ -351,7 +360,7 @@ describe("CardMenu", () => {
 	it("offline up-one-level queues known ancestor id even when its title is uncached", async () => {
 		mockOnline = false;
 		const onNotice = jest.fn();
-		renderMenu({
+		await renderMenu({
 			node: node("self", {
 				parentId: "parent",
 				ancestorIds: ["ancestor", "parent"],
@@ -363,11 +372,11 @@ describe("CardMenu", () => {
 			nodes: [],
 			onNotice,
 		});
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: jest.fn(),
 		});
-		fireEvent.press(screen.getByText("board.moveUnder"));
-		fireEvent.press(screen.getByText("board.moveUnderUp"));
+		await fireEvent.press(screen.getByText("board.moveUnder"));
+		await fireEvent.press(screen.getByText("board.moveUnderUp"));
 		await waitFor(() => expect(onNotice).toHaveBeenCalled());
 		expect(mockSubmit.mock.calls[0][0]).toEqual(
 			expect.objectContaining({
@@ -384,12 +393,12 @@ describe("CardMenu", () => {
 			.mocked(boardOnce)
 			.mockResolvedValue([node("child", { parentId: "host", rank: "V5" })]);
 		const onNotice = jest.fn();
-		renderMenu({ nodes: [node("self"), node("host")], onNotice });
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await renderMenu({ nodes: [node("self"), node("host")], onNotice });
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: jest.fn(),
 		});
-		fireEvent.press(screen.getByText("board.moveUnder"));
-		fireEvent.press(screen.getByText("Card host"));
+		await fireEvent.press(screen.getByText("board.moveUnder"));
+		await fireEvent.press(screen.getByText("Card host"));
 		await waitFor(() => expect(onNotice).toHaveBeenCalled());
 		expect(reparentNode).toHaveBeenCalledWith(
 			"home-1",
@@ -406,17 +415,17 @@ describe("CardMenu", () => {
 	it("offline promotion uses top-level copy and offers Undo", async () => {
 		mockOnline = false;
 		const onNotice = jest.fn();
-		renderMenu({
+		await renderMenu({
 			node: node("self", { parentId: "parent", ancestorIds: ["parent"] }),
 			parent: node("parent"),
 			nodes: [],
 			onNotice,
 		});
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: jest.fn(),
 		});
-		fireEvent.press(screen.getByText("board.moveUnder"));
-		fireEvent.press(screen.getByText("board.moveUnderTop"));
+		await fireEvent.press(screen.getByText("board.moveUnder"));
+		await fireEvent.press(screen.getByText("board.moveUnderTop"));
 		await waitFor(() => expect(onNotice).toHaveBeenCalled());
 		expect(mockSubmit.mock.calls[0][0].parentId).toBeNull();
 		expect(onNotice.mock.calls[0][0].text).toBe(
@@ -428,7 +437,7 @@ describe("CardMenu", () => {
 	it("unavailable ancestor lookup queues up-one-level rather than treating it as refusal", async () => {
 		jest.mocked(getNode).mockResolvedValueOnce(undefined);
 		const onNotice = jest.fn();
-		renderMenu({
+		await renderMenu({
 			node: node("self", {
 				parentId: "parent",
 				ancestorIds: ["ancestor", "parent"],
@@ -437,11 +446,11 @@ describe("CardMenu", () => {
 			nodes: [],
 			onNotice,
 		});
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: jest.fn(),
 		});
-		fireEvent.press(screen.getByText("board.moveUnder"));
-		fireEvent.press(screen.getByText("board.moveUnderUp"));
+		await fireEvent.press(screen.getByText("board.moveUnder"));
+		await fireEvent.press(screen.getByText("board.moveUnderUp"));
 		await waitFor(() => expect(onNotice).toHaveBeenCalled());
 		expect(mockSubmit.mock.calls[0][0].parentId).toBe("ancestor");
 		expect(onNotice.mock.calls[0][0].undo).toEqual(expect.any(Function));
@@ -451,12 +460,12 @@ describe("CardMenu", () => {
 	it("unavailable during destination read queues instead of losing move", async () => {
 		jest.mocked(boardOnce).mockRejectedValueOnce({ code: "unavailable" });
 		const onNotice = jest.fn();
-		renderMenu({ nodes: [node("self"), node("host")], onNotice });
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await renderMenu({ nodes: [node("self"), node("host")], onNotice });
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: jest.fn(),
 		});
-		fireEvent.press(screen.getByText("board.moveUnder"));
-		fireEvent.press(screen.getByText("Card host"));
+		await fireEvent.press(screen.getByText("board.moveUnder"));
+		await fireEvent.press(screen.getByText("Card host"));
 		await waitFor(() => expect(onNotice).toHaveBeenCalled());
 		expect(onNotice.mock.calls[0][0].text).toBe(
 			'outbox.queuedMove:{"name":"Card self","target":"Card host"}',
@@ -468,17 +477,17 @@ describe("CardMenu", () => {
 	 * shorten the column the move lands at the end of. The real sibling set
 	 * holds the hidden one, and `rankAtEnd` reads its rank.
 	 */
-	it("lands a moved card at the true end of a column whose last card is hidden", () => {
-		renderMenu({
+	it("lands a moved card at the true end of a column whose last card is hidden", async () => {
+		await renderMenu({
 			nodes: [node("self")],
 			hidden: [node("hidden", { status: "done", rank: "V5" })],
 		});
 
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: () => {},
 		});
-		fireEvent.press(screen.getByText("board.moveTo"));
-		fireEvent.press(screen.getByText("status.done"));
+		await fireEvent.press(screen.getByText("board.moveTo"));
+		await fireEvent.press(screen.getByText("status.done"));
 
 		expect(moveNode).toHaveBeenCalledWith(
 			"home-1",
@@ -488,8 +497,8 @@ describe("CardMenu", () => {
 		);
 	});
 
-	it("offers a hidden sibling as a host for Move under", () => {
-		renderMenu({
+	it("offers a hidden sibling as a host for Move under", async () => {
+		await renderMenu({
 			nodes: [node("self")],
 			hidden: [
 				node("host", {
@@ -500,10 +509,10 @@ describe("CardMenu", () => {
 			],
 		});
 
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: () => {},
 		});
-		fireEvent.press(screen.getByText("board.moveUnder"));
+		await fireEvent.press(screen.getByText("board.moveUnder"));
 
 		expect(screen.getByText("Card host")).toBeOnTheScreen();
 	});
@@ -514,8 +523,8 @@ describe("CardMenu", () => {
 	 * parent appends a level-1 card's rank into the deep card's own column —
 	 * out of order, and on top of a rank that may already be taken.
 	 */
-	it("reads a deep card's siblings from its own parent, not the board's", () => {
-		renderMenu({
+	it("reads a deep card's siblings from its own parent, not the board's", async () => {
+		await renderMenu({
 			node: node("self", { parentId: "mid" }),
 			parent: node("board-card"),
 			nodes: [
@@ -529,11 +538,11 @@ describe("CardMenu", () => {
 			],
 		});
 
-		fireEvent.press(screen.getByLabelText("board.actions"), {
+		await fireEvent.press(screen.getByLabelText("board.actions"), {
 			stopPropagation: () => {},
 		});
-		fireEvent.press(screen.getByText("board.moveTo"));
-		fireEvent.press(screen.getByText("status.done"));
+		await fireEvent.press(screen.getByText("board.moveTo"));
+		await fireEvent.press(screen.getByText("status.done"));
 
 		expect(moveNode).toHaveBeenCalledWith(
 			"home-1",

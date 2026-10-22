@@ -79,7 +79,7 @@ function pairs() {
 }
 
 describe("useOverview", () => {
-	it("hides pending subjects from roots, open pool and done, scoped by home", () => {
+	it("hides pending subjects from roots, open pool and done, scoped by home", async () => {
 		const entries: Node[] = ["deleted", "moved", "kept"].map((id) => ({
 			...newNodeData({ title: id, rank: "V0" }),
 			id,
@@ -119,11 +119,11 @@ describe("useOverview", () => {
 			failed: false,
 			retry: jest.fn(),
 		});
-		const hook = renderHook(() => useOverview("home-1"));
+		const hook = await renderHook(() => useOverview("home-1"));
 		for (const pair of Object.values(hook.result.current))
 			expect(pair.nodes.map((each) => each.id)).toEqual(["kept"]);
 		mockIntents = [];
-		hook.rerender(undefined);
+		await hook.rerender(undefined);
 		expect(hook.result.current.pool.nodes).toEqual(entries);
 	});
 	/**
@@ -132,17 +132,17 @@ describe("useOverview", () => {
 	 * pair carries no `now` at all (#166), and the roots pair never did, so
 	 * neither may move with the day.
 	 */
-	it("re-subscribes the done pair at the day turnover, and nothing else", () => {
+	it("re-subscribes the done pair at the day turnover, and nothing else", async () => {
 		const start = new Date();
 		const midnight = new Date(
 			start.getFullYear(),
 			start.getMonth(),
 			start.getDate() + 1,
 		).getTime();
-		renderHook(() => useOverview("home-1"));
+		await renderHook(() => useOverview("home-1"));
 		const [rootsBefore, poolBefore, doneBefore] = pairs();
 
-		act(() => {
+		await act(() => {
 			jest.advanceTimersByTime(midnight - start.getTime() + 1);
 		});
 		const [rootsAfter, poolAfter, doneAfter] = pairs();
@@ -157,12 +157,12 @@ describe("useOverview", () => {
 	});
 
 	/** The ceiling the plan pins: a card asking for 500 gets a query at 365. */
-	it("builds the done pair at the widest card window, clamped at the ceiling", () => {
+	it("builds the done pair at the widest card window, clamped at the ceiling", async () => {
 		mockCards = [
 			openCard(),
 			doneCard([{ field: "completedAt", is: "within", n: 500 }]),
 		];
-		renderHook(() => useOverview("home-1"));
+		await renderHook(() => useOverview("home-1"));
 		const [, , done] = pairs();
 		void done.build();
 
@@ -174,9 +174,9 @@ describe("useOverview", () => {
 		);
 	});
 
-	it("floors the done pair's window when no done card exists", () => {
+	it("floors the done pair's window when no done card exists", async () => {
 		mockCards = [openCard()];
-		renderHook(() => useOverview("home-1"));
+		await renderHook(() => useOverview("home-1"));
 		const [, , done] = pairs();
 		void done.build();
 
@@ -191,13 +191,13 @@ describe("useOverview", () => {
 		);
 	});
 
-	it("re-opens the done pair when the card config widens the window", () => {
+	it("re-opens the done pair when the card config widens the window", async () => {
 		mockCards = [openCard()];
-		const view = renderHook(() => useOverview("home-1"));
+		const view = await renderHook(() => useOverview("home-1"));
 		const [, , before] = pairs();
 
 		mockCards = [doneCard([{ field: "completedAt", is: "within", n: 90 }])];
-		view.rerender(undefined);
+		await view.rerender(undefined);
 
 		const [, , after] = pairs();
 		expect(after.build).not.toBe(before.build);

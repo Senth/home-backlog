@@ -10,13 +10,13 @@ const viewportHeight = 844;
 describe("AppHeader", () => {
 	it.each([195, 360, 390, 1280])(
 		"names the home and keeps navigation and actions usable at %ipx",
-		(width) => {
+		async (width) => {
 			Dimensions.set({
 				window: { width, height: viewportHeight, scale: 1, fontScale: 1 },
 			});
 			const onBack = jest.fn();
 			const onAction = jest.fn();
-			render(
+			await render(
 				<Provider theme={lightTheme}>
 					<AppHeader
 						title="Sommarstugan vid Vättern"
@@ -34,8 +34,8 @@ describe("AppHeader", () => {
 			expect(
 				screen.getByRole("header", { name: "Sommarstugan vid Vättern" }),
 			).toBeOnTheScreen();
-			fireEvent.press(screen.getByRole("button", { name: "Homes" }));
-			fireEvent.press(screen.getByRole("button", { name: "Settings" }));
+			await fireEvent.press(screen.getByRole("button", { name: "Homes" }));
+			await fireEvent.press(screen.getByRole("button", { name: "Settings" }));
 			expect(onBack).toHaveBeenCalledTimes(1);
 			expect(onAction).toHaveBeenCalledTimes(1);
 		},

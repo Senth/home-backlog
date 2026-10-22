@@ -53,8 +53,8 @@ const labels: LabelWithId[] = [
 	{ id: "lb1", title: "Målning", icon: "brush", color: "red", rank: "a0" },
 ];
 
-const renderForm = (onSave = jest.fn()) =>
-	render(
+const renderForm = async (onSave = jest.fn()) =>
+	await render(
 		<Provider theme={lightTheme}>
 			{/* The real order: `AuthProvider` inside `PaperProvider`. */}
 			<AuthProvider>
@@ -74,25 +74,25 @@ const renderForm = (onSave = jest.fn()) =>
 describe("CardEditForm", () => {
 	afterEach(() => jest.restoreAllMocks());
 
-	it("the narrow mode choices switch the fields and save the chosen mode", () => {
+	it("the narrow mode choices switch the fields and save the chosen mode", async () => {
 		jest.spyOn(ReactNative, "useWindowDimensions").mockReturnValue({
 			...ReactNative.Dimensions.get("window"),
 			width: denseBreakpoint - 1,
 		});
 		const onSave = jest.fn();
-		renderForm(onSave);
+		await renderForm(onSave);
 
-		fireEvent.press(screen.getByText("overview.cards.editor.mode.done"));
+		await fireEvent.press(screen.getByText("overview.cards.editor.mode.done"));
 		expect(screen.queryByText("overview.cards.field.status")).toBeNull();
 		expect(screen.queryByText("overview.cards.field.completedAt")).toBeTruthy();
-		fireEvent.press(screen.getByText("overview.cards.editor.mode.open"));
+		await fireEvent.press(screen.getByText("overview.cards.editor.mode.open"));
 		expect(screen.queryByText("overview.cards.field.completedAt")).toBeNull();
 		expect(screen.queryByText("overview.cards.field.status")).toBeTruthy();
-		fireEvent.changeText(
+		await fireEvent.changeText(
 			screen.getByTestId("overview-card-edit-title"),
 			"Open jobs",
 		);
-		fireEvent.press(screen.getByText("manageHome.save"));
+		await fireEvent.press(screen.getByText("manageHome.save"));
 		expect(onSave).toHaveBeenCalledWith(
 			expect.objectContaining({ kind: "open", conditions: [] }),
 			"home",
@@ -104,16 +104,16 @@ describe("CardEditForm", () => {
 	 * Recently done card — the mode selector seeds the window, the order and
 	 * the empty state, and Save writes exactly what the seed carries.
 	 */
-	it("turns a blank card into Recently done with one tap on Färdiga", () => {
+	it("turns a blank card into Recently done with one tap on Färdiga", async () => {
 		const onSave = jest.fn();
-		renderForm(onSave);
+		await renderForm(onSave);
 
-		fireEvent.press(screen.getByText("overview.cards.editor.mode.done"));
-		fireEvent.changeText(
+		await fireEvent.press(screen.getByText("overview.cards.editor.mode.done"));
+		await fireEvent.changeText(
 			screen.getByTestId("overview-card-edit-title"),
 			"Recently done",
 		);
-		fireEvent.press(screen.getByText("manageHome.save"));
+		await fireEvent.press(screen.getByText("manageHome.save"));
 
 		expect(onSave).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -126,38 +126,42 @@ describe("CardEditForm", () => {
 		);
 	});
 
-	it("offers the done card no status, due or waiting group, and open no completed window", () => {
-		renderForm();
+	it("offers the done card no status, due or waiting group, and open no completed window", async () => {
+		await renderForm();
 
 		expect(screen.queryByText("overview.cards.field.status")).toBeTruthy();
 		expect(screen.queryByText("detail.dueDate")).toBeTruthy();
 		expect(screen.queryByText("board.blocked")).toBeTruthy();
 		expect(screen.queryByText("overview.cards.field.completedAt")).toBeNull();
 
-		fireEvent.press(screen.getByText("overview.cards.editor.mode.done"));
+		await fireEvent.press(screen.getByText("overview.cards.editor.mode.done"));
 
 		expect(screen.queryByText("overview.cards.field.status")).toBeNull();
 		expect(screen.queryByText("detail.dueDate")).toBeNull();
 		expect(screen.queryByText("board.blocked")).toBeNull();
 		expect(screen.queryByText("overview.cards.field.completedAt")).toBeTruthy();
 
-		fireEvent.press(screen.getByText("overview.cards.editor.mode.open"));
+		await fireEvent.press(screen.getByText("overview.cards.editor.mode.open"));
 
 		expect(screen.queryByText("overview.cards.field.completedAt")).toBeNull();
 		expect(screen.queryByText("overview.cards.field.status")).toBeTruthy();
 	});
 
-	it("a field row opens the values as check rows, and a pick writes the condition", () => {
+	it("a field row opens the values as check rows, and a pick writes the condition", async () => {
 		const onSave = jest.fn();
-		renderForm(onSave);
+		await renderForm(onSave);
 
-		fireEvent.press(screen.getByTestId("overview-card-edit-field-priority"));
-		fireEvent.press(screen.getByRole("checkbox", { name: "priority.high" }));
-		fireEvent.changeText(
+		await fireEvent.press(
+			screen.getByTestId("overview-card-edit-field-priority"),
+		);
+		await fireEvent.press(
+			screen.getByRole("checkbox", { name: "priority.high" }),
+		);
+		await fireEvent.changeText(
 			screen.getByTestId("overview-card-edit-title"),
 			"Urgent jobs",
 		);
-		fireEvent.press(screen.getByText("manageHome.save"));
+		await fireEvent.press(screen.getByText("manageHome.save"));
 
 		expect(onSave).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -171,17 +175,19 @@ describe("CardEditForm", () => {
 	 * #306: the editor offers the home's labels as a condition, and a pick
 	 * stores the label ids — the read screen's pool already matches on them.
 	 */
-	it("offers the home's labels as a condition and stores the picked ids", () => {
+	it("offers the home's labels as a condition and stores the picked ids", async () => {
 		const onSave = jest.fn();
-		renderForm(onSave);
+		await renderForm(onSave);
 
-		fireEvent.press(screen.getByTestId("overview-card-edit-field-labelIds"));
-		fireEvent.press(screen.getByRole("checkbox", { name: "Målning" }));
-		fireEvent.changeText(
+		await fireEvent.press(
+			screen.getByTestId("overview-card-edit-field-labelIds"),
+		);
+		await fireEvent.press(screen.getByRole("checkbox", { name: "Målning" }));
+		await fireEvent.changeText(
 			screen.getByTestId("overview-card-edit-title"),
 			"Painting",
 		);
-		fireEvent.press(screen.getByText("manageHome.save"));
+		await fireEvent.press(screen.getByText("manageHome.save"));
 
 		expect(onSave).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -191,24 +197,32 @@ describe("CardEditForm", () => {
 		);
 	});
 
-	it("a row's clear takes that field off and leaves the rest standing", () => {
+	it("a row's clear takes that field off and leaves the rest standing", async () => {
 		const onSave = jest.fn();
-		renderForm(onSave);
+		await renderForm(onSave);
 
-		fireEvent.press(screen.getByTestId("overview-card-edit-field-priority"));
-		fireEvent.press(screen.getByRole("checkbox", { name: "priority.high" }));
-		fireEvent.press(screen.getByTestId("overview-card-edit-field-effort"));
-		fireEvent.press(screen.getByRole("checkbox", { name: "effort.quick" }));
-		fireEvent.press(
+		await fireEvent.press(
+			screen.getByTestId("overview-card-edit-field-priority"),
+		);
+		await fireEvent.press(
+			screen.getByRole("checkbox", { name: "priority.high" }),
+		);
+		await fireEvent.press(
+			screen.getByTestId("overview-card-edit-field-effort"),
+		);
+		await fireEvent.press(
+			screen.getByRole("checkbox", { name: "effort.quick" }),
+		);
+		await fireEvent.press(
 			screen.getByLabelText(
 				'board.filter.removeFilter:{"what":"detail.priority"}',
 			),
 		);
-		fireEvent.changeText(
+		await fireEvent.changeText(
 			screen.getByTestId("overview-card-edit-title"),
 			"Quick ones",
 		);
-		fireEvent.press(screen.getByText("manageHome.save"));
+		await fireEvent.press(screen.getByText("manageHome.save"));
 
 		expect(onSave).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -218,21 +232,25 @@ describe("CardEditForm", () => {
 		);
 	});
 
-	it("a card that already had a condition still lands on done's newest-first sort", () => {
+	it("a card that already had a condition still lands on done's newest-first sort", async () => {
 		const onSave = jest.fn();
-		renderForm(onSave);
+		await renderForm(onSave);
 
 		// A card with a condition takes none of withMode's seed branches: the
 		// mode moves and the conditions ride along — but done has no sort
 		// control, so the default order has to arrive here, not from the user.
-		fireEvent.press(screen.getByTestId("overview-card-edit-field-priority"));
-		fireEvent.press(screen.getByRole("checkbox", { name: "priority.high" }));
-		fireEvent.press(screen.getByText("overview.cards.editor.mode.done"));
-		fireEvent.changeText(
+		await fireEvent.press(
+			screen.getByTestId("overview-card-edit-field-priority"),
+		);
+		await fireEvent.press(
+			screen.getByRole("checkbox", { name: "priority.high" }),
+		);
+		await fireEvent.press(screen.getByText("overview.cards.editor.mode.done"));
+		await fireEvent.changeText(
 			screen.getByTestId("overview-card-edit-title"),
 			"Urgent finished",
 		);
-		fireEvent.press(screen.getByText("manageHome.save"));
+		await fireEvent.press(screen.getByText("manageHome.save"));
 
 		expect(onSave).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -249,20 +267,20 @@ describe("CardEditForm", () => {
 	 * bottom writes `hide` on, and unticking it restores the sentence a
 	 * card with no configuration carries.
 	 */
-	it("the hide-when-empty checkbox saves the empty mode on and off", () => {
+	it("the hide-when-empty checkbox saves the empty mode on and off", async () => {
 		const onSave = jest.fn();
-		renderForm(onSave);
+		await renderForm(onSave);
 
-		fireEvent.press(
+		await fireEvent.press(
 			screen.getByRole("checkbox", {
 				name: "overview.cards.edit.hideWhenEmpty",
 			}),
 		);
-		fireEvent.changeText(
+		await fireEvent.changeText(
 			screen.getByTestId("overview-card-edit-title"),
 			"Any card",
 		);
-		fireEvent.press(screen.getByText("manageHome.save"));
+		await fireEvent.press(screen.getByText("manageHome.save"));
 
 		expect(onSave).toHaveBeenCalledWith(
 			expect.objectContaining({ empty: { mode: "hide" } }),
@@ -272,12 +290,12 @@ describe("CardEditForm", () => {
 		onSave.mockClear();
 		// A blank card moved to done arrives ticked (the #229 shape), so the
 		// way back is the same row unticked — not a fresh card.
-		fireEvent.press(
+		await fireEvent.press(
 			screen.getByRole("checkbox", {
 				name: "overview.cards.edit.hideWhenEmpty",
 			}),
 		);
-		fireEvent.press(screen.getByText("manageHome.save"));
+		await fireEvent.press(screen.getByText("manageHome.save"));
 
 		expect(onSave).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -287,21 +305,21 @@ describe("CardEditForm", () => {
 		);
 	});
 
-	it("says what each mode collects", () => {
-		renderForm();
+	it("says what each mode collects", async () => {
+		await renderForm();
 
 		expect(
 			screen.getByText("overview.cards.editor.mode.openDescription"),
 		).toBeTruthy();
-		fireEvent.press(screen.getByText("overview.cards.editor.mode.done"));
+		await fireEvent.press(screen.getByText("overview.cards.editor.mode.done"));
 		expect(
 			screen.getByText("overview.cards.editor.mode.doneDescription"),
 		).toBeTruthy();
 	});
 
-	it("shows all scope descriptions and saves the selected scope without clearing on retap", () => {
+	it("shows all scope descriptions and saves the selected scope without clearing on retap", async () => {
 		const onSave = jest.fn();
-		renderForm(onSave);
+		await renderForm(onSave);
 
 		expect(screen.getByText("overview.cards.editor.scope.header")).toBeTruthy();
 		const scopes = ["global", "home", "shared"] as const;
@@ -324,18 +342,18 @@ describe("CardEditForm", () => {
 			true,
 			false,
 		]);
-		fireEvent.changeText(
+		await fireEvent.changeText(
 			screen.getByTestId("overview-card-edit-title"),
 			"My card",
 		);
 
 		for (const [index, scope] of scopes.entries()) {
-			fireEvent.press(scopeRows()[index]);
-			fireEvent.press(scopeRows()[index]);
+			await fireEvent.press(scopeRows()[index]);
+			await fireEvent.press(scopeRows()[index]);
 			expect(scopeRows().map((row) => row.props["aria-pressed"])).toEqual(
 				scopes.map((candidate) => candidate === scope),
 			);
-			fireEvent.press(screen.getByText("manageHome.save"));
+			await fireEvent.press(screen.getByText("manageHome.save"));
 			expect(onSave).toHaveBeenLastCalledWith(
 				expect.objectContaining({ title: "My card" }),
 				scope,

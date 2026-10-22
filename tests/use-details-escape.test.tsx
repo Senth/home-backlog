@@ -13,46 +13,46 @@ function Pane({
 	return null;
 }
 
-function pressEscape(defaultPrevented = false) {
+async function pressEscape(defaultPrevented = false) {
 	const event = new KeyboardEvent("keydown", {
 		key: "Escape",
 		bubbles: true,
 		cancelable: true,
 	});
 	if (defaultPrevented) event.preventDefault();
-	act(() => {
+	await act(() => {
 		document.dispatchEvent(event);
 	});
 }
 
-it("closes the focused pane and removes its listener when inactive or unmounted", () => {
+it("closes the focused pane and removes its listener when inactive or unmounted", async () => {
 	const close = jest.fn();
-	const view = render(<Pane onClose={close} />);
-	pressEscape();
+	const view = await render(<Pane onClose={close} />);
+	await pressEscape();
 	expect(close).toHaveBeenCalledTimes(1);
-	view.rerender(<Pane active={false} onClose={close} />);
-	pressEscape();
-	view.unmount();
-	pressEscape();
+	await view.rerender(<Pane active={false} onClose={close} />);
+	await pressEscape();
+	await view.unmount();
+	await pressEscape();
 	expect(close).toHaveBeenCalledTimes(1);
 });
 
-it("leaves Escape to an open editor or visible menu", () => {
+it("leaves Escape to an open editor or visible menu", async () => {
 	const close = jest.fn();
-	const view = render(<Pane onClose={close} />);
-	pressEscape(true);
+	const view = await render(<Pane onClose={close} />);
+	await pressEscape(true);
 	expect(close).not.toHaveBeenCalled();
 	const item = document.createElement("div");
 	item.setAttribute("role", "menuitem");
 	item.getClientRects = () => [{}] as unknown as DOMRectList;
 	document.body.append(item);
-	pressEscape();
+	await pressEscape();
 	expect(close).not.toHaveBeenCalled();
 	item.style.pointerEvents = "none";
-	pressEscape();
+	await pressEscape();
 	expect(close).toHaveBeenCalledTimes(1);
 	item.remove();
-	pressEscape();
+	await pressEscape();
 	expect(close).toHaveBeenCalledTimes(2);
-	view.unmount();
+	await view.unmount();
 });

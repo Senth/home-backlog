@@ -79,12 +79,12 @@ const tree = [
 	location("hallway", "Hallway", ["house", "basement"], "door-open"),
 ];
 
-function renderPicker(
+async function renderPicker(
 	card: Node,
 	onSave: (changes: NodeChanges) => void,
 	effectiveLocationId: string | null = null,
 ) {
-	return render(
+	return await render(
 		<Provider theme={lightTheme}>
 			<LocationPicker
 				locations={tree}
@@ -99,8 +99,8 @@ function renderPicker(
 }
 
 describe("LocationPicker", () => {
-	it("lists the home's locations and marks the one the card is filed in", () => {
-		renderPicker(node("hallway"), () => {}, "hallway");
+	it("lists the home's locations and marks the one the card is filed in", async () => {
+		await renderPicker(node("hallway"), () => {}, "hallway");
 
 		expect(
 			screen.getByRole("checkbox", { name: "Hallway" }).props
@@ -112,8 +112,8 @@ describe("LocationPicker", () => {
 		).toMatchObject({ checked: false });
 	});
 
-	it("reads as fill rows led by each place's own glyph, not checkboxes (#394)", () => {
-		renderPicker(node("hallway"), () => {}, "hallway");
+	it("reads as fill rows led by each place's own glyph, not checkboxes (#394)", async () => {
+		await renderPicker(node("hallway"), () => {}, "hallway");
 
 		// The sheet's one selection style (#314): no tick drawn on any row,
 		// and every row leads with the glyph its place carries in the tree.
@@ -130,8 +130,8 @@ describe("LocationPicker", () => {
 		).toHaveLength(1);
 	});
 
-	it("shows the full path as a trail under a filed row", () => {
-		renderPicker(node(null), () => {});
+	it("shows the full path as a trail under a filed row", async () => {
+		await renderPicker(node(null), () => {});
 
 		// Hallway's trail names the places above it, root first — every ancestor
 		// title appears again beyond its own row, once per trail it sits in.
@@ -139,8 +139,8 @@ describe("LocationPicker", () => {
 		expect(screen.getAllByText("Basement").length).toBeGreaterThan(1);
 	});
 
-	it("names a crumb the tree cannot answer as hidden", () => {
-		render(
+	it("names a crumb the tree cannot answer as hidden", async () => {
+		await render(
 			<Provider theme={lightTheme}>
 				<LocationPicker
 					locations={[location("orphan", "Orphan", ["gone"])]}
@@ -156,11 +156,11 @@ describe("LocationPicker", () => {
 		expect(screen.getByText("board.crumbHidden")).toBeOnTheScreen();
 	});
 
-	it("writes the place and its stored path in one save", () => {
+	it("writes the place and its stored path in one save", async () => {
 		const save = jest.fn();
-		renderPicker(node(null), save);
+		await renderPicker(node(null), save);
 
-		fireEvent.press(screen.getByLabelText("Hallway"));
+		await fireEvent.press(screen.getByLabelText("Hallway"));
 
 		expect(save).toHaveBeenCalledWith({
 			locationId: "hallway",
@@ -168,11 +168,11 @@ describe("LocationPicker", () => {
 		});
 	});
 
-	it("unfiles the card when its own filed row is tapped again", () => {
+	it("unfiles the card when its own filed row is tapped again", async () => {
 		const save = jest.fn();
-		renderPicker(node("hallway"), save, "hallway");
+		await renderPicker(node("hallway"), save, "hallway");
 
-		fireEvent.press(screen.getByLabelText("Hallway"));
+		await fireEvent.press(screen.getByLabelText("Hallway"));
 
 		expect(save).toHaveBeenCalledWith({
 			locationId: null,
@@ -180,8 +180,8 @@ describe("LocationPicker", () => {
 		});
 	});
 
-	it("ticks the place the trail passes down and says it is inherited (#290)", () => {
-		renderPicker(node(null), () => {}, "hallway");
+	it("ticks the place the trail passes down and says it is inherited (#290)", async () => {
+		await renderPicker(node(null), () => {}, "hallway");
 
 		expect(
 			screen.getByRole("checkbox", { name: "Hallway" }).props
@@ -190,20 +190,20 @@ describe("LocationPicker", () => {
 		expect(screen.getByText("detail.locationInherited")).toBeOnTheScreen();
 	});
 
-	it("writes nothing when the inherited row is tapped", () => {
+	it("writes nothing when the inherited row is tapped", async () => {
 		const save = jest.fn();
-		renderPicker(node(null), save, "hallway");
+		await renderPicker(node(null), save, "hallway");
 
-		fireEvent.press(screen.getByLabelText("Hallway"));
+		await fireEvent.press(screen.getByLabelText("Hallway"));
 
 		expect(save).not.toHaveBeenCalled();
 	});
 
-	it("still files the card somewhere else while a place is inherited", () => {
+	it("still files the card somewhere else while a place is inherited", async () => {
 		const save = jest.fn();
-		renderPicker(node(null), save, "hallway");
+		await renderPicker(node(null), save, "hallway");
 
-		fireEvent.press(screen.getByLabelText("Basement"));
+		await fireEvent.press(screen.getByLabelText("Basement"));
 
 		expect(save).toHaveBeenCalledWith({
 			locationId: "basement",
@@ -211,8 +211,8 @@ describe("LocationPicker", () => {
 		});
 	});
 
-	it("says the home has no locations yet rather than an empty dialog", () => {
-		render(
+	it("says the home has no locations yet rather than an empty dialog", async () => {
+		await render(
 			<Provider theme={lightTheme}>
 				<LocationPicker
 					locations={[]}
@@ -228,8 +228,8 @@ describe("LocationPicker", () => {
 		expect(screen.getByText("detail.locationNone")).toBeOnTheScreen();
 	});
 
-	it("finds Trädgård from trad, folding diacritics as well as case", () => {
-		render(
+	it("finds Trädgård from trad, folding diacritics as well as case", async () => {
+		await render(
 			<Provider theme={lightTheme}>
 				<LocationPicker
 					locations={[location("garden", "Trädgård"), ...tree]}
@@ -242,7 +242,10 @@ describe("LocationPicker", () => {
 			</Provider>,
 		);
 
-		fireEvent.changeText(screen.getByTestId("location-picker-search"), "trad");
+		await fireEvent.changeText(
+			screen.getByTestId("location-picker-search"),
+			"trad",
+		);
 
 		expect(
 			screen.getByRole("checkbox", { name: "Trädgård" }),

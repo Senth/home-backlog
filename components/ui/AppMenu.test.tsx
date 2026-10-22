@@ -26,28 +26,28 @@ function Harness() {
 }
 
 describe("AppMenu", () => {
-	it("renders the anchor and nothing else before the first open", () => {
-		render(<Harness />);
+	it("renders the anchor and nothing else before the first open", async () => {
+		await render(<Harness />);
 
 		expect(screen.getByTestId("trigger")).toBeTruthy();
 		expect(screen.queryByText("First item")).toBeNull();
 		expect(screen.queryByText("Second item")).toBeNull();
 	});
 
-	it("mounts the menu and its items once opened", () => {
-		render(<Harness />);
+	it("mounts the menu and its items once opened", async () => {
+		await render(<Harness />);
 
-		fireEvent.press(screen.getByTestId("trigger"));
+		await fireEvent.press(screen.getByTestId("trigger"));
 
 		expect(screen.getByText("First item")).toBeTruthy();
 		expect(screen.getByText("Second item")).toBeTruthy();
 	});
 
-	it("keeps the anchor mounted after the menu closes again", () => {
-		render(<Harness />);
+	it("keeps the anchor mounted after the menu closes again", async () => {
+		await render(<Harness />);
 
-		fireEvent.press(screen.getByTestId("trigger"));
-		fireEvent.press(screen.getByText("First item"));
+		await fireEvent.press(screen.getByTestId("trigger"));
+		await fireEvent.press(screen.getByText("First item"));
 
 		expect(screen.getByTestId("trigger")).toBeTruthy();
 	});

@@ -72,8 +72,8 @@ function node(labelIds: string[]): Node {
 	};
 }
 
-function renderPicker(card: Node) {
-	return render(
+async function renderPicker(card: Node) {
+	return await render(
 		<Provider theme={lightTheme}>
 			<LabelPicker
 				homeId="home-1"
@@ -93,9 +93,9 @@ function capSentence() {
 }
 
 describe("LabelPicker", () => {
-	it("lists the home's labels by name and marks the applied ones", () => {
+	it("lists the home's labels by name and marks the applied ones", async () => {
 		mockHome = { labels: [label("l1"), label("l2")] };
-		renderPicker(node(["l1"]));
+		await renderPicker(node(["l1"]));
 
 		expect(
 			screen.getByRole("checkbox", { name: "Label l1" }).props
@@ -107,43 +107,46 @@ describe("LabelPicker", () => {
 		).toMatchObject({ checked: false });
 	});
 
-	it("applies a label that is not on the card", () => {
+	it("applies a label that is not on the card", async () => {
 		mockHome = { labels: [label("l1"), label("l2")] };
-		renderPicker(node(["l1"]));
+		await renderPicker(node(["l1"]));
 
-		fireEvent.press(screen.getByLabelText("Label l2"));
+		await fireEvent.press(screen.getByLabelText("Label l2"));
 
 		// The write is the transform, not a whole array from this snapshot —
 		// two pickers at once cannot drop each other's label.
 		expect(applyLabel).toHaveBeenCalledWith("home-1", "node-1", "l2");
 	});
 
-	it("removes a label that is", () => {
+	it("removes a label that is", async () => {
 		mockHome = { labels: [label("l1"), label("l2")] };
-		renderPicker(node(["l1", "l2"]));
+		await renderPicker(node(["l1", "l2"]));
 
-		fireEvent.press(screen.getByLabelText("Label l1"));
+		await fireEvent.press(screen.getByLabelText("Label l1"));
 
 		expect(removeLabel).toHaveBeenCalledWith("home-1", "node-1", "l1");
 	});
 
-	it("says the home has no labels yet rather than an empty dialog", () => {
+	it("says the home has no labels yet rather than an empty dialog", async () => {
 		mockHome = { labels: [] };
-		renderPicker(node([]));
+		await renderPicker(node([]));
 
 		expect(screen.getByText("labels.empty")).toBeOnTheScreen();
 	});
 
-	it("finds Trädgård from trad, folding diacritics as well as case", () => {
+	it("finds Trädgård from trad, folding diacritics as well as case", async () => {
 		mockHome = {
 			labels: [
 				label("l1", { title: "Trädgård" }),
 				label("l2", { title: "Garden" }),
 			],
 		};
-		renderPicker(node([]));
+		await renderPicker(node([]));
 
-		fireEvent.changeText(screen.getByTestId("label-picker-search"), "trad");
+		await fireEvent.changeText(
+			screen.getByTestId("label-picker-search"),
+			"trad",
+		);
 
 		expect(
 			screen.getByRole("checkbox", { name: "Trädgård" }),
@@ -151,7 +154,7 @@ describe("LabelPicker", () => {
 		expect(screen.queryByRole("checkbox", { name: "Garden" })).toBeNull();
 	});
 
-	it("refuses a seventh label and says so", () => {
+	it("refuses a seventh label and says so", async () => {
 		mockHome = {
 			labels: [
 				label("l1"),
@@ -163,7 +166,7 @@ describe("LabelPicker", () => {
 				label("l7"),
 			],
 		};
-		renderPicker(node(["l1", "l2", "l3", "l4", "l5", "l6"]));
+		await renderPicker(node(["l1", "l2", "l3", "l4", "l5", "l6"]));
 
 		// A full card can still make room, so only the unapplied one is closed.
 		expect(
@@ -177,9 +180,9 @@ describe("LabelPicker", () => {
 		expect(screen.getByText(/labels\.capReached/)).toBeOnTheScreen();
 	});
 
-	it("offers every row and keeps the cap sentence quiet below the cap", () => {
+	it("offers every row and keeps the cap sentence quiet below the cap", async () => {
 		mockHome = { labels: [label("l1"), label("l2")] };
-		renderPicker(node(["l1"]));
+		await renderPicker(node(["l1"]));
 
 		expect(
 			screen.getByRole("checkbox", { name: "Label l2" }).props
@@ -188,17 +191,17 @@ describe("LabelPicker", () => {
 		expect(screen.queryByText(/labels\.capReached/)).toBeNull();
 	});
 
-	it("keeps the reserved cap slot out of the accessibility tree", () => {
+	it("keeps the reserved cap slot out of the accessibility tree", async () => {
 		// Paper hides a hidden helper at opacity 0 but leaves it announced;
 		// while the slot holds nothing it is hidden from assistive tech too.
 		mockHome = { labels: [label("l1")] };
-		renderPicker(node(["l1"]));
+		await renderPicker(node(["l1"]));
 
 		expect(capSentence()).toBeOnTheScreen();
 		expect(screen.queryByText(/labels\.capReached/)).toBeNull();
 	});
 
-	it("hands the cap sentence back to the accessibility tree at the cap", () => {
+	it("hands the cap sentence back to the accessibility tree at the cap", async () => {
 		mockHome = {
 			labels: [
 				label("l1"),
@@ -209,7 +212,7 @@ describe("LabelPicker", () => {
 				label("l6"),
 			],
 		};
-		renderPicker(node(["l1", "l2", "l3", "l4", "l5", "l6"]));
+		await renderPicker(node(["l1", "l2", "l3", "l4", "l5", "l6"]));
 
 		expect(capSentence()).toBeOnTheScreen();
 		expect(screen.getByText(/labels\.capReached/)).toBeOnTheScreen();

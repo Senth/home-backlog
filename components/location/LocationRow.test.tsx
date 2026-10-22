@@ -8,7 +8,7 @@ import {
 import type { ComponentProps } from "react";
 import { Provider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import type { ReactTestInstance } from "react-test-renderer";
+import type { TestInstance } from "test-renderer";
 import { DragArea } from "@/components/board/DragArea";
 import { LocationRow } from "@/components/location/LocationRow";
 import { deleteLocation, reorderLocation } from "@/data/locations";
@@ -93,10 +93,12 @@ const house: Location = {
 	updatedAt: null,
 };
 
-function renderRow(overrides: Partial<Parameters<typeof LocationRow>[0]> = {}) {
+async function renderRow(
+	overrides: Partial<Parameters<typeof LocationRow>[0]> = {},
+) {
 	const onToggle = jest.fn();
 	const onOpen = jest.fn();
-	const tree = render(
+	const tree = await render(
 		// Paper's `Menu` reads the safe-area insets through its portal, so the
 		// row renders inside the provider every screen mounts it under. The
 		// metric values themselves are read by nothing under test.
@@ -133,9 +135,9 @@ function renderRow(overrides: Partial<Parameters<typeof LocationRow>[0]> = {}) {
  * (Paper's `IconButton`, RN's `Pressable`) each forward one host `View` with
  * the role on it, so counting hosts counts the buttons a user sees — once.
  */
-function buttons(root: ReactTestInstance): ReactTestInstance[] {
-	const found: ReactTestInstance[] = [];
-	const walk = (node: ReactTestInstance) => {
+function buttons(root: TestInstance): TestInstance[] {
+	const found: TestInstance[] = [];
+	const walk = (node: TestInstance) => {
 		if (
 			typeof node.type === "string" &&
 			node.props.accessibilityRole === "button"
@@ -143,7 +145,7 @@ function buttons(root: ReactTestInstance): ReactTestInstance[] {
 			found.push(node);
 		node.children.forEach((child) => {
 			if (typeof child !== "object") return;
-			walk(child as ReactTestInstance);
+			walk(child);
 		});
 	};
 	walk(root);
@@ -193,15 +195,17 @@ describe("LocationRow", () => {
 			},
 		];
 		mockSubmit.mockResolvedValue("queued");
-		const { getByLabelText, getByRole } = renderRow({
+		const { getByLabelText, getByRole } = await renderRow({
 			location: subject,
 			locations: [parent, subject, sibling],
 		});
-		fireEvent.press(getByLabelText("locations.actions"), {
+		await fireEvent.press(getByLabelText("locations.actions"), {
 			stopPropagation: jest.fn(),
 		});
 		await act(async () => {
-			fireEvent.press(getByRole("menuitem", { name: "locations.moveDown" }));
+			await fireEvent.press(
+				getByRole("menuitem", { name: "locations.moveDown" }),
+			);
 		});
 		expect(mockSubmit).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -218,10 +222,10 @@ describe("LocationRow", () => {
 
 	it("offline still offers Move and Delete without a connection hint", async () => {
 		const onMoveUnder = jest.fn();
-		const { getByLabelText, getByRole, queryByText } = renderRow({
+		const { getByLabelText, getByRole, queryByText } = await renderRow({
 			onMoveUnder,
 		});
-		fireEvent.press(getByLabelText("locations.actions"), {
+		await fireEvent.press(getByLabelText("locations.actions"), {
 			stopPropagation: jest.fn(),
 		});
 		for (const title of ["locations.moveUnder", "locations.delete"]) {
@@ -229,7 +233,9 @@ describe("LocationRow", () => {
 		}
 		expect(queryByText("board.offlineHint")).toBeNull();
 		await act(async () => {
-			fireEvent.press(getByRole("menuitem", { name: "locations.moveUnder" }));
+			await fireEvent.press(
+				getByRole("menuitem", { name: "locations.moveUnder" }),
+			);
 		});
 		expect(onMoveUnder).toHaveBeenCalledWith(house);
 	});
@@ -237,14 +243,14 @@ describe("LocationRow", () => {
 	it("offline Delete submits subject hierarchy and reports queued intent", async () => {
 		mockSubmit.mockResolvedValue("queued");
 		const onQueued = jest.fn();
-		const { getByLabelText, getByText, getByTestId } = renderRow({
+		const { getByLabelText, getByText, getByTestId } = await renderRow({
 			onQueued,
 		});
-		fireEvent.press(getByLabelText("locations.actions"), {
+		await fireEvent.press(getByLabelText("locations.actions"), {
 			stopPropagation: jest.fn(),
 		});
-		fireEvent.press(getByText("locations.delete"));
-		fireEvent.press(
+		await fireEvent.press(getByText("locations.delete"));
+		await fireEvent.press(
 			within(getByTestId("delete-location-house")).getByText(
 				"locations.delete",
 			),
@@ -265,7 +271,7 @@ describe("LocationRow", () => {
 		expect(onQueued).toHaveBeenCalledWith(mockSubmit.mock.calls[0][0]);
 	});
 
-	it("keeps drag available offline and shows waiting text only for queued rows", () => {
+	it("keeps drag available offline and shows waiting text only for queued rows", async () => {
 		const handlers = {
 			onGrab: jest.fn(),
 			onMove: jest.fn(),
@@ -277,7 +283,7 @@ describe("LocationRow", () => {
 			register: jest.fn(),
 			dragged: null,
 		};
-		const { getByText } = renderRow({
+		const { getByText } = await renderRow({
 			waiting: true,
 			drag: drag as unknown as Parameters<typeof LocationRow>[0]["drag"],
 		});
@@ -287,8 +293,8 @@ describe("LocationRow", () => {
 		expect(drag.register).toHaveBeenCalledWith("row:house");
 		expect(getByText("outbox.waiting")).toBeTruthy();
 	});
-	it("renders the three sibling controls: chevron, name, menu", () => {
-		const { getByLabelText, queryByText } = renderRow();
+	it("renders the three sibling controls: chevron, name, menu", async () => {
+		const { getByLabelText, queryByText } = await renderRow();
 		expect(queryByText("outbox.waiting")).toBeNull();
 
 		// Three buttons by their names — the chevron, the name, the menu — and
@@ -305,12 +311,14 @@ describe("LocationRow", () => {
 
 	it("online Delete retains existing write callback without queued notice", async () => {
 		const onQueued = jest.fn();
-		const { getByLabelText, getByText, getByTestId } = renderRow({ onQueued });
-		fireEvent.press(getByLabelText("locations.actions"), {
+		const { getByLabelText, getByText, getByTestId } = await renderRow({
+			onQueued,
+		});
+		await fireEvent.press(getByLabelText("locations.actions"), {
 			stopPropagation: jest.fn(),
 		});
-		fireEvent.press(getByText("locations.delete"));
-		fireEvent.press(
+		await fireEvent.press(getByText("locations.delete"));
+		await fireEvent.press(
 			within(getByTestId("delete-location-house")).getByText(
 				"locations.delete",
 			),
@@ -321,9 +329,9 @@ describe("LocationRow", () => {
 		expect(onQueued).not.toHaveBeenCalled();
 	});
 
-	it("nests no control inside another", () => {
-		const { root } = renderRow();
-		const controls = buttons(root);
+	it("nests no control inside another", async () => {
+		const { container } = await renderRow();
+		const controls = buttons(container);
 		expect(controls).toHaveLength(3);
 		for (const control of controls) {
 			for (const inner of buttons(control)) {
@@ -333,70 +341,70 @@ describe("LocationRow", () => {
 		}
 	});
 
-	it("toggles through the chevron, and only the chevron", () => {
-		const { getByLabelText, onToggle } = renderRow();
+	it("toggles through the chevron, and only the chevron", async () => {
+		const { getByLabelText, onToggle } = await renderRow();
 
-		fireEvent.press(getByLabelText(/locations.toggle/));
+		await fireEvent.press(getByLabelText(/locations.toggle/));
 		expect(onToggle).toHaveBeenCalledWith("house");
 	});
 
-	it("opens the place's work through the name, and only the name", () => {
-		const { getByLabelText, onOpen, onToggle } = renderRow();
+	it("opens the place's work through the name, and only the name", async () => {
+		const { getByLabelText, onOpen, onToggle } = await renderRow();
 
-		fireEvent.press(getByLabelText(/locations.open/));
+		await fireEvent.press(getByLabelText(/locations.open/));
 		expect(onOpen).toHaveBeenCalledWith(house);
 		expect(onToggle).not.toHaveBeenCalled();
 	});
 
-	it("selects a move destination without navigating, while chevron stays live", () => {
+	it("selects a move destination without navigating, while chevron stays live", async () => {
 		const onSelect = jest.fn();
-		const { getByLabelText, onOpen, onToggle } = renderRow({
+		const { getByLabelText, onOpen, onToggle } = await renderRow({
 			move: { movingId: "other", selectedId: house.id, onSelect },
 		});
 
-		fireEvent.press(getByLabelText(/locations.open/));
+		await fireEvent.press(getByLabelText(/locations.open/));
 		expect(onSelect).toHaveBeenCalledWith(house);
 		expect(onOpen).not.toHaveBeenCalled();
 		expect(getByLabelText(/locations.open/)).toBeSelected();
 		expect(getByLabelText("locations.actions")).toBeDisabled();
 		expect(mockDragArea.getProps()[0].enabled).toBe(false);
-		fireEvent.press(getByLabelText(/locations.toggle/));
+		await fireEvent.press(getByLabelText(/locations.toggle/));
 		expect(onToggle).toHaveBeenCalledWith(house.id);
 	});
 
 	it.each([false, true])(
 		"refuses moving place and its descendants, descendant=%s",
-		(descendant) => {
+		async (descendant) => {
 			const onSelect = jest.fn();
 			const location = descendant
 				? { ...house, id: "child", parentId: house.id, ancestorIds: [house.id] }
 				: house;
-			const { getByLabelText, onOpen } = renderRow({
+			const { getByLabelText, onOpen } = await renderRow({
 				location,
 				move: { movingId: house.id, selectedId: null, onSelect },
 			});
 
-			fireEvent.press(getByLabelText(/locations.open/));
+			await fireEvent.press(getByLabelText(/locations.open/));
 			expect(getByLabelText(/locations.open/)).toBeDisabled();
 			expect(onSelect).not.toHaveBeenCalled();
 			expect(onOpen).not.toHaveBeenCalled();
 		},
 	);
 
-	it("keeps a chevron out of a childless row, but keeps the names aligned", () => {
-		const { queryByLabelText } = renderRow({ hasChildren: false });
+	it("keeps a chevron out of a childless row, but keeps the names aligned", async () => {
+		const { queryByLabelText } = await renderRow({ hasChildren: false });
 
 		expect(queryByLabelText(/locations.toggle/)).toBeNull();
 		expect(queryByLabelText(/locations.open/)).toBeTruthy();
 	});
 
-	it("draws the rolled-up count, and nothing at zero", () => {
-		const { getByText, queryByText, rerender } = renderRow();
+	it("draws the rolled-up count, and nothing at zero", async () => {
+		const { getByText, queryByText, rerender } = await renderRow();
 
 		// Two open cards at or under House — the number the row's tap delivers.
 		expect(getByText("2")).toBeTruthy();
 
-		rerender(
+		await rerender(
 			<SafeAreaProvider
 				initialMetrics={{
 					insets: { top: 0, bottom: 0, left: 0, right: 0 },

@@ -76,19 +76,19 @@ afterEach(() => {
 });
 
 describe("useLocations", () => {
-	it("answers an empty tree at once when there is no home", () => {
-		const { result } = renderHook(() => useLocations(null));
+	it("answers an empty tree at once when there is no home", async () => {
+		const { result } = await renderHook(() => useLocations(null));
 
 		expect(result.current.loading).toBe(false);
 		expect(result.current.locations).toEqual([]);
 		expect(mockOnSnapshot).not.toHaveBeenCalled();
 	});
 
-	it("maps the collection into a parent-then-rank sorted tree", () => {
-		const { result } = renderHook(() => useLocations("home-1"));
+	it("maps the collection into a parent-then-rank sorted tree", async () => {
+		const { result } = await renderHook(() => useLocations("home-1"));
 		expect(result.current.loading).toBe(true);
 
-		act(() => {
+		await act(() => {
 			live.next(
 				snapshot([
 					{ id: "garden", parentId: "ute" },
@@ -107,10 +107,10 @@ describe("useLocations", () => {
 		]);
 	});
 
-	it("holds an empty cache-only snapshot while there is a connection", () => {
-		const { result } = renderHook(() => useLocations("home-1"));
+	it("holds an empty cache-only snapshot while there is a connection", async () => {
+		const { result } = await renderHook(() => useLocations("home-1"));
 
-		act(() => {
+		await act(() => {
 			live.next(snapshot([], true));
 		});
 
@@ -119,33 +119,33 @@ describe("useLocations", () => {
 		expect(result.current.locations).toEqual([]);
 	});
 
-	it("retries a failure, and fails only once the ladder is spent", () => {
-		const { result } = renderHook(() => useLocations("home-1"));
+	it("retries a failure, and fails only once the ladder is spent", async () => {
+		const { result } = await renderHook(() => useLocations("home-1"));
 		const reason = new Error("unavailable");
 		const consoleError = jest.spyOn(console, "error").mockImplementation();
 
 		for (const delay of [400, 1200, 3000]) {
-			act(() => {
+			await act(() => {
 				live.error(reason);
 			});
 			expect(result.current.failed).toBe(false);
-			act(() => {
+			await act(() => {
 				jest.advanceTimersByTime(delay);
 			});
 		}
 
 		// Three retries spent; the fourth failure is the last one.
-		act(() => {
+		await act(() => {
 			live.error(reason);
 		});
 		expect(result.current.loading).toBe(false);
 		expect(result.current.failed).toBe(true);
 
 		// Try again reopens the listener, and an answer clears the failure.
-		act(() => {
+		await act(() => {
 			result.current.retry();
 		});
-		act(() => {
+		await act(() => {
 			live.next(snapshot([{ id: "ute", parentId: null }]));
 		});
 		expect(result.current.failed).toBe(false);

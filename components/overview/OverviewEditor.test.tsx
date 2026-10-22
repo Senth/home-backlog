@@ -72,7 +72,7 @@ async function renderEditor(language: string) {
 		resources: { "en-US": { translation: en }, "sv-SE": { translation: sv } },
 		interpolation: { escapeValue: false },
 	});
-	return render(
+	return await render(
 		<I18nextProvider i18n={i18n}>
 			<Provider theme={lightTheme}>
 				<OverviewEditor />
@@ -117,7 +117,7 @@ it.each([
 		expect(
 			screen.getByTestId("overview-editor-card-recentlyDone"),
 		).toBeOnTheScreen();
-		fireEvent.press(screen.getByText(locale.overview.done.title));
+		await fireEvent.press(screen.getByText(locale.overview.done.title));
 		expect(mockPush).toHaveBeenCalledWith(
 			"/overview-card-edit?cardId=recentlyDone",
 		);
@@ -145,7 +145,7 @@ it("names the active home rather than a fixed home", async () => {
 it("restores a removed original by its title", async () => {
 	await renderEditor("en-US");
 
-	fireEvent.press(screen.getByText(en.overview.cards.title.quickWins));
+	await fireEvent.press(screen.getByText(en.overview.cards.title.quickWins));
 
 	expect(mockAddTo).toHaveBeenCalledWith(
 		"global",
@@ -156,7 +156,7 @@ it("restores a removed original by its title", async () => {
 it("opens the card menu without editing the card", async () => {
 	await renderEditor("en-US");
 
-	fireEvent.press(screen.getByTestId("overview-editor-menu-ongoing"), {
+	await fireEvent.press(screen.getByTestId("overview-editor-menu-ongoing"), {
 		stopPropagation: jest.fn(),
 	});
 
@@ -166,11 +166,11 @@ it("opens the card menu without editing the card", async () => {
 
 it("moves a card through its menu without opening its editor", async () => {
 	await renderEditor("en-US");
-	fireEvent.press(screen.getByTestId("overview-editor-menu-comingUp"), {
+	await fireEvent.press(screen.getByTestId("overview-editor-menu-comingUp"), {
 		stopPropagation: jest.fn(),
 	});
 
-	fireEvent.press(screen.getByText(en.overview.cards.menu.moveUp));
+	await fireEvent.press(screen.getByText(en.overview.cards.menu.moveUp));
 
 	expect(mockReplaceIn).toHaveBeenCalledWith(
 		"home",

@@ -17,36 +17,40 @@ import {
 	lightTheme,
 } from "@/theme";
 
-function renderColors(color: string, theme: AppTheme = lightTheme) {
-	return renderHook(() => useLocationColors(color), {
-		wrapper: ({ children }) => <Provider theme={theme}>{children}</Provider>,
-	}).result.current;
+async function renderColors(color: string, theme: AppTheme = lightTheme) {
+	return (
+		await renderHook(() => useLocationColors(color), {
+			wrapper: ({ children }) => <Provider theme={theme}>{children}</Provider>,
+		})
+	).result.current;
 }
 
 describe("useLocationColors", () => {
-	it("resolves a preset hue to its ink tone, with the fill as the on-color", () => {
-		expect(renderColors("blue")).toEqual({
+	it("resolves a preset hue to its ink tone, with the fill as the on-color", async () => {
+		expect(await renderColors("blue")).toEqual({
 			fill: labelHues.blue.light.ink,
 			on: labelHues.blue.light.fill,
 		});
 	});
 
-	it("resolves the dark scheme's tones in dark", () => {
+	it("resolves the dark scheme's tones in dark", async () => {
 		// The app types every scheme through the light theme's shape; the dark
 		// theme is the runtime value behind the same type.
-		expect(renderColors("blue", darkTheme as unknown as AppTheme)).toEqual({
+		expect(
+			await renderColors("blue", darkTheme as unknown as AppTheme),
+		).toEqual({
 			fill: labelHues.blue.dark.ink,
 			on: labelHues.blue.dark.fill,
 		});
 	});
 
-	it("draws a custom color in the ink band against the page in both schemes", () => {
+	it("draws a custom color in the ink band against the page in both schemes", async () => {
 		const custom = toHex([0xfe, 0xca, 0xca]);
 		for (const [scheme, theme] of [
 			["light", lightTheme],
 			["dark", darkTheme],
 		] as const) {
-			const colors = renderColors(custom, theme as AppTheme);
+			const colors = await renderColors(custom, theme as AppTheme);
 			const strength = decomposeCustom(
 				colors.fill,
 				customColorBands.ink[scheme],

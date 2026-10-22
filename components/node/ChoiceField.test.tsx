@@ -5,7 +5,7 @@ import {
 	within,
 } from "@testing-library/react-native";
 import { View } from "react-native";
-import { Provider, Text } from "react-native-paper";
+import { Provider } from "react-native-paper";
 import { ChoiceField } from "@/components/node/ChoiceField";
 import { lightTheme } from "@/theme";
 
@@ -22,10 +22,10 @@ const labels: Record<Level, string> = {
 
 const labelFor = (value: Level) => labels[value];
 
-function renderChoiceField(
+async function renderChoiceField(
 	props: Partial<Parameters<typeof ChoiceField<Level>>[0]> = {},
 ) {
-	return render(
+	return await render(
 		// `Provider`, not `ThemeProvider`: this is the same host the sheet's
 		// other fields' tests use — see `NotesField.test.tsx`.
 		<Provider theme={lightTheme}>
@@ -42,25 +42,25 @@ function renderChoiceField(
 }
 
 describe("ChoiceField", () => {
-	it("renders the values as rows in the given order", () => {
-		renderChoiceField();
+	it("renders the values as rows in the given order", async () => {
+		await renderChoiceField();
 
-		const texts = screen.UNSAFE_getAllByType(Text).map((t) => t.props.children);
+		const texts = screen.getAllByText(/.+/).map((t) => t.props.children);
 		expect(texts).toEqual(["Field", "Low", "Normal", "High", "Urgent"]);
 	});
 
-	it("tapping an unselected row offers that value", () => {
+	it("tapping an unselected row offers that value", async () => {
 		const onChange = jest.fn();
-		renderChoiceField({ value: "high", onChange });
+		await renderChoiceField({ value: "high", onChange });
 
-		fireEvent.press(screen.getByText("Normal"));
+		await fireEvent.press(screen.getByText("Normal"));
 
 		expect(onChange).toHaveBeenCalledWith("normal");
 	});
 
-	it("shows every description inside its selectable row", () => {
+	it("shows every description inside its selectable row", async () => {
 		const onChange = jest.fn();
-		renderChoiceField({
+		await renderChoiceField({
 			value: "high",
 			onChange,
 			descriptionFor: (value) => `${labels[value]} description`,
@@ -71,24 +71,24 @@ describe("ChoiceField", () => {
 				name: new RegExp(`^${labels[value]}`),
 			});
 			const description = within(row).getByText(`${labels[value]} description`);
-			fireEvent.press(description);
+			await fireEvent.press(description);
 			expect(onChange).toHaveBeenLastCalledWith(
 				value === "high" ? null : value,
 			);
 		}
 	});
 
-	it("tapping the selected row clears it", () => {
+	it("tapping the selected row clears it", async () => {
 		const onChange = jest.fn();
-		renderChoiceField({ value: "high", onChange });
+		await renderChoiceField({ value: "high", onChange });
 
-		fireEvent.press(screen.getByText("High"));
+		await fireEvent.press(screen.getByText("High"));
 
 		expect(onChange).toHaveBeenCalledWith(null);
 	});
 
-	it("the selected row reports aria-pressed, and only it", () => {
-		renderChoiceField({ value: "high" });
+	it("the selected row reports aria-pressed, and only it", async () => {
+		await renderChoiceField({ value: "high" });
 
 		const pressed = screen
 			.getAllByRole("button")
@@ -96,8 +96,8 @@ describe("ChoiceField", () => {
 		expect(pressed).toEqual([false, false, true, false]);
 	});
 
-	it("renders the adornment once per row when supplied", () => {
-		renderChoiceField({
+	it("renders the adornment once per row when supplied", async () => {
+		await renderChoiceField({
 			adornment: (value) => <View testID={`adornment-${value}`} />,
 		});
 
@@ -106,25 +106,25 @@ describe("ChoiceField", () => {
 		}
 	});
 
-	it("renders no adornment when omitted", () => {
-		renderChoiceField();
+	it("renders no adornment when omitted", async () => {
+		await renderChoiceField();
 
 		expect(screen.queryAllByTestId(/adornment-/)).toHaveLength(0);
 	});
 
-	it("tapping the selected row does nothing when not clearable", () => {
+	it("tapping the selected row does nothing when not clearable", async () => {
 		const onChange = jest.fn();
-		renderChoiceField({ value: "high", onChange, clearable: false });
+		await renderChoiceField({ value: "high", onChange, clearable: false });
 
-		fireEvent.press(screen.getByText("High"));
+		await fireEvent.press(screen.getByText("High"));
 
 		expect(onChange).not.toHaveBeenCalled();
 	});
 
-	it("draws the not-set row above the values when given a label", () => {
-		renderChoiceField({ notSetLabel: "Not set" });
+	it("draws the not-set row above the values when given a label", async () => {
+		await renderChoiceField({ notSetLabel: "Not set" });
 
-		const texts = screen.UNSAFE_getAllByType(Text).map((t) => t.props.children);
+		const texts = screen.getAllByText(/.+/).map((t) => t.props.children);
 		expect(texts).toEqual([
 			"Field",
 			"Not set",
@@ -135,8 +135,8 @@ describe("ChoiceField", () => {
 		]);
 	});
 
-	it("the not-set row is the selected one while the value is null", () => {
-		renderChoiceField({ notSetLabel: "Not set" });
+	it("the not-set row is the selected one while the value is null", async () => {
+		await renderChoiceField({ notSetLabel: "Not set" });
 
 		const pressed = screen
 			.getAllByRole("button")
@@ -144,20 +144,24 @@ describe("ChoiceField", () => {
 		expect(pressed).toEqual([true, false, false, false, false]);
 	});
 
-	it("tapping the not-set row clears the value", () => {
+	it("tapping the not-set row clears the value", async () => {
 		const onChange = jest.fn();
-		renderChoiceField({ value: "high", notSetLabel: "Not set", onChange });
+		await renderChoiceField({
+			value: "high",
+			notSetLabel: "Not set",
+			onChange,
+		});
 
-		fireEvent.press(screen.getByText("Not set"));
+		await fireEvent.press(screen.getByText("Not set"));
 
 		expect(onChange).toHaveBeenCalledWith(null);
 	});
 
-	it("tapping the already-selected not-set row does nothing", () => {
+	it("tapping the already-selected not-set row does nothing", async () => {
 		const onChange = jest.fn();
-		renderChoiceField({ value: null, notSetLabel: "Not set", onChange });
+		await renderChoiceField({ value: null, notSetLabel: "Not set", onChange });
 
-		fireEvent.press(screen.getByText("Not set"));
+		await fireEvent.press(screen.getByText("Not set"));
 
 		expect(onChange).not.toHaveBeenCalled();
 	});

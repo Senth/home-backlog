@@ -74,7 +74,7 @@ function aLocation(over: Partial<Location> = {}): Location {
 }
 
 describe("CardFooter, the count face", () => {
-	it("shows one generic waiting line only for intents touching this card in this home", () => {
+	it("shows one generic waiting line only for intents touching this card in this home", async () => {
 		const move: Intent = {
 			id: "move-1",
 			kind: "reparentNode",
@@ -102,7 +102,7 @@ describe("CardFooter, the count face", () => {
 			{ ...move, id: "other-home", homeId: "other" },
 			{ ...move, id: "elsewhere", parentId: "elsewhere" },
 		];
-		const view = render(
+		const view = await render(
 			<Provider theme={lightTheme}>
 				<CardFooter node={aNode([])} locationId={null} waiting={null} />
 			</Provider>,
@@ -110,15 +110,15 @@ describe("CardFooter, the count face", () => {
 		expect(screen.getAllByText(/outbox.waitingCount/)).toHaveLength(1);
 		expect(screen.getByText('outbox.waitingCount:{"count":2}')).toBeTruthy();
 		mockIntents = [];
-		view.rerender(
+		await view.rerender(
 			<Provider theme={lightTheme}>
 				<CardFooter node={aNode([])} locationId={null} waiting={null} />
 			</Provider>,
 		);
 		expect(screen.queryByText(/outbox.waitingCount/)).toBeNull();
 	});
-	it("carries the paperclip fact beside where and how long", () => {
-		render(
+	it("carries the paperclip fact beside where and how long", async () => {
+		await render(
 			<Provider theme={lightTheme}>
 				<CardFooter
 					node={aNode([anEntry(), anEntry({ id: "att-2", path: "p/2" })])}
@@ -133,8 +133,8 @@ describe("CardFooter, the count face", () => {
 		).toBeOnTheScreen();
 	});
 
-	it("says nothing on a card with nothing attached", () => {
-		render(
+	it("says nothing on a card with nothing attached", async () => {
+		await render(
 			<Provider theme={lightTheme}>
 				<CardFooter node={aNode([])} locationId={null} waiting={null} />
 			</Provider>,
@@ -143,9 +143,9 @@ describe("CardFooter, the count face", () => {
 		expect(screen.queryByText(/attachedCount/)).toBeNull();
 	});
 
-	it("the pictures speak for themselves in thumbnails mode", () => {
+	it("the pictures speak for themselves in thumbnails mode", async () => {
 		const images = [anEntry(), anEntry({ id: "att-2", path: "p/2" })];
-		render(
+		await render(
 			<Provider theme={lightTheme}>
 				<CardFooter
 					node={aNode(images, "thumbnails")}
@@ -158,8 +158,8 @@ describe("CardFooter, the count face", () => {
 		expect(screen.queryByText(/attachedCount/)).toBeNull();
 	});
 
-	it("the waiting fact holds one line for the edge fade (#339)", () => {
-		render(
+	it("the waiting fact holds one line for the edge fade (#339)", async () => {
+		await render(
 			<Provider theme={lightTheme}>
 				<CardFooter
 					node={aNode([])}
@@ -177,8 +177,8 @@ describe("CardFooter, the count face", () => {
 });
 
 describe("CardFooter, the location fact", () => {
-	it("draws the place's own glyph in its own hue (#338)", () => {
-		render(
+	it("draws the place's own glyph in its own hue (#338)", async () => {
+		await render(
 			<Provider theme={lightTheme}>
 				<CardFooter
 					node={aNode([])}
@@ -204,8 +204,8 @@ describe("CardFooter, the private fact", () => {
 		return { ...aNode([]), visibility: "private" };
 	}
 
-	it("says a private card is private, as plain text", () => {
-		render(
+	it("says a private card is private, as plain text", async () => {
+		await render(
 			<Provider theme={lightTheme}>
 				<CardFooter
 					node={aPrivateNode()}
@@ -222,8 +222,8 @@ describe("CardFooter, the private fact", () => {
 		expect(screen.queryByRole("button")).toBeNull();
 	});
 
-	it("says nothing on a shared card", () => {
-		render(
+	it("says nothing on a shared card", async () => {
+		await render(
 			<Provider theme={lightTheme}>
 				<CardFooter node={aNode([])} locationId={null} waiting={null} />
 			</Provider>,
@@ -232,8 +232,8 @@ describe("CardFooter, the private fact", () => {
 		expect(screen.queryByText("board.private")).toBeNull();
 	});
 
-	it("stays quiet when the board already says it", () => {
-		render(
+	it("stays quiet when the board already says it", async () => {
+		await render(
 			<Provider theme={lightTheme}>
 				<CardFooter
 					node={aPrivateNode()}
@@ -247,8 +247,8 @@ describe("CardFooter, the private fact", () => {
 		expect(screen.queryByText("board.private")).toBeNull();
 	});
 
-	it("draws the line alone on a card with nothing else to say", () => {
-		render(
+	it("draws the line alone on a card with nothing else to say", async () => {
+		await render(
 			<Provider theme={lightTheme}>
 				<CardFooter node={aPrivateNode()} locationId={null} waiting={null} />
 			</Provider>,

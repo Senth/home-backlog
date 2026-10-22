@@ -49,13 +49,13 @@ describe("usePairedListener", () => {
 	 * are attributable to the `key` alone — a `key` change must be enough on
 	 * its own, because `key` drives the clear but `build` is what reopens.
 	 */
-	it("a key change clears the rows, re-raises loading and reopens the listeners", () => {
-		const { result, rerender } = renderHook(
+	it("a key change clears the rows, re-raises loading and reopens the listeners", async () => {
+		const { result, rerender } = await renderHook(
 			({ key }: { key: string }) => usePairedListener(key, build, labels),
 			{ initialProps: { key: "huset" } },
 		);
 
-		act(() => {
+		await act(() => {
 			halves[0].next(answer(["shared-1"]));
 			halves[1].next(answer(["done-1"]));
 		});
@@ -63,14 +63,14 @@ describe("usePairedListener", () => {
 		expect(result.current.loading).toBe(false);
 		expect(result.current.failed).toBe(false);
 
-		rerender({ key: "stugan" });
+		await rerender({ key: "stugan" });
 
 		expect(halves).toHaveLength(4);
 		expect(result.current.nodes).toHaveLength(0);
 		expect(result.current.loading).toBe(true);
 		expect(result.current.failed).toBe(false);
 
-		act(() => {
+		await act(() => {
 			halves[2].next(answer(["shared-2"]));
 			halves[3].next(answer(["done-2"]));
 		});
@@ -78,19 +78,19 @@ describe("usePairedListener", () => {
 		expect(result.current.loading).toBe(false);
 	});
 
-	it("one failed half is not failure while the other is still loading", () => {
+	it("one failed half is not failure while the other is still loading", async () => {
 		const consoleError = jest.spyOn(console, "error").mockImplementation();
-		const { result } = renderHook(() =>
+		const { result } = await renderHook(() =>
 			usePairedListener("huset", build, labels),
 		);
 
-		act(() => {
+		await act(() => {
 			halves[0].error(new Error("shared half gave up"));
 		});
 		expect(result.current.loading).toBe(true);
 		expect(result.current.failed).toBe(false);
 
-		act(() => {
+		await act(() => {
 			halves[1].next(answer(["done-1"]));
 		});
 		expect(result.current.loading).toBe(false);

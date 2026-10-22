@@ -11,7 +11,7 @@ import {
 	useRegisterRailAction,
 } from "@/contexts/RailActionContext";
 
-it("registers the focused screen's action, updates it, and clears on blur", () => {
+it("registers the focused screen's action, updates it, and clears on blur", async () => {
 	let focused = true;
 	const listeners = new Map<string, () => void>();
 	const navigation = {
@@ -32,7 +32,7 @@ it("registers the focused screen's action, updates it, and clears on blur", () =
 			</RailActionProvider>
 		);
 	}
-	const hook = renderHook(
+	const hook = await renderHook(
 		({ registered }: { registered: typeof action | null }) => {
 			useRegisterRailAction(registered);
 			return useRailAction();
@@ -40,26 +40,26 @@ it("registers the focused screen's action, updates it, and clears on blur", () =
 		{ wrapper, initialProps: { registered: action as typeof action | null } },
 	);
 	expect(hook.result.current.action).toEqual(action);
-	act(() => hook.result.current.action?.onPress());
+	await act(() => hook.result.current.action?.onPress());
 	expect(onPress).toHaveBeenCalledTimes(1);
-	hook.rerender({ registered: { ...action, label: "Add location" } });
+	await hook.rerender({ registered: { ...action, label: "Add location" } });
 	expect(hook.result.current.action?.label).toBe("Add location");
-	act(() => {
+	await act(() => {
 		focused = false;
 		listeners.get("blur")?.();
 	});
 	expect(hook.result.current.action).toBeNull();
-	act(() => {
+	await act(() => {
 		focused = true;
 		listeners.get("focus")?.();
 	});
 	expect(hook.result.current.action?.label).toBe("Add location");
-	hook.rerender({ registered: null });
+	await hook.rerender({ registered: null });
 	expect(hook.result.current.action).toBeNull();
-	hook.unmount();
+	await hook.unmount();
 });
 
-it("clears the action when its screen unmounts", () => {
+it("clears the action when its screen unmounts", async () => {
 	let mounted = true;
 	const action = { label: "Add a project", icon: "plus", onPress: jest.fn() };
 	const navigation = {
@@ -80,9 +80,9 @@ it("clears the action when its screen unmounts", () => {
 			</RailActionProvider>
 		);
 	}
-	const hook = renderHook(() => useRailAction(), { wrapper });
+	const hook = await renderHook(() => useRailAction(), { wrapper });
 	expect(hook.result.current.action).toEqual(action);
 	mounted = false;
-	hook.rerender({});
+	await hook.rerender({});
 	expect(hook.result.current.action).toBeNull();
 });

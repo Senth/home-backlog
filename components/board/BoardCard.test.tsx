@@ -95,8 +95,8 @@ function place(id: string, title: string): Location {
 	};
 }
 
-function renderCard(card: ReactElement) {
-	return render(<ThemeProvider theme={lightTheme}>{card}</ThemeProvider>);
+async function renderCard(card: ReactElement) {
+	return await render(<ThemeProvider theme={lightTheme}>{card}</ThemeProvider>);
 }
 
 afterEach(() => {
@@ -104,8 +104,8 @@ afterEach(() => {
 });
 
 describe("BoardCard", () => {
-	it("announces selected on the card's press target without a selection glyph", () => {
-		renderCard(<BoardCard node={node()} onOpen={() => {}} selected />);
+	it("announces selected on the card's press target without a selection glyph", async () => {
+		await renderCard(<BoardCard node={node()} onOpen={() => {}} selected />);
 		expect(
 			screen.getByLabelText(
 				'board.selectedCardA11y:{"title":"Fix the gutter"}',
@@ -116,8 +116,8 @@ describe("BoardCard", () => {
 		).toHaveLength(0);
 	});
 
-	it("renders no path and no check without the props", () => {
-		renderCard(<BoardCard node={node()} onOpen={() => {}} />);
+	it("renders no path and no check without the props", async () => {
+		await renderCard(<BoardCard node={node()} onOpen={() => {}} />);
 
 		expect(screen.getByText("Fix the gutter")).toBeOnTheScreen();
 		expect(screen.queryByText("board.crumbHidden")).toBeNull();
@@ -126,8 +126,8 @@ describe("BoardCard", () => {
 		).toHaveLength(0);
 	});
 
-	it("renders nothing at all for an empty path", () => {
-		renderCard(<BoardCard node={node()} onOpen={() => {}} path={[]} />);
+	it("renders nothing at all for an empty path", async () => {
+		await renderCard(<BoardCard node={node()} onOpen={() => {}} path={[]} />);
 
 		expect(screen.queryByText("board.crumbHidden")).toBeNull();
 		expect(
@@ -135,8 +135,8 @@ describe("BoardCard", () => {
 		).toHaveLength(0);
 	});
 
-	it("renders a two-crumb path root first, joined by chevrons", () => {
-		renderCard(
+	it("renders a two-crumb path root first, joined by chevrons", async () => {
+		await renderCard(
 			<BoardCard
 				node={node()}
 				onOpen={() => {}}
@@ -154,8 +154,8 @@ describe("BoardCard", () => {
 		).toHaveLength(1);
 	});
 
-	it("renders a hidden crumb in its own position, not a gap", () => {
-		renderCard(
+	it("renders a hidden crumb in its own position, not a gap", async () => {
+		await renderCard(
 			<BoardCard node={node()} onOpen={() => {}} path={[null, "Bathroom"]} />,
 		);
 
@@ -167,8 +167,8 @@ describe("BoardCard", () => {
 		).toBeOnTheScreen();
 	});
 
-	it("keeps a long path on one line, eliding at the end", () => {
-		renderCard(
+	it("keeps a long path on one line, eliding at the end", async () => {
+		await renderCard(
 			<BoardCard
 				node={node()}
 				onOpen={() => {}}
@@ -182,16 +182,18 @@ describe("BoardCard", () => {
 		expect(eyebrow.props.numberOfLines).toBe(1);
 	});
 
-	it("marks a done card with a check and a muted title", () => {
-		renderCard(<BoardCard node={node({ status: "done" })} onOpen={() => {}} />);
+	it("marks a done card with a check and a muted title", async () => {
+		await renderCard(
+			<BoardCard node={node({ status: "done" })} onOpen={() => {}} />,
+		);
 
 		expect(
 			screen.getAllByTestId("check", { includeHiddenElements: true }),
 		).toHaveLength(1);
 	});
 
-	it("marks no other status with the check or the muted title", () => {
-		renderCard(
+	it("marks no other status with the check or the muted title", async () => {
+		await renderCard(
 			<BoardCard node={node({ status: "execution" })} onOpen={() => {}} />,
 		);
 
@@ -200,14 +202,14 @@ describe("BoardCard", () => {
 		).toHaveLength(0);
 	});
 
-	it("draws the gutter even when the card has neither a priority nor a label", () => {
-		renderCard(<BoardCard node={node()} onOpen={() => {}} />);
+	it("draws the gutter even when the card has neither a priority nor a label", async () => {
+		await renderCard(<BoardCard node={node()} onOpen={() => {}} />);
 
 		expect(screen.getByTestId("card-gutter")).toBeOnTheScreen();
 	});
 
-	it("names the priority on the gutter's dot, not as a word", () => {
-		renderCard(
+	it("names the priority on the gutter's dot, not as a word", async () => {
+		await renderCard(
 			<BoardCard node={node({ priority: "high" })} onOpen={() => {}} />,
 		);
 
@@ -215,7 +217,7 @@ describe("BoardCard", () => {
 		expect(screen.queryByText("priority.high")).toBeNull();
 	});
 
-	it("renders the trail's labels exactly like the card's own, deduplicated, capped at six", () => {
+	it("renders the trail's labels exactly like the card's own, deduplicated, capped at six", async () => {
 		mockHome = {
 			labels: [
 				label("l1", { title: "Home Assistant" }),
@@ -227,7 +229,7 @@ describe("BoardCard", () => {
 				label("l7"),
 			],
 		};
-		renderCard(
+		await renderCard(
 			<BoardCard
 				node={node({ labelIds: ["l1", "l2", "l3", "l4", "l5", "l6", "l8"] })}
 				onOpen={() => {}}
@@ -244,15 +246,15 @@ describe("BoardCard", () => {
 		).toHaveLength(6);
 	});
 
-	it("renders nothing in the gutter when no label applies", () => {
+	it("renders nothing in the gutter when no label applies", async () => {
 		mockHome = { labels: [label("l1")] };
-		renderCard(<BoardCard node={node()} onOpen={() => {}} />);
+		await renderCard(<BoardCard node={node()} onOpen={() => {}} />);
 
 		expect(screen.queryByLabelText("Label l1")).toBeNull();
 	});
 
-	it("carries the location's leaf name and the effort word in the footer", () => {
-		renderCard(
+	it("carries the location's leaf name and the effort word in the footer", async () => {
+		await renderCard(
 			<BoardCard
 				node={node({ locationId: "loc-1", effort: "evening" })}
 				onOpen={() => {}}
@@ -264,8 +266,8 @@ describe("BoardCard", () => {
 		expect(screen.getByText("effort.evening")).toBeOnTheScreen();
 	});
 
-	it("says nothing about a location the map cannot answer", () => {
-		renderCard(
+	it("says nothing about a location the map cannot answer", async () => {
+		await renderCard(
 			<BoardCard
 				node={node({ locationId: "loc-gone" })}
 				onOpen={() => {}}
@@ -276,8 +278,8 @@ describe("BoardCard", () => {
 		expect(screen.queryByText("Workshop")).toBeNull();
 	});
 
-	it("shows the trail's place on a card that carries none of its own (#296)", () => {
-		renderCard(
+	it("shows the trail's place on a card that carries none of its own (#296)", async () => {
+		await renderCard(
 			<BoardCard
 				node={node()}
 				onOpen={() => {}}
@@ -289,8 +291,8 @@ describe("BoardCard", () => {
 		expect(screen.getByText("Workshop")).toBeOnTheScreen();
 	});
 
-	it("keeps the card's own place over the trail's (#296)", () => {
-		renderCard(
+	it("keeps the card's own place over the trail's (#296)", async () => {
+		await renderCard(
 			<BoardCard
 				node={node({ locationId: "loc-2" })}
 				onOpen={() => {}}
@@ -308,17 +310,17 @@ describe("BoardCard", () => {
 		expect(screen.queryByText("Workshop")).toBeNull();
 	});
 
-	it("keeps overdue as words in the footer", () => {
-		renderCard(
+	it("keeps overdue as words in the footer", async () => {
+		await renderCard(
 			<BoardCard node={node({ dueDate: "2001-02-03" })} onOpen={() => {}} />,
 		);
 
 		expect(screen.getByText(/board\.dueLate/)).toBeOnTheScreen();
 	});
 
-	it("keeps the waiting mark in the footer, not on its own row", () => {
+	it("keeps the waiting mark in the footer, not on its own row", async () => {
 		const blocker = node({ id: "b1", status: "backlog" });
-		renderCard(
+		await renderCard(
 			<BoardCard
 				node={node({ blockedBy: ["b1"] })}
 				onOpen={() => {}}
@@ -336,15 +338,15 @@ describe("BoardCard", () => {
 		expect(svSE.board.pathA11y.length).toBeGreaterThan(0);
 	});
 
-	it("renders no pressable at all without onOpen and a menu", () => {
-		renderCard(<BoardCard node={node()} />);
+	it("renders no pressable at all without onOpen and a menu", async () => {
+		await renderCard(<BoardCard node={node()} />);
 
 		expect(screen.queryAllByRole("button")).toHaveLength(0);
 	});
 
-	it("renders the linked trail as links that wrap, and the tap names the crumb's own node", () => {
+	it("renders the linked trail as links that wrap, and the tap names the crumb's own node", async () => {
 		const onOpenCrumb = jest.fn();
-		renderCard(
+		await renderCard(
 			<BoardCard
 				node={node()}
 				linkedTrail={{
@@ -369,7 +371,7 @@ describe("BoardCard", () => {
 			screen.queryByRole("link", { name: "board.crumbHidden" }),
 		).toBeNull();
 
-		fireEvent.press(screen.getByRole("link", { name: "Bathroom" }));
+		await fireEvent.press(screen.getByRole("link", { name: "Bathroom" }));
 		expect(onOpenCrumb).toHaveBeenCalledWith("p2");
 	});
 });

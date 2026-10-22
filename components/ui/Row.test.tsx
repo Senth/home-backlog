@@ -4,9 +4,9 @@ import { Row } from "@/components/ui/Row";
 import { lightTheme } from "@/theme";
 
 describe("Row", () => {
-	it("pressing the title calls onPress", () => {
+	it("pressing the title calls onPress", async () => {
 		const onPress = jest.fn();
-		render(
+		await render(
 			<Provider theme={lightTheme}>
 				<Row
 					title="Home"
@@ -18,16 +18,16 @@ describe("Row", () => {
 		);
 
 		expect(screen.getByRole("button", { name: /Home/ })).toBeEnabled();
-		fireEvent.press(screen.getByText("Home"));
+		await fireEvent.press(screen.getByText("Home"));
 
 		expect(onPress).toHaveBeenCalledTimes(1);
 		expect(screen.getByTestId("home-row")).toBeOnTheScreen();
 	});
 
-	it("right controls stay enabled outside the lead button and do not press the row", () => {
+	it("right controls stay enabled outside the lead button and do not press the row", async () => {
 		const onPress = jest.fn();
 		const onControl = jest.fn();
-		render(
+		await render(
 			<Provider theme={lightTheme}>
 				<Row
 					title="Home"
@@ -49,14 +49,14 @@ describe("Row", () => {
 			expect(node.props.accessibilityState?.disabled).not.toBe(true);
 			expect(node).not.toBe(lead);
 		}
-		fireEvent.press(control);
+		await fireEvent.press(control);
 
 		expect(onControl).toHaveBeenCalledTimes(1);
 		expect(onPress).not.toHaveBeenCalled();
 	});
 
-	it("without onPress renders no button", () => {
-		render(
+	it("without onPress renders no button", async () => {
+		await render(
 			<Provider theme={lightTheme}>
 				<Row title="Home" />
 			</Provider>,

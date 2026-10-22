@@ -118,7 +118,7 @@ afterEach(() => {
 });
 
 it("queues offline, collapses moves, persists across remount, and Undo removes", async () => {
-	const first = open();
+	const first = await open();
 	const runOnline = jest.fn();
 	await act(async () => {
 		expect(await first.result.current.submit(intent, runOnline)).toBe("queued");
@@ -129,8 +129,8 @@ it("queues offline, collapses moves, persists across remount, and Undo removes",
 	});
 	expect(runOnline).not.toHaveBeenCalled();
 	expect(stored()).toEqual([{ ...intent, id: "move-2", rank: "a1" }]);
-	first.unmount();
-	const second = open();
+	await first.unmount();
+	const second = await open();
 	await waitFor(() => expect(second.result.current.intents).toEqual(stored()));
 	await act(async () => second.result.current.undo("move-2"));
 	expect(second.result.current.intents).toEqual([]);
@@ -139,7 +139,7 @@ it("queues offline, collapses moves, persists across remount, and Undo removes",
 
 it("runs online, queues only unavailable, and rethrows other errors", async () => {
 	jest.mocked(isOnline).mockReturnValue(true);
-	const hook = open();
+	const hook = await open();
 	await act(async () => {});
 	await act(async () => {
 		expect(
@@ -177,10 +177,10 @@ it("drains all homes FIFO on online, after pending Firestore writes", async () =
 				release = resolve;
 			}),
 	);
-	const hook = open();
+	const hook = await open();
 	await waitFor(() => expect(hook.result.current.intents).toHaveLength(2));
 	jest.mocked(isOnline).mockReturnValue(true);
-	act(() => onlineListener());
+	await act(() => onlineListener());
 	await waitFor(() => expect(waitForPendingWrites).toHaveBeenCalledTimes(1));
 	expect(replayIntent).not.toHaveBeenCalled();
 	await act(async () => release());
@@ -201,11 +201,11 @@ it.each([{ code: "unavailable" }, new TypeError("Failed to fetch")])(
 		]);
 		jest.mocked(isOnline).mockReturnValue(true);
 		jest.mocked(replayIntent).mockRejectedValueOnce(reason);
-		const hook = open();
+		const hook = await open();
 		await waitFor(() => expect(replayIntent).toHaveBeenCalledTimes(1));
 		expect(stored()).toHaveLength(2);
 		expect(notice()?.visible).toBe(false);
-		act(() => onlineListener());
+		await act(() => onlineListener());
 		await waitFor(() => expect(hook.result.current.intents).toEqual([]));
 		expect(replayIntent).toHaveBeenCalledTimes(3);
 	},
@@ -223,7 +223,7 @@ it("refuses and removes, names subject and target, aggregates refusals without a
 		.mockRejectedValueOnce({ code: "move-own-subtree" })
 		.mockRejectedValueOnce({ code: "target-gone" })
 		.mockRejectedValueOnce({ code: "subtree-too-large" });
-	const hook = open();
+	const hook = await open();
 	await waitFor(() => expect(notice()?.visible).toBe(true));
 	expect(hook.result.current.intents).toEqual([]);
 	expect(stored()).toEqual([]);
@@ -231,7 +231,7 @@ it("refuses and removes, names subject and target, aggregates refusals without a
 		"Couldn't move Workshop: Garden was moved inside it while you were offline. and 2 more",
 	);
 	expect(notice()?.action).toBeUndefined();
-	act(() => notice()?.onDismiss());
+	await act(() => notice()?.onDismiss());
 	expect(notice()?.visible).toBe(false);
 });
 
@@ -239,18 +239,18 @@ it("names deleted target and reports generic reason for other refusals", async (
 	mockStore["outbox:marcus"] = JSON.stringify([intent]);
 	jest.mocked(isOnline).mockReturnValue(true);
 	jest.mocked(replayIntent).mockRejectedValueOnce({ code: "target-gone" });
-	const first = open();
+	const first = await open();
 	await waitFor(() =>
 		expect(notice()?.children).toBe(
 			"Couldn't move Workshop: Garden was deleted while you were offline.",
 		),
 	);
-	first.unmount();
+	await first.unmount();
 	mockStore["outbox:marcus"] = JSON.stringify([intent]);
 	jest
 		.mocked(replayIntent)
 		.mockRejectedValueOnce({ code: "permission-denied" });
-	open();
+	await open();
 	await waitFor(() =>
 		expect(notice()?.children).toBe(
 			`Couldn't sync Workshop. ${mockEn.error.saveFailed}`,
@@ -266,7 +266,7 @@ it.each([
 	mockStore["outbox:marcus"] = JSON.stringify([intent]);
 	jest.mocked(isOnline).mockReturnValue(true);
 	if (reason) jest.mocked(replayIntent).mockRejectedValueOnce(reason);
-	const hook = open();
+	const hook = await open();
 	await waitFor(() => expect(stored()).toEqual([]));
 	expect(hook.result.current.intents).toEqual([]);
 	expect(notice()?.visible).toBe(false);
@@ -292,9 +292,9 @@ it("second drainer waits on uid lock and reloads queue after first drains", asyn
 				release = resolve;
 			}),
 	);
-	const first = open();
+	const first = await open();
 	await waitFor(() => expect(replayIntent).toHaveBeenCalledTimes(1));
-	const second = open();
+	const second = await open();
 	await waitFor(() =>
 		expect(
 			request.mock.calls.filter(([name]) => name === "outbox:marcus"),
@@ -318,7 +318,7 @@ it("native drains on returning active", async () => {
 			return { remove };
 		});
 	jest.mocked(isOnline).mockReturnValue(true);
-	const hook = open();
+	const hook = await open();
 	await act(async () => {});
 	await act(async () => {
 		await hook.result.current.submit(
@@ -326,16 +326,16 @@ it("native drains on returning active", async () => {
 			jest.fn().mockRejectedValue({ code: "unavailable" }),
 		);
 	});
-	act(() => change("background"));
+	await act(() => change("background"));
 	expect(replayIntent).not.toHaveBeenCalled();
-	act(() => change("active"));
+	await act(() => change("active"));
 	await waitFor(() => expect(stored()).toEqual([]));
-	hook.unmount();
+	await hook.unmount();
 	expect(remove).toHaveBeenCalled();
 });
 
 it("does not claim queued when persistence fails", async () => {
-	const hook = open();
+	const hook = await open();
 	jest
 		.mocked(AsyncStorage.setItem)
 		.mockRejectedValueOnce(new Error("Storage full"));
@@ -348,7 +348,7 @@ it("does not claim queued when persistence fails", async () => {
 });
 
 it("concurrent submissions preserve both and keep uid stores separate", async () => {
-	const first = open();
+	const first = await open();
 	await act(async () => {
 		await Promise.all([
 			first.result.current.submit(intent, jest.fn()),
@@ -359,9 +359,9 @@ it("concurrent submissions preserve both and keep uid stores separate", async ()
 		]);
 	});
 	expect(stored()).toHaveLength(2);
-	first.unmount();
+	await first.unmount();
 	mockUid = "anna";
-	const second = open();
+	const second = await open();
 	await act(async () =>
 		second.result.current.submit({ ...intent, id: "anna" }, jest.fn()),
 	);
@@ -373,10 +373,10 @@ it("waits for auth, then drains on mount", async () => {
 	mockAuthLoading = true;
 	mockStore["outbox:marcus"] = JSON.stringify([intent]);
 	jest.mocked(isOnline).mockReturnValue(true);
-	const hook = open();
+	const hook = await open();
 	expect(waitForPendingWrites).not.toHaveBeenCalled();
 	mockAuthLoading = false;
-	hook.rerender({});
+	await hook.rerender({});
 	await waitFor(() => expect(stored()).toEqual([]));
 	expect(replayIntent).toHaveBeenCalledWith(intent, "marcus");
 });
@@ -387,12 +387,12 @@ it("keeps queue when pending Firestore writes cannot flush", async () => {
 	jest
 		.mocked(waitForPendingWrites)
 		.mockRejectedValueOnce({ code: "unavailable" });
-	const hook = open();
+	const hook = await open();
 	await waitFor(() => expect(waitForPendingWrites).toHaveBeenCalledTimes(1));
 	expect(stored()).toEqual([intent]);
 	expect(replayIntent).not.toHaveBeenCalled();
 	expect(notice()?.visible).toBe(false);
-	act(() => onlineListener());
+	await act(() => onlineListener());
 	await waitFor(() => expect(hook.result.current.intents).toEqual([]));
 	expect(stored()).toEqual([]);
 });
@@ -407,7 +407,7 @@ it("queues online replacement during replay without running stale online write",
 				release = resolve;
 			}),
 	);
-	const hook = open();
+	const hook = await open();
 	await waitFor(() => expect(replayIntent).toHaveBeenCalledTimes(1));
 	const replacement = { ...intent, id: "replacement", rank: "a1" };
 	const runOnline = jest.fn().mockResolvedValue(undefined);
@@ -429,7 +429,7 @@ it("queues online submission behind pending FIFO work before mount drain", async
 	mockStore["outbox:marcus"] = JSON.stringify([intent]);
 	mockAuthLoading = true;
 	jest.mocked(isOnline).mockReturnValue(true);
-	const hook = open();
+	const hook = await open();
 	const next = { ...intent, id: "next", locationId: "other" };
 	const runOnline = jest.fn().mockResolvedValue(undefined);
 	await act(async () => {
@@ -438,7 +438,7 @@ it("queues online submission behind pending FIFO work before mount drain", async
 	expect(runOnline).not.toHaveBeenCalled();
 	expect(stored()).toEqual([intent, next]);
 	mockAuthLoading = false;
-	hook.rerender({});
+	await hook.rerender({});
 	await waitFor(() => expect(stored()).toEqual([]));
 	expect(
 		jest.mocked(replayIntent).mock.calls.map(([value]) => value.id),
@@ -475,8 +475,8 @@ it("another tab queues behind online uid lock instead of writing concurrently", 
 		},
 	);
 	Object.defineProperty(navigator, "locks", { value: { request } });
-	const first = open();
-	const second = open();
+	const first = await open();
+	const second = await open();
 	await act(async () => {});
 	let release!: () => void;
 	const runFirst = jest.fn(
@@ -486,7 +486,7 @@ it("another tab queues behind online uid lock instead of writing concurrently", 
 			}),
 	);
 	let saving!: Promise<"saved" | "queued">;
-	act(() => {
+	await act(() => {
 		saving = first.result.current.submit(intent, runFirst);
 	});
 	await waitFor(() => expect(runFirst).toHaveBeenCalledTimes(1));
@@ -501,7 +501,7 @@ it("another tab queues behind online uid lock instead of writing concurrently", 
 		release();
 		await saving;
 	});
-	act(() => onlineListener());
+	await act(() => onlineListener());
 	await waitFor(() => expect(stored()).toEqual([]));
 	expect(replayIntent).toHaveBeenCalledWith(next, "marcus");
 });
@@ -516,9 +516,9 @@ it("unmount during pending writes stops replay and removes reconnect listener", 
 				release = resolve;
 			}),
 	);
-	const hook = open();
+	const hook = await open();
 	await waitFor(() => expect(waitForPendingWrites).toHaveBeenCalledTimes(1));
-	hook.unmount();
+	await hook.unmount();
 	await act(async () => release());
 	expect(replayIntent).not.toHaveBeenCalled();
 	expect(stored()).toEqual([intent]);
@@ -530,7 +530,7 @@ it("unmount during pending writes stops replay and removes reconnect listener", 
 
 it("reports unreadable storage and does not replace its contents", async () => {
 	mockStore["outbox:marcus"] = "broken JSON";
-	const hook = open();
+	const hook = await open();
 	await waitFor(() => expect(notice()?.children).toBe(mockEn.error.saveFailed));
 	await act(async () => {
 		await expect(
@@ -544,7 +544,7 @@ it("retries online unavailable queue and recovers without online event", async (
 	jest.useFakeTimers();
 	try {
 		jest.mocked(isOnline).mockReturnValue(true);
-		const hook = open();
+		const hook = await open();
 		await act(async () => {});
 		jest.mocked(replayIntent).mockRejectedValueOnce({ code: "unavailable" });
 		await act(async () => {
@@ -566,7 +566,7 @@ it("retries online unavailable queue and recovers without online event", async (
 		expect(stored()).toEqual([]);
 		expect(hook.result.current.intents).toEqual([]);
 		expect(notice()?.visible).toBe(false);
-		hook.unmount();
+		await hook.unmount();
 	} finally {
 		jest.useRealTimers();
 	}
@@ -579,7 +579,7 @@ it("bounds online retries and cancels timer on unmount", async () => {
 	try {
 		jest.mocked(isOnline).mockReturnValue(true);
 		jest.mocked(replayIntent).mockRejectedValue({ code: "unavailable" });
-		const hook = open();
+		const hook = await open();
 		await act(async () => {});
 		await act(async () => {
 			await hook.result.current.submit(
@@ -596,7 +596,7 @@ it("bounds online retries and cancels timer on unmount", async () => {
 			await hook.result.current.submit({ ...intent, id: "next" }, jest.fn());
 		});
 		const retryTimer = timeout.mock.results.at(-1)?.value;
-		hook.unmount();
+		await hook.unmount();
 		expect(clear).toHaveBeenCalledWith(retryTimer);
 		await act(async () => {
 			await jest.advanceTimersByTimeAsync(120000);

@@ -30,7 +30,7 @@ describe("useLabelAncestors", () => {
 				id === "done-1" ? aNode("done-1") : null,
 			);
 
-		const { result } = renderHook(() =>
+		const { result } = await renderHook(() =>
 			useLabelAncestors(
 				"home-1",
 				["active", "done-1", "gone"],
@@ -52,13 +52,13 @@ describe("useLabelAncestors", () => {
 	it("answers a repeated read from the session cache", async () => {
 		jest.mocked(getNode).mockImplementation(async (_home, id) => aNode(id));
 
-		const first = renderHook(() =>
+		const first = await renderHook(() =>
 			useLabelAncestors("home-1", ["cached-1"], []),
 		);
 		await act(async () => {});
 		expect(first.result.current.get("cached-1")).not.toBeNull();
 
-		const second = renderHook(() =>
+		const second = await renderHook(() =>
 			useLabelAncestors("home-1", ["cached-1"], []),
 		);
 		await act(async () => {});
@@ -69,7 +69,7 @@ describe("useLabelAncestors", () => {
 	it("prefers the pool when a snapshot later delivers the ancestor", async () => {
 		jest.mocked(getNode).mockImplementation(async (_home, id) => aNode(id));
 
-		const { result, rerender } = renderHook(
+		const { result, rerender } = await renderHook(
 			({ pool }: { pool: Node[] }) =>
 				useLabelAncestors("home-1", ["live-1"], pool),
 			{ initialProps: { pool: [] as Node[] } },
@@ -78,7 +78,7 @@ describe("useLabelAncestors", () => {
 		expect(result.current.get("live-1")).not.toBeNull();
 
 		const fromPool = aNode("live-1");
-		rerender({ pool: [fromPool] });
+		await rerender({ pool: [fromPool] });
 		await act(async () => {});
 		expect(result.current.get("live-1")).toBe(fromPool);
 		expect(getNode).toHaveBeenCalledTimes(1);
@@ -87,7 +87,7 @@ describe("useLabelAncestors", () => {
 	it("does not merge the previous home's reads across a home change", async () => {
 		jest.mocked(getNode).mockImplementation(async (_home, id) => aNode(id));
 
-		const { result, rerender } = renderHook(
+		const { result, rerender } = await renderHook(
 			({ homeId }: { homeId: string }) =>
 				useLabelAncestors(homeId, ["cross-1"], []),
 			{ initialProps: { homeId: "home-1" } },
@@ -95,10 +95,18 @@ describe("useLabelAncestors", () => {
 		await act(async () => {});
 		expect(result.current.get("cross-1")).not.toBeNull();
 
-		rerender({ homeId: "home-2" });
+		const nextHome = { ...aNode("cross-1"), title: "Home 2 ancestor" };
+		let release!: (node: Node) => void;
+		jest.mocked(getNode).mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					release = resolve;
+				}),
+		);
+		await rerender({ homeId: "home-2" });
 		expect(result.current.get("cross-1")).toBeNull();
 
-		await act(async () => {});
-		expect(result.current.get("cross-1")).toMatchObject({ id: "cross-1" });
+		await act(() => release(nextHome));
+		expect(result.current.get("cross-1")).toBe(nextHome);
 	});
 });

@@ -44,8 +44,8 @@ const card = {
 	priority: null,
 } as unknown as Node;
 
-function renderCards() {
-	return render(
+async function renderCards() {
+	return await render(
 		<Provider theme={lightTheme}>
 			<LocationCards
 				location={{ id: "place-1", title: "Study" } as Location}
@@ -62,18 +62,18 @@ beforeEach(() => {
 	jest.clearAllMocks();
 });
 
-it("opens card details in the Locations pane on desktop", () => {
-	renderCards();
-	fireEvent.press(screen.getByText("Repair light"));
+it("opens card details in the Locations pane on desktop", async () => {
+	await renderCards();
+	await fireEvent.press(screen.getByText("Repair light"));
 
 	expect(router.setParams).toHaveBeenCalledWith({ card: "card-1" });
 	expect(router.push).not.toHaveBeenCalled();
 });
 
-it("keeps the Locations details page on phones", () => {
+it("keeps the Locations details page on phones", async () => {
 	mockWidth = 390;
-	renderCards();
-	fireEvent.press(screen.getByText("Repair light"));
+	await renderCards();
+	await fireEvent.press(screen.getByText("Repair light"));
 
 	expect(router.push).toHaveBeenCalledWith({
 		pathname: "/projects/[nodeId]/details",

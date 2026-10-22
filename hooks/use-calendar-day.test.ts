@@ -25,9 +25,9 @@ afterEach(() => {
 });
 
 /** A hook mounted on the frozen fake clock, and the ms to its next midnight. */
-function mounted() {
+async function mounted() {
 	const start = new Date();
-	const view = renderHook(() => useCalendarDay());
+	const view = await renderHook(() => useCalendarDay());
 	const midnight = new Date(
 		start.getFullYear(),
 		start.getMonth(),
@@ -38,17 +38,17 @@ function mounted() {
 }
 
 describe("useCalendarDay", () => {
-	it("turns over exactly once at the next local midnight, and re-arms", () => {
-		const { view, start, untilMidnight } = mounted();
+	it("turns over exactly once at the next local midnight, and re-arms", async () => {
+		const { view, start, untilMidnight } = await mounted();
 		expect(view.result.current).toBe(toCalendarDay(start));
 
 		// The last ms of the day is still today.
-		act(() => {
+		await act(() => {
 			jest.advanceTimersByTime(untilMidnight - 1);
 		});
 		expect(view.result.current).toBe(toCalendarDay(start));
 
-		act(() => {
+		await act(() => {
 			jest.advanceTimersByTime(1);
 		});
 		const firstFire = new Date();
@@ -57,13 +57,13 @@ describe("useCalendarDay", () => {
 
 		// The screen sits through the whole next day without a second fire —
 		// midnights are 24h apart in a zone with no DST.
-		act(() => {
+		await act(() => {
 			jest.advanceTimersByTime(24 * 60 * 60 * 1000 - 1);
 		});
 		expect(view.result.current).toBe(toCalendarDay(firstFire));
 
 		// The re-arm lands on the following midnight, exactly once more.
-		act(() => {
+		await act(() => {
 			jest.advanceTimersByTime(1);
 		});
 		expect(view.result.current).toBe(toCalendarDay(new Date()));
@@ -75,23 +75,25 @@ describe("useCalendarDay", () => {
 	 * turnover that waited for 00:00 UTC would still read yesterday 5h15m
 	 * later.
 	 */
-	it("lands on local midnight under a non-hour offset, not on UTC's", () => {
+	it("lands on local midnight under a non-hour offset, not on UTC's", async () => {
 		jest.setSystemTime(new Date(2026, 7, 1, 23, 30));
-		const turnover = renderHook(() => useCalendarDay());
+		const turnover = await renderHook(() => useCalendarDay());
 		expect(turnover.result.current).toBe("2026-08-01");
 
-		act(() => {
+		await act(() => {
 			jest.advanceTimersByTime(30 * 60 * 1000);
 		});
 
 		expect(turnover.result.current).toBe("2026-08-02");
 	});
 
-	it("leaves no timer running after unmount", () => {
-		const view = renderHook(() => useCalendarDay());
+	it("leaves no timer running after unmount", async () => {
+		const view = await renderHook(() => useCalendarDay());
+		jest.runAllTicks();
 		expect(jest.getTimerCount()).toBe(1);
 
-		view.unmount();
+		await view.unmount();
+		jest.runAllTicks();
 
 		expect(jest.getTimerCount()).toBe(0);
 	});

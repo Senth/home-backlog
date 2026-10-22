@@ -7,5 +7,17 @@
 	},
 	"files": {
 		"includes": ["**", "!.claude/settings.local.json", "!.emulator-seed"]
-	}
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.test.ts", "**/*.test.tsx"],
+			"linter": {
+				"rules": {
+					"nursery": {
+						"noFloatingPromises": "error"
+					}
+				}
+			}
+		}
+	]
 }

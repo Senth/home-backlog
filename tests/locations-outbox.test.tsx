@@ -200,17 +200,17 @@ afterEach(() => jest.restoreAllMocks());
 
 it("View menu keeps tree controls reachable below 320px and closes after each action", async () => {
 	mockWidth = 195;
-	const screen = open();
+	const screen = await open();
 	await act(async () => {});
 	expect(screen.queryByText("locations.collapseAll")).toBeNull();
 	expect(screen.queryByText("locations.expandAll")).toBeNull();
 	expect(screen.queryByText("locations.showCards")).toBeNull();
 
 	const choose = async (title: string) => {
-		fireEvent.press(screen.getByText("locations.view"));
+		await fireEvent.press(screen.getByText("locations.view"));
 		expect(screen.getAllByTestId("menu-view")).toHaveLength(1);
 		await act(async () => {
-			fireEvent.press(screen.getByRole("menuitem", { name: title }));
+			await fireEvent.press(screen.getByRole("menuitem", { name: title }));
 		});
 		await act(async () => {
 			await new Promise((resolve) => setTimeout(resolve, 300));
@@ -234,20 +234,20 @@ it("View menu keeps tree controls reachable below 320px and closes after each ac
 });
 
 it("retains direct tree controls at 320px", async () => {
-	const screen = open();
+	const screen = await open();
 	await act(async () => {});
 	expect(screen.queryByText("locations.view")).toBeNull();
-	fireEvent.press(screen.getByText("locations.collapseAll"));
+	await fireEvent.press(screen.getByText("locations.collapseAll"));
 	expect(jest.mocked(LocationTree).mock.calls.at(-1)?.[0].collapsed).toEqual(
 		new Set(["kitchen"]),
 	);
-	fireEvent.press(screen.getByText("locations.expandAll"));
+	await fireEvent.press(screen.getByText("locations.expandAll"));
 	expect(jest.mocked(LocationTree).mock.calls.at(-1)?.[0].collapsed.size).toBe(
 		0,
 	);
-	fireEvent.press(screen.getByText("locations.showCards"));
+	await fireEvent.press(screen.getByText("locations.showCards"));
 	expect(screen.getByText("locations.hideCards")).toBeTruthy();
-	fireEvent.press(screen.getByText("locations.hideCards"));
+	await fireEvent.press(screen.getByText("locations.hideCards"));
 	expect(jest.mocked(LocationTree).mock.calls.at(-1)?.[0].cardsOpen).toBe(
 		false,
 	);
@@ -269,10 +269,10 @@ it.each([
 			});
 		try {
 			if (reason) jest.mocked(replayIntent).mockRejectedValueOnce(reason);
-			const screen = open();
-			fireEvent.press(screen.getByTestId("move-kitchen"));
-			fireEvent.press(screen.getByTestId("target-garden"));
-			fireEvent.press(screen.getByText("locations.moveHere"));
+			const screen = await open();
+			await fireEvent.press(screen.getByTestId("move-kitchen"));
+			await fireEvent.press(screen.getByTestId("target-garden"));
+			await fireEvent.press(screen.getByText("locations.moveHere"));
 			await waitFor(() => expect(screen.getByText("common.undo")).toBeTruthy());
 			jest.mocked(isOnline).mockReturnValue(true);
 			await act(async () => reconnect("active"));
@@ -299,10 +299,10 @@ it.each([
 );
 
 it("offline Move under projects subject and descendants, adds named Undo, and Undo restores listener tree", async () => {
-	const screen = open();
-	fireEvent.press(screen.getByTestId("move-kitchen"));
-	fireEvent.press(screen.getByTestId("target-garden"));
-	fireEvent.press(screen.getByText("locations.moveHere"));
+	const screen = await open();
+	await fireEvent.press(screen.getByTestId("move-kitchen"));
+	await fireEvent.press(screen.getByTestId("target-garden"));
+	await fireEvent.press(screen.getByText("locations.moveHere"));
 	await waitFor(() => expect(screen.getByText("Kitchen:garden")).toBeTruthy());
 	expect(moveLocation).not.toHaveBeenCalled();
 	const persisted = JSON.parse(mockStore["outbox:marcus"]);
@@ -328,7 +328,7 @@ it("offline Move under projects subject and descendants, adds named Undo, and Un
 	expect(jest.mocked(useLocationCounts).mock.calls.at(-1)?.[1]).toEqual(
 		props?.locations,
 	);
-	fireEvent.press(screen.getByText("common.undo"));
+	await fireEvent.press(screen.getByText("common.undo"));
 	await waitFor(() => expect(screen.getByText("Kitchen:root")).toBeTruthy());
 	expect(JSON.parse(mockStore["outbox:marcus"])).toEqual([]);
 	expect(screen.queryByText('outbox.pendingChanges:{"count":1}')).toBeNull();
@@ -339,11 +339,11 @@ it("restores projected move on remount and counts only current home", async () =
 		queuedMove,
 		{ ...queuedMove, id: "other-home", homeId: "stugan" },
 	]);
-	const first = open();
+	const first = await open();
 	await waitFor(() => expect(first.getByText("Kitchen:garden")).toBeTruthy());
 	expect(first.getByText('outbox.pendingChanges:{"count":1}')).toBeTruthy();
-	first.unmount();
-	const second = open();
+	await first.unmount();
+	const second = await open();
 	await waitFor(() => expect(second.getByText("Kitchen:garden")).toBeTruthy());
 	expect(second.getByText('outbox.pendingChanges:{"count":1}')).toBeTruthy();
 });
@@ -351,11 +351,11 @@ it("restores projected move on remount and counts only current home", async () =
 it("weak connection queues failed online move without error or snap back", async () => {
 	jest.mocked(isOnline).mockReturnValue(true);
 	jest.mocked(moveLocation).mockRejectedValueOnce({ code: "unavailable" });
-	const screen = open();
+	const screen = await open();
 	await act(async () => {});
-	fireEvent.press(screen.getByTestId("move-kitchen"));
-	fireEvent.press(screen.getByTestId("target-garden"));
-	fireEvent.press(screen.getByText("locations.moveHere"));
+	await fireEvent.press(screen.getByTestId("move-kitchen"));
+	await fireEvent.press(screen.getByTestId("target-garden"));
+	await fireEvent.press(screen.getByText("locations.moveHere"));
 	await waitFor(() => expect(screen.getByText("Kitchen:garden")).toBeTruthy());
 	expect(moveLocation).toHaveBeenCalledTimes(1);
 	expect(
@@ -378,7 +378,7 @@ it("pending deletion hides subtree and keeps count visible even when projected t
 			locationId: "kitchen",
 		},
 	]);
-	const screen = open();
+	const screen = await open();
 	await waitFor(() =>
 		expect(screen.getByText('outbox.pendingChanges:{"count":1}')).toBeTruthy(),
 	);
@@ -389,22 +389,22 @@ it("pending deletion hides subtree and keeps count visible even when projected t
 
 it("top-level queue uses distinct copy and successful online move has no waiting state", async () => {
 	mockLocations = [garden, location("kitchen", "Kitchen", ["garden"])];
-	const first = open();
-	fireEvent.press(first.getByTestId("move-kitchen"));
-	fireEvent.press(first.getByText("locations.moveUnderTop"));
-	fireEvent.press(first.getByText("locations.moveHere"));
+	const first = await open();
+	await fireEvent.press(first.getByTestId("move-kitchen"));
+	await fireEvent.press(first.getByText("locations.moveUnderTop"));
+	await fireEvent.press(first.getByText("locations.moveHere"));
 	await waitFor(() =>
 		expect(
 			first.getByText('outbox.queuedMoveTop:{"name":"Kitchen"}'),
 		).toBeTruthy(),
 	);
-	first.unmount();
+	await first.unmount();
 	mockStore = {};
 	jest.mocked(isOnline).mockReturnValue(true);
-	const second = open();
-	fireEvent.press(second.getByTestId("move-kitchen"));
-	fireEvent.press(second.getByText("locations.moveUnderTop"));
-	fireEvent.press(second.getByText("locations.moveHere"));
+	const second = await open();
+	await fireEvent.press(second.getByTestId("move-kitchen"));
+	await fireEvent.press(second.getByText("locations.moveUnderTop"));
+	await fireEvent.press(second.getByText("locations.moveHere"));
 	await waitFor(() => expect(moveLocation).toHaveBeenCalledTimes(1));
 	expect(mockStore["outbox:marcus"]).toBeUndefined();
 	expect(second.queryByText("common.undo")).toBeNull();

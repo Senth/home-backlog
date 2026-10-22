@@ -22,13 +22,13 @@ jest.mock("@/hooks/use-online-status", () => ({
 }));
 
 /** Fire the newest config listener with one snapshot. */
-const answer = (snapshot: Record<string, unknown>) => {
+const answer = async (snapshot: Record<string, unknown>) => {
 	const [, , onNext] = (onSnapshot as jest.Mock).mock.calls.at(-1) as [
 		unknown,
 		unknown,
 		(value: Record<string, unknown>) => void,
 	];
-	act(() => onNext(snapshot));
+	await act(() => onNext(snapshot));
 };
 const miss = () =>
 	answer({ exists: () => false, metadata: { fromCache: false } });
@@ -47,9 +47,9 @@ describe("useDashboardCards", () => {
 	it("a rejected seed flags the config failed, so the screen offers a retry", async () => {
 		(onSnapshot as jest.Mock).mockImplementation(() => () => {});
 		(seedGlobalCards as jest.Mock).mockRejectedValue(new Error("offline"));
-		const { result } = renderHook(() => useDashboardCards(null));
+		const { result } = await renderHook(() => useDashboardCards(null));
 
-		miss();
+		await miss();
 		await waitFor(() => expect(seedGlobalCards).toHaveBeenCalledTimes(1));
 		await waitFor(() => expect(result.current.failed).toBe(true));
 	});
@@ -59,15 +59,15 @@ describe("useDashboardCards", () => {
 		(seedGlobalCards as jest.Mock)
 			.mockRejectedValueOnce(new Error("offline"))
 			.mockResolvedValueOnce(undefined);
-		const { result } = renderHook(() => useDashboardCards(null));
+		const { result } = await renderHook(() => useDashboardCards(null));
 
-		miss();
+		await miss();
 		await waitFor(() => expect(result.current.failed).toBe(true));
 
-		act(() => result.current.retry());
-		miss();
+		await act(() => result.current.retry());
+		await miss();
 		await waitFor(() => expect(seedGlobalCards).toHaveBeenCalledTimes(2));
-		hit();
+		await hit();
 		await waitFor(() => expect(result.current.failed).toBe(false));
 	});
 });
