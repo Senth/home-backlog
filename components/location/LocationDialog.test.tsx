@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { TextInput as RNTextInput } from "react-native";
 import { Provider } from "react-native-paper";
 import { LocationDialog } from "@/components/location/LocationDialog";
 import { PaperIcon } from "@/components/ui/PaperIcon";
@@ -81,11 +80,6 @@ function renderDialog(
 	);
 }
 
-/** The name field, which Paper renders as one inner `TextInput`. */
-function nameField() {
-	return screen.UNSAFE_getByType(RNTextInput);
-}
-
 describe("LocationDialog", () => {
 	it("trims the name on the create path", () => {
 		renderDialog();
@@ -94,7 +88,7 @@ describe("LocationDialog", () => {
 				.accessibilityState,
 		).toEqual({ selected: true });
 
-		fireEvent.changeText(nameField(), "  Garden  ");
+		fireEvent.changeText(screen.getByDisplayValue(""), "  Garden  ");
 		fireEvent.press(screen.getByText("board.add"));
 
 		expect(createLocation).toHaveBeenCalledWith(
@@ -111,7 +105,7 @@ describe("LocationDialog", () => {
 	it("trims the name on the edit path", () => {
 		renderDialog({ location: place() });
 
-		fireEvent.changeText(nameField(), "  Trädgården  ");
+		fireEvent.changeText(screen.getByDisplayValue("Garden"), "  Trädgården  ");
 		fireEvent.press(screen.getByText("labels.save"));
 
 		expect(editLocation).toHaveBeenCalledWith("home-1", "garden", {
@@ -122,7 +116,7 @@ describe("LocationDialog", () => {
 	it("writes nothing when the trimmed name is the one already stored", () => {
 		renderDialog({ location: place() });
 
-		fireEvent.changeText(nameField(), "  Garden  ");
+		fireEvent.changeText(screen.getByDisplayValue("Garden"), "  Garden  ");
 		fireEvent.press(screen.getByText("labels.save"));
 
 		expect(editLocation).not.toHaveBeenCalled();
@@ -132,7 +126,7 @@ describe("LocationDialog", () => {
 		const onDismiss = jest.fn();
 		renderDialog({ location: place(), onDismiss });
 		fireEvent.press(screen.getByRole("button", { name: "labels.customColor" }));
-		const hexField = screen.UNSAFE_getAllByType(RNTextInput)[1];
+		const hexField = screen.getByDisplayValue(/^#[\da-f]{6}$/i);
 		const valid = toHex([0xaa, 0xbb, 0xcc]).slice(0, 4);
 		fireEvent.changeText(hexField, valid);
 		fireEvent.changeText(hexField, `${valid}d`);
@@ -151,7 +145,7 @@ describe("LocationDialog", () => {
 		const onDismiss = jest.fn();
 		renderDialog({ location: place(), onDismiss });
 		fireEvent.press(screen.getByRole("button", { name: "labels.customColor" }));
-		const hexField = screen.UNSAFE_getAllByType(RNTextInput)[1];
+		const hexField = screen.getByDisplayValue(/^#[\da-f]{6}$/i);
 		fireEvent.changeText(hexField, toHex([0xaa, 0xbb, 0xcc]).slice(0, 4));
 		fireEvent.changeText(hexField, "invalid");
 		expect(screen.getByText("labels.colorInvalid")).toBeOnTheScreen();

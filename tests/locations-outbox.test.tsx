@@ -1,6 +1,6 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { AppState, type AppStateStatus } from "react-native";
-import { Menu, Provider, Snackbar } from "react-native-paper";
+import { Provider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import Locations from "@/app/(app)/(tabs)/locations";
 import { LocationTree } from "@/components/location/LocationRow";
@@ -208,12 +208,14 @@ it("View menu keeps tree controls reachable below 320px and closes after each ac
 
 	const choose = async (title: string) => {
 		fireEvent.press(screen.getByText("locations.view"));
-		const item = screen
-			.UNSAFE_getAllByType(Menu.Item)
-			.find((each) => each.props.title === title);
-		expect(item).toBeDefined();
-		await act(async () => item?.props.onPress?.());
-		expect(screen.UNSAFE_getByType(Menu).props.visible).toBe(false);
+		expect(screen.getAllByTestId("menu-view")).toHaveLength(1);
+		await act(async () => {
+			fireEvent.press(screen.getByRole("menuitem", { name: title }));
+		});
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 300));
+		});
+		expect(screen.queryByTestId("menu-view")).toBeNull();
 	};
 	await choose("locations.collapseAll");
 	expect(jest.mocked(LocationTree).mock.calls.at(-1)?.[0].collapsed).toEqual(
@@ -277,9 +279,7 @@ it.each([
 			await waitFor(() =>
 				expect(JSON.parse(mockStore["outbox:marcus"])).toEqual([]),
 			);
-			expect(
-				screen.UNSAFE_getAllByType(Snackbar).filter((bar) => bar.props.action),
-			).toHaveLength(0);
+			expect(screen.queryByText("common.undo")).toBeNull();
 			expect(
 				screen.queryByText(
 					'outbox.queuedMove:{"name":"Kitchen","target":"Garden"}',

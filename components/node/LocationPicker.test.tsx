@@ -117,17 +117,17 @@ describe("LocationPicker", () => {
 
 		// The sheet's one selection style (#314): no tick drawn on any row,
 		// and every row leads with the glyph its place carries in the tree.
+		expect(screen.queryAllByTestId("checkbox-marked")).toHaveLength(0);
+		expect(screen.queryAllByTestId("checkbox-blank-outline")).toHaveLength(0);
 		expect(
-			screen.UNSAFE_queryAllByProps({ source: "checkbox-marked" }),
-		).toHaveLength(0);
+			screen.getAllByTestId("home", { includeHiddenElements: true }),
+		).toHaveLength(1);
 		expect(
-			screen.UNSAFE_queryAllByProps({ source: "checkbox-blank-outline" }),
-		).toHaveLength(0);
-		expect(screen.UNSAFE_getAllByProps({ source: "home" })).toHaveLength(1);
-		expect(screen.UNSAFE_getAllByProps({ source: "stairs" })).toHaveLength(1);
-		expect(screen.UNSAFE_getAllByProps({ source: "door-open" })).toHaveLength(
-			1,
-		);
+			screen.getAllByTestId("stairs", { includeHiddenElements: true }),
+		).toHaveLength(1);
+		expect(
+			screen.getAllByTestId("door-open", { includeHiddenElements: true }),
+		).toHaveLength(1);
 	});
 
 	it("shows the full path as a trail under a filed row", () => {

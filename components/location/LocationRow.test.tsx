@@ -5,7 +5,8 @@ import {
 	waitFor,
 	within,
 } from "@testing-library/react-native";
-import { Menu, Provider } from "react-native-paper";
+import type { ComponentProps } from "react";
+import { Provider } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import type { ReactTestInstance } from "react-test-renderer";
 import { DragArea } from "@/components/board/DragArea";
@@ -13,8 +14,15 @@ import { LocationRow } from "@/components/location/LocationRow";
 import { deleteLocation, reorderLocation } from "@/data/locations";
 import type { OutboxIntent } from "@/data/outbox-store";
 import type { Location } from "@/models/locations";
+import type { RecordedComponent } from "@/tests/support/record-props";
 import { lightTheme } from "@/theme";
 import { space } from "@/theme/tokens";
+
+jest.mock("@/components/board/DragArea", () => {
+	const { recordProps } = require("@/tests/support/record-props");
+	const actual = jest.requireActual("@/components/board/DragArea");
+	return { ...actual, DragArea: recordProps(actual.DragArea) };
+});
 
 jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => {
 	const { View } = jest.requireActual("react-native");
@@ -67,6 +75,10 @@ jest.mock("@/data/locations", () => ({
 jest.mock("@/contexts/HomeContext", () => ({
 	useHome: () => ({ activeHome: null }),
 }));
+
+const mockDragArea = DragArea as RecordedComponent<
+	ComponentProps<typeof DragArea>
+>;
 
 const house: Location = {
 	id: "house",
@@ -181,18 +193,16 @@ describe("LocationRow", () => {
 			},
 		];
 		mockSubmit.mockResolvedValue("queued");
-		const { root, getByLabelText } = renderRow({
+		const { getByLabelText, getByRole } = renderRow({
 			location: subject,
 			locations: [parent, subject, sibling],
 		});
 		fireEvent.press(getByLabelText("locations.actions"), {
 			stopPropagation: jest.fn(),
 		});
-		const item = root
-			.findAllByType(Menu.Item)
-			.find((each) => each.props.title === "locations.moveDown");
-		expect(item).toBeDefined();
-		await act(async () => item?.props.onPress());
+		await act(async () => {
+			fireEvent.press(getByRole("menuitem", { name: "locations.moveDown" }));
+		});
 		expect(mockSubmit).toHaveBeenCalledWith(
 			expect.objectContaining({
 				kind: "moveLocation",
@@ -206,26 +216,21 @@ describe("LocationRow", () => {
 		expect(reorderLocation).not.toHaveBeenCalled();
 	});
 
-	it("offline still offers Move and Delete without a connection hint", () => {
+	it("offline still offers Move and Delete without a connection hint", async () => {
 		const onMoveUnder = jest.fn();
-		const { root, getByLabelText, queryByText } = renderRow({
+		const { getByLabelText, getByRole, queryByText } = renderRow({
 			onMoveUnder,
 		});
 		fireEvent.press(getByLabelText("locations.actions"), {
 			stopPropagation: jest.fn(),
 		});
-		const items = root.findAllByType(Menu.Item);
 		for (const title of ["locations.moveUnder", "locations.delete"]) {
-			expect(
-				items.find((item) => item.props.title === title)?.props.disabled,
-			).toBeFalsy();
+			expect(getByRole("menuitem", { name: title })).toBeEnabled();
 		}
 		expect(queryByText("board.offlineHint")).toBeNull();
-		act(() =>
-			items
-				.find((item) => item.props.title === "locations.moveUnder")
-				?.props.onPress(),
-		);
+		await act(async () => {
+			fireEvent.press(getByRole("menuitem", { name: "locations.moveUnder" }));
+		});
 		expect(onMoveUnder).toHaveBeenCalledWith(house);
 	});
 
@@ -272,12 +277,12 @@ describe("LocationRow", () => {
 			register: jest.fn(),
 			dragged: null,
 		};
-		const { root, getByText } = renderRow({
+		const { getByText } = renderRow({
 			waiting: true,
 			drag: drag as unknown as Parameters<typeof LocationRow>[0]["drag"],
 		});
-		expect(root.findByType(DragArea).props.enabled).toBe(true);
-		expect(root.findByType(DragArea).props).toMatchObject(handlers);
+		expect(mockDragArea.getProps()[0].enabled).toBe(true);
+		expect(mockDragArea.getProps()[0]).toMatchObject(handlers);
 		expect(drag.handlers).toHaveBeenCalledWith(house);
 		expect(drag.register).toHaveBeenCalledWith("row:house");
 		expect(getByText("outbox.waiting")).toBeTruthy();
@@ -345,7 +350,7 @@ describe("LocationRow", () => {
 
 	it("selects a move destination without navigating, while chevron stays live", () => {
 		const onSelect = jest.fn();
-		const { getByLabelText, onOpen, onToggle, root } = renderRow({
+		const { getByLabelText, onOpen, onToggle } = renderRow({
 			move: { movingId: "other", selectedId: house.id, onSelect },
 		});
 
@@ -354,7 +359,7 @@ describe("LocationRow", () => {
 		expect(onOpen).not.toHaveBeenCalled();
 		expect(getByLabelText(/locations.open/)).toBeSelected();
 		expect(getByLabelText("locations.actions")).toBeDisabled();
-		expect(root.findByType(DragArea).props.enabled).toBe(false);
+		expect(mockDragArea.getProps()[0].enabled).toBe(false);
 		fireEvent.press(getByLabelText(/locations.toggle/));
 		expect(onToggle).toHaveBeenCalledWith(house.id);
 	});
