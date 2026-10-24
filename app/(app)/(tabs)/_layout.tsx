@@ -101,6 +101,7 @@ export default function TabsLayout() {
 		desktopLayout({ windowWidth: width, columnCount: 0, screen: "flow" })
 			.nav === "rail";
 	const besideIcon = !rail && width > height;
+	const narrowLabels = rail || width < denseBreakpoint;
 	const insets = useSafeAreaInsets();
 
 	if (!activeHome) return <Redirect href="/homes" />;
@@ -189,12 +190,17 @@ export default function TabsLayout() {
 							glyph
 						);
 					},
-					tabBarAccessibilityLabel: t(`tab.${route.name}`),
+					// The name carries the same soft hyphens as the visible label, so
+					// it contains the visible words (WCAG 2.5.3); screen readers skip
+					// U+00AD, so it is still read as one word.
+					tabBarAccessibilityLabel: t(
+						narrowLabels ? `tab.${route.name}Narrow` : `tab.${route.name}`,
+					),
 					// Soft hyphens keep the same words readable when each tab is narrow.
 					tabBarLabel: ({ color, children, position }) => (
 						<Text
 							variant="labelMedium"
-							numberOfLines={rail || width < denseBreakpoint ? undefined : 1}
+							numberOfLines={narrowLabels ? undefined : 1}
 							aria-label={children}
 							style={
 								position === "beside-icon"
@@ -208,9 +214,7 @@ export default function TabsLayout() {
 										}
 							}
 						>
-							{rail || width < denseBreakpoint
-								? t(`tab.${route.name}Narrow`)
-								: children}
+							{narrowLabels ? t(`tab.${route.name}Narrow`) : children}
 						</Text>
 					),
 				})}

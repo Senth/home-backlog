@@ -38,9 +38,22 @@ const triggerTestID = "account-menu-trigger";
 
 /** The signed-in user's avatar. Same photo-over-initials behavior the members
  *  list uses, which is why it lives in one place. */
-function AccountAvatar({ user, px }: { user: User; px: number }) {
+function AccountAvatar({
+	user,
+	px,
+	fallbackIcon,
+}: {
+	user: User;
+	px: number;
+	fallbackIcon?: string;
+}) {
 	return (
-		<PersonAvatar name={displayLabel(user)} photoURL={user.photoURL} px={px} />
+		<PersonAvatar
+			name={displayLabel(user)}
+			photoURL={user.photoURL}
+			px={px}
+			fallbackIcon={fallbackIcon}
+		/>
 	);
 }
 
@@ -154,7 +167,11 @@ export function AccountMenu() {
 								gap: space.sm,
 							}}
 						>
-							<AccountAvatar user={user} px={size.avatarSm} />
+							<AccountAvatar
+								user={user}
+								px={size.avatarSm}
+								fallbackIcon={showName ? "account" : undefined}
+							/>
 							{showName ? <Text variant="labelLarge">{name}</Text> : null}
 						</View>
 					</TouchableRipple>

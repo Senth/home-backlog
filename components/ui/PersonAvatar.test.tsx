@@ -52,6 +52,21 @@ describe("PersonAvatar", () => {
 		expect(screen.queryByText("M")).toBeTruthy();
 	});
 
+	it("paints the fallback icon instead of the initials when one is given", async () => {
+		const screen = await render(
+			<ThemeProvider theme={lightTheme}>
+				<PersonAvatar
+					name="Marcus"
+					photoURL={null}
+					px={32}
+					fallbackIcon="account"
+				/>
+			</ThemeProvider>,
+		);
+
+		expect(screen.queryByText("M")).toBeNull();
+	});
+
 	it("recovers the image attempt when a failed URL is swapped for another", async () => {
 		const screen = await renderAvatar("https://example.com/a.png");
 
