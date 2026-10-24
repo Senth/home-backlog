@@ -26,22 +26,6 @@
 		"icons": "python3 scripts/gen-icons.py",
 		"todo": "scripts/sync-todo.sh"
 	},
-	"jest": {
-		"preset": "jest-expo",
-		"clearMocks": true,
-		"setupFiles": [
-			"<rootDir>/tests/jest-setup.ts"
-		],
-		"testPathIgnorePatterns": [
-			"<rootDir>/node_modules/",
-			"<rootDir>/tests/rules/",
-			"<rootDir>/e2e/",
-			"<rootDir>/functions/"
-		],
-		"transformIgnorePatterns": [
-			"node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|@react-native-firebase|firebase|react-native-paper|fractional-indexing))"
-		]
-	},
 	"dependencies": {
 		"@expo/vector-icons": "15.1.1",
 		"@react-native-async-storage/async-storage": "3.1.1",

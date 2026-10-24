@@ -1,6 +1,3 @@
-/**
- * @jest-environment jsdom
- */
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { onSnapshot } from "firebase/firestore";
 import { seedGlobalCards } from "@/data/cards";

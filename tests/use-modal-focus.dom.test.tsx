@@ -1,6 +1,3 @@
-/**
- * @jest-environment jsdom
- */
 import { act, render } from "@testing-library/react-native";
 import { useModalFocus } from "@/hooks/use-modal-focus.web";
 
