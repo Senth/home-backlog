@@ -1,19 +1,12 @@
+/** @timezone Asia/Kathmandu */
+
 import { act, renderHook } from "@testing-library/react-native";
 import { useCalendarDay } from "@/hooks/use-calendar-day";
 import { toCalendarDay } from "@/models/due-date";
 
-/**
- * Pinned for the same reason the overview models pin it: the turnover is a
- * wall-clock event, and +05:45 is the offset that cannot pass by luck.
- */
-const originalTz = process.env.TZ;
-
 beforeAll(() => {
-	process.env.TZ = "Asia/Kathmandu";
-});
-
-afterAll(() => {
-	process.env.TZ = originalTz;
+	expect(new Date("2026-01-15T12:00:00Z").getTimezoneOffset()).toBe(-345);
+	expect(new Date("2026-07-15T12:00:00Z").getTimezoneOffset()).toBe(-345);
 });
 
 beforeEach(() => {

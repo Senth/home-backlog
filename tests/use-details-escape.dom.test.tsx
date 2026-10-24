@@ -1,4 +1,3 @@
-/** @jest-environment jsdom */
 import { act, render } from "@testing-library/react-native";
 import { useDetailsEscape } from "@/hooks/use-details-escape.web";
 
