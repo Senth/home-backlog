@@ -1,3 +1,5 @@
+/** @timezone Europe/Stockholm */
+
 import type { Timestamp } from "firebase/firestore";
 import {
 	type CardCondition,
@@ -15,18 +17,9 @@ import {
 	toCard,
 } from "@/models/overview-cards";
 
-/**
- * Pinned like `overview.test.ts`: the `dueDate` conditions compare calendar
- * days, so the boundary has to be proven in a zone the app ships strings for.
- */
-const originalTz = process.env.TZ;
-
 beforeAll(() => {
-	process.env.TZ = "Europe/Stockholm";
-});
-
-afterAll(() => {
-	process.env.TZ = originalTz;
+	expect(new Date("2026-01-15T12:00:00Z").getTimezoneOffset()).toBe(-60);
+	expect(new Date("2026-07-15T12:00:00Z").getTimezoneOffset()).toBe(-120);
 });
 
 function at(year: number, month: number, day: number, hour = 12): Date {

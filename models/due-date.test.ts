@@ -1,3 +1,5 @@
+/** @timezone Europe/Stockholm */
+
 import {
 	dayDifference,
 	dueState,
@@ -9,20 +11,9 @@ import {
 } from "@/models/due-date";
 import type { Node } from "@/models/node";
 
-/**
- * Pinned rather than left to the machine, because the whole point of comparing
- * calendar days is that the answer does not depend on where the reader is — and
- * a test that only proves that in UTC proves nothing. Stockholm is one of the
- * two timezones the app ships strings for, and it observes DST.
- */
-const originalTz = process.env.TZ;
-
 beforeAll(() => {
-	process.env.TZ = "Europe/Stockholm";
-});
-
-afterAll(() => {
-	process.env.TZ = originalTz;
+	expect(new Date("2026-01-15T12:00:00Z").getTimezoneOffset()).toBe(-60);
+	expect(new Date("2026-07-15T12:00:00Z").getTimezoneOffset()).toBe(-120);
 });
 
 /** A local instant, whatever offset the pinned zone happens to be on. */

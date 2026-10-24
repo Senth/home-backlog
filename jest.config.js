@@ -23,6 +23,7 @@ module.exports = {
 			...shared,
 			displayName: "native",
 			preset: "jest-expo",
+			testEnvironment: "<rootDir>/tests/jest-timezone-environment.js",
 			testPathIgnorePatterns: [
 				...shared.testPathIgnorePatterns,
 				"\\.dom\\.test\\.tsx?$",

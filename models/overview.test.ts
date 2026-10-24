@@ -1,3 +1,5 @@
+/** @timezone Europe/Stockholm */
+
 import { defaultColumns, type Node } from "@/models/node";
 import {
 	doneSince,
@@ -7,18 +9,9 @@ import {
 	maxDoneWithinDays,
 } from "@/models/overview";
 
-/**
- * Pinned for the same reason `due-date.test.ts` pins it: Recently done's
- * window is a wall-clock window, and the hide predicate reads the same `now`.
- */
-const originalTz = process.env.TZ;
-
 beforeAll(() => {
-	process.env.TZ = "Europe/Stockholm";
-});
-
-afterAll(() => {
-	process.env.TZ = originalTz;
+	expect(new Date("2026-01-15T12:00:00Z").getTimezoneOffset()).toBe(-60);
+	expect(new Date("2026-07-15T12:00:00Z").getTimezoneOffset()).toBe(-120);
 });
 
 function at(year: number, month: number, day: number, hour = 12): Date {
