@@ -11,15 +11,21 @@ import { useAppTheme } from "@/theme";
  * simply unavailable offline. Painting the initials *over* the image and
  * removing them only once it has loaded means a list of people never shows a
  * hole, never shifts layout, and keeps the initials if the request fails.
+ *
+ * `fallbackIcon` paints an icon there instead, for a spot where the name is
+ * already written beside the avatar: initials would put a stray "M" in front
+ * of "Marcus", outside the button's accessible name (WCAG 2.5.3).
  */
 export function PersonAvatar({
 	name,
 	photoURL,
 	px,
+	fallbackIcon,
 }: {
 	name: string;
 	photoURL: string | null;
 	px: number;
+	fallbackIcon?: string;
 }) {
 	const theme = useAppTheme();
 	const [photoLoaded, setPhotoLoaded] = useState(false);
@@ -44,7 +50,17 @@ export function PersonAvatar({
 					onError={() => setPhotoFailed(true)}
 				/>
 			) : null}
-			{photoLoaded ? null : (
+			{photoLoaded ? null : fallbackIcon ? (
+				<Avatar.Icon
+					size={px}
+					icon={fallbackIcon}
+					color={theme.colors.onPrimaryContainer}
+					style={{
+						position: "absolute",
+						backgroundColor: theme.colors.primaryContainer,
+					}}
+				/>
+			) : (
 				<Avatar.Text
 					size={px}
 					label={initials({ displayName: name })}

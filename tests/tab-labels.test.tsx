@@ -50,7 +50,7 @@ describe.each([
 	],
 ] as const)("%s tab labels", (_locale, translations, narrowLabels) => {
 	it.each([195, 320, 390, 720, 1024, 1440, 2560])(
-		"keeps whole words and clean accessible names at %ipx",
+		"keeps whole words and names that match the visible label at %ipx",
 		(width) => {
 			mockWidth = width;
 			mockTabs = translations;
@@ -67,8 +67,9 @@ describe.each([
 					...screen.props.options,
 				} as BottomTabNavigationOptions;
 				const full = translations[screen.props.name];
+				const shown = width < 320 || width >= 720 ? narrowLabels[index] : full;
 				expect(options.title).toBe(full);
-				expect(options.tabBarAccessibilityLabel).toBe(full);
+				expect(options.tabBarAccessibilityLabel).toBe(shown);
 				if (typeof options.tabBarLabel !== "function") {
 					throw new Error("Expected custom tab label renderer");
 				}
@@ -78,9 +79,7 @@ describe.each([
 					position: "below-icon",
 					children: full,
 				}) as ReactElement<{ children: string; "aria-label": string }>;
-				expect(label.props.children).toBe(
-					width < 320 || width >= 720 ? narrowLabels[index] : full,
-				);
+				expect(label.props.children).toBe(shown);
 				expect(label.props["aria-label"]).toBe(full);
 			}
 		},
