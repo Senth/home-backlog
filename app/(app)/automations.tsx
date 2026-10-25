@@ -3,7 +3,6 @@ import { type Ref, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View, type ViewInstance } from "react-native";
 import {
-	ActivityIndicator,
 	Button,
 	Divider,
 	HelperText,
@@ -15,6 +14,7 @@ import {
 import { AppDialog, ConfirmDialog } from "@/components/ui/AppDialog";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
+import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import { Row } from "@/components/ui/Row";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -140,10 +140,7 @@ export default function Automations() {
 					// "Nothing is connected yet." is a *fact*, and it must not be said
 					// while the answer is still arriving — somebody with three keys
 					// would read it on every cold open.
-					<ActivityIndicator
-						accessibilityLabel={t("common.loading")}
-						style={{ marginTop: space.lg }}
-					/>
+					<LoadingIndicator style={{ marginTop: space.lg }} />
 				) : keys.length === 0 ? (
 					<Text
 						variant="bodyLarge"

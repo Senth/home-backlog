@@ -752,12 +752,13 @@ describe("Board", () => {
 
 	// #266: first launch holds `loading` while the cache-only snapshot waits for
 	// the server, and the board below the spinner must not read as empty.
-	it("shows the spinner instead of the columns while loading", async () => {
+	it("delays the spinner and hides the columns while loading", async () => {
 		await renderBoard({ loading: true, viewport: 800 });
 
-		expect(screen.getByLabelText("common.loading")).toBeOnTheScreen();
+		expect(screen.queryByLabelText("common.loading")).toBeNull();
 		expect(screen.queryByTestId("board-column-backlog")).not.toBeOnTheScreen();
 		expect(screen.queryByTestId("board-column-done")).not.toBeOnTheScreen();
+		expect(await screen.findByLabelText("common.loading")).toBeOnTheScreen();
 	});
 
 	it("shows the columns once loading has ended", async () => {

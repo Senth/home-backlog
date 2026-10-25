@@ -15,14 +15,7 @@ import {
 	View,
 	type ViewInstance,
 } from "react-native";
-import {
-	ActivityIndicator,
-	Button,
-	FAB,
-	Icon,
-	Menu,
-	Text,
-} from "react-native-paper";
+import { Button, FAB, Icon, Menu, Text } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { boardHref, detailsCardId } from "@/components/board/board-href";
 import { LocationDialog } from "@/components/location/LocationDialog";
@@ -38,6 +31,7 @@ import { DetailsPane } from "@/components/node/DetailsPane";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { AppMenu } from "@/components/ui/AppMenu";
 import { BackAction } from "@/components/ui/BackAction";
+import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import { OutboxSnackbar } from "@/components/ui/OutboxSnackbar";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useHome } from "@/contexts/HomeContext";
@@ -345,10 +339,7 @@ export default function Locations() {
 					}}
 				>
 					{loading ? (
-						<ActivityIndicator
-							accessibilityLabel={t("common.loading")}
-							style={{ marginTop: space.xl }}
-						/>
+						<LoadingIndicator style={{ marginTop: space.xl }} />
 					) : null}
 
 					{/* Said instead of the empty state, never next to it: "add the

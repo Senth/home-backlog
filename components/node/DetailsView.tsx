@@ -10,7 +10,6 @@ import {
 import { useTranslation } from "react-i18next";
 import { View, type ViewInstance } from "react-native";
 import {
-	ActivityIndicator,
 	Appbar,
 	Divider,
 	IconButton,
@@ -40,6 +39,7 @@ import { AppHeader } from "@/components/ui/AppHeader";
 import { AppMenu } from "@/components/ui/AppMenu";
 import { AppSheet } from "@/components/ui/AppSheet";
 import { BackAction } from "@/components/ui/BackAction";
+import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -523,10 +523,7 @@ export function DetailsView({
 			) : null}
 
 			{node === null ? (
-				<ActivityIndicator
-					accessibilityLabel={t("common.loading")}
-					style={{ marginTop: space.xl }}
-				/>
+				<LoadingIndicator style={{ marginTop: space.xl }} />
 			) : (
 				<SlimScrollView
 					style={{ flex: 1 }}

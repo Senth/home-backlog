@@ -9,15 +9,7 @@ import {
 	View,
 	type ViewInstance,
 } from "react-native";
-import {
-	ActivityIndicator,
-	Badge,
-	Button,
-	FAB,
-	Menu,
-	Surface,
-	Text,
-} from "react-native-paper";
+import { Badge, Button, FAB, Menu, Surface, Text } from "react-native-paper";
 import { BlockerWatcher } from "@/components/board/BlockerWatcher";
 import { BoardCard } from "@/components/board/BoardCard";
 import { BoardColumn } from "@/components/board/BoardColumn";
@@ -39,6 +31,7 @@ import {
 import { DetailsPane } from "@/components/node/DetailsPane";
 import { fieldSpecs } from "@/components/overview/CardEditForm";
 import { AppMenu } from "@/components/ui/AppMenu";
+import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import { OutboxSnackbar } from "@/components/ui/OutboxSnackbar";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -663,12 +656,7 @@ export function Board({
 					/>
 				) : null}
 
-				{loading ? (
-					<ActivityIndicator
-						accessibilityLabel={t("common.loading")}
-						style={{ marginTop: space.xl }}
-					/>
-				) : null}
+				{loading ? <LoadingIndicator style={{ marginTop: space.xl }} /> : null}
 
 				{/* Said whether or not any cards arrived. The board is two listeners and
 			    only one of them has to fail, so a board that looks ordinary can be

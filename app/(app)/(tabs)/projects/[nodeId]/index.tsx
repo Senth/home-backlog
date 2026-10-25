@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View, type ViewInstance } from "react-native";
-import { ActivityIndicator, Snackbar } from "react-native-paper";
+import { Snackbar } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
 import {
@@ -19,6 +19,7 @@ import {
 } from "@/components/board/SelectionBar";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
+import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import { useHome } from "@/contexts/HomeContext";
 import { useAncestors } from "@/hooks/use-ancestors";
 import { useBoardFilter } from "@/hooks/use-board-filter";
@@ -249,10 +250,7 @@ export default function NodeBoard() {
 					selection={selection}
 				/>
 			) : (
-				<ActivityIndicator
-					accessibilityLabel={t("common.loading")}
-					style={{ marginTop: space.xl }}
-				/>
+				<LoadingIndicator style={{ marginTop: space.xl }} />
 			)}
 
 			{showFilterAction && homeId !== null && node !== null ? (

@@ -2,11 +2,12 @@ import { Redirect, useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
-import { ActivityIndicator, Button, Text } from "react-native-paper";
+import { Button, Text } from "react-native-paper";
 import { CardEditForm } from "@/components/overview/CardEditForm";
 import { useCardWrites } from "@/components/overview/use-card-writes";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
+import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
 import { useHome } from "@/contexts/HomeContext";
 import { useLocations } from "@/hooks/use-locations";
@@ -75,10 +76,7 @@ export default function OverviewCardEdit() {
 			/>
 
 			{loading ? (
-				<ActivityIndicator
-					accessibilityLabel={t("common.loading")}
-					style={{ marginTop: space.xl }}
-				/>
+				<LoadingIndicator style={{ marginTop: space.xl }} />
 			) : failed ? (
 				<View style={{ gap: space.md, padding: space.md }}>
 					<Text

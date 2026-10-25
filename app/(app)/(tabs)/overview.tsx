@@ -2,13 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View } from "react-native";
-import {
-	ActivityIndicator,
-	Appbar,
-	Button,
-	FAB,
-	Text,
-} from "react-native-paper";
+import { Appbar, Button, FAB, Text } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { BoardCard } from "@/components/board/BoardCard";
 import {
@@ -24,6 +18,7 @@ import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { InstallCard } from "@/components/ui/InstallCard";
+import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
@@ -415,10 +410,7 @@ export default function Overview() {
 					<InstallCard />
 
 					{loading ? (
-						<ActivityIndicator
-							accessibilityLabel={t("common.loading")}
-							style={{ marginTop: space.xl }}
-						/>
+						<LoadingIndicator style={{ marginTop: space.xl }} />
 					) : null}
 
 					{nothingAtAll ? (
