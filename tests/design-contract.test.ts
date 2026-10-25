@@ -31,18 +31,16 @@ describe("design contract", () => {
 				decisionIndent = -1;
 			}
 
-			const bullet = inDecisions ? line.match(/^( {0,3})([-*+])\s/) : null;
+			const bullet = inDecisions && /^ {0,3}[-*+]\s/.test(line);
 			if (bullet) {
-				const indentation = bullet[1].length;
+				const indentation = line.search(/\S/);
 				if (decisionIndent === -1) decisionIndent = indentation;
 				if (indentation === decisionIndent) {
 					finishDecision();
 					decisionStart = index;
-					decisionHasContested = line.includes("Contested:");
-				} else if (decisionStart !== -1 && line.includes("Contested:")) {
-					decisionHasContested = true;
 				}
-			} else if (decisionStart !== -1 && line.includes("Contested:")) {
+			}
+			if (decisionStart !== -1 && line.includes("Contested:")) {
 				decisionHasContested = true;
 			}
 
