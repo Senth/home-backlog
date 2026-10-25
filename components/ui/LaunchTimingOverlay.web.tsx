@@ -13,6 +13,7 @@ import {
 import { buildId } from "@/utils/build-info";
 import { copyText } from "@/utils/copy-text.web";
 import {
+	networkEntries,
 	type TimingRow,
 	timingMarkdown,
 	timingRows,
@@ -29,6 +30,9 @@ function readRows() {
 			? [{ name: "launch:html", startTime: navigation.responseEnd }]
 			: []),
 		...performance.getEntriesByType("mark"),
+		...networkEntries(
+			performance.getEntriesByType("resource") as PerformanceResourceTiming[],
+		),
 	]);
 }
 
@@ -57,7 +61,7 @@ export function LaunchTimingOverlay() {
 		setRows(readRows());
 
 		const observer = new PerformanceObserver(() => setRows(readRows()));
-		observer.observe({ type: "mark" });
+		observer.observe({ entryTypes: ["mark", "resource"] });
 		return () => observer.disconnect();
 	}, []);
 
