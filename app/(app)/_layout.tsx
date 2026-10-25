@@ -1,8 +1,6 @@
 import { Redirect, Stack } from "expo-router";
-import { SplashScreen } from "@/components/ui/SplashScreen";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardCardsProvider } from "@/contexts/DashboardCardsContext";
-import { HomeProvider, useHome } from "@/contexts/HomeContext";
 import { OutboxProvider } from "@/contexts/OutboxContext";
 import { markLaunch } from "@/utils/launch-timing";
 
@@ -15,9 +13,9 @@ import { markLaunch } from "@/utils/launch-timing";
  * tab bar before bouncing to login. Returning `<Redirect />` here means the tab
  * routes never mount at all.
  *
- * `AuthGate` guarantees this only renders once auth has resolved, so `user`
- * being null is an answer and not a not-yet — and `HomeProvider` mounting
- * *inside* that answer is what stops the homes query racing sign-in.
+ * The root `AuthGate` waits for auth, fonts and the initial homes answer.
+ * `HomeProvider` already wraps it for a signed-in user, so this layout owns
+ * only the signed-out redirect and the app's route-level providers.
  */
 export default function AppLayout() {
 	const { user } = useAuth();
@@ -25,25 +23,17 @@ export default function AppLayout() {
 	if (!user) return <Redirect href="/(auth)/login" />;
 
 	return (
-		<HomeProvider user={user}>
-			<OutboxProvider key={user.uid}>
-				<HomeGate />
-			</OutboxProvider>
-		</HomeProvider>
+		<OutboxProvider key={user.uid}>
+			<HomeGate />
+		</OutboxProvider>
 	);
 }
 
 /**
- * The same argument as `AuthGate`, one level down: until the app knows which
- * home is active, every route it could mount is a guess. `/homes` and the tab
- * routes answer opposite questions, and showing either one early is how a
- * signed-in user with two homes watches the app open the wrong one and correct
- * itself.
+ * The root `AuthGate` has already resolved the active home before routes mount.
+ * Manual homes retries keep these routes mounted instead of showing a splash.
  */
 function HomeGate() {
-	const { loading } = useHome();
-
-	if (loading) return <SplashScreen />;
 	markLaunch("router");
 
 	// One set of card-config listeners above both routes that read them:

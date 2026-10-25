@@ -25,9 +25,9 @@ import { markLaunch } from "@/utils/launch-timing";
 /**
  * Which homes I am in, and which one I am looking at.
  *
- * Mounted inside the resolved-auth half of the tree (`app/(app)/_layout.tsx`),
- * so `user` here is an answer and never a not-yet — this provider cannot race
- * auth, and the homes query it fires is never made without a uid.
+ * Mounted around the root `AuthGate` whenever auth supplies a user, keyed by
+ * uid. The homes query overlaps the font wait behind one splash, and a changed
+ * or signed-out user unmounts this person's listener and state.
  *
  * One listener, as wide as the number of homes one person belongs to. The cost
  * risk in this app is listener *breadth*, not data volume, and this is the only
@@ -48,7 +48,7 @@ interface HomeContextType {
 	/**
 	 * True until both the persisted id has been read and the homes query has
 	 * answered. Nothing may route on which home is active before this is false —
-	 * the splash holds the router until then, the same way `AuthGate` does.
+	 * the root `AuthGate` holds its single splash until then.
 	 */
 	loading: boolean;
 	/**
