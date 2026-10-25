@@ -65,8 +65,8 @@ dots); the footer is system context (location, effort, due, waiting). Position i
 thing separating them: a priority in the footer or a label above the title destroys both
 readings. The content column reads **project breadcrumbs → title → footer**. Gutter and
 footer items are marks and bare text, never chips. Waiting is quieter than overdue,
-deliberately. Inherited labels render like a card's own. *Private* is plain `onCardMuted`
-text, never a control; a private project's own board says it once, not on every card.
+deliberately. Inherited labels render like a card's own. The privacy marker is plain
+`onCardMuted` text, never a control; a private project's own board says it once, not on every card.
 
 ## Surfaces and elevation
 
@@ -92,11 +92,12 @@ and a variant that should have existed.** Use the variant.
 | `labelLarge` | button and chip labels |
 | `labelMedium` | tab labels and the smallest chips |
 
-Two weights, 400 and 500. An eighth variant needs a Decisions entry.
+Weight comes from the variant, never a style prop; louder than `onSurface` takes the heavier
+weight the typescale already has. An eighth variant needs a Decisions entry.
 
 ## Space and shape
 
-The 4pt scale in `space`, and nothing between its steps. **Compact by default, air only where
+The scale in `space`, and nothing between its steps. **Compact by default, air only where
 reading happens**, decided by the job of the surface: scanning surfaces (columns, card
 faces, Overview and list rows) take `space.sm` within a group and `space.md` between;
 reading and filling-in surfaces (details, forms, dialogs) take `space.md` within and
@@ -180,8 +181,8 @@ Three breakpoints, each earned by a real failure and none a device size: `compac
 (below it a board shows one column per screen), `appBarStackBreakpoint` (below it the app
 bar puts its title on its own line), `denseBreakpoint` (below it comfortable padding costs
 more than it is worth). Long text wraps and a title is never ellipsized; rows of controls
-wrap before they shrink below `touchTarget`. At 320 CSS px everything must look right; at
-195 CSS px (a phone at 200% text) nothing may overlap, become unreachable or be cut off.
+wrap before they shrink below `touchTarget`. At `denseBreakpoint` everything must look right; at 200% text on a phone nothing may overlap,
+become unreachable or be cut off.
 
 ## Decisions
 

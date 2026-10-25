@@ -27,7 +27,6 @@ describe("design contract", () => {
 			if (/^#{1,6}\s/.test(line)) {
 				finishDecision();
 				inDecisions = /^##\s+Decisions\s*$/.test(line);
-				return;
 			}
 
 			if (inDecisions && /^[-*+]\s/.test(line)) {
