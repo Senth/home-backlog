@@ -164,6 +164,8 @@ on screen, never while dragging, and never by moving the scroll position. What m
 does not animate: no entrance animation, staggered reveal, or skeleton shimmer. Transform and
 opacity only.
 
+A wait you caused shows at once. A wait you arrived into shows only once it has lasted (`motion.loadingDelay`). After a tap, nothing reads as a missed tap; on arrival, nothing reads as fast.
+
 **`prefers-reduced-motion` is mandatory.** Every animation needs a path where it does not
 run; `hooks/use-reduced-motion.ts` is the one way to read it.
 

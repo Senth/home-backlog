@@ -8,6 +8,7 @@ import { Text } from "react-native";
 import RootLayout from "@/app/_layout";
 import { useHome } from "@/contexts/HomeContext";
 import { subscribeWithRetry } from "@/data/live-query";
+import { motion } from "@/theme/tokens";
 
 let mockUser: User | null;
 let mockAuthLoading = false;
@@ -35,13 +36,6 @@ jest.mock("@/components/ui/OfflineBar", () => ({ OfflineBar: () => null }));
 jest.mock("@/components/ui/UpdateBanner", () => ({ UpdateBanner: () => null }));
 jest.mock("@/components/ui/LaunchTimingOverlay", () => ({
 	LaunchTimingOverlay: () => null,
-}));
-jest.mock("@/components/ui/SplashScreen", () => ({
-	SplashScreen: () => {
-		const { createElement } = require("react") as typeof import("react");
-		const { Text } = require("react-native") as typeof import("react-native");
-		return createElement(Text, null, "Splash");
-	},
 }));
 jest.mock("@/utils/launch-timing", () => ({ markLaunch: jest.fn() }));
 jest.mock("@/hooks/use-color-scheme", () => ({
@@ -119,7 +113,7 @@ beforeEach(() => {
 
 it("opens one homes listener during the font wait and holds routes for both answers", async () => {
 	await render(<RootLayout />);
-	expect(screen.getByText("Splash")).toBeTruthy();
+	expect(screen.getByText("app.name")).toBeTruthy();
 	expect(subscribeWithRetry).toHaveBeenCalledTimes(1);
 	await act(() => answer());
 	expect(screen.queryByText("Stugan")).toBeNull();
@@ -131,10 +125,40 @@ it("opens one homes listener during the font wait and holds routes for both answ
 it("holds the splash after the font until homes answer", async () => {
 	await render(<RootLayout />);
 	await act(() => mockFinishFont());
-	expect(screen.getByText("Splash")).toBeTruthy();
+	expect(screen.getByText("app.name")).toBeTruthy();
 	await act(() => answer());
 	expect(screen.getByText("Stugan")).toBeTruthy();
 });
+
+it.each([false, true])(
+	"keeps the visible splash and font wait stable when pending auth signs in, font ready: %s",
+	async (fontReady) => {
+		jest.useFakeTimers();
+		try {
+			mockUser = null;
+			mockAuthLoading = true;
+			const view = await render(<RootLayout />);
+			if (fontReady) await act(() => mockFinishFont());
+			await act(() => jest.advanceTimersByTime(motion.loadingDelay));
+			expect(screen.getByLabelText("common.loading")).toBeTruthy();
+			mockUser = { uid: "marcus", email: "marcus@example.com" } as User;
+			mockAuthLoading = false;
+			await view.rerender(<RootLayout />);
+			expect(screen.getByLabelText("common.loading")).toBeTruthy();
+			expect(loadAsync).toHaveBeenCalledTimes(1);
+			expect(subscribeWithRetry).toHaveBeenCalledTimes(1);
+			await act(() => answer());
+			if (!fontReady) {
+				expect(screen.getByLabelText("common.loading")).toBeTruthy();
+				await act(() => mockFinishFont());
+			}
+			expect(screen.getByText("Stugan")).toBeTruthy();
+			expect(screen.queryByText("Login")).toBeNull();
+		} finally {
+			jest.useRealTimers();
+		}
+	},
+);
 
 it("waits for the remembered home before mounting routes", async () => {
 	jest.mocked(isLoaded).mockReturnValue(true);
@@ -147,7 +171,7 @@ it("waits for the remembered home before mounting routes", async () => {
 	);
 	await render(<RootLayout />);
 	await act(() => answer());
-	expect(screen.getByText("Splash")).toBeTruthy();
+	expect(screen.getByText("app.name")).toBeTruthy();
 	await act(() => finishStorage("Stugan"));
 	expect(screen.getByText("Stugan")).toBeTruthy();
 });
@@ -163,7 +187,7 @@ it("keeps a failed homes screen mounted during manual retry", async () => {
 		expect(screen.getByText("Try again")).toBeTruthy();
 		await fireEvent.press(screen.getByText("Try again"));
 		expect(screen.getByText("Retrying")).toBeTruthy();
-		expect(screen.queryByText("Splash")).toBeNull();
+		expect(screen.queryByText("app.name")).toBeNull();
 		await act(() => answer());
 		expect(screen.getByText("Stugan")).toBeTruthy();
 	} finally {
@@ -182,7 +206,7 @@ it("unmounts homes on sign-out and holds the next person's routes for fresh home
 	expect(screen.getByText("Login")).toBeTruthy();
 	mockUser = { uid: "anna", email: "anna@example.com" } as User;
 	await view.rerender(<RootLayout />);
-	expect(screen.getByText("Splash")).toBeTruthy();
+	expect(screen.getByText("app.name")).toBeTruthy();
 	expect(screen.queryByText("Stugan")).toBeNull();
 	await act(() => answer(["Anna's home"]));
 	expect(screen.getByText("Anna's home")).toBeTruthy();
@@ -209,7 +233,7 @@ it("replaces the provider immediately when the signed-in uid changes", async () 
 	mockUser = { uid: "anna", email: "anna@example.com" } as User;
 	await view.rerender(<RootLayout />);
 	expect(unsubscribe).toHaveBeenCalledTimes(1);
-	expect(screen.getByText("Splash")).toBeTruthy();
+	expect(screen.getByText("app.name")).toBeTruthy();
 	expect(screen.queryByText("Stugan")).toBeNull();
 	await act(() => answer(["Anna's home"]));
 	expect(screen.getByText("Anna's home")).toBeTruthy();

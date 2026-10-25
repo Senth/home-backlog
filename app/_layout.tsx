@@ -34,22 +34,16 @@ markLaunch("bundle");
 
 function SessionGate() {
 	const { user } = useAuth();
-	return user ? (
-		<HomeProvider key={user.uid} user={user}>
-			<SignedInGate />
+	return (
+		<HomeProvider user={user}>
+			<AuthGate />
 		</HomeProvider>
-	) : (
-		<AuthGate />
 	);
 }
 
-function SignedInGate() {
-	const { loading } = useHome();
-	return <AuthGate homesLoading={loading} />;
-}
-
-function AuthGate({ homesLoading = false }: { homesLoading?: boolean }) {
-	const { loading } = useAuth();
+function AuthGate() {
+	const { user, loading } = useAuth();
+	const { loading: homesLoading } = useHome();
 	const [fontsReady, setFontsReady] = useState(false);
 
 	// The icon font is loaded once, here, behind the splash. Every icon that
@@ -86,7 +80,7 @@ function AuthGate({ homesLoading = false }: { homesLoading?: boolean }) {
 	}, []);
 
 	if (fontsReady) markLaunch("font");
-	const ready = !loading && fontsReady && !homesLoading;
+	const ready = !loading && fontsReady && (!user || !homesLoading);
 	if (ready) markLaunch("splash");
 
 	// Where you are sent is decided by the two group layouts and by

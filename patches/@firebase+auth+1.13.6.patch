@@ -1,8 +1,8 @@
 diff --git a/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js b/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js
-index 7453f95..1a20a53 100644
+index 7453f95..f7d5d12 100644
 --- a/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js
 +++ b/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js
-@@ -2874,18 +2874,14 @@ class AuthImpl {
+@@ -2874,18 +2874,31 @@ class AuthImpl {
          return result;
      }
      async reloadAndSetCurrentUserOrClear(user) {
@@ -10,28 +10,45 @@ index 7453f95..1a20a53 100644
 -            await _reloadWithoutSaving(user);
 -        }
 -        catch (e) {
+-            if (e?.code !==
 +        await this.directlySetCurrentUser(user);
-+        _reloadWithoutSaving(user).then(() => this._persistUserIfCurrent(user), e => {
-             if (e?.code !==
--                `auth/${"network-request-failed" /* AuthErrorCode.NETWORK_REQUEST_FAILED */}`) {
++        _reloadWithoutSaving(user).then(() => this.queue(async () => {
++            if (!this._deleted && this.currentUser === user) {
++                await this.directlySetCurrentUser(user);
++            }
++        }), e => {
++            if (e?.code ===
+                 `auth/${"network-request-failed" /* AuthErrorCode.NETWORK_REQUEST_FAILED */}`) {
 -                // Something's wrong with the user's token. Log them out and remove
 -                // them from storage
 -                return this.directlySetCurrentUser(null);
-+                `auth/${"network-request-failed" /* AuthErrorCode.NETWORK_REQUEST_FAILED */}` &&
-+                this.currentUser === user) {
-+                return this._updateCurrentUser(null);
++                return;
              }
 -        }
 -        return this.directlySetCurrentUser(user);
++            return this.queue(async () => {
++                if (this._deleted || this.currentUser !== user) return;
++                await this.beforeStateQueue.runMiddleware(null);
++                try {
++                    await this.directlySetCurrentUser(null);
++                }
++                finally {
++                    this.notifyAuthListeners();
++                }
++            });
++        }).catch(() => {
++            // Storage failure leaves validated users in memory; revoked users stay
++            // signed out and notify listeners even if disk removal fails. Middleware
++            // rejection preserves the session, as in _updateCurrentUser.
 +        });
      }
      useDeviceLanguage() {
          this.languageCode = _getUserLanguage();
 diff --git a/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js b/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js
-index 19ad008..902b009 100644
+index 19ad008..88e3cca 100644
 --- a/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js
 +++ b/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js
-@@ -2872,18 +2872,14 @@ class AuthImpl {
+@@ -2872,18 +2872,31 @@ class AuthImpl {
          return result;
      }
      async reloadAndSetCurrentUserOrClear(user) {
@@ -39,19 +56,36 @@ index 19ad008..902b009 100644
 -            await _reloadWithoutSaving(user);
 -        }
 -        catch (e) {
+-            if (e?.code !==
 +        await this.directlySetCurrentUser(user);
-+        _reloadWithoutSaving(user).then(() => this._persistUserIfCurrent(user), e => {
-             if (e?.code !==
--                `auth/${"network-request-failed" /* AuthErrorCode.NETWORK_REQUEST_FAILED */}`) {
++        _reloadWithoutSaving(user).then(() => this.queue(async () => {
++            if (!this._deleted && this.currentUser === user) {
++                await this.directlySetCurrentUser(user);
++            }
++        }), e => {
++            if (e?.code ===
+                 `auth/${"network-request-failed" /* AuthErrorCode.NETWORK_REQUEST_FAILED */}`) {
 -                // Something's wrong with the user's token. Log them out and remove
 -                // them from storage
 -                return this.directlySetCurrentUser(null);
-+                `auth/${"network-request-failed" /* AuthErrorCode.NETWORK_REQUEST_FAILED */}` &&
-+                this.currentUser === user) {
-+                return this._updateCurrentUser(null);
++                return;
              }
 -        }
 -        return this.directlySetCurrentUser(user);
++            return this.queue(async () => {
++                if (this._deleted || this.currentUser !== user) return;
++                await this.beforeStateQueue.runMiddleware(null);
++                try {
++                    await this.directlySetCurrentUser(null);
++                }
++                finally {
++                    this.notifyAuthListeners();
++                }
++            });
++        }).catch(() => {
++            // Storage failure leaves validated users in memory; revoked users stay
++            // signed out and notify listeners even if disk removal fails. Middleware
++            // rejection preserves the session, as in _updateCurrentUser.
 +        });
      }
      useDeviceLanguage() {
