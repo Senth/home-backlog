@@ -328,7 +328,7 @@ export default function OverviewEditor() {
 							testID="overview-editor-removed"
 							style={{ paddingHorizontal: pageGutter }}
 						>
-							{/* A section heading is titleMedium per DESIGN § 4 — the
+							{/* A section heading is titleMedium per docs/DESIGN.md § Typography — the
 					    same swap the Overview card headings took. */}
 							<Text
 								variant="titleMedium"

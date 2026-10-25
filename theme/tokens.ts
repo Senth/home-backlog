@@ -375,8 +375,7 @@ export const cardGutterBreakpoint = 250;
  * low so the bottom step is not another grey among greys, and urgent holds one
  * notch of red back from the overdue amber: a color here may say *more*,
  * never *how you should feel*, and overdue must stay the loudest thing the
- * footer can say. `docs/DESIGN.md` still describes the older single-hue ramp;
- * #100's documentation pass replaces that section.
+ * footer can say.
  */
 export const priorityRamp = [
 	{ glyph: "thermometer-chevron-down", color: "#4F6BA8", on: "#FFFFFF" },
