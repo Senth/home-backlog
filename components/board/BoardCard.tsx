@@ -388,7 +388,7 @@ export function BoardCard({
 				{/* The hero is the one face that breaks the gutters' rail — full-bleed
 			    above both of them, its top corners the card's own. Chosen per
 			    card, never automatic: a board looks like this only where somebody
-			    decided it should (docs/DESIGN.md, #298). */}
+			    decided it should. */}
 				{face.mode === "hero" && face.hero !== null ? (
 					<CardHero attachment={face.hero} />
 				) : null}
