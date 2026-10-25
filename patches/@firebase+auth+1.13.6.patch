@@ -1,0 +1,58 @@
+diff --git a/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js b/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js
+index 7453f95..1a20a53 100644
+--- a/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js
++++ b/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js
+@@ -2874,18 +2874,14 @@ class AuthImpl {
+         return result;
+     }
+     async reloadAndSetCurrentUserOrClear(user) {
+-        try {
+-            await _reloadWithoutSaving(user);
+-        }
+-        catch (e) {
++        await this.directlySetCurrentUser(user);
++        _reloadWithoutSaving(user).then(() => this._persistUserIfCurrent(user), e => {
+             if (e?.code !==
+-                `auth/${"network-request-failed" /* AuthErrorCode.NETWORK_REQUEST_FAILED */}`) {
+-                // Something's wrong with the user's token. Log them out and remove
+-                // them from storage
+-                return this.directlySetCurrentUser(null);
++                `auth/${"network-request-failed" /* AuthErrorCode.NETWORK_REQUEST_FAILED */}` &&
++                this.currentUser === user) {
++                return this._updateCurrentUser(null);
+             }
+-        }
+-        return this.directlySetCurrentUser(user);
++        });
+     }
+     useDeviceLanguage() {
+         this.languageCode = _getUserLanguage();
+diff --git a/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js b/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js
+index 19ad008..902b009 100644
+--- a/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js
++++ b/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js
+@@ -2872,18 +2872,14 @@ class AuthImpl {
+         return result;
+     }
+     async reloadAndSetCurrentUserOrClear(user) {
+-        try {
+-            await _reloadWithoutSaving(user);
+-        }
+-        catch (e) {
++        await this.directlySetCurrentUser(user);
++        _reloadWithoutSaving(user).then(() => this._persistUserIfCurrent(user), e => {
+             if (e?.code !==
+-                `auth/${"network-request-failed" /* AuthErrorCode.NETWORK_REQUEST_FAILED */}`) {
+-                // Something's wrong with the user's token. Log them out and remove
+-                // them from storage
+-                return this.directlySetCurrentUser(null);
++                `auth/${"network-request-failed" /* AuthErrorCode.NETWORK_REQUEST_FAILED */}` &&
++                this.currentUser === user) {
++                return this._updateCurrentUser(null);
+             }
+-        }
+-        return this.directlySetCurrentUser(user);
++        });
+     }
+     useDeviceLanguage() {
+         this.languageCode = _getUserLanguage();

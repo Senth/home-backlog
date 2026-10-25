@@ -22,8 +22,8 @@ import { markLaunch } from "@/utils/launch-timing";
 interface AuthContextType {
 	user: User | null;
 	/**
-	 * True until the app knows whether anyone is signed in. Nothing may route
-	 * on the answer before this is false — see `AuthGate`.
+	 * True until the initial session and redirect are resolved. Web restores the
+	 * stored user before background validation; a revoked session notifies later.
 	 */
 	loading: boolean;
 	/** i18n key for a failed return leg of `signInWithRedirect`, if any. */
