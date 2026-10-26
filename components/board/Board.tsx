@@ -220,7 +220,6 @@ export function Board({
 	// docs/DESIGN.md § Motion: with the query on, the drag does everything but
 	// move on its own — no lift, no edge fill, and the spring in the hook.
 	const reduced = useReducedMotion();
-	if (!loading) markLaunch("content");
 
 	const [boardWidth, setBoardWidth] = useState(0);
 	const [fabHeight, setFabHeight] = useState(0);
@@ -389,6 +388,14 @@ export function Board({
 		[universe, matchCtx, conditions],
 	);
 	const filterActive = conditions.length > 0;
+	const contentReady =
+		failed ||
+		(!loading &&
+			(boardWidth > 0 ||
+				(shownNodes.length === 0 && (filterActive || hidden.length > 0))));
+	useEffect(() => {
+		if (contentReady) markLaunch("content");
+	}, [contentReady]);
 	const { state: selected, pruneVisible } = selection;
 	useEffect(() => {
 		pruneVisible(reach === "board" ? shownNodes : noCards);
@@ -656,7 +663,9 @@ export function Board({
 					/>
 				) : null}
 
-				{loading ? <LoadingIndicator style={{ marginTop: space.xl }} /> : null}
+				{!contentReady ? (
+					<LoadingIndicator style={{ marginTop: space.xl }} />
+				) : null}
 
 				{/* Said whether or not any cards arrived. The board is two listeners and
 			    only one of them has to fail, so a board that looks ordinary can be
