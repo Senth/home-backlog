@@ -1,5 +1,10 @@
 import { performance as nodePerformance } from "node:perf_hooks";
-import { markLaunch, timingMarkdown, timingRows } from "@/utils/launch-timing";
+import {
+	markLaunch,
+	networkEntries,
+	timingMarkdown,
+	timingRows,
+} from "@/utils/launch-timing";
 
 const entry = (name: string, startTime: number) => ({
 	name: `launch:${name}`,
@@ -75,6 +80,53 @@ describe("timingMarkdown", () => {
 				"| content | 1288 | 1247 |",
 			].join("\n"),
 		);
+	});
+});
+
+describe("networkEntries", () => {
+	const resource = (name: string, responseEnd: number) => ({
+		name,
+		responseEnd,
+	});
+
+	it("maps the first token refresh and account lookup, including emulator URLs", () => {
+		expect(
+			networkEntries([
+				resource("https://securetoken.googleapis.com/v1/token?key=first", 900),
+				resource(
+					"https://securetoken.googleapis.com/v1/token?key=second",
+					1000,
+				),
+				resource(
+					"http://localhost:9099/identitytoolkit.googleapis.com/v1/accounts:lookup?key=test",
+					1100,
+				),
+				resource(
+					"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=first",
+					1200,
+				),
+			]),
+		).toEqual([
+			{ name: "launch:refresh", startTime: 900 },
+			{ name: "launch:lookup", startTime: 1100 },
+		]);
+	});
+
+	it("leaves absent requests out and sorts network rows among marks by response end", () => {
+		const rows = timingRows([
+			entry("auth", 950),
+			...networkEntries([
+				resource(
+					"https://identitytoolkit.googleapis.com/v1/accounts:lookup",
+					800,
+				),
+			]),
+		]);
+
+		expect(rows).toEqual([
+			{ name: "lookup", at: 800, step: 800 },
+			{ name: "auth", at: 950, step: 150 },
+		]);
 	});
 });
 

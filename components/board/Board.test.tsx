@@ -60,6 +60,9 @@ import {
 import type { RecordedComponent } from "@/tests/support/record-props";
 import { lightTheme } from "@/theme";
 import { space } from "@/theme/tokens";
+import { markLaunch } from "@/utils/launch-timing";
+
+jest.mock("@/utils/launch-timing", () => ({ markLaunch: jest.fn() }));
 
 jest.mock("@/components/board/BoardColumn", () => {
 	const { recordProps } = require("@/tests/support/record-props");
@@ -247,7 +250,7 @@ function SelectionBoard({ current }: { current: TestBoardProps }) {
 
 const viewportHeight = 844;
 
-async function renderBoard(props: TestBoardProps) {
+async function renderBoard(props: TestBoardProps, measure = true) {
 	Dimensions.set({
 		window: {
 			width: props.viewport,
@@ -280,11 +283,14 @@ async function renderBoard(props: TestBoardProps) {
 		(child) => child.props.collapsable === false && child.props.onLayout,
 	)[0];
 	if (!boardView) throw new Error("Board rendered no root view");
-	await fireEvent(boardView, "layout", {
-		nativeEvent: { layout: { width: props.viewport } },
-	});
+	if (measure) {
+		await fireEvent(boardView, "layout", {
+			nativeEvent: { layout: { width: props.viewport } },
+		});
+	}
 	return {
 		...utils,
+		boardView,
 		rerenderBoard: (next: typeof props) => utils.rerender(tree(next)),
 	};
 }
@@ -752,12 +758,13 @@ describe("Board", () => {
 
 	// #266: first launch holds `loading` while the cache-only snapshot waits for
 	// the server, and the board below the spinner must not read as empty.
-	it("shows the spinner instead of the columns while loading", async () => {
+	it("delays the spinner and hides the columns while loading", async () => {
 		await renderBoard({ loading: true, viewport: 800 });
 
-		expect(screen.getByLabelText("common.loading")).toBeOnTheScreen();
+		expect(screen.queryByLabelText("common.loading")).toBeNull();
 		expect(screen.queryByTestId("board-column-backlog")).not.toBeOnTheScreen();
 		expect(screen.queryByTestId("board-column-done")).not.toBeOnTheScreen();
+		expect(await screen.findByLabelText("common.loading")).toBeOnTheScreen();
 	});
 
 	it("shows the columns once loading has ended", async () => {
@@ -767,6 +774,22 @@ describe("Board", () => {
 		// #310: the empty board is said per column, not once above them all.
 		expect(screen.getAllByText("board.columnEmpty")).toHaveLength(4);
 		expect(screen.queryByText("board.empty")).not.toBeOnTheScreen();
+	});
+
+	it("keeps the arrival indicator and content mark pending until columns can render", async () => {
+		const viewport = 800;
+		const { boardView } = await renderBoard(
+			{ loading: false, viewport },
+			false,
+		);
+		expect(markLaunch).not.toHaveBeenCalledWith("content");
+		expect(await screen.findByLabelText("common.loading")).toBeOnTheScreen();
+		await fireEvent(boardView, "layout", {
+			nativeEvent: { layout: { width: viewport } },
+		});
+		expect(screen.queryByLabelText("common.loading")).toBeNull();
+		expect(screen.getByTestId("board-column-backlog")).toBeOnTheScreen();
+		expect(markLaunch).toHaveBeenCalledWith("content");
 	});
 
 	it("renders the cards it was given once loaded", async () => {

@@ -25,14 +25,25 @@ import { PaperIcon } from "@/components/ui/PaperIcon";
 import { SplashScreen } from "@/components/ui/SplashScreen";
 import { UpdateBanner } from "@/components/ui/UpdateBanner";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { HomeProvider, useHome } from "@/contexts/HomeContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { darkTheme, lightTheme, useAppTheme } from "@/theme";
 import { markLaunch } from "@/utils/launch-timing";
 
 markLaunch("bundle");
 
+function SessionGate() {
+	const { user } = useAuth();
+	return (
+		<HomeProvider user={user}>
+			<AuthGate />
+		</HomeProvider>
+	);
+}
+
 function AuthGate() {
-	const { loading } = useAuth();
+	const { user, loading } = useAuth();
+	const { loading: homesLoading } = useHome();
 	const [fontsReady, setFontsReady] = useState(false);
 
 	// The icon font is loaded once, here, behind the splash. Every icon that
@@ -69,15 +80,15 @@ function AuthGate() {
 	}, []);
 
 	if (fontsReady) markLaunch("font");
-	const ready = !loading && fontsReady;
+	const ready = !loading && fontsReady && (!user || !homesLoading);
 	if (ready) markLaunch("splash");
 
 	// Where you are sent is decided by the two group layouts and by
 	// `app/index.tsx`, declaratively during render. This gate only decides
 	// *whether the router exists yet* — the splash replaces it rather than
-	// covering it, because rendering `<Slot />` while auth is unresolved mounts
-	// a route, and whichever route that is, it is a guess about a question the
-	// app cannot answer yet.
+	// covering it. Auth, fonts and the signed-in user's initial homes answer all
+	// settle behind this one splash; the homes query runs during the font wait.
+	// Web restores the stored user first; background validation can revoke it.
 	//
 	// The offline bar sits above the router so every screen shows it, login
 	// included; the update banner is a Snackbar and floats on top.
@@ -148,7 +159,7 @@ export default function RootLayout() {
 			>
 				<NavigationTheme>
 					<AuthProvider>
-						<AuthGate />
+						<SessionGate />
 						<StatusBar style="auto" />
 					</AuthProvider>
 				</NavigationTheme>

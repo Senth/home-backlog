@@ -2,6 +2,8 @@ export const launchMarks = [
 	"html",
 	"bundle",
 	"auth",
+	"refresh",
+	"lookup",
 	"font",
 	"splash",
 	"homes",
@@ -10,6 +12,32 @@ export const launchMarks = [
 ] as const;
 
 export type LaunchMark = (typeof launchMarks)[number];
+
+export function networkEntries(
+	resources: { name: string; responseEnd: number }[],
+) {
+	const matches = new Map<"refresh" | "lookup", number>();
+	for (const resource of resources) {
+		if (
+			!matches.has("refresh") &&
+			resource.name.includes("securetoken.googleapis.com/v1/token")
+		) {
+			matches.set("refresh", resource.responseEnd);
+		}
+		if (
+			!matches.has("lookup") &&
+			resource.name.includes(
+				"identitytoolkit.googleapis.com/v1/accounts:lookup",
+			)
+		) {
+			matches.set("lookup", resource.responseEnd);
+		}
+	}
+	return [...matches].map(([name, startTime]) => ({
+		name: `launch:${name}`,
+		startTime,
+	}));
+}
 
 export interface TimingRow {
 	name: LaunchMark;

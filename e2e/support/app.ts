@@ -87,6 +87,13 @@ const EXPECTED_PREFIXES = [
 	"[dev-console] Filtering known react-native-web warnings",
 ];
 
+const EXPECTED_ERRORS = [
+	{
+		text: "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+		url: /^(?:https:\/\/identitytoolkit\.googleapis\.com|http:\/\/localhost:\d+\/identitytoolkit\.googleapis\.com)\/v1\/accounts:lookup(?:\?|$)/,
+	},
+];
+
 /**
  * The viewports the suite runs at, named rather than repeated as a literal.
  *
@@ -160,13 +167,18 @@ export function recordConsole(page: Page): ConsoleRecording {
 	const warnings: string[] = [];
 	const all: string[] = [];
 
-	const expected = (text: string) =>
-		EXPECTED_PREFIXES.some((prefix) => text.startsWith(prefix));
+	const expected = (message: ConsoleMessage) =>
+		EXPECTED_PREFIXES.some((prefix) => message.text().startsWith(prefix)) ||
+		(message.type() === "error" &&
+			EXPECTED_ERRORS.some(
+				({ text, url }) =>
+					message.text() === text && url.test(message.location().url),
+			));
 
 	page.on("console", (message: ConsoleMessage) => {
 		const text = message.text();
 		all.push(`[${message.type()}] ${text}`);
-		if (expected(text)) return;
+		if (expected(message)) return;
 		if (message.type() === "error") errors.push(text);
 		if (message.type() === "warning") warnings.push(text);
 	});

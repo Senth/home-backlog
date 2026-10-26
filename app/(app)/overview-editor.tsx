@@ -8,7 +8,6 @@ import {
 	type ViewInstance,
 } from "react-native";
 import {
-	ActivityIndicator,
 	Appbar,
 	Button,
 	FAB,
@@ -29,6 +28,7 @@ import { useCardWrites } from "@/components/overview/use-card-writes";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
+import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import { Row } from "@/components/ui/Row";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -243,10 +243,7 @@ export default function OverviewEditor() {
 			</AppHeader>
 
 			{loading ? (
-				<ActivityIndicator
-					accessibilityLabel={t("common.loading")}
-					style={{ marginTop: space.xl }}
-				/>
+				<LoadingIndicator style={{ marginTop: space.xl }} />
 			) : failed ? (
 				<View
 					style={{

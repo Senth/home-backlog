@@ -22,6 +22,11 @@ export const space = {
 
 export const gutter = { compact: space.sm, wide: space.md } as const;
 
+export const motion = {
+	/** 250ms hides fast-arrival flashes without leaving slow waits unexplained. */
+	loadingDelay: 250,
+} as const;
+
 /** Corner radii. `full` is a large number rather than a percentage because
  *  React Native has no `border-radius: 50%`. */
 export const radius = {

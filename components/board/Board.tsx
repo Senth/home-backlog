@@ -9,15 +9,7 @@ import {
 	View,
 	type ViewInstance,
 } from "react-native";
-import {
-	ActivityIndicator,
-	Badge,
-	Button,
-	FAB,
-	Menu,
-	Surface,
-	Text,
-} from "react-native-paper";
+import { Badge, Button, FAB, Menu, Surface, Text } from "react-native-paper";
 import { BlockerWatcher } from "@/components/board/BlockerWatcher";
 import { BoardCard } from "@/components/board/BoardCard";
 import { BoardColumn } from "@/components/board/BoardColumn";
@@ -39,6 +31,7 @@ import {
 import { DetailsPane } from "@/components/node/DetailsPane";
 import { fieldSpecs } from "@/components/overview/CardEditForm";
 import { AppMenu } from "@/components/ui/AppMenu";
+import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import { OutboxSnackbar } from "@/components/ui/OutboxSnackbar";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -227,7 +220,6 @@ export function Board({
 	// docs/DESIGN.md § Motion: with the query on, the drag does everything but
 	// move on its own — no lift, no edge fill, and the spring in the hook.
 	const reduced = useReducedMotion();
-	if (!loading) markLaunch("content");
 
 	const [boardWidth, setBoardWidth] = useState(0);
 	const [fabHeight, setFabHeight] = useState(0);
@@ -396,6 +388,14 @@ export function Board({
 		[universe, matchCtx, conditions],
 	);
 	const filterActive = conditions.length > 0;
+	const contentReady =
+		failed ||
+		(!loading &&
+			(boardWidth > 0 ||
+				(shownNodes.length === 0 && (filterActive || hidden.length > 0))));
+	useEffect(() => {
+		if (contentReady) markLaunch("content");
+	}, [contentReady]);
 	const { state: selected, pruneVisible } = selection;
 	useEffect(() => {
 		pruneVisible(reach === "board" ? shownNodes : noCards);
@@ -663,11 +663,8 @@ export function Board({
 					/>
 				) : null}
 
-				{loading ? (
-					<ActivityIndicator
-						accessibilityLabel={t("common.loading")}
-						style={{ marginTop: space.xl }}
-					/>
+				{!contentReady ? (
+					<LoadingIndicator style={{ marginTop: space.xl }} />
 				) : null}
 
 				{/* Said whether or not any cards arrived. The board is two listeners and

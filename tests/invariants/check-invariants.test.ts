@@ -49,6 +49,7 @@ const CHECKS = [
 	"SlimScrollView only",
 	"back only via goBack",
 	"icon keywords per locale",
+	"arrival waits delayed",
 ];
 
 type Case = {
@@ -107,6 +108,7 @@ const CASES: Case[] = [
 	{ name: "label-glyph-named", check: "label glyph named" },
 	{ name: "menu-via-appmenu", check: "Menu only via AppMenu" },
 	{ name: "scroll-via-slim", check: "SlimScrollView only" },
+	{ name: "arrival-spinner", check: "arrival waits delayed" },
 	{
 		name: "direct-back",
 		check: "back only via goBack",
@@ -255,6 +257,24 @@ test("comment-only mentions are stripped, not violations", async () => {
 	for (const [name, status] of statuses(result.stdout)) {
 		expect(`${name}: ${status}`).toBe(`${name}: ok`);
 	}
+});
+
+test.each([
+	"components/ui/LoadingIndicator.tsx",
+	"components/homes/PendingInviteCards.tsx",
+	"components/node/AttachmentDropZone.tsx",
+	"components/node/AttachmentViewer.tsx",
+	"components/node/BlockerSearchDialog.tsx",
+])("raw spinner is allowed in %s", async (file) => {
+	const target = path.join(sandbox, file);
+	await fs.promises.mkdir(path.dirname(target), { recursive: true });
+	await fs.promises.writeFile(
+		target,
+		'import { ActivityIndicator } from "react-native-paper";\n',
+	);
+	const result = await run(sandbox);
+	expect(result.code).toBe(0);
+	expect(statuses(result.stdout).get("arrival waits delayed")).toBe("ok");
 });
 
 test.each([

@@ -869,6 +869,35 @@ else
 	report 25 "button mode stated" ok
 fi
 
+LOADING_FILES=()
+for f in "${ALL_TS[@]}"; do
+	[[ "$f" == "components/ui/LoadingIndicator.tsx" ||
+		"$f" == "components/homes/PendingInviteCards.tsx" ||
+		"$f" == "components/node/AttachmentDropZone.tsx" ||
+		"$f" == "components/node/AttachmentViewer.tsx" ||
+		"$f" == "components/node/BlockerSearchDialog.tsx" ]] && continue
+	LOADING_FILES+=("$f")
+done
+hits=$(
+	[[ ${#LOADING_FILES[@]} -gt 0 ]] && awk '
+		FNR == 1 { start = 0 }
+		/^import[[:space:]]/ { start = FNR; first = $0; block = "" }
+		start { block = block " " $0 }
+		start && /from[[:space:]]+["\047]/ {
+			if (block ~ /from[[:space:]]+["\047]react-native-paper(["\047]|\/)/ &&
+				block ~ /[^A-Za-z0-9_$]ActivityIndicator[^A-Za-z0-9_$]/)
+				print FILENAME ":" start ":" first
+			start = 0
+		}
+	' "${LOADING_FILES[@]}"
+)
+if [[ -n "$hits" ]]; then
+	report 26 "arrival waits delayed" FAIL "$hits" \
+		"Use LoadingIndicator for arrival waits; raw ActivityIndicator is reserved for the four action-wait files."
+else
+	report 26 "arrival waits delayed" ok
+fi
+
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------

@@ -1,14 +1,8 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View } from "react-native";
-import {
-	ActivityIndicator,
-	Appbar,
-	Button,
-	FAB,
-	Text,
-} from "react-native-paper";
+import { Appbar, Button, FAB, Text } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { BoardCard } from "@/components/board/BoardCard";
 import {
@@ -24,6 +18,7 @@ import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { InstallCard } from "@/components/ui/InstallCard";
+import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
@@ -207,14 +202,6 @@ export default function Overview() {
 	// keeps under its own FAB.
 	const fabInset = fabHeight > 0 ? fabHeight + space.md + space.md : space.xxl;
 
-	// The spinner covers the screen only while nothing has answered at all:
-	// a pair that has answered shows its section, and is not covered while
-	// another pair is still being asked. The empty claim still waits for
-	// every pair — "no nodes" from one is not the whole story while the
-	// others are silent.
-	const loading =
-		roots.loading && pool.loading && done.loading && configLoading;
-	if (!loading) markLaunch("content");
 	const anyLoading =
 		roots.loading || pool.loading || done.loading || configLoading;
 	const failed = roots.failed || pool.failed || done.failed || configFailed;
@@ -349,13 +336,15 @@ export default function Overview() {
 	// Built once; in the flowing layout it is one wrapping row, in the stack it
 	// is the column the screen has always been.
 	const sections = cards.map((card) => {
-		if (card.kind === "open" && pool.failed) return null;
-		if (card.kind === "done" && done.failed) return null;
+		const source = card.kind === "done" ? done : pool;
+		const cardNodes = rows.get(card.id) ?? [];
+		if (roots.loading || source.loading || source.failed) return null;
+		if (cardNodes.length === 0 && card.empty.mode === "hide") return null;
 		return (
 			<CardSection
 				key={card.id}
 				card={card}
-				rows={rows.get(card.id) ?? []}
+				rows={cardNodes}
 				onOpen={open}
 				nodesById={nodesById}
 				ancestors={ancestors}
@@ -377,6 +366,11 @@ export default function Overview() {
 			/>
 		);
 	});
+	const contentReady = failed || nothingAtAll || sections.some(Boolean);
+	const loading = anyLoading && !contentReady;
+	useEffect(() => {
+		if (contentReady) markLaunch("content");
+	}, [contentReady]);
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -415,10 +409,7 @@ export default function Overview() {
 					<InstallCard />
 
 					{loading ? (
-						<ActivityIndicator
-							accessibilityLabel={t("common.loading")}
-							style={{ marginTop: space.xl }}
-						/>
+						<LoadingIndicator style={{ marginTop: space.xl }} />
 					) : null}
 
 					{nothingAtAll ? (

@@ -25,9 +25,8 @@ import { markLaunch } from "@/utils/launch-timing";
 /**
  * Which homes I am in, and which one I am looking at.
  *
- * Mounted inside the resolved-auth half of the tree (`app/(app)/_layout.tsx`),
- * so `user` here is an answer and never a not-yet — this provider cannot race
- * auth, and the homes query it fires is never made without a uid.
+ * Mounted around the root `AuthGate`. The homes query overlaps the font wait
+ * behind one stable splash; uid changes reset homes and replace the listener.
  *
  * One listener, as wide as the number of homes one person belongs to. The cost
  * risk in this app is listener *breadth*, not data volume, and this is the only
@@ -48,7 +47,7 @@ interface HomeContextType {
 	/**
 	 * True until both the persisted id has been read and the homes query has
 	 * answered. Nothing may route on which home is active before this is false —
-	 * the splash holds the router until then, the same way `AuthGate` does.
+	 * the root `AuthGate` holds its single splash until then.
 	 */
 	loading: boolean;
 	/**
@@ -78,7 +77,7 @@ export function HomeProvider({
 	user,
 	children,
 }: {
-	user: User;
+	user: User | null;
 	children: ReactNode;
 }) {
 	const [homes, setHomes] = useState<Home[]>([]);
@@ -93,7 +92,7 @@ export function HomeProvider({
 	 */
 	const [attempt, setAttempt] = useState(0);
 
-	const uid = user.uid;
+	const uid = user?.uid;
 
 	// Cleared *during render*, the same way `useNodes` clears a board it is being
 	// re-pointed at: an effect runs after the commit, so a different person's
@@ -131,6 +130,7 @@ export function HomeProvider({
 	}, []);
 
 	useEffect(() => {
+		if (!uid) return;
 		// Only the first attempt holds the router. `loading` swaps the whole app
 		// for the splash, so doing it again on a manual retry would unmount the
 		// screen the Try again button lives on — and with it the `joining` state
@@ -226,19 +226,22 @@ export function HomeProvider({
 	// snapshot re-runs this effect, and the same doomed write goes out again,
 	// forever, saying nothing but a console warning. Attempting once turns that
 	// loop into a single logged failure.
-	const profileAttempts = useRef<{ uid: string; homeIds: Set<string> }>({
+	const profileAttempts = useRef<{
+		uid: string | undefined;
+		homeIds: Set<string>;
+	}>({
 		uid,
 		homeIds: new Set(),
 	});
 
 	useEffect(() => {
-		const profile = profileOf(user);
-		const hash = emailHash(user.email ?? "");
-
 		// A different person signing in gets their own attempt in every home.
 		if (profileAttempts.current.uid !== uid) {
 			profileAttempts.current = { uid, homeIds: new Set() };
 		}
+		if (!user || !uid) return;
+		const profile = profileOf(user);
+		const hash = emailHash(user.email ?? "");
 		const attempted = profileAttempts.current.homeIds;
 
 		for (const home of homes) {
@@ -265,7 +268,7 @@ export function HomeProvider({
 		() => ({
 			homes,
 			activeHome,
-			myRole: activeHome?.members[uid] ?? null,
+			myRole: uid ? (activeHome?.members[uid] ?? null) : null,
 			loading,
 			failed: homesFailed,
 			retry,
