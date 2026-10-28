@@ -97,7 +97,8 @@ service cloud.firestore {
     }
 
     function homeWritable(homeId) {
-      return homeData(homeId).get('deletionClaim', null) == null;
+      let claim = homeData(homeId).get('deletionClaim', null);
+      return !(claim is map) || claim.get('expiresAt', timestamp.value(0)) <= request.time;
     }
 
     match /homes/{homeId} {
@@ -178,8 +179,8 @@ service cloud.firestore {
       // anyone's entries, because removing a member removes theirs too — except
       // for an invitee accepting their own invite.
       allow update: if validHome(request.resource.data)
-        && resource.data.get('deletionClaim', null) == null
-        && request.resource.data.get('deletionClaim', null) == null
+        && homeWritable(homeId)
+        && request.resource.data.get('deletionClaim', null) == resource.data.get('deletionClaim', null)
         && quotaUntouched(request.resource.data, resource.data)
         && ownHashIsOwn(request.resource.data)
         && (

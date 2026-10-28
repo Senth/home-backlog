@@ -1,6 +1,12 @@
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { db, homesCollection } from "./firestore.js";
-import { deleteHomeTree, isSoleOwner } from "./home-cascade.js";
+import {
+	claimActive,
+	deleteHomeTree,
+	deletionClaim,
+	isSoleOwner,
+	releaseDeletionClaim,
+} from "./home-cascade.js";
 import { region } from "./options.js";
 
 export const deleteHome = onCall(
@@ -20,20 +26,25 @@ export const deleteHome = onCall(
 		}
 
 		const ref = db.collection(homesCollection).doc(homeId);
+		const claim = deletionClaim();
 		await db.runTransaction(async (transaction) => {
 			const home = await transaction.get(ref);
 			if (
 				!isSoleOwner(home.data()?.members ?? {}, uid) ||
-				(home.get("deletionClaim") && home.get("deletionClaim") !== uid)
+				claimActive(home.get("deletionClaim"))
 			) {
 				throw new HttpsError(
 					"failed-precondition",
 					"Only the home's sole member and owner can delete it.",
 				);
 			}
-			transaction.update(ref, { deletionClaim: uid });
+			transaction.update(ref, { deletionClaim: claim });
 		});
 
-		await deleteHomeTree(homeId);
+		try {
+			await deleteHomeTree(homeId, claim.id);
+		} finally {
+			await releaseDeletionClaim(ref, claim.id);
+		}
 	},
 );

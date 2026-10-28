@@ -12,7 +12,13 @@ import {
 	nodesCollection,
 	usersCollection,
 } from "./firestore.js";
-import { deleteHomeTree } from "./home-cascade.js";
+import {
+	claimActive,
+	deleteHomeTree,
+	deletionClaim,
+	releaseDeletionClaim,
+	withDeletionClaim,
+} from "./home-cascade.js";
 import { region } from "./options.js";
 
 export const deleteAccount = onCall(
@@ -76,6 +82,7 @@ export const deleteAccount = onCall(
 			throw new HttpsError("failed-precondition", "recent-login");
 		}
 
+		const claim = deletionClaim();
 		const claimed = await db.runTransaction(async (transaction) => {
 			const current = await transaction.get(membershipQuery);
 			const currentHomes = current.docs.map((home) => ({
@@ -94,128 +101,145 @@ export const deleteAccount = onCall(
 			});
 			if (
 				currentPlan.homes.some((home) => home.outcome === "blocked") ||
-				current.docs.some(
-					(home) =>
-						home.get("deletionClaim") && home.get("deletionClaim") !== uid,
-				)
+				current.docs.some((home) => claimActive(home.get("deletionClaim")))
 			) {
 				throw new HttpsError("failed-precondition", "blocked");
 			}
 			for (const home of current.docs)
-				transaction.update(home.ref, { deletionClaim: uid });
+				transaction.update(home.ref, { deletionClaim: claim });
 			return { homes: currentHomes, plan: currentPlan };
 		});
 		plan = claimed.plan;
-		homes = await Promise.all(
-			claimed.homes.map(async (home) => ({
-				...home,
-				participants: await home.ref.collection(nodesCollection).get(),
-			})),
-		);
-		const leaving = homes.filter((home) =>
-			plan.homes.some(
-				(entry) => entry.homeId === home.homeId && entry.outcome === "leave",
-			),
-		);
-		for (const home of leaving) {
-			const nodes = home.participants.docs;
-			const deleted = new Set(
-				nodes
-					.filter((node) => {
-						const participants = node.get("participantIds") as
-							| string[]
-							| undefined;
-						return (
-							node.get("visibility") === "private" &&
-							participants?.length === 1 &&
-							participants[0] === uid
-						);
-					})
-					.map((node) => node.id),
-			);
-			const retained = nodes
-				.filter((node) => !deleted.has(node.id))
-				.map((node) => {
-					const ancestorIds = (
-						(node.get("ancestorIds") ?? []) as string[]
-					).filter((id) => !deleted.has(id));
-					return { node, ancestorIds, parentId: ancestorIds.at(-1) ?? null };
-				});
-			const remainingMembers = Object.keys(home.members).filter(
-				(member) => member !== uid,
-			);
-			const counts = new Map<
-				string,
-				{ childCount: number; doneCount: number }
-			>();
-			for (const { node, parentId } of retained) {
-				if (parentId === null) continue;
-				const count = counts.get(parentId) ?? { childCount: 0, doneCount: 0 };
-				count.childCount += 1;
-				if (node.get("status") === "done") count.doneCount += 1;
-				counts.set(parentId, count);
-			}
-			for (const { node, ancestorIds, parentId } of retained) {
-				const participants = (
-					(node.get("participantIds") ?? []) as string[]
-				).filter((member) => member !== uid);
-				await node.ref.update({
-					parentId,
-					ancestorIds,
-					...(counts.get(node.id) ?? { childCount: 0, doneCount: 0 }),
-					participantIds:
-						parentId === null &&
-						node.get("visibility") === "shared" &&
-						participants.length === 0
-							? remainingMembers
-							: participants,
-					assigneeIds: FieldValue.arrayRemove(uid),
-				});
-			}
-			for (const node of nodes)
-				if (deleted.has(node.id)) await node.ref.delete();
-		}
-		for (const home of leaving) {
-			await home.ref.collection(dashboardsCollection).doc(uid).delete();
-			const clients = await home.ref
-				.collection(apiClientsCollection)
-				.where("ownerUid", "==", uid)
-				.get();
-			for (const client of clients.docs) await client.ref.delete();
-			await home.ref.update(
-				new FieldPath("members", uid),
-				FieldValue.delete(),
-				new FieldPath("memberProfiles", uid),
-				FieldValue.delete(),
-				new FieldPath("memberEmailHashes", uid),
-				FieldValue.delete(),
-				new FieldPath("deletionClaim"),
-				FieldValue.delete(),
-			);
-		}
-		for (const home of plan.homes.filter((home) => home.outcome === "delete")) {
-			await deleteHomeTree(home.homeId);
-		}
-		const email = request.auth?.token.email;
-		if (typeof email === "string" && email.trim()) {
-			const hash = createHash("sha256")
-				.update(
-					email.trim().replace(/[A-Z]/g, (letter) => letter.toLowerCase()),
-				)
-				.digest("hex");
-			const invites = await db
-				.collectionGroup("invites")
-				.where("emailHash", "==", hash)
-				.get();
-			for (const invite of invites.docs) await invite.ref.delete();
-		}
-		await db.recursiveDelete(userRef);
 		try {
-			await getAuth().deleteUser(uid);
-		} catch (error) {
-			if ((error as { code?: string }).code !== "auth/user-not-found")
-				throw error;
+			homes = await Promise.all(
+				claimed.homes.map(async (home) => ({
+					...home,
+					participants: await home.ref.collection(nodesCollection).get(),
+				})),
+			);
+			const leaving = homes.filter((home) =>
+				plan.homes.some(
+					(entry) => entry.homeId === home.homeId && entry.outcome === "leave",
+				),
+			);
+			for (const home of leaving) {
+				const nodes = home.participants.docs;
+				const deleted = new Set(
+					nodes
+						.filter((node) => {
+							const participants = node.get("participantIds") as
+								| string[]
+								| undefined;
+							return (
+								node.get("visibility") === "private" &&
+								participants?.length === 1 &&
+								participants[0] === uid
+							);
+						})
+						.map((node) => node.id),
+				);
+				const retained = nodes
+					.filter((node) => !deleted.has(node.id))
+					.map((node) => {
+						const ancestorIds = (
+							(node.get("ancestorIds") ?? []) as string[]
+						).filter((id) => !deleted.has(id));
+						return { node, ancestorIds, parentId: ancestorIds.at(-1) ?? null };
+					});
+				const remainingMembers = Object.keys(home.members).filter(
+					(member) => member !== uid,
+				);
+				const counts = new Map<
+					string,
+					{ childCount: number; doneCount: number }
+				>();
+				for (const { node, parentId } of retained) {
+					if (parentId === null) continue;
+					const count = counts.get(parentId) ?? { childCount: 0, doneCount: 0 };
+					count.childCount += 1;
+					if (node.get("status") === "done") count.doneCount += 1;
+					counts.set(parentId, count);
+				}
+				for (const { node, ancestorIds, parentId } of retained) {
+					const participants = (
+						(node.get("participantIds") ?? []) as string[]
+					).filter((member) => member !== uid);
+					await withDeletionClaim(home.ref, claim.id, (transaction) =>
+						transaction.update(node.ref, {
+							parentId,
+							ancestorIds,
+							...(counts.get(node.id) ?? { childCount: 0, doneCount: 0 }),
+							participantIds:
+								parentId === null &&
+								node.get("visibility") === "shared" &&
+								participants.length === 0
+									? remainingMembers
+									: participants,
+							assigneeIds: FieldValue.arrayRemove(uid),
+						}),
+					);
+				}
+				for (const node of nodes)
+					if (deleted.has(node.id))
+						await withDeletionClaim(home.ref, claim.id, (transaction) =>
+							transaction.delete(node.ref),
+						);
+			}
+			for (const home of leaving) {
+				await withDeletionClaim(home.ref, claim.id, (transaction) =>
+					transaction.delete(
+						home.ref.collection(dashboardsCollection).doc(uid),
+					),
+				);
+				const clients = await home.ref
+					.collection(apiClientsCollection)
+					.where("ownerUid", "==", uid)
+					.get();
+				for (const client of clients.docs)
+					await withDeletionClaim(home.ref, claim.id, (transaction) =>
+						transaction.delete(client.ref),
+					);
+				await withDeletionClaim(home.ref, claim.id, (transaction) =>
+					transaction.update(
+						home.ref,
+						new FieldPath("members", uid),
+						FieldValue.delete(),
+						new FieldPath("memberProfiles", uid),
+						FieldValue.delete(),
+						new FieldPath("memberEmailHashes", uid),
+						FieldValue.delete(),
+					),
+				);
+			}
+			for (const home of plan.homes.filter(
+				(home) => home.outcome === "delete",
+			)) {
+				await deleteHomeTree(home.homeId, claim.id);
+			}
+			const email = request.auth?.token.email;
+			if (typeof email === "string" && email.trim()) {
+				const hash = createHash("sha256")
+					.update(
+						email.trim().replace(/[A-Z]/g, (letter) => letter.toLowerCase()),
+					)
+					.digest("hex");
+				const invites = await db
+					.collectionGroup("invites")
+					.where("emailHash", "==", hash)
+					.get();
+				for (const invite of invites.docs) await invite.ref.delete();
+			}
+			await db.recursiveDelete(userRef);
+			try {
+				await getAuth().deleteUser(uid);
+			} catch (error) {
+				if ((error as { code?: string }).code !== "auth/user-not-found")
+					throw error;
+			}
+			return plan;
+		} finally {
+			for (const home of claimed.homes)
+				await releaseDeletionClaim(home.ref, claim.id);
 		}
-		return plan;
 	},
 );

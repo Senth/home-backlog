@@ -1,7 +1,13 @@
 import type { Request, Response, Router } from "express";
 import { FieldValue } from "firebase-admin/firestore";
 import { visibleTo } from "./api-nodes.js";
-import { type ApiCaller, caller, homeAccess, recordWrite } from "./auth.js";
+import {
+	type ApiCaller,
+	caller,
+	homeAccess,
+	homeWrite,
+	recordWrite,
+} from "./auth.js";
 import {
 	type BulkParentFacts,
 	type BulkPlan,
@@ -152,22 +158,23 @@ async function bulkCreate(request: Request, response: Response): Promise<void> {
 	// fails `inheritsFrom`, so the tree would have to go top-down over a network,
 	// where a timeout mid-flight leaves half a tree — and half a tree is not
 	// untidy but corrupt.
-	const batch = db.batch();
-	for (const item of plan.items) batch.set(nodes.doc(item.id), item.data);
+	await homeWrite(me, home, async (batch) => {
+		for (const item of plan.items) batch.set(nodes.doc(item.id), item.data);
 
-	if (parent !== null) {
-		batch.update(nodes.doc(parent.id), {
-			childCount: FieldValue.increment(1),
-			...(rootStatus === "done" ? { doneCount: FieldValue.increment(1) } : {}),
-		});
-	}
+		if (parent !== null) {
+			batch.update(nodes.doc(parent.id), {
+				childCount: FieldValue.increment(1),
+				...(rootStatus === "done"
+					? { doneCount: FieldValue.increment(1) }
+					: {}),
+			});
+		}
 
-	if (runRef !== null) {
-		// In the same batch as the tree, deliberately — `recordRun` says why.
-		recordRun(batch, runRef, plan);
-	}
-
-	await batch.commit();
+		if (runRef !== null) {
+			// In the same batch as the tree, deliberately — `recordRun` says why.
+			recordRun(batch, runRef, plan);
+		}
+	});
 	await recordWrite(me, home);
 
 	response.status(201).json({ rootId: plan.rootId, ids: plan.ids });

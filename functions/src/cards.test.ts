@@ -155,6 +155,14 @@ jest.unstable_mockModule("./auth.js", () => ({
 		return verified;
 	},
 	homeAccess: jest.fn(),
+	homeWrite: async (
+		_caller: unknown,
+		_home: unknown,
+		write: (transaction: unknown) => Promise<unknown>,
+	) => {
+		const { db } = await import("./firestore.js");
+		return db.runTransaction(write);
+	},
 	recordWrite: jest.fn(),
 }));
 

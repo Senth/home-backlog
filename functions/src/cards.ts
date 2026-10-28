@@ -1,7 +1,13 @@
 import type { Request, Response, Router } from "express";
 import type { DocumentReference } from "firebase-admin/firestore";
 import { apiCardRow } from "./api-nodes.js";
-import { type ApiCaller, caller, homeAccess, recordWrite } from "./auth.js";
+import {
+	type ApiCaller,
+	caller,
+	homeAccess,
+	homeWrite,
+	recordWrite,
+} from "./auth.js";
 import { parseCardBody } from "./body.js";
 import {
 	type Card,
@@ -226,7 +232,7 @@ async function createCard(request: Request, response: Response): Promise<void> {
 
 	refuseInvalidCard(card as unknown as CardFields);
 
-	await db.runTransaction(async (tx) => {
+	await homeWrite(me, home, async (tx) => {
 		if (scope === "shared") {
 			tx.set(sharedCards(homeId).doc(card.id), card);
 			return;
@@ -294,7 +300,7 @@ async function patchCard(request: Request, response: Response): Promise<void> {
 
 	refuseInvalidCard(next as unknown as CardFields);
 
-	await db.runTransaction(async (tx) => {
+	await homeWrite(me, home, async (tx) => {
 		// The home doc may need both its fields in one request — a move onto it
 		// and a hide — so its writes accumulate and land as one `set`.
 		const dashboardFields: Record<string, unknown> = {};
@@ -390,13 +396,15 @@ async function deleteCard(request: Request, response: Response): Promise<void> {
 
 	if (current.scope === "shared") {
 		// One document per shared card, so a remove is one delete.
-		await sharedCards(homeId).doc(cardId).delete();
+		await homeWrite(me, home, (tx) =>
+			tx.delete(sharedCards(homeId).doc(cardId)),
+		);
 	} else {
 		// A map field cannot lose one key on its own: the surface's cards are
 		// rewritten without the id, replaced whole — the same write the app's
 		// `deleteScopeCard` makes.
 		const scope = current.scope;
-		await db.runTransaction(async (tx) => {
+		await homeWrite(me, home, async (tx) => {
 			const stored = cardsIn(
 				(await tx.get(mapRef(scope, homeId, me.uid))).get("cards"),
 			).filter((card) => card.id !== cardId);
@@ -440,7 +448,7 @@ async function reorderCards(
 
 	// Everything is read **inside** the transaction, so the order is checked
 	// against, and written onto, the same state it will replace.
-	const moved = await db.runTransaction(async (tx) => {
+	const moved = await homeWrite(me, home, async (tx) => {
 		const globalDoc = await tx.get(globalConfigRef(me.uid));
 		const homeDoc = await tx.get(homeDashboardRef(homeId, me.uid));
 		const sharedDocs = await tx.get(sharedCards(homeId));

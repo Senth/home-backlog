@@ -112,6 +112,17 @@ jest.unstable_mockModule("./auth.js", () => ({
 		return verified;
 	},
 	homeAccess: jest.fn(),
+	homeWrite: async (
+		_caller: unknown,
+		_home: unknown,
+		write: (transaction: unknown) => unknown,
+	) => {
+		const { db } = await import("./firestore.js");
+		const batch = db.batch();
+		const result = await write(batch);
+		await batch.commit();
+		return result;
+	},
 	recordWrite: jest.fn(),
 }));
 

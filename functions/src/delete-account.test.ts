@@ -61,6 +61,7 @@ jest.unstable_mockModule("./firestore.js", () => ({
 	apiKeysCollection: "apiKeys",
 	apiClientsCollection: "apiClients",
 	dashboardsCollection: "dashboards",
+	maxBatchWrites: 500,
 }));
 jest.unstable_mockModule("firebase-admin/auth", () => ({
 	getAuth: () => ({ deleteUser }),

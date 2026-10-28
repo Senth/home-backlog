@@ -1,26 +1,35 @@
 import { jest } from "@jest/globals";
+import { Timestamp } from "firebase-admin/firestore";
 
 let members: Record<string, string> | undefined;
+let claim: unknown;
+const remove = jest.fn();
 const homeRef = {
 	get: async () => ({
 		data: () => (members ? { members } : undefined),
-		get: () => undefined,
+		get: () => claim,
 	}),
 	listCollections: async () => [childCollection],
 };
-const childCollection = { id: "nodes" };
+const childRef = { id: "child", listCollections: async () => [] };
+const childCollection = { id: "nodes", listDocuments: async () => [childRef] };
 const doc = jest.fn(() => homeRef);
 const collection = jest.fn(() => ({ doc }));
-const recursiveDelete = jest.fn<() => Promise<void>>();
 
 jest.unstable_mockModule("./firestore.js", () => ({
 	db: {
 		collection,
-		recursiveDelete,
 		runTransaction: async (run: (transaction: unknown) => unknown) =>
-			run({ get: () => homeRef.get(), update: jest.fn() }),
+			run({
+				get: () => homeRef.get(),
+				update: (_ref: unknown, data: { deletionClaim?: unknown }) => {
+					if (data.deletionClaim) claim = data.deletionClaim;
+				},
+				delete: remove,
+			}),
 	},
 	homesCollection: "homes",
+	maxBatchWrites: 500,
 }));
 
 const { deleteHomeTree, isSoleOwner } = await import("./home-cascade.js");
@@ -28,7 +37,11 @@ const { deleteHome } = await import("./delete-home.js");
 
 beforeEach(() => {
 	members = { owner: "owner" };
-	recursiveDelete.mockResolvedValue(undefined);
+	claim = {
+		id: "claim",
+		expiresAt: Timestamp.fromMillis(Date.now() + 600_000),
+	};
+	remove.mockReset();
 });
 
 describe("isSoleOwner", () => {
@@ -46,34 +59,45 @@ describe("isSoleOwner", () => {
 
 describe("deleteHomeTree", () => {
 	it("awaits recursive deletion of the entire home document tree", async () => {
-		await deleteHomeTree("home-1");
+		await deleteHomeTree("home-1", "claim");
 
 		expect(collection).toHaveBeenCalledWith("homes");
 		expect(doc).toHaveBeenCalledWith("home-1");
-		expect(recursiveDelete).toHaveBeenCalledWith(homeRef);
+		expect(remove).toHaveBeenNthCalledWith(1, childRef);
+		expect(remove).toHaveBeenLastCalledWith(homeRef);
 	});
 
 	it("propagates deletion failures", async () => {
-		recursiveDelete.mockRejectedValue(new Error("deletion failed"));
+		remove.mockImplementationOnce(() => {
+			throw new Error("deletion failed");
+		});
 
-		await expect(deleteHomeTree("home-1")).rejects.toThrow("deletion failed");
+		await expect(deleteHomeTree("home-1", "claim")).rejects.toThrow(
+			"deletion failed",
+		);
 	});
 
 	it("keeps the home until child deletion succeeds, so a failed callable can retry", async () => {
-		recursiveDelete.mockRejectedValueOnce(new Error("descendant failed"));
+		claim = undefined;
+		remove.mockImplementationOnce(() => {
+			throw new Error("descendant failed");
+		});
 		await expect(
 			deleteHome.run({
 				data: { homeId: "home-1" },
 				auth: { uid: "owner", token: {} },
 			} as Parameters<typeof deleteHome.run>[0]),
 		).rejects.toThrow("descendant failed");
-		expect(recursiveDelete).not.toHaveBeenCalledWith(homeRef);
-		await deleteHomeTree("home-1");
-		expect(recursiveDelete).toHaveBeenLastCalledWith(homeRef);
+		expect(remove).not.toHaveBeenCalledWith(homeRef);
+		await deleteHomeTree("home-1", (claim as { id: string }).id);
+		expect(remove).toHaveBeenLastCalledWith(homeRef);
 	});
 });
 
 describe("deleteHome callable", () => {
+	beforeEach(() => {
+		claim = undefined;
+	});
 	function call(data: unknown, uid: string | null = "owner") {
 		return deleteHome.run({
 			data,
@@ -86,7 +110,7 @@ describe("deleteHome callable", () => {
 			code: "unauthenticated",
 		});
 		expect(collection).not.toHaveBeenCalled();
-		expect(recursiveDelete).not.toHaveBeenCalled();
+		expect(remove).not.toHaveBeenCalled();
 	});
 
 	it.each([null, {}, { homeId: 1 }, { homeId: "" }, { homeId: "a/b/c" }])(
@@ -96,7 +120,7 @@ describe("deleteHome callable", () => {
 				code: "invalid-argument",
 			});
 			expect(collection).not.toHaveBeenCalled();
-			expect(recursiveDelete).not.toHaveBeenCalled();
+			expect(remove).not.toHaveBeenCalled();
 		},
 	);
 
@@ -106,7 +130,7 @@ describe("deleteHome callable", () => {
 		await expect(call({ homeId: "home-1" }, uid)).rejects.toMatchObject({
 			code: "failed-precondition",
 		});
-		expect(recursiveDelete).not.toHaveBeenCalled();
+		expect(remove).not.toHaveBeenCalled();
 	});
 
 	it("refuses an owner while another member remains", async () => {
@@ -115,7 +139,7 @@ describe("deleteHome callable", () => {
 		await expect(call({ homeId: "home-1" })).rejects.toMatchObject({
 			code: "failed-precondition",
 		});
-		expect(recursiveDelete).not.toHaveBeenCalled();
+		expect(remove).not.toHaveBeenCalled();
 	});
 
 	it("does not delete a missing home", async () => {
@@ -124,14 +148,14 @@ describe("deleteHome callable", () => {
 		await expect(call({ homeId: "home-1" })).rejects.toMatchObject({
 			code: "failed-precondition",
 		});
-		expect(recursiveDelete).not.toHaveBeenCalled();
+		expect(remove).not.toHaveBeenCalled();
 	});
 
 	it("lets the sole owner delete the home tree", async () => {
 		await call({ homeId: "home-1" });
 
 		expect(doc).toHaveBeenCalledWith("home-1");
-		expect(recursiveDelete).toHaveBeenCalledTimes(2);
-		expect(recursiveDelete).toHaveBeenCalledWith(homeRef);
+		expect(remove).toHaveBeenCalledTimes(2);
+		expect(remove).toHaveBeenCalledWith(homeRef);
 	});
 });
