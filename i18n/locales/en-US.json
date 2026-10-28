@@ -111,7 +111,8 @@
 			"neverBody": "No analytics, no advertising, no crash reporting beyond Google's own services, no location tracking. Nothing is sold or shared, and no company beyond Google Cloud is involved.",
 			"deletionTitle": "Deleting your data",
 			"deletionHome": "Leaving a home takes away your access. Its last member can delete the home, which removes it and its content for everyone. Firebase may keep removed documents in encrypted backups for a short while.",
-			"deletionSignout": "Signing out removes the session from the device. To have an account and its details removed completely, contact the person who runs the app."
+			"deletionAccount": "Delete account, in the account menu, removes your name, email, automation keys and sign-in. Homes where you are the only member are deleted with everything in them. In homes others still use, your private cards are deleted and what you shared stays.",
+			"deletionSignout": "Signing out removes your session and the offline copy from this device."
 		},
 		"terms": {
 			"title": "Terms of service",

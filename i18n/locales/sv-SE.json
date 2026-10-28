@@ -111,7 +111,8 @@
 			"neverBody": "Ingen statistik, ingen reklam, ingen felrapportering utöver Googles egna tjänster, ingen positionsspårning. Ingenting säljs eller delas, och ingen annan än Google Cloud är inblandad.",
 			"deletionTitle": "Ta bort dina uppgifter",
 			"deletionHome": "Lämnar du ett hem försvinner din åtkomst. Hemmets sista medlem kan ta bort det, vilket tar bort det och dess innehåll för alla. Firebase kan behålla borttagna dokument i krypterade säkerhetskopior en kort tid.",
-			"deletionSignout": "Att logga ut tar bort sessionen från enheten. För att få ett konto och dess uppgifter borttagna helt, kontakta den som driver appen."
+			"deletionAccount": "När du väljer Radera konto i kontomenyn tas ditt namn, din e-postadress, dina automationsnycklar och din inloggning bort. Hem där du är enda medlemmen tas bort med allt innehåll. I hem som andra fortfarande använder tas dina privata kort bort, medan det du delat finns kvar.",
+			"deletionSignout": "När du loggar ut tas din session och offlinekopian på den här enheten bort."
 		},
 		"terms": {
 			"title": "Användarvillkor",

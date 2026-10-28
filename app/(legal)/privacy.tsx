@@ -46,6 +46,7 @@ export default function PrivacyPolicy() {
 					heading: t("screen.privacy.deletionTitle"),
 					paragraphs: [
 						t("screen.privacy.deletionHome"),
+						t("screen.privacy.deletionAccount"),
 						t("screen.privacy.deletionSignout"),
 					],
 				},
