@@ -11,17 +11,58 @@ const homeRef = {
 	}),
 	listCollections: async () => [childCollection],
 };
-function child(id: string, payload = "") {
+function child(
+	id: string,
+	payload: string | number[] = "",
+	collectionId = "nodes",
+) {
 	return {
 		id,
-		path: `homes/home-1/nodes/${id}`,
+		path: `homes/home-1/${collectionId}/${id}`,
 		listCollections: async () => [],
-		data: () => ({ payload }),
+		data: (): Record<string, string | number[]> =>
+			Array.isArray(payload) ? { values: payload } : { payload },
 	};
+}
+function deletionBytes(ref: ReturnType<typeof child>) {
+	const stringBytes = (value: string) => Buffer.byteLength(value) + 1;
+	const segments = ref.path.split("/");
+	const nameBytes =
+		16 + segments.reduce((sum, part) => sum + stringBytes(part), 0);
+	const parentBytes =
+		16 +
+		segments.slice(0, -2).reduce((sum, part) => sum + stringBytes(part), 0);
+	let bytes = nameBytes + 32;
+	for (const [field, value] of Object.entries(ref.data())) {
+		const fieldBytes = stringBytes(field);
+		const values = Array.isArray(value) ? value : [value, value];
+		bytes +=
+			fieldBytes +
+			(Array.isArray(value) ? value.length * 8 : stringBytes(value));
+		for (const entry of values)
+			bytes +=
+				nameBytes +
+				parentBytes +
+				fieldBytes +
+				(typeof entry === "number" ? 8 : Math.min(stringBytes(entry), 1500)) +
+				32;
+	}
+	return bytes;
+}
+
+function indexedChildren(length = 30_000) {
+	return Array.from({ length: 3 }, (_, i) =>
+		child(
+			String(i).padStart(20, "0"),
+			Array.from({ length }, (_, value) => value),
+			"recurring",
+		),
+	);
 }
 const childRef = child("child");
 let children = [childRef];
 let committed: unknown[][];
+let attempted: unknown[][];
 const readClaim = jest.fn(() => homeRef.get());
 const childCollection = { id: "nodes", listDocuments: async () => children };
 const doc = jest.fn(() => homeRef);
@@ -44,15 +85,18 @@ jest.unstable_mockModule("./firestore.js", () => ({
 					deleted.push(ref);
 				},
 			});
+			attempted.push(deleted);
 			const bytes = children
 				.filter((ref) => deleted.includes(ref))
-				.reduce(
-					(total, ref) =>
-						total + Buffer.byteLength(JSON.stringify(ref.data())) * 2 + 1024,
-					0,
+				.reduce((total, ref) => total + deletionBytes(ref), 0);
+			if (bytes > 10 * 1024 * 1024)
+				throw Object.assign(
+					new Error(
+						"3 INVALID_ARGUMENT: Transaction too big. Decrease transaction size.",
+					),
+					{ code: 3 },
 				);
-			if (bytes > 10 * 1024 * 1024 || deleted.length > 500)
-				throw new Error("transaction limit exceeded");
+			if (deleted.length > 500) throw new Error("transaction limit exceeded");
 			committed.push(deleted);
 			children = children.filter((ref) => !deleted.includes(ref));
 			return result;
@@ -74,6 +118,7 @@ beforeEach(() => {
 	remove.mockReset();
 	children = [childRef];
 	committed = [];
+	attempted = [];
 });
 
 describe("isSoleOwner", () => {
@@ -90,6 +135,77 @@ describe("isSoleOwner", () => {
 });
 
 describe("deleteHomeTree", () => {
+	it("bisects indexed-array chunks exceeding the transaction size limit and checks each claim", async () => {
+		const documents = indexedChildren();
+		children = [...documents];
+		expect(documents.map(deletionBytes)).toEqual([
+			4_320_099, 4_320_099, 4_320_099,
+		]);
+
+		await deleteHomeTree("home-1", "claim");
+
+		expect(attempted.map((chunk) => chunk.length)).toEqual([3, 1, 2, 1]);
+		expect(committed).toEqual([[documents[0]], documents.slice(1), [homeRef]]);
+		expect(readClaim).toHaveBeenCalledTimes(attempted.length);
+	});
+
+	it("bisects oversized indexed-array pairs down to single-document transactions", async () => {
+		const documents = indexedChildren(39_000);
+		children = [...documents];
+
+		await deleteHomeTree("home-1", "claim");
+
+		expect(attempted.map((chunk) => chunk.length)).toEqual([2, 1, 1, 1, 1]);
+		expect(committed).toEqual([...documents.map((ref) => [ref]), [homeRef]]);
+		expect(readClaim).toHaveBeenCalledTimes(attempted.length);
+	});
+
+	it("stops split retries after claim replacement and resumes without duplicate deletions", async () => {
+		const documents = indexedChildren();
+		children = [...documents];
+		readClaim.mockImplementationOnce(() => homeRef.get());
+		readClaim.mockImplementationOnce(async () => {
+			const current = claim;
+			claim = { id: "replacement", expiresAt: Timestamp.fromMillis(0) };
+			return { data: () => ({ members: members ?? {} }), get: () => current };
+		});
+
+		await expect(deleteHomeTree("home-1", "claim")).rejects.toThrow("blocked");
+		expect(committed).toEqual([[documents[0]]]);
+		expect(readClaim).toHaveBeenCalledTimes(3);
+		expect(remove).not.toHaveBeenCalledWith(homeRef);
+
+		claim = {
+			id: "retry",
+			expiresAt: Timestamp.fromMillis(Date.now() + 600_000),
+		};
+		await deleteHomeTree("home-1", "retry");
+		expect(committed.flat()).toEqual([...documents, homeRef]);
+	});
+
+	it("surfaces a transaction size error for a single document without retrying", async () => {
+		const error = Object.assign(new Error("Transaction too big"), { code: 3 });
+		remove.mockImplementationOnce(() => {
+			throw error;
+		});
+
+		await expect(deleteHomeTree("home-1", "claim")).rejects.toBe(error);
+		expect(readClaim).toHaveBeenCalledTimes(1);
+		expect(committed).toEqual([]);
+	});
+
+	it("does not bisect unrelated INVALID_ARGUMENT failures", async () => {
+		children = indexedChildren();
+		const error = Object.assign(new Error("Invalid field path"), { code: 3 });
+		remove.mockImplementationOnce(() => {
+			throw error;
+		});
+
+		await expect(deleteHomeTree("home-1", "claim")).rejects.toBe(error);
+		expect(readClaim).toHaveBeenCalledTimes(1);
+		expect(committed).toEqual([]);
+	});
+
 	it("bounds small-document chunks by document count", async () => {
 		children = Array.from({ length: 501 }, (_, i) => child(String(i)));
 		await deleteHomeTree("home-1", "claim");

@@ -57,6 +57,27 @@ export async function deleteHomeTree(
 	claimId: string,
 ): Promise<void> {
 	const home = db.collection(homesCollection).doc(homeId);
+	async function deleteChunk(documents: DocumentReference[]): Promise<void> {
+		try {
+			await withDeletionClaim(home, claimId, (transaction) => {
+				for (const document of documents) transaction.delete(document);
+			});
+		} catch (error) {
+			if (
+				documents.length === 1 ||
+				!(error instanceof Error) ||
+				!("code" in error) ||
+				error.code !== 3 ||
+				!/transaction.*(?:size|too big|too large)|(?:size|too big|too large).*transaction/i.test(
+					error.message,
+				)
+			)
+				throw error;
+			const middle = Math.floor(documents.length / 2);
+			await deleteChunk(documents.slice(0, middle));
+			await deleteChunk(documents.slice(middle));
+		}
+	}
 	async function drain(parent: DocumentReference): Promise<void> {
 		for (const collection of await parent.listCollections()) {
 			const documents = await collection.listDocuments();
@@ -79,10 +100,9 @@ export async function deleteHomeTree(
 						bytes += estimatedBytes;
 						end++;
 					}
-					await withDeletionClaim(home, claimId, (transaction) => {
-						for (const snapshot of snapshots.slice(first, end))
-							transaction.delete(snapshot.ref);
-					});
+					await deleteChunk(
+						snapshots.slice(first, end).map((snapshot) => snapshot.ref),
+					);
 					first = end;
 				}
 			}
