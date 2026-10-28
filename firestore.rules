@@ -184,12 +184,7 @@ service cloud.firestore {
           || leavesHome()
           || acceptsInvite()
         );
-      // Deleting a home leaves its nodes, locations and recurring rules stored
-      // but permanently unreachable — every one of their rules resolves
-      // membership through a get() on this document. Until a Cloud Function can
-      // cascade (#1, #39), delete is offered only to a sole member, where the
-      // client-side cascade is bounded and cannot revoke anyone else's access.
-      allow delete: if ownerOfThis() && resource.data.members.keys().size() == 1;
+      allow delete: if false;
 
       match /invites/{emailHashId} {
         allow read: if isOwner(homeId)

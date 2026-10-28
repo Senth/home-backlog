@@ -18,24 +18,6 @@ interface DangerZoneProps {
 	onError: () => void;
 }
 
-/**
- * The two ways out of a home, and why only one of them is usually offered.
- *
- * **Leaving** is refused to the last admin, in `firestore.rules` and not only
- * here. A home with no admin can still be edited by everyone left in it, but
- * never invited to, never tidied and never deleted — and no action inside the
- * app could recover it.
- *
- * **Deleting** is offered only when you are the home's sole member. Deleting the
- * home document does not delete its nodes, locations and recurring rules: every
- * one of those rules resolves membership through a `get()` on the home, so once
- * it is gone those documents are unreachable by anyone, permanently, while still
- * stored and still billed. There is no Cloud Function to cascade them (#1 is
- * open and unbuilt, #39 covers the atomicity gap). Alone, the cascade is bounded
- * and usually empty, and it cannot revoke anybody else's access as a side
- * effect. It exists at all because the last-admin rule would otherwise trap a
- * sole owner with every home they ever created by accident.
- */
 export function DangerZone({ home, myUid, onError }: DangerZoneProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();

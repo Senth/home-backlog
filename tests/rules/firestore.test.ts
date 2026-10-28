@@ -460,16 +460,13 @@ describe("homes/{homeId}", () => {
 	});
 
 	describe("delete", () => {
-		it("is allowed to an owner who is the home's only member", async () => {
+		it("is refused even to an owner who is the home's only member", async () => {
 			await seedHome({ [OWNER.uid]: "owner" });
 
-			await assertSucceeds(deleteDoc(doc(dbAs(env, OWNER), homePath)));
+			await assertFails(deleteDoc(doc(dbAs(env, OWNER), homePath)));
 		});
 
 		it("is refused while anyone else is still in the home", async () => {
-			// Nodes, locations and recurring rules resolve membership through a
-			// get() on this document, so deleting it strands them — permanently,
-			// for everyone. Only a sole member may do that, and only to themselves.
 			await seedHome();
 
 			await assertFails(deleteDoc(doc(dbAs(env, OWNER), homePath)));
@@ -479,6 +476,13 @@ describe("homes/{homeId}", () => {
 			await seedHome();
 
 			await assertFails(deleteDoc(doc(dbAs(env, MEMBER), homePath)));
+		});
+
+		it("is refused to an outsider or an anonymous client", async () => {
+			await seedHome();
+
+			await assertFails(deleteDoc(doc(dbAs(env, OUTSIDER), homePath)));
+			await assertFails(deleteDoc(doc(dbAnon(env), homePath)));
 		});
 	});
 
