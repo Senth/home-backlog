@@ -34,9 +34,9 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          # patch-package edits node_modules in place, so a tree restored from
+          # another patch set fails to re-patch. No prefix fallback for that reason.
+          key: ${{ runner.os }}-node-${{ hashFiles('yarn.lock', 'patches/**') }}
 
       - name: Yarn install
         uses: borales/actions-yarn@3766bb1335b98fb13c60eaf358fe20811b730a88 # v5
