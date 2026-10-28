@@ -253,8 +253,8 @@
 		"waiting": "Väntar på att synkas",
 		"pendingChanges_one": "{{count}} ändring väntar på anslutning",
 		"pendingChanges_other": "{{count}} ändringar väntar på anslutning",
-		"signOutPending_one": "{{count}} ändring väntar på anslutning. Den synkas nästa gång du loggar in på den här enheten.",
-		"signOutPending_other": "{{count}} ändringar väntar på anslutning. De synkas nästa gång du loggar in på den här enheten.",
+		"signOutPending_one": "{{count}} ändring väntar på anslutning. Den kastas om du loggar ut.",
+		"signOutPending_other": "{{count}} ändringar väntar på anslutning. De kastas om du loggar ut.",
 		"queuedMove": "{{name}} flyttas under {{target}} när du är online igen.",
 		"queuedMoveTop": "{{name}} flyttas till översta nivån när du är online igen.",
 		"queuedDelete": "{{name}} tas bort när du är online igen.",
@@ -265,6 +265,7 @@
 		"andMore_other": "och {{count}} till"
 	},
 	"error": {
+		"signOutCleanup": "Det gick inte att rensa den här enheten helt. Ladda om innan du försöker igen.",
 		"googleSignIn": "Kunde inte logga in med Google. Försök igen.",
 		"moveOwnSubtree": "Det går inte att flytta något under sig självt eller något som ligger inuti det.",
 		"moveVisibility": "Ett privat kort kan inte ligga i ett delat projekt, eller tvärtom.",

@@ -31,14 +31,14 @@ export const deleteAccount = onCall(
 		}
 
 		const userRef = db.collection(usersCollection).doc(uid);
+		const membershipQuery = db
+			.collection(homesCollection)
+			.where(new FieldPath("members", uid), "in", ["owner", "member"]);
 		const [membership, keys] = await Promise.all([
-			db
-				.collection(homesCollection)
-				.where(new FieldPath("members", uid), "in", ["owner", "member"])
-				.get(),
+			membershipQuery.get(),
 			userRef.collection(apiKeysCollection).get(),
 		]);
-		const homes = await Promise.all(
+		let homes = await Promise.all(
 			membership.docs.map(async (home) => {
 				const participants = await home.ref
 					.collection(nodesCollection)
@@ -58,7 +58,7 @@ export const deleteAccount = onCall(
 				};
 			}),
 		);
-		const plan = planAccountDeletion({
+		let plan = planAccountDeletion({
 			uid,
 			homes,
 			apiKeys: keys.docs.map((key) => ({ name: key.get("name") as string })),
@@ -76,37 +76,104 @@ export const deleteAccount = onCall(
 			throw new HttpsError("failed-precondition", "recent-login");
 		}
 
+		const claimed = await db.runTransaction(async (transaction) => {
+			const current = await transaction.get(membershipQuery);
+			const currentHomes = current.docs.map((home) => ({
+				homeId: home.id,
+				name: home.get("name") as string,
+				members: home.get("members") as Record<string, string>,
+				memberProfiles: home.get("memberProfiles") ?? {},
+				nodes:
+					homes.find((previous) => previous.homeId === home.id)?.nodes ?? [],
+				ref: home.ref,
+			}));
+			const currentPlan = planAccountDeletion({
+				uid,
+				homes: currentHomes,
+				apiKeys: plan.apiKeys,
+			});
+			if (
+				currentPlan.homes.some((home) => home.outcome === "blocked") ||
+				current.docs.some(
+					(home) =>
+						home.get("deletionClaim") && home.get("deletionClaim") !== uid,
+				)
+			) {
+				throw new HttpsError("failed-precondition", "blocked");
+			}
+			for (const home of current.docs)
+				transaction.update(home.ref, { deletionClaim: uid });
+			return { homes: currentHomes, plan: currentPlan };
+		});
+		plan = claimed.plan;
+		homes = await Promise.all(
+			claimed.homes.map(async (home) => ({
+				...home,
+				participants: await home.ref.collection(nodesCollection).get(),
+			})),
+		);
 		const leaving = homes.filter((home) =>
 			plan.homes.some(
 				(entry) => entry.homeId === home.homeId && entry.outcome === "leave",
 			),
 		);
 		for (const home of leaving) {
-			const assigned = await home.ref
-				.collection(nodesCollection)
-				.where("assigneeIds", "array-contains", uid)
-				.get();
-			const nodes = new Map(
-				[...home.participants.docs, ...assigned.docs].map((node) => [
-					node.id,
-					node,
-				]),
+			const nodes = home.participants.docs;
+			const deleted = new Set(
+				nodes
+					.filter((node) => {
+						const participants = node.get("participantIds") as
+							| string[]
+							| undefined;
+						return (
+							node.get("visibility") === "private" &&
+							participants?.length === 1 &&
+							participants[0] === uid
+						);
+					})
+					.map((node) => node.id),
 			);
-			for (const node of nodes.values()) {
-				const participants = node.get("participantIds") as string[] | undefined;
-				if (
-					node.get("visibility") === "private" &&
-					participants?.length === 1 &&
-					participants[0] === uid
-				) {
-					await node.ref.delete();
-				} else {
-					await node.ref.update({
-						participantIds: FieldValue.arrayRemove(uid),
-						assigneeIds: FieldValue.arrayRemove(uid),
-					});
-				}
+			const retained = nodes
+				.filter((node) => !deleted.has(node.id))
+				.map((node) => {
+					const ancestorIds = (
+						(node.get("ancestorIds") ?? []) as string[]
+					).filter((id) => !deleted.has(id));
+					return { node, ancestorIds, parentId: ancestorIds.at(-1) ?? null };
+				});
+			const remainingMembers = Object.keys(home.members).filter(
+				(member) => member !== uid,
+			);
+			const counts = new Map<
+				string,
+				{ childCount: number; doneCount: number }
+			>();
+			for (const { node, parentId } of retained) {
+				if (parentId === null) continue;
+				const count = counts.get(parentId) ?? { childCount: 0, doneCount: 0 };
+				count.childCount += 1;
+				if (node.get("status") === "done") count.doneCount += 1;
+				counts.set(parentId, count);
 			}
+			for (const { node, ancestorIds, parentId } of retained) {
+				const participants = (
+					(node.get("participantIds") ?? []) as string[]
+				).filter((member) => member !== uid);
+				await node.ref.update({
+					parentId,
+					ancestorIds,
+					...(counts.get(node.id) ?? { childCount: 0, doneCount: 0 }),
+					participantIds:
+						parentId === null &&
+						node.get("visibility") === "shared" &&
+						participants.length === 0
+							? remainingMembers
+							: participants,
+					assigneeIds: FieldValue.arrayRemove(uid),
+				});
+			}
+			for (const node of nodes)
+				if (deleted.has(node.id)) await node.ref.delete();
 		}
 		for (const home of leaving) {
 			await home.ref.collection(dashboardsCollection).doc(uid).delete();
@@ -122,13 +189,11 @@ export const deleteAccount = onCall(
 				FieldValue.delete(),
 				new FieldPath("memberEmailHashes", uid),
 				FieldValue.delete(),
+				new FieldPath("deletionClaim"),
+				FieldValue.delete(),
 			);
 		}
 		for (const home of plan.homes.filter((home) => home.outcome === "delete")) {
-			const ref = db.collection(homesCollection).doc(home.homeId);
-			for (const collection of await ref.listCollections()) {
-				await db.recursiveDelete(collection);
-			}
 			await deleteHomeTree(home.homeId);
 		}
 		const email = request.auth?.token.email;

@@ -19,13 +19,20 @@ export const deleteHome = onCall(
 			throw new HttpsError("invalid-argument", "A home ID is required.");
 		}
 
-		const home = await db.collection(homesCollection).doc(homeId).get();
-		if (!isSoleOwner(home.data()?.members ?? {}, uid)) {
-			throw new HttpsError(
-				"failed-precondition",
-				"Only the home's sole member and owner can delete it.",
-			);
-		}
+		const ref = db.collection(homesCollection).doc(homeId);
+		await db.runTransaction(async (transaction) => {
+			const home = await transaction.get(ref);
+			if (
+				!isSoleOwner(home.data()?.members ?? {}, uid) ||
+				(home.get("deletionClaim") && home.get("deletionClaim") !== uid)
+			) {
+				throw new HttpsError(
+					"failed-precondition",
+					"Only the home's sole member and owner can delete it.",
+				);
+			}
+			transaction.update(ref, { deletionClaim: uid });
+		});
 
 		await deleteHomeTree(homeId);
 	},

@@ -6,23 +6,18 @@ function extractMatchPaths(source: string) {
 	const stack: { depth: number; path: string }[] = [];
 	let depth = 0;
 
-	for (const line of source.split(/\r?\n/)) {
-		const code = line.replace(/\/\/.*$/, "").replace(/'[^']*'|"[^"]*"/g, "");
-		const match = code.match(/^(\s*)match\s+(\/.+?)\s*\{\s*$/);
-		if (match) {
+	const code = source.replace(/\/\/[^\r\n]*|'[^']*'|"[^"]*"/g, "");
+	for (const token of code.matchAll(/\bmatch\s+(\/[^\s]+)\s*\{|[{}]/g)) {
+		if (token[1]) {
 			const parent = stack.at(-1)?.path ?? "";
-			const path = `${parent}${match[2]}`;
+			const path = `${parent}${token[1]}`;
 			paths.push(path);
 			stack.push({ depth, path });
-		}
-
-		const braces = match ? code.replace(match[0], "match {") : code;
-		for (const character of braces) {
-			if (character === "{") depth += 1;
-			if (character === "}") {
-				depth -= 1;
-				while (stack.at(-1)?.depth === depth) stack.pop();
-			}
+			depth += 1;
+		} else if (token[0] === "{") depth += 1;
+		else {
+			depth -= 1;
+			while (stack.at(-1)?.depth === depth) stack.pop();
 		}
 	}
 
@@ -30,6 +25,19 @@ function extractMatchPaths(source: string) {
 }
 
 describe("account deletion path coverage", () => {
+	it("includes inline match declarations and their nested paths", () => {
+		expect(
+			extractMatchPaths(`match /databases/{database}/documents {
+          match /reviewDummy/{id} { allow read: if true; }
+          match /parent/{id} { match /child/{childId} { allow read: if true; } }
+        }`),
+		).toEqual([
+			"/databases/{database}/documents",
+			"/databases/{database}/documents/reviewDummy/{id}",
+			"/databases/{database}/documents/parent/{id}",
+			"/databases/{database}/documents/parent/{id}/child/{childId}",
+		]);
+	});
 	it("classifies every Firestore and Storage match path", () => {
 		const rulePaths = [
 			{

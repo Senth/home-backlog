@@ -45,6 +45,11 @@ const collection = jest.fn((name: string) => ({
 jest.unstable_mockModule("./firestore.js", () => ({
 	db: {
 		collection,
+		runTransaction: async (run: (transaction: unknown) => unknown) =>
+			run({
+				get: (query: { get: () => unknown }) => query.get(),
+				update: write,
+			}),
 		collectionGroup: () => ({
 			where: () => ({ get: async () => ({ docs: [] }) }),
 		}),

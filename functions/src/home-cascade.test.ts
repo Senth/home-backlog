@@ -2,14 +2,24 @@ import { jest } from "@jest/globals";
 
 let members: Record<string, string> | undefined;
 const homeRef = {
-	get: async () => ({ data: () => (members ? { members } : undefined) }),
+	get: async () => ({
+		data: () => (members ? { members } : undefined),
+		get: () => undefined,
+	}),
+	listCollections: async () => [childCollection],
 };
+const childCollection = { id: "nodes" };
 const doc = jest.fn(() => homeRef);
 const collection = jest.fn(() => ({ doc }));
 const recursiveDelete = jest.fn<() => Promise<void>>();
 
 jest.unstable_mockModule("./firestore.js", () => ({
-	db: { collection, recursiveDelete },
+	db: {
+		collection,
+		recursiveDelete,
+		runTransaction: async (run: (transaction: unknown) => unknown) =>
+			run({ get: () => homeRef.get(), update: jest.fn() }),
+	},
 	homesCollection: "homes",
 }));
 
@@ -47,6 +57,19 @@ describe("deleteHomeTree", () => {
 		recursiveDelete.mockRejectedValue(new Error("deletion failed"));
 
 		await expect(deleteHomeTree("home-1")).rejects.toThrow("deletion failed");
+	});
+
+	it("keeps the home until child deletion succeeds, so a failed callable can retry", async () => {
+		recursiveDelete.mockRejectedValueOnce(new Error("descendant failed"));
+		await expect(
+			deleteHome.run({
+				data: { homeId: "home-1" },
+				auth: { uid: "owner", token: {} },
+			} as Parameters<typeof deleteHome.run>[0]),
+		).rejects.toThrow("descendant failed");
+		expect(recursiveDelete).not.toHaveBeenCalledWith(homeRef);
+		await deleteHomeTree("home-1");
+		expect(recursiveDelete).toHaveBeenLastCalledWith(homeRef);
 	});
 });
 
@@ -108,7 +131,7 @@ describe("deleteHome callable", () => {
 		await call({ homeId: "home-1" });
 
 		expect(doc).toHaveBeenCalledWith("home-1");
-		expect(recursiveDelete).toHaveBeenCalledTimes(1);
+		expect(recursiveDelete).toHaveBeenCalledTimes(2);
 		expect(recursiveDelete).toHaveBeenCalledWith(homeRef);
 	});
 });

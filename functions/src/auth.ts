@@ -143,7 +143,7 @@ export async function homeAccess(
 		"home_not_found",
 		`No home ${homeId}, or you are not a member of it.`,
 	);
-	if (!snapshot.exists) throw notFound;
+	if (!snapshot.exists || snapshot.get("deletionClaim")) throw notFound;
 	const members = snapshot.get("members");
 	if (!isMember(members, caller.uid)) throw notFound;
 

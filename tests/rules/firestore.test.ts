@@ -68,6 +68,70 @@ async function seedHome(members: Record<string, string> = ownerAndMember()) {
 }
 
 describe("homes/{homeId}", () => {
+	it("reserves deletion claims for the server and freezes claimed membership", async () => {
+		await seedHome();
+		const owner = doc(dbAs(env, OWNER), homePath);
+		await assertFails(
+			setDoc(doc(dbAs(env, OWNER), "homes/claimed-create"), {
+				...homeDoc({ [OWNER.uid]: "owner" }),
+				deletionClaim: OWNER.uid,
+			}),
+		);
+		await assertFails(updateDoc(owner, { deletionClaim: OWNER.uid }));
+		await seed(env, async (db) => {
+			await updateDoc(doc(db, homePath), { deletionClaim: OWNER.uid });
+		});
+		await assertFails(updateDoc(owner, { deletionClaim: deleteField() }));
+		await assertFails(updateDoc(owner, { members: { [OWNER.uid]: "owner" } }));
+		await assertFails(
+			updateDoc(doc(dbAs(env, MEMBER), homePath), {
+				[`members.${MEMBER.uid}`]: deleteField(),
+			}),
+		);
+	});
+
+	it.each([
+		["nodes/claimed", nodeDoc()],
+		["locations/claimed", locationDoc()],
+		[`dashboards/${OWNER.uid}`, {}],
+		["dashboardCards/claimed", {}],
+		["recurring/claimed", {}],
+		[`invites/${emailHash(INVITEE.email)}`, inviteDoc(INVITEE.email)],
+	] as const)(
+		"freezes writes but not reads under claimed home: %s",
+		async (path, data) => {
+			await seed(env, async (db) => {
+				await setDoc(doc(db, homePath), {
+					...homeDoc(),
+					deletionClaim: OWNER.uid,
+				});
+				await setDoc(doc(db, `${homePath}/${path}`), data);
+			});
+			const ref = doc(dbAs(env, OWNER), `${homePath}/${path}`);
+			await assertSucceeds(getDoc(ref));
+			await assertFails(setDoc(ref, data));
+			await assertFails(deleteDoc(ref));
+		},
+	);
+
+	it("refuses accepting an invite while sole-home deletion is claimed", async () => {
+		await seed(env, async (db) => {
+			await setDoc(doc(db, homePath), {
+				...homeDoc({ [OWNER.uid]: "owner" }),
+				deletionClaim: OWNER.uid,
+			});
+			await setDoc(
+				doc(db, `${homePath}/invites/${emailHash(INVITEE.email)}`),
+				inviteDoc(INVITEE.email),
+			);
+		});
+		await assertFails(
+			updateDoc(doc(dbAs(env, INVITEE), homePath), {
+				[`members.${INVITEE.uid}`]: "member",
+				[`memberEmailHashes.${INVITEE.uid}`]: emailHash(INVITEE.email),
+			}),
+		);
+	});
 	it("is readable by a member and nobody else", async () => {
 		await seedHome();
 

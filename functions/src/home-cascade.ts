@@ -8,5 +8,9 @@ export function isSoleOwner(
 }
 
 export async function deleteHomeTree(homeId: string): Promise<void> {
-	await db.recursiveDelete(db.collection(homesCollection).doc(homeId));
+	const home = db.collection(homesCollection).doc(homeId);
+	for (const collection of await home.listCollections()) {
+		await db.recursiveDelete(collection);
+	}
+	await db.recursiveDelete(home);
 }

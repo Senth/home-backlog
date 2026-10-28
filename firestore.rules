@@ -96,6 +96,10 @@ service cloud.firestore {
       return signedIn() && roleIn(homeData(homeId).members) == 'owner';
     }
 
+    function homeWritable(homeId) {
+      return homeData(homeId).get('deletionClaim', null) == null;
+    }
+
     match /homes/{homeId} {
       // resource.data is already loaded here, so membership needs no extra get().
       function memberOfThis() {
@@ -163,6 +167,7 @@ service cloud.firestore {
 
       allow get, list: if memberOfThis();
       allow create: if signedIn()
+        && request.resource.data.get('deletionClaim', null) == null
         && request.resource.data.members.get(request.auth.uid, null) == 'owner'
         && validHome(request.resource.data)
         && quotaUntouched(request.resource.data, {})
@@ -173,6 +178,8 @@ service cloud.firestore {
       // anyone's entries, because removing a member removes theirs too — except
       // for an invitee accepting their own invite.
       allow update: if validHome(request.resource.data)
+        && resource.data.get('deletionClaim', null) == null
+        && request.resource.data.get('deletionClaim', null) == null
         && quotaUntouched(request.resource.data, resource.data)
         && ownHashIsOwn(request.resource.data)
         && (
@@ -197,13 +204,14 @@ service cloud.firestore {
         // — and only when present, since every invite written before #102 lacks
         // it and reads as off.
         allow create, update: if isOwner(homeId)
+          && homeWritable(homeId)
           && request.resource.data.role in ['owner', 'member']
           && request.resource.data.emailHash == emailHashId
           && (!('addToAllProjects' in request.resource.data)
             || request.resource.data.addToAllProjects is bool);
         // An invitee may consume or decline their own invite.
-        allow delete: if isOwner(homeId)
-          || (hasEmail() && emailHashId == emailHash());
+        allow delete: if homeWritable(homeId)
+          && (isOwner(homeId) || (hasEmail() && emailHashId == emailHash()));
       }
 
       // The one document type every board, task and subtask is made of. These
@@ -492,6 +500,7 @@ service cloud.firestore {
           && (resource == null || visibleToMe(resource.data));
         allow list: if isMember(homeId) && visibleToMe(resource.data);
         allow create: if isMember(homeId)
+          && homeWritable(homeId)
           && visibleToMe(request.resource.data)
           && validNode(request.resource.data)
           && createdInApp(request.resource.data)
@@ -499,6 +508,7 @@ service cloud.firestore {
           && rootHasParticipants(request.resource.data)
           && inherits(request.resource.data);
         allow update: if isMember(homeId)
+          && homeWritable(homeId)
           && visibleToMe(resource.data)
           && visibleToMe(request.resource.data)
           && validNode(request.resource.data)
@@ -507,7 +517,7 @@ service cloud.firestore {
           && immutable(request.resource.data, resource.data)
           && (privacyUnchanged(request.resource.data, resource.data)
               || inherits(request.resource.data));
-        allow delete: if isMember(homeId) && visibleToMe(resource.data);
+        allow delete: if isMember(homeId) && homeWritable(homeId) && visibleToMe(resource.data);
       }
 
       // The automations that have written into this home — one row per API key,
@@ -599,32 +609,38 @@ service cloud.firestore {
 
         allow get, list: if isMember(homeId);
         allow create: if isMember(homeId)
+          && homeWritable(homeId)
           && validLocationCreate(request.resource.data)
           && structure(request.resource.data);
         allow update: if isMember(homeId)
+          && homeWritable(homeId)
           && validLocation(request.resource.data)
           && structure(request.resource.data)
           && immutable(request.resource.data, resource.data);
-        allow delete: if isMember(homeId);
+        allow delete: if isMember(homeId) && homeWritable(homeId);
       }
 
       // A member's cards for one home. Own document only — nobody arranges
       // your screen, and the per-member hide of a shared card lives here too.
       match /dashboards/{uid} {
-        allow read, write: if signedIn()
+        allow read: if signedIn()
           && uid == request.auth.uid
           && isMember(homeId);
+        allow write: if signedIn() && uid == request.auth.uid
+          && isMember(homeId) && homeWritable(homeId);
       }
 
       // Shared cards. Any member reads and writes; hiding is per-member, on
       // their own doc, which is what keeps a shared card from becoming the
       // chore-wall.
       match /dashboardCards/{cardId} {
-        allow read, write: if isMember(homeId);
+        allow read: if isMember(homeId);
+        allow write: if isMember(homeId) && homeWritable(homeId);
       }
 
       match /recurring/{ruleId} {
-        allow read, write: if isMember(homeId);
+        allow read: if isMember(homeId);
+        allow write: if isMember(homeId) && homeWritable(homeId);
       }
     }
 
