@@ -4,6 +4,9 @@ import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { db, homesCollection, maxBatchWrites } from "./firestore.js";
 
+const maxDeletionBytes = 2 * 1024 * 1024;
+const indexSizeMultiplier = 4;
+
 export function deletionClaim() {
 	return {
 		id: randomUUID(),
@@ -59,10 +62,29 @@ export async function deleteHomeTree(
 			const documents = await collection.listDocuments();
 			for (const document of documents) await drain(document);
 			for (let start = 0; start < documents.length; start += maxBatchWrites) {
-				await withDeletionClaim(home, claimId, (transaction) => {
-					for (const document of documents.slice(start, start + maxBatchWrites))
-						transaction.delete(document);
-				});
+				const snapshots = await db.getAll(
+					...documents.slice(start, start + maxBatchWrites),
+				);
+				for (let first = 0; first < snapshots.length; ) {
+					let end = first;
+					let bytes = 0;
+					while (end < snapshots.length) {
+						const snapshot = snapshots[end];
+						const estimatedBytes =
+							Buffer.byteLength(JSON.stringify(snapshot.data() ?? {})) *
+								indexSizeMultiplier +
+							Buffer.byteLength(snapshot.ref.path) +
+							1024;
+						if (end > first && bytes + estimatedBytes > maxDeletionBytes) break;
+						bytes += estimatedBytes;
+						end++;
+					}
+					await withDeletionClaim(home, claimId, (transaction) => {
+						for (const snapshot of snapshots.slice(first, end))
+							transaction.delete(snapshot.ref);
+					});
+					first = end;
+				}
 			}
 		}
 	}

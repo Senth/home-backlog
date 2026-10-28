@@ -11,22 +11,52 @@ const homeRef = {
 	}),
 	listCollections: async () => [childCollection],
 };
-const childRef = { id: "child", listCollections: async () => [] };
-const childCollection = { id: "nodes", listDocuments: async () => [childRef] };
+function child(id: string, payload = "") {
+	return {
+		id,
+		path: `homes/home-1/nodes/${id}`,
+		listCollections: async () => [],
+		data: () => ({ payload }),
+	};
+}
+const childRef = child("child");
+let children = [childRef];
+let committed: unknown[][];
+const readClaim = jest.fn(() => homeRef.get());
+const childCollection = { id: "nodes", listDocuments: async () => children };
 const doc = jest.fn(() => homeRef);
 const collection = jest.fn(() => ({ doc }));
 
 jest.unstable_mockModule("./firestore.js", () => ({
 	db: {
 		collection,
-		runTransaction: async (run: (transaction: unknown) => unknown) =>
-			run({
-				get: () => homeRef.get(),
+		getAll: async (...refs: typeof children) =>
+			refs.map((ref) => ({ ref, data: ref.data })),
+		runTransaction: async (run: (transaction: unknown) => unknown) => {
+			const deleted: unknown[] = [];
+			const result = await run({
+				get: readClaim,
 				update: (_ref: unknown, data: { deletionClaim?: unknown }) => {
 					if (data.deletionClaim) claim = data.deletionClaim;
 				},
-				delete: remove,
-			}),
+				delete: (ref: unknown) => {
+					remove(ref);
+					deleted.push(ref);
+				},
+			});
+			const bytes = children
+				.filter((ref) => deleted.includes(ref))
+				.reduce(
+					(total, ref) =>
+						total + Buffer.byteLength(JSON.stringify(ref.data())) * 2 + 1024,
+					0,
+				);
+			if (bytes > 10 * 1024 * 1024 || deleted.length > 500)
+				throw new Error("transaction limit exceeded");
+			committed.push(deleted);
+			children = children.filter((ref) => !deleted.includes(ref));
+			return result;
+		},
 	},
 	homesCollection: "homes",
 	maxBatchWrites: 500,
@@ -42,6 +72,8 @@ beforeEach(() => {
 		expiresAt: Timestamp.fromMillis(Date.now() + 600_000),
 	};
 	remove.mockReset();
+	children = [childRef];
+	committed = [];
 });
 
 describe("isSoleOwner", () => {
@@ -58,6 +90,58 @@ describe("isSoleOwner", () => {
 });
 
 describe("deleteHomeTree", () => {
+	it("bounds small-document chunks by document count", async () => {
+		children = Array.from({ length: 501 }, (_, i) => child(String(i)));
+		await deleteHomeTree("home-1", "claim");
+
+		expect(committed.map((chunk) => chunk.length)).toEqual([500, 1, 1]);
+		expect(readClaim).toHaveBeenCalledTimes(3);
+	});
+
+	it("bounds deletion chunks by bytes as well as document count", async () => {
+		const documents = Array.from({ length: 501 }, (_, i) =>
+			child(String(i), "å".repeat(15_000)),
+		);
+		children = [...documents];
+		await deleteHomeTree("home-1", "claim");
+
+		expect(committed.length).toBeGreaterThan(3);
+		expect(committed.flat()).toEqual([...documents, homeRef]);
+		expect(readClaim).toHaveBeenCalledTimes(committed.length);
+	});
+
+	it("deletes a document above the estimated byte budget alone", async () => {
+		const large = child("large", "x".repeat(600_000));
+		children = [childRef, large, child("last")];
+		await deleteHomeTree("home-1", "claim");
+
+		expect(committed).toContainEqual([large]);
+		expect(committed.flat()).toHaveLength(4);
+	});
+
+	it("revalidates the claim between byte-bounded chunks and retries remaining documents", async () => {
+		const documents = Array.from({ length: 100 }, (_, i) =>
+			child(String(i), "x".repeat(30_000)),
+		);
+		children = [...documents];
+		readClaim.mockImplementationOnce(async () => {
+			const current = claim;
+			claim = { id: "replacement", expiresAt: Timestamp.fromMillis(0) };
+			return { data: () => ({ members: members ?? {} }), get: () => current };
+		});
+
+		await expect(deleteHomeTree("home-1", "claim")).rejects.toThrow("blocked");
+		expect(committed).toHaveLength(1);
+		expect(committed[0].length).toBeLessThan(documents.length);
+		expect(remove).not.toHaveBeenCalledWith(homeRef);
+		claim = {
+			id: "retry",
+			expiresAt: Timestamp.fromMillis(Date.now() + 600_000),
+		};
+		await deleteHomeTree("home-1", "retry");
+		expect(committed.flat()).toEqual([...documents, homeRef]);
+	});
+
 	it("awaits recursive deletion of the entire home document tree", async () => {
 		await deleteHomeTree("home-1", "claim");
 
