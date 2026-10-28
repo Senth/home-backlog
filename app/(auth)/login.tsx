@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View } from "react-native";
@@ -36,6 +36,8 @@ export default function Login() {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const router = useRouter();
+	const { deleted } = useLocalSearchParams<{ deleted?: string }>();
+	const [deletedNotice, setDeletedNotice] = useState(deleted === "1");
 	const online = useOnlineStatus();
 	const { redirectError, dismissRedirectError } = useAuth();
 	const { width } = useWindowDimensions();
@@ -53,6 +55,8 @@ export default function Login() {
 
 	const dismiss = () => {
 		setError(null);
+		setDeletedNotice(false);
+		if (deleted === "1") router.setParams({ deleted: undefined });
 		dismissRedirectError();
 	};
 
@@ -142,8 +146,8 @@ export default function Login() {
 				</Surface>
 			</SlimScrollView>
 
-			<Snackbar visible={message !== null} onDismiss={dismiss}>
-				{message ? t(message) : ""}
+			<Snackbar visible={message !== null || deletedNotice} onDismiss={dismiss}>
+				{message ? t(message) : deletedNotice ? t("account.delete.done") : ""}
 			</Snackbar>
 		</View>
 	);

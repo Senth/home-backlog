@@ -19,6 +19,7 @@ import {
 	orderBy,
 	query,
 	setDoc,
+	Timestamp,
 	updateDoc,
 	where,
 	writeBatch,
@@ -60,6 +61,11 @@ beforeEach(async () => {
 });
 
 const homePath = `homes/${HOME_ID}`;
+const activeClaim = () => ({
+	id: "invocation",
+	uid: OWNER.uid,
+	expiresAt: Timestamp.fromMillis(Date.now() + 600_000),
+});
 
 async function seedHome(members: Record<string, string> = ownerAndMember()) {
 	await seed(env, async (db) => {
@@ -68,6 +74,94 @@ async function seedHome(members: Record<string, string> = ownerAndMember()) {
 }
 
 describe("homes/{homeId}", () => {
+	it("reserves deletion claims for the server and freezes claimed membership", async () => {
+		await seedHome();
+		const owner = doc(dbAs(env, OWNER), homePath);
+		await assertFails(
+			setDoc(doc(dbAs(env, OWNER), "homes/claimed-create"), {
+				...homeDoc({ [OWNER.uid]: "owner" }),
+				deletionClaim: activeClaim(),
+			}),
+		);
+		await assertFails(updateDoc(owner, { deletionClaim: activeClaim() }));
+		await seed(env, async (db) => {
+			await updateDoc(doc(db, homePath), { deletionClaim: activeClaim() });
+		});
+		await assertFails(updateDoc(owner, { deletionClaim: deleteField() }));
+		await assertFails(updateDoc(owner, { members: { [OWNER.uid]: "owner" } }));
+		await assertFails(
+			updateDoc(doc(dbAs(env, MEMBER), homePath), {
+				[`members.${MEMBER.uid}`]: deleteField(),
+			}),
+		);
+	});
+
+	it.each([
+		["nodes/claimed", nodeDoc()],
+		["locations/claimed", locationDoc()],
+		[`dashboards/${OWNER.uid}`, {}],
+		["dashboardCards/claimed", {}],
+		["recurring/claimed", {}],
+		[`invites/${emailHash(INVITEE.email)}`, inviteDoc(INVITEE.email)],
+	] as const)(
+		"freezes writes but not reads under claimed home: %s",
+		async (path, data) => {
+			await seed(env, async (db) => {
+				await setDoc(doc(db, homePath), {
+					...homeDoc(),
+					deletionClaim: activeClaim(),
+				});
+				await setDoc(doc(db, `${homePath}/${path}`), data);
+			});
+			const ref = doc(dbAs(env, OWNER), `${homePath}/${path}`);
+			await assertSucceeds(getDoc(ref));
+			await assertFails(setDoc(ref, data));
+			await assertFails(deleteDoc(ref));
+		},
+	);
+
+	it("refuses accepting an invite while sole-home deletion is claimed", async () => {
+		await seed(env, async (db) => {
+			await setDoc(doc(db, homePath), {
+				...homeDoc({ [OWNER.uid]: "owner" }),
+				deletionClaim: activeClaim(),
+			});
+			await setDoc(
+				doc(db, `${homePath}/invites/${emailHash(INVITEE.email)}`),
+				inviteDoc(INVITEE.email),
+			);
+		});
+		await assertFails(
+			updateDoc(doc(dbAs(env, INVITEE), homePath), {
+				[`members.${INVITEE.uid}`]: "member",
+				[`memberEmailHashes.${INVITEE.uid}`]: emailHash(INVITEE.email),
+			}),
+		);
+	});
+	it("allows recovery after expiry but never lets a client alter the claim", async () => {
+		await seed(env, async (db) => {
+			await setDoc(doc(db, homePath), {
+				...homeDoc(),
+				deletionClaim: { ...activeClaim(), expiresAt: Timestamp.fromMillis(0) },
+			});
+			await setDoc(doc(db, `${homePath}/nodes/root`), nodeDoc());
+		});
+		const owner = doc(dbAs(env, OWNER), homePath);
+		await assertSucceeds(updateDoc(owner, { name: "Recovered" }));
+		await assertSucceeds(
+			updateDoc(doc(dbAs(env, OWNER), `${homePath}/nodes/root`), {
+				title: "Still editable",
+			}),
+		);
+		await assertFails(updateDoc(owner, { deletionClaim: deleteField() }));
+		await assertFails(
+			updateDoc(owner, {
+				"deletionClaim.expiresAt": Timestamp.fromMillis(0),
+				"deletionClaim.id": "replacement",
+			}),
+		);
+		await assertFails(updateDoc(owner, { deletionClaim: activeClaim() }));
+	});
 	it("is readable by a member and nobody else", async () => {
 		await seedHome();
 
@@ -460,16 +554,13 @@ describe("homes/{homeId}", () => {
 	});
 
 	describe("delete", () => {
-		it("is allowed to an owner who is the home's only member", async () => {
+		it("is refused even to an owner who is the home's only member", async () => {
 			await seedHome({ [OWNER.uid]: "owner" });
 
-			await assertSucceeds(deleteDoc(doc(dbAs(env, OWNER), homePath)));
+			await assertFails(deleteDoc(doc(dbAs(env, OWNER), homePath)));
 		});
 
 		it("is refused while anyone else is still in the home", async () => {
-			// Nodes, locations and recurring rules resolve membership through a
-			// get() on this document, so deleting it strands them — permanently,
-			// for everyone. Only a sole member may do that, and only to themselves.
 			await seedHome();
 
 			await assertFails(deleteDoc(doc(dbAs(env, OWNER), homePath)));
@@ -479,6 +570,13 @@ describe("homes/{homeId}", () => {
 			await seedHome();
 
 			await assertFails(deleteDoc(doc(dbAs(env, MEMBER), homePath)));
+		});
+
+		it("is refused to an outsider or an anonymous client", async () => {
+			await seedHome();
+
+			await assertFails(deleteDoc(doc(dbAs(env, OUTSIDER), homePath)));
+			await assertFails(deleteDoc(doc(dbAnon(env), homePath)));
 		});
 	});
 

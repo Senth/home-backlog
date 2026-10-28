@@ -13,6 +13,8 @@ import { region } from "./options.js";
 export const api = onRequest({ region }, app);
 
 export { createApiKey } from "./create-api-key.js";
+export { deleteAccount } from "./delete-account.js";
+export { deleteHome } from "./delete-home.js";
 export { onApiKeyDeleted } from "./on-api-key-deleted.js";
 export { onHomeDeleted, onNodeDeleted } from "./on-deleted.js";
 export { onLocationWritten } from "./on-location-written.js";

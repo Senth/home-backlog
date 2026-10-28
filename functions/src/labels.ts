@@ -1,7 +1,7 @@
 import type { Request, Response, Router } from "express";
 import { FieldPath, FieldValue } from "firebase-admin/firestore";
 import { apiLabel, etagForLabel } from "./api-nodes.js";
-import { caller, homeAccess, recordWrite } from "./auth.js";
+import { caller, homeAccess, homeWrite, recordWrite } from "./auth.js";
 import { parseLabelBody } from "./body.js";
 import { ApiError } from "./errors.js";
 import { db, homesCollection } from "./firestore.js";
@@ -109,7 +109,7 @@ async function createLabel(
 
 	const body = parseLabelBody(request.body, "create");
 
-	const created = await db.runTransaction(async (tx) => {
+	const created = await homeWrite(me, home, async (tx) => {
 		const snapshot = await tx.get(homeRef(homeId));
 		const existing = readLabels(snapshot.data());
 
@@ -156,7 +156,7 @@ async function patchLabel(request: Request, response: Response): Promise<void> {
 	const labelId = param(request, "labelId");
 	const body = parseLabelBody(request.body, "update");
 
-	const updated = await db.runTransaction(async (tx) => {
+	const updated = await homeWrite(me, home, async (tx) => {
 		const snapshot = await tx.get(homeRef(homeId));
 		const existing = readLabels(snapshot.data());
 		const current = existing.find((entry) => entry.id === labelId);
@@ -221,7 +221,7 @@ async function deleteLabel(
 
 	const labelId = param(request, "labelId");
 
-	await db.runTransaction(async (tx) => {
+	await homeWrite(me, home, async (tx) => {
 		const snapshot = await tx.get(homeRef(homeId));
 		const current = readLabels(snapshot.data()).find(
 			(entry) => entry.id === labelId,

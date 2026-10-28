@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import type { DocumentReference, WriteBatch } from "firebase-admin/firestore";
+import type { DocumentReference, Transaction } from "firebase-admin/firestore";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { ApiError } from "./errors.js";
 
@@ -68,7 +68,7 @@ export function replayResponse(response: Response, run: RunRecord): void {
  * then write the whole subtree a second time.
  */
 export function recordRun(
-	batch: WriteBatch,
+	batch: Transaction,
 	runRef: DocumentReference,
 	run: RunRecord,
 ): void {

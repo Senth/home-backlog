@@ -16,6 +16,30 @@
 		"clear": "Clear"
 	},
 	"account": {
+		"deleteAccount": "Delete account",
+		"delete": {
+			"intro": "This removes you from Home Backlog. It cannot be undone.",
+			"homes": "Your homes",
+			"also": "Also removed",
+			"delete": "Deleted, with every project, place and file in it. You are its only member.",
+			"leave_zero": "You leave. {{names}} keep it and your shared projects. You have no private cards to delete.",
+			"leave_one": "You leave. {{names}} keep it and your shared projects. Your {{count}} private card is deleted.",
+			"leave_other": "You leave. {{names}} keep it and your shared projects. Your {{count}} private cards are deleted.",
+			"blocked": "You are its only admin, and {{names}} still use it. Make one of them an admin, or remove them, first.",
+			"manage": "Manage {{home}}",
+			"blockedHint": "Sort out {{home}} first.",
+			"signInAgain": "Sign in again to delete",
+			"staleHint": "Google asks you to sign in once more first.",
+			"freshHint": "You signed in again {{time}}.",
+			"keys_one": "Your automation key, {{name}}, stops working.",
+			"keys_other": "Your automation keys, {{name}}, stop working.",
+			"identity": "Your name, email and sign-in. You can sign up again later, starting empty.",
+			"confirmTitle": "Delete your account?",
+			"confirmBody": "This cannot be undone.",
+			"confirmAction": "Delete",
+			"done": "Your account is deleted.",
+			"formerMember": "Former member"
+		},
 		"labelFor": "Account: {{name}}",
 		"signedInAs": "Signed in as {{email}}",
 		"signOut": {
@@ -87,7 +111,8 @@
 			"neverBody": "No analytics, no advertising, no crash reporting beyond Google's own services, no location tracking. Nothing is sold or shared, and no company beyond Google Cloud is involved.",
 			"deletionTitle": "Deleting your data",
 			"deletionHome": "Leaving a home takes away your access. Its last member can delete the home, which removes it and its content for everyone. Firebase may keep removed documents in encrypted backups for a short while.",
-			"deletionSignout": "Signing out removes the session from the device. To have an account and its details removed completely, contact the person who runs the app."
+			"deletionAccount": "Delete account, in the account menu, removes your name, email, automation keys and sign-in. Homes where you are the only member are deleted with everything in them. In homes others still use, your private cards are deleted and what you shared stays.",
+			"deletionSignout": "Signing out removes your session and the offline copy from this device."
 		},
 		"terms": {
 			"title": "Terms of service",
@@ -228,8 +253,8 @@
 		"waiting": "Waiting to sync",
 		"pendingChanges_one": "{{count}} change waiting for a connection",
 		"pendingChanges_other": "{{count}} changes waiting for a connection",
-		"signOutPending_one": "{{count}} change is still waiting for a connection. It'll sync next time you sign in here.",
-		"signOutPending_other": "{{count}} changes are still waiting for a connection. They'll sync next time you sign in here.",
+		"signOutPending_one": "{{count}} change is still waiting for a connection. It will be discarded if you sign out.",
+		"signOutPending_other": "{{count}} changes are still waiting for a connection. They will be discarded if you sign out.",
 		"queuedMove": "{{name}} moves under {{target}} when you're back online.",
 		"queuedMoveTop": "{{name}} moves to the top level when you're back online.",
 		"queuedDelete": "{{name}} will be deleted when you're back online.",
@@ -240,6 +265,7 @@
 		"andMore_other": "and {{count}} more"
 	},
 	"error": {
+		"signOutCleanup": "Could not finish clearing this device. Reload before trying again.",
 		"googleSignIn": "Could not sign in with Google. Please try again.",
 		"moveOwnSubtree": "It cannot be moved under itself or anything nested inside it.",
 		"moveVisibility": "A private card cannot live inside a shared project, or the other way around.",

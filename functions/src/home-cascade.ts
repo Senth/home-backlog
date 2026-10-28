@@ -1,0 +1,115 @@
+import { randomUUID } from "node:crypto";
+import type { DocumentReference, Transaction } from "firebase-admin/firestore";
+import { Timestamp } from "firebase-admin/firestore";
+import { HttpsError } from "firebase-functions/v2/https";
+import { db, homesCollection, maxBatchWrites } from "./firestore.js";
+
+const maxDeletionBytes = 2 * 1024 * 1024;
+const indexSizeMultiplier = 4;
+
+export function deletionClaim() {
+	return {
+		id: randomUUID(),
+		expiresAt: Timestamp.fromMillis(Date.now() + 600_000),
+	};
+}
+
+export function claimActive(claim: unknown): boolean {
+	const expiresAt = (claim as { expiresAt?: Timestamp } | null)?.expiresAt;
+	return expiresAt instanceof Timestamp && expiresAt.toMillis() > Date.now();
+}
+
+export async function withDeletionClaim<T>(
+	home: DocumentReference,
+	id: string,
+	write: (transaction: Transaction) => T | Promise<T>,
+): Promise<T> {
+	return db.runTransaction(async (transaction) => {
+		const current = (await transaction.get(home)).get("deletionClaim");
+		if (current?.id !== id || !claimActive(current))
+			throw new HttpsError("failed-precondition", "blocked");
+		return write(transaction);
+	});
+}
+
+export async function releaseDeletionClaim(
+	home: DocumentReference,
+	id: string,
+): Promise<void> {
+	await db.runTransaction(async (transaction) => {
+		const snapshot = await transaction.get(home);
+		if (snapshot.get("deletionClaim")?.id === id)
+			transaction.update(home, {
+				"deletionClaim.expiresAt": Timestamp.fromMillis(0),
+			});
+	});
+}
+
+export function isSoleOwner(
+	members: Record<string, unknown>,
+	uid: string,
+): boolean {
+	return Object.keys(members).length === 1 && members[uid] === "owner";
+}
+
+export async function deleteHomeTree(
+	homeId: string,
+	claimId: string,
+): Promise<void> {
+	const home = db.collection(homesCollection).doc(homeId);
+	async function deleteChunk(documents: DocumentReference[]): Promise<void> {
+		try {
+			await withDeletionClaim(home, claimId, (transaction) => {
+				for (const document of documents) transaction.delete(document);
+			});
+		} catch (error) {
+			if (
+				documents.length === 1 ||
+				!(error instanceof Error) ||
+				!("code" in error) ||
+				error.code !== 3 ||
+				!/transaction.*(?:size|too big|too large)|(?:size|too big|too large).*transaction/i.test(
+					error.message,
+				)
+			)
+				throw error;
+			const middle = Math.floor(documents.length / 2);
+			await deleteChunk(documents.slice(0, middle));
+			await deleteChunk(documents.slice(middle));
+		}
+	}
+	async function drain(parent: DocumentReference): Promise<void> {
+		for (const collection of await parent.listCollections()) {
+			const documents = await collection.listDocuments();
+			for (const document of documents) await drain(document);
+			for (let start = 0; start < documents.length; start += maxBatchWrites) {
+				const snapshots = await db.getAll(
+					...documents.slice(start, start + maxBatchWrites),
+				);
+				for (let first = 0; first < snapshots.length; ) {
+					let end = first;
+					let bytes = 0;
+					while (end < snapshots.length) {
+						const snapshot = snapshots[end];
+						const estimatedBytes =
+							Buffer.byteLength(JSON.stringify(snapshot.data() ?? {})) *
+								indexSizeMultiplier +
+							Buffer.byteLength(snapshot.ref.path) +
+							1024;
+						if (end > first && bytes + estimatedBytes > maxDeletionBytes) break;
+						bytes += estimatedBytes;
+						end++;
+					}
+					await deleteChunk(
+						snapshots.slice(first, end).map((snapshot) => snapshot.ref),
+					);
+					first = end;
+				}
+			}
+		}
+	}
+	await drain(home);
+	await withDeletionClaim(home, claimId, (transaction) =>
+		transaction.delete(home),
+	);
+}

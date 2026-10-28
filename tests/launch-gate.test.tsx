@@ -64,6 +64,7 @@ jest.mock("expo-router", () => {
 	const { createElement } = require("react") as typeof import("react");
 	const { Text } = require("react-native") as typeof import("react-native");
 	return {
+		usePathname: () => "/overview",
 		Slot: () =>
 			mockUser
 				? createElement(require("@/app/(app)/_layout").default)

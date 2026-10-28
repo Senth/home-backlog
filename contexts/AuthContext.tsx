@@ -1,5 +1,4 @@
 import {
-	signOut as firebaseSignOut,
 	GoogleAuthProvider,
 	onAuthStateChanged,
 	signInWithCredential,
@@ -14,9 +13,16 @@ import {
 	useMemo,
 	useState,
 } from "react";
+import { useTranslation } from "react-i18next";
+import { Platform, View } from "react-native";
+import { Button, Text } from "react-native-paper";
 import { type AuthErrorKey, mapAuthError } from "@/auth/errors";
 import { consumeRedirectResult } from "@/auth/redirect";
+import { SplashScreen } from "@/components/ui/SplashScreen";
 import { auth } from "@/config/firebase";
+import { clearDeviceData } from "@/data/device-data";
+import { useAppTheme } from "@/theme";
+import { space, touchTarget } from "@/theme/tokens";
 import { markLaunch } from "@/utils/launch-timing";
 
 interface AuthContextType {
@@ -31,7 +37,7 @@ interface AuthContextType {
 	dismissRedirectError: () => void;
 	/** Exchanges a Google ID token for a Firebase session (native flow). */
 	signInWithGoogle: (idToken: string) => Promise<void>;
-	signOut: () => Promise<void>;
+	signOut: (destination?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,10 +51,33 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const redirectGraceMs = 5000;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+	const { t } = useTranslation();
+	const theme = useAppTheme();
+	const [cleanupFailed, setCleanupFailed] = useState(false);
 	const [user, setUser] = useState<User | null>(null);
 	const [sessionResolved, setSessionResolved] = useState(false);
 	const [redirectResolved, setRedirectResolved] = useState(false);
 	const [redirectError, setRedirectError] = useState<AuthErrorKey | null>(null);
+	const [cleanup, setCleanup] = useState<{
+		destination?: string;
+		resolve: () => void;
+		reject: (reason: unknown) => void;
+	} | null>(null);
+
+	useEffect(() => {
+		if (!cleanup) return;
+		void clearDeviceData(cleanup.destination).then(
+			() => {
+				setCleanup(null);
+				cleanup.resolve();
+			},
+			(error) => {
+				setCleanupFailed(true);
+				setCleanup(null);
+				cleanup.reject(error);
+			},
+		);
+	}, [cleanup]);
 
 	useEffect(() => {
 		return onAuthStateChanged(auth, (nextUser) => {
@@ -99,9 +128,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
 	}, []);
 
-	const signOut = useCallback(async () => {
-		await firebaseSignOut(auth);
-	}, []);
+	const signOut = useCallback(
+		(destination?: string) =>
+			new Promise<void>((resolve, reject) => {
+				setCleanup({ resolve, reject, destination });
+			}),
+		[],
+	);
 
 	const loading = !sessionResolved || !redirectResolved;
 	if (!loading) markLaunch("auth");
@@ -125,7 +158,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		],
 	);
 
-	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+	return (
+		<AuthContext.Provider value={value}>
+			{cleanupFailed && Platform.OS === "web" ? (
+				<View
+					style={{
+						flex: 1,
+						alignItems: "center",
+						justifyContent: "center",
+						gap: space.md,
+						padding: space.md,
+						backgroundColor: theme.colors.background,
+					}}
+				>
+					<Text
+						variant="bodyLarge"
+						style={{ color: theme.colors.onSurface, textAlign: "center" }}
+					>
+						{t("error.signOutCleanup")}
+					</Text>
+					<Button
+						mode="text"
+						onPress={() => window.location.reload()}
+						contentStyle={{ minHeight: touchTarget }}
+					>
+						{t("update.reload")}
+					</Button>
+				</View>
+			) : cleanup ? (
+				<SplashScreen />
+			) : (
+				children
+			)}
+		</AuthContext.Provider>
+	);
 }
 
 export function useAuth() {

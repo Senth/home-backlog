@@ -1,18 +1,25 @@
 import type { ReactNode } from "react";
-import { useWindowDimensions, View } from "react-native";
+import {
+	type StyleProp,
+	useWindowDimensions,
+	View,
+	type ViewStyle,
+} from "react-native";
 import { Text, TouchableRipple } from "react-native-paper";
 import { rowLeadStyle } from "@/components/ui/row-lead-style";
 import { useAppTheme } from "@/theme";
 import { denseBreakpoint, space, touchTarget } from "@/theme/tokens";
 
 interface RowProps {
-	title: string;
+	title: ReactNode;
 	description?: string;
 	left?: ReactNode;
 	/** Controls that belong to this row — a menu, a withdraw button, a chip. */
 	right?: ReactNode;
 	onPress?: () => void;
 	testID?: string;
+	children?: ReactNode;
+	style?: StyleProp<ViewStyle>;
 }
 
 /**
@@ -39,6 +46,8 @@ export function Row({
 	right,
 	onPress,
 	testID,
+	children,
+	style,
 }: RowProps) {
 	const theme = useAppTheme();
 	const dense = useWindowDimensions().width < denseBreakpoint;
@@ -47,16 +56,19 @@ export function Row({
 	return (
 		<View
 			testID={testID}
-			style={{
-				flexDirection: "row",
-				flexWrap: "wrap",
-				alignItems: "center",
-				gap: space.md,
-				rowGap: dense ? space.sm : space.md,
-				minHeight: touchTarget,
-				paddingVertical: dense ? space.xs : space.sm,
-				paddingHorizontal: dense ? space.sm : space.md,
-			}}
+			style={[
+				{
+					flexDirection: "row",
+					flexWrap: "wrap",
+					alignItems: "center",
+					gap: space.md,
+					rowGap: dense ? space.sm : space.md,
+					minHeight: touchTarget,
+					paddingVertical: dense ? space.xs : space.sm,
+					paddingHorizontal: dense ? space.sm : space.md,
+				},
+				style,
+			]}
 		>
 			<Lead
 				onPress={onPress}
@@ -93,6 +105,7 @@ export function Row({
 								{description}
 							</Text>
 						) : null}
+						{children}
 					</View>
 				</View>
 			</Lead>

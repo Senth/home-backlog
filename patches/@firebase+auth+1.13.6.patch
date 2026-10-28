@@ -1,7 +1,16 @@
 diff --git a/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js b/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js
-index 7453f95..f7d5d12 100644
+index 7453f95..b39fe09 100644
 --- a/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js
 +++ b/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js
+@@ -2812,7 +2812,7 @@ class AuthImpl {
+         if (!futureCurrentUser) {
+             return this.directlySetCurrentUser(null);
+         }
+-        if (!futureCurrentUser._redirectEventId) {
++        if (!futureCurrentUser._redirectEventId || !this._popupRedirectResolver) {
+             // This isn't a redirect link operation, we can reload and bail.
+             // First though, ensure that we check the middleware is happy.
+             if (needsTocheckMiddleware) {
 @@ -2874,18 +2874,31 @@ class AuthImpl {
          return result;
      }
@@ -44,10 +53,50 @@ index 7453f95..f7d5d12 100644
      }
      useDeviceLanguage() {
          this.languageCode = _getUserLanguage();
+@@ -10040,7 +10053,7 @@ async function _reauthenticateWithRedirect(user, provider, resolver) {
+     // Allow the resolver to error before persisting the redirect user
+     const resolverInternal = _withDefaultResolver(userInternal.auth, resolver);
+     await _setPendingRedirectStatus(resolverInternal, userInternal.auth);
+-    const eventId = await prepareUserForRedirect(userInternal);
++    const eventId = await prepareUserForRedirect(userInternal, resolver);
+     return resolverInternal._openRedirect(userInternal.auth, provider, "reauthViaRedirect" /* AuthEventType.REAUTH_VIA_REDIRECT */, eventId);
+ }
+ /**
+@@ -10088,7 +10101,7 @@ async function _linkWithRedirect(user, provider, resolver) {
+     const resolverInternal = _withDefaultResolver(userInternal.auth, resolver);
+     await _assertLinkedStatus(false, userInternal, provider.providerId);
+     await _setPendingRedirectStatus(resolverInternal, userInternal.auth);
+-    const eventId = await prepareUserForRedirect(userInternal);
++    const eventId = await prepareUserForRedirect(userInternal, resolver);
+     return resolverInternal._openRedirect(userInternal.auth, provider, "linkViaRedirect" /* AuthEventType.LINK_VIA_REDIRECT */, eventId);
+ }
+ /**
+@@ -10151,10 +10164,10 @@ async function _getRedirectResult(auth, resolverExtern, bypassAuthState = false)
+     }
+     return result;
+ }
+-async function prepareUserForRedirect(user) {
++async function prepareUserForRedirect(user, resolver) {
+     const eventId = _generateEventId(`${user.uid}:::`);
+     user._redirectEventId = eventId;
+-    await user.auth._setRedirectUser(user);
++    await user.auth._setRedirectUser(user, resolver);
+     await user.auth._persistUserIfCurrent(user);
+     return eventId;
+ }
 diff --git a/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js b/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js
-index 19ad008..88e3cca 100644
+index 19ad008..d74506e 100644
 --- a/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js
 +++ b/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js
+@@ -2810,7 +2810,7 @@ class AuthImpl {
+         if (!futureCurrentUser) {
+             return this.directlySetCurrentUser(null);
+         }
+-        if (!futureCurrentUser._redirectEventId) {
++        if (!futureCurrentUser._redirectEventId || !this._popupRedirectResolver) {
+             // This isn't a redirect link operation, we can reload and bail.
+             // First though, ensure that we check the middleware is happy.
+             if (needsTocheckMiddleware) {
 @@ -2872,18 +2872,31 @@ class AuthImpl {
          return result;
      }
@@ -90,3 +139,34 @@ index 19ad008..88e3cca 100644
      }
      useDeviceLanguage() {
          this.languageCode = _getUserLanguage();
+@@ -10038,7 +10051,7 @@ async function _reauthenticateWithRedirect(user, provider, resolver) {
+     // Allow the resolver to error before persisting the redirect user
+     const resolverInternal = _withDefaultResolver(userInternal.auth, resolver);
+     await _setPendingRedirectStatus(resolverInternal, userInternal.auth);
+-    const eventId = await prepareUserForRedirect(userInternal);
++    const eventId = await prepareUserForRedirect(userInternal, resolver);
+     return resolverInternal._openRedirect(userInternal.auth, provider, "reauthViaRedirect" /* AuthEventType.REAUTH_VIA_REDIRECT */, eventId);
+ }
+ /**
+@@ -10086,7 +10099,7 @@ async function _linkWithRedirect(user, provider, resolver) {
+     const resolverInternal = _withDefaultResolver(userInternal.auth, resolver);
+     await _assertLinkedStatus(false, userInternal, provider.providerId);
+     await _setPendingRedirectStatus(resolverInternal, userInternal.auth);
+-    const eventId = await prepareUserForRedirect(userInternal);
++    const eventId = await prepareUserForRedirect(userInternal, resolver);
+     return resolverInternal._openRedirect(userInternal.auth, provider, "linkViaRedirect" /* AuthEventType.LINK_VIA_REDIRECT */, eventId);
+ }
+ /**
+@@ -10149,10 +10162,10 @@ async function _getRedirectResult(auth, resolverExtern, bypassAuthState = false)
+     }
+     return result;
+ }
+-async function prepareUserForRedirect(user) {
++async function prepareUserForRedirect(user, resolver) {
+     const eventId = _generateEventId(`${user.uid}:::`);
+     user._redirectEventId = eventId;
+-    await user.auth._setRedirectUser(user);
++    await user.auth._setRedirectUser(user, resolver);
+     await user.auth._persistUserIfCurrent(user);
+     return eventId;
+ }

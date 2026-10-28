@@ -1,5 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
-import type { DocumentReference, Timestamp } from "firebase-admin/firestore";
+import type {
+	DocumentReference,
+	Timestamp,
+	Transaction,
+} from "firebase-admin/firestore";
 import { FieldValue } from "firebase-admin/firestore";
 import { hashesMatch, parseToken, secretHash } from "./api-key.js";
 import { ApiError } from "./errors.js";
@@ -10,6 +14,7 @@ import {
 	homesCollection,
 	usersCollection,
 } from "./firestore.js";
+import { claimActive } from "./home-cascade.js";
 import { isMember } from "./validate.js";
 
 /**
@@ -38,6 +43,7 @@ export interface ApiCaller {
 /** A home the caller is a member of, with the facts a handler needs. */
 export interface HomeAccess {
 	homeId: string;
+	deletionClaimId?: string;
 	/** The caller's display name in this home, or their uid if they have none. */
 	callerName: string;
 	/** Every current member's uid. Read from the same snapshot as the rest. */
@@ -136,14 +142,17 @@ export async function authenticate(request: Request): Promise<ApiCaller> {
 export async function homeAccess(
 	caller: ApiCaller,
 	homeId: string,
+	transaction?: Transaction,
 ): Promise<HomeAccess> {
-	const snapshot = await db.collection(homesCollection).doc(homeId).get();
+	const ref = db.collection(homesCollection).doc(homeId);
+	const snapshot = await (transaction ? transaction.get(ref) : ref.get());
 	const notFound = new ApiError(
 		404,
 		"home_not_found",
 		`No home ${homeId}, or you are not a member of it.`,
 	);
-	if (!snapshot.exists) throw notFound;
+	if (!snapshot.exists || claimActive(snapshot.get("deletionClaim")))
+		throw notFound;
 	const members = snapshot.get("members");
 	if (!isMember(members, caller.uid)) throw notFound;
 
@@ -160,7 +169,29 @@ export async function homeAccess(
 			? Object.keys(members as Record<string, unknown>)
 			: [];
 
-	return { homeId, callerName, memberUids };
+	return {
+		homeId,
+		callerName,
+		memberUids,
+		deletionClaimId: snapshot.get("deletionClaim")?.id,
+	};
+}
+
+export async function homeWrite<T>(
+	caller: ApiCaller,
+	home: HomeAccess,
+	write: (transaction: Transaction) => T | Promise<T>,
+): Promise<T> {
+	return db.runTransaction(async (transaction) => {
+		const current = await homeAccess(caller, home.homeId, transaction);
+		if (current.deletionClaimId !== home.deletionClaimId)
+			throw new ApiError(
+				409,
+				"home_changed",
+				"Home changed during this request. Retry the request.",
+			);
+		return write(transaction);
+	});
 }
 
 /**
@@ -187,41 +218,37 @@ export async function recordWrite(
 	caller: ApiCaller,
 	home: HomeAccess,
 ): Promise<void> {
-	await touchApiClient(caller, home.homeId, home.callerName);
-}
-
-async function touchApiClient(
-	caller: ApiCaller,
-	homeId: string,
-	callerName: string,
-): Promise<void> {
 	const ref = db
 		.collection(homesCollection)
-		.doc(homeId)
+		.doc(home.homeId)
 		.collection(apiClientsCollection)
 		.doc(caller.keyId);
 
 	try {
-		const existing = await ref.get();
-		if (existing.exists && !isStale(existing.get("lastUsedAt"), Date.now())) {
-			return;
-		}
-		await ref.set(
-			{
-				// Duplicated from the document id so the delete trigger can find every
-				// home's row in one collection-group query.
-				keyId: caller.keyId,
-				ownerUid: caller.uid,
-				// Denormalized: the manage screen already has `memberProfiles`, but a
-				// key's owner may have left the home since it last wrote here, and a
-				// row that says "somebody" is worse than no row.
-				ownerName: callerName,
-				name: caller.keyName,
-				lastUsedAt: FieldValue.serverTimestamp(),
-			},
-			{ merge: true },
-		);
+		await homeWrite(caller, home, async (transaction) => {
+			const existing = await transaction.get(ref);
+			if (existing.exists && !isStale(existing.get("lastUsedAt"), Date.now())) {
+				return;
+			}
+			transaction.set(
+				ref,
+				{
+					// Duplicated from the document id so the delete trigger can find every
+					// home's row in one collection-group query.
+					keyId: caller.keyId,
+					ownerUid: caller.uid,
+					// Denormalized: the manage screen already has `memberProfiles`, but a
+					// key's owner may have left the home since it last wrote here, and a
+					// row that says "somebody" is worse than no row.
+					ownerName: home.callerName,
+					name: caller.keyName,
+					lastUsedAt: FieldValue.serverTimestamp(),
+				},
+				{ merge: true },
+			);
+		});
 	} catch (reason) {
+		if (reason instanceof ApiError) return;
 		console.error("Could not record an automation's access to a home:", reason);
 	}
 }

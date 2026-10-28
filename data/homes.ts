@@ -17,8 +17,9 @@ import {
 	updateDoc,
 	where,
 } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { displayLabel } from "@/auth/display-name";
-import { db } from "@/config/firebase";
+import { db, functions } from "@/config/firebase";
 import { addToSharedRoots } from "@/data/nodes";
 import {
 	emailHash,
@@ -292,26 +293,15 @@ export function deleteLabel(homeId: string, labelId: string): Promise<void> {
 	return updateDoc(homeRef(homeId), { [`labels.${labelId}`]: deleteField() });
 }
 
-/**
- * Deleting a home takes its pending invitations with it, in that order.
- *
- * They have to go first, and they have to go at all. Every invite rule resolves
- * ownership through a `get()` on the home document, so once the home is gone
- * nobody can delete them — while the collection-group read never touches the
- * home at all, so an invitee would go on seeing "Marcus invited you to Huset"
- * for a household that no longer exists, and Join would fail on a document that
- * is not there. The only person who could still clear it would be the invitee,
- * by declining an invitation to nowhere.
- *
- * This is the same client-side cascade the spec keeps bounded by offering
- * delete to a sole member only. The nodes, locations and recurring rules are
- * still left stranded; that needs a Cloud Function (#1, #39).
- */
 export async function deleteHome(homeId: string): Promise<void> {
-	const invites = await getDocs(homeInvitesQuery(homeId));
-	await Promise.all(invites.docs.map((invite) => deleteDoc(invite.ref)));
-
-	await deleteDoc(homeRef(homeId));
+	const call = httpsCallable<{ homeId: string }, void>(
+		functions,
+		"deleteHome",
+		{
+			timeout: 540_000,
+		},
+	);
+	await call({ homeId });
 }
 
 export function sendInvite(

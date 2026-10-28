@@ -6,7 +6,13 @@ import type {
 } from "firebase-admin/firestore";
 import { FieldValue } from "firebase-admin/firestore";
 import { apiNode, etagFor, visibleTo } from "./api-nodes.js";
-import { type ApiCaller, caller, homeAccess, recordWrite } from "./auth.js";
+import {
+	type ApiCaller,
+	caller,
+	homeAccess,
+	homeWrite,
+	recordWrite,
+} from "./auth.js";
 import { type NodeBody, parseNodeBody } from "./body.js";
 import { ApiError } from "./errors.js";
 import {
@@ -383,15 +389,15 @@ async function createNode(request: Request, response: Response): Promise<void> {
 
 	refuseInvalid(document, { nodeId: ref.id, parent });
 
-	const batch = db.batch();
-	batch.set(ref, document);
-	if (parent !== null) {
-		batch.update(
-			homeNodes(homeId).doc(parent.id),
-			counterFields(1, status === "done" ? 1 : 0),
-		);
-	}
-	await batch.commit();
+	await homeWrite(me, home, async (batch) => {
+		batch.set(ref, document);
+		if (parent !== null) {
+			batch.update(
+				homeNodes(homeId).doc(parent.id),
+				counterFields(1, status === "done" ? 1 : 0),
+			);
+		}
+	});
 	await recordWrite(me, home);
 
 	await respondWithNode(response, homeId, ref.id, 201);
@@ -525,42 +531,41 @@ async function patchNode(request: Request, response: Response): Promise<void> {
 
 	refuseInvalid({ ...current, ...changes }, { nodeId, parent });
 
-	const batch = db.batch();
-	batch.update(homeNodes(homeId).doc(nodeId), changes);
+	await homeWrite(me, home, async (batch) => {
+		batch.update(homeNodes(homeId).doc(nodeId), changes);
 
-	if (moved) {
-		if (oldParentId !== null) {
+		if (moved) {
+			if (oldParentId !== null) {
+				batch.update(
+					homeNodes(homeId).doc(oldParentId),
+					counterFields(-1, oldStatus === "done" ? -1 : 0),
+				);
+			}
+			if (newParentId !== null) {
+				batch.update(
+					homeNodes(homeId).doc(newParentId),
+					counterFields(1, status === "done" ? 1 : 0),
+				);
+			}
+			for (const descendant of descendants) {
+				batch.update(descendant.ref, {
+					ancestorIds: movedAncestorIds(
+						(descendant.get("ancestorIds") ?? []) as string[],
+						nodeId,
+						ancestorIds,
+					),
+					updatedAt: FieldValue.serverTimestamp(),
+				});
+			}
+		} else if (completion !== "keep" && oldParentId !== null) {
+			// The card stayed where it is and crossed Done. Only its parent's
+			// `doneCount` moves.
 			batch.update(
 				homeNodes(homeId).doc(oldParentId),
-				counterFields(-1, oldStatus === "done" ? -1 : 0),
+				counterFields(0, completion === "set" ? 1 : -1),
 			);
 		}
-		if (newParentId !== null) {
-			batch.update(
-				homeNodes(homeId).doc(newParentId),
-				counterFields(1, status === "done" ? 1 : 0),
-			);
-		}
-		for (const descendant of descendants) {
-			batch.update(descendant.ref, {
-				ancestorIds: movedAncestorIds(
-					(descendant.get("ancestorIds") ?? []) as string[],
-					nodeId,
-					ancestorIds,
-				),
-				updatedAt: FieldValue.serverTimestamp(),
-			});
-		}
-	} else if (completion !== "keep" && oldParentId !== null) {
-		// The card stayed where it is and crossed Done. Only its parent's
-		// `doneCount` moves.
-		batch.update(
-			homeNodes(homeId).doc(oldParentId),
-			counterFields(0, completion === "set" ? 1 : -1),
-		);
-	}
-
-	await batch.commit();
+	});
 	await recordWrite(me, home);
 
 	await respondWithNode(response, homeId, nodeId, 200);
@@ -603,22 +608,21 @@ async function deleteNode(request: Request, response: Response): Promise<void> {
 
 	refuseOversizedSubtree(descendants.length, "This delete");
 
-	const batch = db.batch();
-	for (const descendant of descendants) batch.delete(descendant.ref);
-	batch.delete(homeNodes(homeId).doc(nodeId));
+	await homeWrite(me, home, async (batch) => {
+		for (const descendant of descendants) batch.delete(descendant.ref);
+		batch.delete(homeNodes(homeId).doc(nodeId));
 
-	// Only **one** parent's counters move, however large the subtree: every
-	// descendant's parent is inside the subtree and goes with it, so the only
-	// document left holding a count of something gone is this node's own parent.
-	const parentId = (snapshot.get("parentId") ?? null) as string | null;
-	if (parentId !== null) {
-		batch.update(
-			homeNodes(homeId).doc(parentId),
-			counterFields(-1, snapshot.get("status") === "done" ? -1 : 0),
-		);
-	}
-
-	await batch.commit();
+		// Only **one** parent's counters move, however large the subtree: every
+		// descendant's parent is inside the subtree and goes with it, so the only
+		// document left holding a count of something gone is this node's own parent.
+		const parentId = (snapshot.get("parentId") ?? null) as string | null;
+		if (parentId !== null) {
+			batch.update(
+				homeNodes(homeId).doc(parentId),
+				counterFields(-1, snapshot.get("status") === "done" ? -1 : 0),
+			);
+		}
+	});
 	await recordWrite(me, home);
 
 	response.json({ id: nodeId, deleted: descendants.length + 1 });

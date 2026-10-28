@@ -1,6 +1,7 @@
 import {
 	browserPopupRedirectResolver,
 	GoogleAuthProvider,
+	reauthenticateWithRedirect,
 	signInWithRedirect,
 } from "firebase/auth";
 import { useState } from "react";
@@ -10,6 +11,7 @@ import { Button } from "react-native-paper";
 import { mapAuthError } from "@/auth/errors";
 import type { GoogleSignInButtonProps } from "@/components/auth/GoogleSignIn.types";
 import { auth } from "@/config/firebase";
+import { useAppTheme } from "@/theme";
 import { touchTarget } from "@/theme/tokens";
 
 /**
@@ -47,8 +49,10 @@ const wrappingLabel = {
 export function GoogleSignInButton({
 	onError,
 	disabled,
+	reauthenticate = false,
 }: GoogleSignInButtonProps = {}) {
 	const { t } = useTranslation();
+	const theme = useAppTheme();
 	const [leaving, setLeaving] = useState(false);
 
 	const handlePress = async () => {
@@ -65,9 +69,16 @@ export function GoogleSignInButton({
 			provider.setCustomParameters({ prompt: "select_account" });
 			// The resolver is passed per call, not given to `initializeAuth` — see
 			// `config/firebase.ts`. Here is where loading the handler is wanted.
-			await signInWithRedirect(auth, provider, browserPopupRedirectResolver);
+			if (reauthenticate && auth.currentUser) {
+				await reauthenticateWithRedirect(
+					auth.currentUser,
+					provider,
+					browserPopupRedirectResolver,
+				);
+			} else {
+				await signInWithRedirect(auth, provider, browserPopupRedirectResolver);
+			}
 		} catch (error) {
-			console.error("Google sign-in error:", error);
 			onError?.(mapAuthError(error));
 			// Only on failure: a successful call navigates away, and re-enabling
 			// the button would let a second tap start a second redirect.
@@ -77,7 +88,8 @@ export function GoogleSignInButton({
 
 	return (
 		<Button
-			mode="contained"
+			mode={reauthenticate ? "text" : "contained"}
+			textColor={reauthenticate ? theme.colors.error : undefined}
 			icon="google"
 			onPress={handlePress}
 			loading={leaving}
@@ -86,7 +98,7 @@ export function GoogleSignInButton({
 			// Paper's own button is 40 dp tall, under the project's 48.
 			contentStyle={{ minHeight: touchTarget }}
 		>
-			{t("screen.login.google")}
+			{t(reauthenticate ? "account.delete.signInAgain" : "screen.login.google")}
 		</Button>
 	);
 }

@@ -151,7 +151,10 @@ beforeEach(() => {
 	);
 });
 
-afterEach(() => {
+afterEach(async () => {
+	await act(async () => {
+		jest.runOnlyPendingTimers();
+	});
 	jest.useRealTimers();
 });
 

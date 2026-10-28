@@ -103,6 +103,7 @@ interface ConfirmDialogProps {
 	confirmLabel: string;
 	/** Paints the confirming action in the error color and never as the default. */
 	destructive?: boolean;
+	loading?: boolean;
 	testID: string;
 	returnFocusTo?: RefObject<ViewInstance | null>;
 }
@@ -123,6 +124,7 @@ export function ConfirmDialog({
 	body,
 	confirmLabel,
 	destructive = false,
+	loading = false,
 	testID,
 	returnFocusTo,
 }: ConfirmDialogProps) {
@@ -132,7 +134,7 @@ export function ConfirmDialog({
 	return (
 		<AppDialog
 			visible={visible}
-			onDismiss={onDismiss}
+			onDismiss={loading ? () => {} : onDismiss}
 			title={title}
 			testID={testID}
 			returnFocusTo={returnFocusTo}
@@ -141,6 +143,7 @@ export function ConfirmDialog({
 					key="cancel"
 					mode="text"
 					onPress={onDismiss}
+					disabled={loading}
 					textColor={theme.colors.onSurfaceVariant}
 					contentStyle={{ minHeight: touchTarget }}
 				>
@@ -150,6 +153,8 @@ export function ConfirmDialog({
 					key="confirm"
 					mode="text"
 					onPress={onConfirm}
+					loading={loading}
+					disabled={loading}
 					textColor={destructive ? theme.colors.error : theme.colors.primary}
 					contentStyle={{ minHeight: touchTarget }}
 				>

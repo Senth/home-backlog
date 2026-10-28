@@ -226,6 +226,14 @@ export function AccountMenu() {
 							setConfirmOpen(true);
 						}}
 					/>
+					<Menu.Item
+						leadingIcon="account-remove-outline"
+						title={t("account.deleteAccount")}
+						onPress={() => {
+							setMenuOpen(false);
+							router.replace("/account/delete");
+						}}
+					/>
 				</View>
 			</AppMenu>
 

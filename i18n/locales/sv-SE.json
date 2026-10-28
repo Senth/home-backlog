@@ -16,6 +16,30 @@
 		"clear": "Rensa"
 	},
 	"account": {
+		"deleteAccount": "Radera konto",
+		"delete": {
+			"intro": "Det här tar bort dig från Home Backlog. Det går inte att ångra.",
+			"homes": "Dina hem",
+			"also": "Tas också bort",
+			"delete": "Raderas, med alla projekt, platser och filer. Du är hemmets enda medlem.",
+			"leave_zero": "Du lämnar hemmet. {{names}} behåller det och era gemensamma projekt. Du har inga privata kort att radera.",
+			"leave_one": "Du lämnar hemmet. {{names}} behåller det och era gemensamma projekt. Ditt {{count}} privata kort raderas.",
+			"leave_other": "Du lämnar hemmet. {{names}} behåller det och era gemensamma projekt. Dina {{count}} privata kort raderas.",
+			"blocked": "Du är hemmets enda administratör och {{names}} använder det fortfarande. Gör någon av dem till administratör, eller ta bort dem, först.",
+			"manage": "Hantera {{home}}",
+			"blockedHint": "Ordna upp {{home}} först.",
+			"signInAgain": "Logga in igen för att radera",
+			"staleHint": "Google ber dig att logga in en gång till först.",
+			"freshHint": "Du loggade in igen {{time}}.",
+			"keys_one": "Din automationsnyckel, {{name}}, slutar fungera.",
+			"keys_other": "Dina automationsnycklar, {{name}}, slutar fungera.",
+			"identity": "Ditt namn, din e-postadress och din inloggning. Du kan registrera dig igen senare och börja om från tomt.",
+			"confirmTitle": "Radera ditt konto?",
+			"confirmBody": "Det går inte att ångra.",
+			"confirmAction": "Radera",
+			"done": "Ditt konto är raderat.",
+			"formerMember": "Tidigare medlem"
+		},
 		"labelFor": "Konto: {{name}}",
 		"signedInAs": "Inloggad som {{email}}",
 		"signOut": {
@@ -87,7 +111,8 @@
 			"neverBody": "Ingen statistik, ingen reklam, ingen felrapportering utöver Googles egna tjänster, ingen positionsspårning. Ingenting säljs eller delas, och ingen annan än Google Cloud är inblandad.",
 			"deletionTitle": "Ta bort dina uppgifter",
 			"deletionHome": "Lämnar du ett hem försvinner din åtkomst. Hemmets sista medlem kan ta bort det, vilket tar bort det och dess innehåll för alla. Firebase kan behålla borttagna dokument i krypterade säkerhetskopior en kort tid.",
-			"deletionSignout": "Att logga ut tar bort sessionen från enheten. För att få ett konto och dess uppgifter borttagna helt, kontakta den som driver appen."
+			"deletionAccount": "När du väljer Radera konto i kontomenyn tas ditt namn, din e-postadress, dina automationsnycklar och din inloggning bort. Hem där du är enda medlemmen tas bort med allt innehåll. I hem som andra fortfarande använder tas dina privata kort bort, medan det du delat finns kvar.",
+			"deletionSignout": "När du loggar ut tas din session och offlinekopian på den här enheten bort."
 		},
 		"terms": {
 			"title": "Användarvillkor",
@@ -228,8 +253,8 @@
 		"waiting": "Väntar på att synkas",
 		"pendingChanges_one": "{{count}} ändring väntar på anslutning",
 		"pendingChanges_other": "{{count}} ändringar väntar på anslutning",
-		"signOutPending_one": "{{count}} ändring väntar på anslutning. Den synkas nästa gång du loggar in på den här enheten.",
-		"signOutPending_other": "{{count}} ändringar väntar på anslutning. De synkas nästa gång du loggar in på den här enheten.",
+		"signOutPending_one": "{{count}} ändring väntar på anslutning. Den kastas om du loggar ut.",
+		"signOutPending_other": "{{count}} ändringar väntar på anslutning. De kastas om du loggar ut.",
 		"queuedMove": "{{name}} flyttas under {{target}} när du är online igen.",
 		"queuedMoveTop": "{{name}} flyttas till översta nivån när du är online igen.",
 		"queuedDelete": "{{name}} tas bort när du är online igen.",
@@ -240,6 +265,7 @@
 		"andMore_other": "och {{count}} till"
 	},
 	"error": {
+		"signOutCleanup": "Det gick inte att rensa den här enheten helt. Ladda om innan du försöker igen.",
 		"googleSignIn": "Kunde inte logga in med Google. Försök igen.",
 		"moveOwnSubtree": "Det går inte att flytta något under sig självt eller något som ligger inuti det.",
 		"moveVisibility": "Ett privat kort kan inte ligga i ett delat projekt, eller tvärtom.",

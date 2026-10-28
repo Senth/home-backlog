@@ -1,11 +1,17 @@
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
+import {
+	GoogleAuthProvider,
+	reauthenticateWithCredential,
+} from "firebase/auth";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "react-native-paper";
 import { mapAuthError } from "@/auth/errors";
 import type { GoogleSignInButtonProps } from "@/components/auth/GoogleSignIn.types";
+import { auth } from "@/config/firebase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAppTheme } from "@/theme";
 import { touchTarget } from "@/theme/tokens";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -28,8 +34,11 @@ const discovery = {
 export function GoogleSignInButton({
 	onError,
 	disabled,
+	reauthenticate = false,
+	onSuccess,
 }: GoogleSignInButtonProps = {}) {
 	const { t } = useTranslation();
+	const theme = useAppTheme();
 	const { signInWithGoogle } = useAuth();
 	const [loading, setLoading] = useState(false);
 
@@ -70,9 +79,18 @@ export function GoogleSignInButton({
 				discovery,
 			);
 
-			if (tokens.idToken) await signInWithGoogle(tokens.idToken);
+			if (tokens.idToken) {
+				if (reauthenticate && auth.currentUser) {
+					await reauthenticateWithCredential(
+						auth.currentUser,
+						GoogleAuthProvider.credential(tokens.idToken),
+					);
+				} else {
+					await signInWithGoogle(tokens.idToken);
+				}
+				onSuccess?.();
+			}
 		} catch (error) {
-			console.error("Google sign-in error:", error);
 			onError?.(mapAuthError(error));
 		} finally {
 			setLoading(false);
@@ -81,7 +99,8 @@ export function GoogleSignInButton({
 
 	return (
 		<Button
-			mode="contained"
+			mode={reauthenticate ? "text" : "contained"}
+			textColor={reauthenticate ? theme.colors.error : undefined}
 			icon="google"
 			onPress={handlePress}
 			loading={loading}
@@ -89,7 +108,7 @@ export function GoogleSignInButton({
 			// Paper's own button is 40 dp tall, under the project's 48.
 			contentStyle={{ minHeight: touchTarget }}
 		>
-			{t("screen.login.google")}
+			{t(reauthenticate ? "account.delete.signInAgain" : "screen.login.google")}
 		</Button>
 	);
 }

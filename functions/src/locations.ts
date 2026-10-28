@@ -6,7 +6,13 @@ import type {
 } from "firebase-admin/firestore";
 import { FieldValue } from "firebase-admin/firestore";
 import { apiLocation, etagFor } from "./api-nodes.js";
-import { type ApiCaller, caller, homeAccess, recordWrite } from "./auth.js";
+import {
+	type ApiCaller,
+	caller,
+	homeAccess,
+	homeWrite,
+	recordWrite,
+} from "./auth.js";
 import { parseLocationBody } from "./body.js";
 import { ApiError } from "./errors.js";
 import {
@@ -203,7 +209,7 @@ async function createLocation(
 
 	refuseInvalidLocation(document, { locationId: ref.id, parent });
 
-	await ref.set(document);
+	await homeWrite(me, home, (transaction) => transaction.set(ref, document));
 	await recordWrite(me, home);
 
 	await respondWithLocation(response, homeId, ref.id, 201);
@@ -261,19 +267,19 @@ async function patchLocation(
 
 	refuseInvalidLocation({ ...current, ...changes }, { locationId, parent });
 
-	const batch = db.batch();
-	batch.update(homeLocations(homeId).doc(locationId), changes);
-	for (const descendant of descendants) {
-		batch.update(descendant.ref, {
-			ancestorIds: movedAncestorIds(
-				(descendant.get("ancestorIds") ?? []) as string[],
-				locationId,
-				childAncestorIds(parent),
-			),
-			updatedAt: FieldValue.serverTimestamp(),
-		});
-	}
-	await batch.commit();
+	await homeWrite(me, home, async (batch) => {
+		batch.update(homeLocations(homeId).doc(locationId), changes);
+		for (const descendant of descendants) {
+			batch.update(descendant.ref, {
+				ancestorIds: movedAncestorIds(
+					(descendant.get("ancestorIds") ?? []) as string[],
+					locationId,
+					childAncestorIds(parent),
+				),
+				updatedAt: FieldValue.serverTimestamp(),
+			});
+		}
+	});
 	await recordWrite(me, home);
 
 	await respondWithLocation(response, homeId, locationId, 200);
@@ -309,10 +315,10 @@ async function deleteLocation(
 
 	refuseOversizedSubtree(descendants.length, "This delete");
 
-	const batch = db.batch();
-	for (const descendant of descendants) batch.delete(descendant.ref);
-	batch.delete(homeLocations(homeId).doc(locationId));
-	await batch.commit();
+	await homeWrite(me, home, async (batch) => {
+		for (const descendant of descendants) batch.delete(descendant.ref);
+		batch.delete(homeLocations(homeId).doc(locationId));
+	});
 	await recordWrite(me, home);
 
 	response.json({ id: locationId, deleted: descendants.length + 1 });
@@ -379,16 +385,15 @@ async function bulkCreateLocations(
 		now: FieldValue.serverTimestamp(),
 	});
 
-	const batch = db.batch();
-	for (const item of plan.items) {
-		batch.set(homeLocations(homeId).doc(item.id), item.data);
-	}
-	if (runRef !== null) {
-		// In the same batch as the tree, deliberately — `recordRun` says why.
-		recordRun(batch, runRef, plan);
-	}
-
-	await batch.commit();
+	await homeWrite(me, home, async (batch) => {
+		for (const item of plan.items) {
+			batch.set(homeLocations(homeId).doc(item.id), item.data);
+		}
+		if (runRef !== null) {
+			// In the same batch as the tree, deliberately — `recordRun` says why.
+			recordRun(batch, runRef, plan);
+		}
+	});
 	await recordWrite(me, home);
 
 	response.status(201).json({ rootId: plan.rootId, ids: plan.ids });
