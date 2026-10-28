@@ -898,6 +898,25 @@ else
 	report 26 "arrival waits delayed" ok
 fi
 
+DEVICE_STORAGE_FILES=()
+for f in "${ALL_TS[@]}"; do
+	[[ "$f" =~ \.(test|d)\.tsx?$ ]] && continue
+	[[ "$f" =~ ^(e2e|tests)/ ]] && continue
+	[[ "$f" == "components/ui/LaunchTimingOverlay.web.tsx" ||
+		"$f" == "hooks/use-service-worker.web.ts" ||
+		"$f" == "config/firebase.ts" ||
+		"$f" == data/device-data* ]] && continue
+	DEVICE_STORAGE_FILES+=("$f")
+done
+PATTERN='\b(localStorage|sessionStorage|indexedDB)\b'
+hits=$(scan "${DEVICE_STORAGE_FILES[@]}" | strip_comments)
+if [[ -n "$hits" ]]; then
+	report 27 "device storage allow list" FAIL "$hits" \
+		"Device stores belong only in components/ui/LaunchTimingOverlay.web.tsx, hooks/use-service-worker.web.ts, config/firebase.ts or data/device-data*."
+else
+	report 27 "device storage allow list" ok
+fi
+
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------

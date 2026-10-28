@@ -50,6 +50,7 @@ const CHECKS = [
 	"back only via goBack",
 	"icon keywords per locale",
 	"arrival waits delayed",
+	"device storage allow list",
 ];
 
 type Case = {
@@ -109,6 +110,18 @@ const CASES: Case[] = [
 	{ name: "menu-via-appmenu", check: "Menu only via AppMenu" },
 	{ name: "scroll-via-slim", check: "SlimScrollView only" },
 	{ name: "arrival-spinner", check: "arrival waits delayed" },
+	...["local" + "Storage", "session" + "Storage", "indexed" + "DB"].map(
+		(store): Case => ({
+			name: `device-storage-${store}`,
+			check: "device storage allow list",
+			files: async (sandbox) => {
+				await fs.promises.writeFile(
+					path.join(sandbox, "components", "Storage.ts"),
+					`window.${store};\n`,
+				);
+			},
+		}),
+	),
 	{
 		name: "direct-back",
 		check: "back only via goBack",
@@ -257,6 +270,26 @@ test("comment-only mentions are stripped, not violations", async () => {
 	for (const [name, status] of statuses(result.stdout)) {
 		expect(`${name}: ${status}`).toBe(`${name}: ok`);
 	}
+});
+
+test.each([
+	"components/ui/LaunchTimingOverlay.web.tsx",
+	"hooks/use-service-worker.web.ts",
+	"config/firebase.ts",
+	"data/device-data.ts",
+	"data/device-data.web.ts",
+])("device storage is allowed in %s", async (file) => {
+	const target = path.join(sandbox, file);
+	await fs.promises.mkdir(path.dirname(target), { recursive: true });
+	await fs.promises.writeFile(
+		target,
+		["local" + "Storage", "session" + "Storage", "indexed" + "DB"]
+			.map((store) => `window.${store};`)
+			.join("\n"),
+	);
+	const result = await run(sandbox);
+	expect(result.code).toBe(0);
+	expect(statuses(result.stdout).get("device storage allow list")).toBe("ok");
 });
 
 test.each([

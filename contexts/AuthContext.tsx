@@ -1,5 +1,4 @@
 import {
-	signOut as firebaseSignOut,
 	GoogleAuthProvider,
 	onAuthStateChanged,
 	signInWithCredential,
@@ -16,7 +15,9 @@ import {
 } from "react";
 import { type AuthErrorKey, mapAuthError } from "@/auth/errors";
 import { consumeRedirectResult } from "@/auth/redirect";
+import { SplashScreen } from "@/components/ui/SplashScreen";
 import { auth } from "@/config/firebase";
+import { clearDeviceData } from "@/data/device-data";
 import { markLaunch } from "@/utils/launch-timing";
 
 interface AuthContextType {
@@ -49,6 +50,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const [sessionResolved, setSessionResolved] = useState(false);
 	const [redirectResolved, setRedirectResolved] = useState(false);
 	const [redirectError, setRedirectError] = useState<AuthErrorKey | null>(null);
+	const [cleanup, setCleanup] = useState<{
+		resolve: () => void;
+		reject: (reason: unknown) => void;
+	} | null>(null);
+
+	useEffect(() => {
+		if (!cleanup) return;
+		void clearDeviceData()
+			.finally(() => setCleanup(null))
+			.then(cleanup.resolve, cleanup.reject);
+	}, [cleanup]);
 
 	useEffect(() => {
 		return onAuthStateChanged(auth, (nextUser) => {
@@ -99,9 +111,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
 	}, []);
 
-	const signOut = useCallback(async () => {
-		await firebaseSignOut(auth);
-	}, []);
+	const signOut = useCallback(
+		() =>
+			new Promise<void>((resolve, reject) => {
+				setCleanup({ resolve, reject });
+			}),
+		[],
+	);
 
 	const loading = !sessionResolved || !redirectResolved;
 	if (!loading) markLaunch("auth");
@@ -125,7 +141,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		],
 	);
 
-	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+	return (
+		<AuthContext.Provider value={value}>
+			{cleanup ? <SplashScreen /> : children}
+		</AuthContext.Provider>
+	);
 }
 
 export function useAuth() {
