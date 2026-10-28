@@ -6,4 +6,6 @@ export interface GoogleSignInButtonProps {
 	onError?: (key: AuthErrorKey) => void;
 	/** Disabled for a reason the caller states — offline, today. */
 	disabled?: boolean;
+	reauthenticate?: boolean;
+	onSuccess?: () => void;
 }

@@ -2,6 +2,55 @@ import { readFileSync } from "node:fs";
 import { setImmediate } from "node:timers/promises";
 import { runInNewContext } from "node:vm";
 
+it.each(["browser-cjs/index-DBOuNQej.js", "esm/index-4NFEPWkC.js"])(
+	"passes the explicit resolver through reauthentication in %s",
+	(file) => {
+		const source = readFileSync(
+			`node_modules/@firebase/auth/dist/${file}`,
+			"utf8",
+		);
+		const extract = (name: string) => {
+			const start = source.indexOf(`async function ${name}(`);
+			return source.slice(start, source.indexOf("\n}", start) + 2);
+		};
+		const resolver = { _openRedirect: jest.fn().mockResolvedValue(undefined) };
+		const user = {
+			uid: "user",
+			auth: {
+				app: {},
+				_initializationPromise: Promise.resolve(),
+				_setRedirectUser: jest.fn(async (_user, suppliedResolver) => {
+					if (!suppliedResolver) throw new Error("auth/argument-error");
+				}),
+				_persistUserIfCurrent: jest.fn().mockResolvedValue(undefined),
+			},
+		};
+		const reauthenticate = runInNewContext(
+			`(() => { ${extract("prepareUserForRedirect")} ${extract("_reauthenticateWithRedirect")} return _reauthenticateWithRedirect; })()`,
+			{
+				util: { getModularInstance: (value: unknown) => value },
+				app: { _isFirebaseServerApp: () => false },
+				getModularInstance: (value: unknown) => value,
+				_assertInstanceOf: jest.fn(),
+				FederatedAuthProvider: class {},
+				_isFirebaseServerApp: () => false,
+				_withDefaultResolver: (_auth: unknown, override: unknown) => override,
+				_setPendingRedirectStatus: jest.fn().mockResolvedValue(undefined),
+				_generateEventId: () => "event-id",
+			},
+		);
+		return reauthenticate(user, {}, resolver).then(() => {
+			expect(user.auth._setRedirectUser).toHaveBeenCalledWith(user, resolver);
+			expect(resolver._openRedirect).toHaveBeenCalledWith(
+				user.auth,
+				{},
+				"reauthViaRedirect",
+				"event-id",
+			);
+		});
+	},
+);
+
 function storedUser(uid = "stored-user") {
 	return { uid, _stopProactiveRefresh: jest.fn() };
 }
@@ -12,6 +61,7 @@ interface Auth {
 	operations: Promise<void>;
 	_isInitialized: boolean;
 	persistenceManager: {
+		getCurrentUser: jest.Mock;
 		setCurrentUser: jest.Mock;
 		removeCurrentUser: jest.Mock;
 	};
@@ -21,6 +71,7 @@ interface Auth {
 	queue: (action: () => Promise<void>) => Promise<void>;
 	_updateCurrentUser: (user: User | null) => Promise<void>;
 	reloadAndSetCurrentUserOrClear: (user: User) => Promise<void>;
+	initializeCurrentUser: (resolver?: unknown) => Promise<void>;
 }
 
 describe.each(["browser-cjs/index-DBOuNQej.js", "esm/index-4NFEPWkC.js"])(
@@ -46,6 +97,8 @@ describe.each(["browser-cjs/index-DBOuNQej.js", "esm/index-4NFEPWkC.js"])(
 			});
 			reload = jest.fn(() => pending);
 			const AuthImpl = runInNewContext(`(${authClass})`, {
+				app: { _isFirebaseServerApp: () => false },
+				_isFirebaseServerApp: () => false,
 				_reloadWithoutSaving: reload,
 				_assert: (condition: boolean) => {
 					if (!condition) throw new Error("Auth assertion failed");
@@ -61,6 +114,7 @@ describe.each(["browser-cjs/index-DBOuNQej.js", "esm/index-4NFEPWkC.js"])(
 				operations: Promise.resolve(),
 				_isInitialized: true,
 				persistenceManager: {
+					getCurrentUser: jest.fn(),
 					setCurrentUser: jest.fn().mockResolvedValue(undefined),
 					removeCurrentUser: jest.fn().mockResolvedValue(undefined),
 				},
@@ -70,6 +124,13 @@ describe.each(["browser-cjs/index-DBOuNQej.js", "esm/index-4NFEPWkC.js"])(
 				authStateSubscription: { next: jest.fn() },
 				idTokenSubscription: { next: jest.fn() },
 			});
+		});
+
+		it("restores the redirect user without a default resolver for per-call completion", async () => {
+			Object.assign(user, { _redirectEventId: "pending-event" });
+			auth.persistenceManager.getCurrentUser.mockResolvedValue(user);
+			await auth.initializeCurrentUser();
+			expect(auth.currentUser).toBe(user);
 		});
 
 		it("resolves with the stored user before the network answers, then persists the refresh", async () => {

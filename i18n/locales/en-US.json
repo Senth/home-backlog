@@ -16,6 +16,30 @@
 		"clear": "Clear"
 	},
 	"account": {
+		"deleteAccount": "Delete account",
+		"delete": {
+			"intro": "This removes you from Home Backlog. It cannot be undone.",
+			"homes": "Your homes",
+			"also": "Also removed",
+			"delete": "Deleted, with every project, place and file in it. You are its only member.",
+			"leave_zero": "You leave. {{names}} keep it and your shared projects. You have no private cards to delete.",
+			"leave_one": "You leave. {{names}} keep it and your shared projects. Your {{count}} private card is deleted.",
+			"leave_other": "You leave. {{names}} keep it and your shared projects. Your {{count}} private cards are deleted.",
+			"blocked": "You are its only admin, and {{names}} still use it. Make one of them an admin, or remove them, first.",
+			"manage": "Manage {{home}}",
+			"blockedHint": "Sort out {{home}} first.",
+			"signInAgain": "Sign in again to delete",
+			"staleHint": "Google asks you to sign in once more first.",
+			"freshHint": "You signed in again {{time}}.",
+			"keys_one": "Your automation key, {{name}}, stops working.",
+			"keys_other": "Your automation keys, {{name}}, stop working.",
+			"identity": "Your name, email and sign-in. You can sign up again later, starting empty.",
+			"confirmTitle": "Delete your account?",
+			"confirmBody": "This cannot be undone.",
+			"confirmAction": "Delete",
+			"done": "Your account is deleted.",
+			"formerMember": "Former member"
+		},
 		"labelFor": "Account: {{name}}",
 		"signedInAs": "Signed in as {{email}}",
 		"signOut": {

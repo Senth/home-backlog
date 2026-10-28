@@ -69,6 +69,11 @@ it.each([AsyncStorage.clear, terminate, clearIndexedDbPersistence, signOut])(
 	},
 );
 
+it("preserves the deletion notice across the clean login reload", async () => {
+	await clearDeviceData("/login?deleted=1");
+	expect(replace).toHaveBeenCalledWith("/login?deleted=1");
+});
+
 it("clears native storage before signing out without terminating its memory cache", async () => {
 	await clearNativeDeviceData();
 	expect(AsyncStorage.clear).toHaveBeenCalledTimes(1);

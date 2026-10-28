@@ -16,6 +16,30 @@
 		"clear": "Rensa"
 	},
 	"account": {
+		"deleteAccount": "Radera konto",
+		"delete": {
+			"intro": "Det här tar bort dig från Home Backlog. Det går inte att ångra.",
+			"homes": "Dina hem",
+			"also": "Tas också bort",
+			"delete": "Raderas, med alla projekt, platser och filer. Du är hemmets enda medlem.",
+			"leave_zero": "Du lämnar hemmet. {{names}} behåller det och era gemensamma projekt. Du har inga privata kort att radera.",
+			"leave_one": "Du lämnar hemmet. {{names}} behåller det och era gemensamma projekt. Ditt {{count}} privata kort raderas.",
+			"leave_other": "Du lämnar hemmet. {{names}} behåller det och era gemensamma projekt. Dina {{count}} privata kort raderas.",
+			"blocked": "Du är hemmets enda administratör och {{names}} använder det fortfarande. Gör någon av dem till administratör, eller ta bort dem, först.",
+			"manage": "Hantera {{home}}",
+			"blockedHint": "Ordna upp {{home}} först.",
+			"signInAgain": "Logga in igen för att radera",
+			"staleHint": "Google ber dig att logga in en gång till först.",
+			"freshHint": "Du loggade in igen {{time}}.",
+			"keys_one": "Din automationsnyckel, {{name}}, slutar fungera.",
+			"keys_other": "Dina automationsnycklar, {{name}}, slutar fungera.",
+			"identity": "Ditt namn, din e-postadress och din inloggning. Du kan registrera dig igen senare och börja om från tomt.",
+			"confirmTitle": "Radera ditt konto?",
+			"confirmBody": "Det går inte att ångra.",
+			"confirmAction": "Radera",
+			"done": "Ditt konto är raderat.",
+			"formerMember": "Tidigare medlem"
+		},
 		"labelFor": "Konto: {{name}}",
 		"signedInAs": "Inloggad som {{email}}",
 		"signOut": {

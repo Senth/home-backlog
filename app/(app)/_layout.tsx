@@ -1,4 +1,4 @@
-import { Redirect, Stack } from "expo-router";
+import { Redirect, Stack, usePathname } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardCardsProvider } from "@/contexts/DashboardCardsContext";
 import { OutboxProvider } from "@/contexts/OutboxContext";
@@ -19,8 +19,11 @@ import { markLaunch } from "@/utils/launch-timing";
  */
 export default function AppLayout() {
 	const { user } = useAuth();
+	const pathname = usePathname();
 
 	if (!user) return <Redirect href="/(auth)/login" />;
+	if (pathname === "/account/delete")
+		return <Stack screenOptions={{ headerShown: false }} />;
 
 	return (
 		<OutboxProvider key={user.uid}>

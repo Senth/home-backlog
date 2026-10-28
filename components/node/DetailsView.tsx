@@ -204,7 +204,8 @@ export function DetailsView({
 	};
 
 	const nameOfUid = (uid: string) =>
-		activeHome?.memberProfiles?.[uid]?.displayName || t("members.unknown");
+		activeHome?.memberProfiles?.[uid]?.displayName ||
+		t("account.delete.formerMember");
 
 	/** The people value on a row: initials, named once for the whole group. */
 	const avatarsOf = (uids: readonly string[]) => (

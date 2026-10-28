@@ -273,7 +273,8 @@ export function BoardCard({
 	const assignees = node.assigneeIds.map((uid) => ({
 		uid,
 		name:
-			activeHome?.memberProfiles?.[uid]?.displayName || t("members.unknown"),
+			activeHome?.memberProfiles?.[uid]?.displayName ||
+			t("account.delete.formerMember"),
 		photoURL: activeHome?.memberProfiles?.[uid]?.photoURL ?? null,
 	}));
 

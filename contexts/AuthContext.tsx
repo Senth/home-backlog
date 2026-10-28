@@ -32,7 +32,7 @@ interface AuthContextType {
 	dismissRedirectError: () => void;
 	/** Exchanges a Google ID token for a Firebase session (native flow). */
 	signInWithGoogle: (idToken: string) => Promise<void>;
-	signOut: () => Promise<void>;
+	signOut: (destination?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -51,13 +51,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const [redirectResolved, setRedirectResolved] = useState(false);
 	const [redirectError, setRedirectError] = useState<AuthErrorKey | null>(null);
 	const [cleanup, setCleanup] = useState<{
+		destination?: string;
 		resolve: () => void;
 		reject: (reason: unknown) => void;
 	} | null>(null);
 
 	useEffect(() => {
 		if (!cleanup) return;
-		void clearDeviceData()
+		void clearDeviceData(cleanup.destination)
 			.finally(() => setCleanup(null))
 			.then(cleanup.resolve, cleanup.reject);
 	}, [cleanup]);
@@ -112,9 +113,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	const signOut = useCallback(
-		() =>
+		(destination?: string) =>
 			new Promise<void>((resolve, reject) => {
-				setCleanup({ resolve, reject });
+				setCleanup({ resolve, reject, destination });
 			}),
 		[],
 	);

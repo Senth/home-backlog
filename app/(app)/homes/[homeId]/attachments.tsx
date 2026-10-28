@@ -95,7 +95,8 @@ export default function AttachmentsInventory() {
 	// The name behind the uid the counter attributed the bytes to. A member
 	// who has left has no profile left, and their bytes stay theirs.
 	const nameOfUid = (uid: string) =>
-		home?.memberProfiles?.[uid]?.displayName || t("members.unknown");
+		home?.memberProfiles?.[uid]?.displayName ||
+		t("account.delete.formerMember");
 
 	const remove = async () => {
 		const row = confirming;
