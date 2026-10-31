@@ -148,6 +148,8 @@ export async function uploadAttachment(
 			...metadata,
 			contentType,
 		});
+		const timeout =
+			bytes.size > 256 * 1024 ? 30_000 : storage.maxUploadRetryTime;
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		let transferred = 0;
 		let unsubscribe = () => {};
@@ -160,14 +162,14 @@ export async function uploadAttachment(
 						timer = setTimeout(() => {
 							reject(stalled(step));
 							task.cancel();
-						}, 30_000);
+						}, timeout);
 					};
 					reset();
 					unsubscribe = task.on("state_changed", (snapshot) => {
 						if (snapshot.bytesTransferred > transferred) {
-							transferred = snapshot.bytesTransferred;
 							reset();
 						}
+						transferred = snapshot.bytesTransferred;
 						onProgress?.({
 							phase: "uploading",
 							bytesTransferred: snapshot.bytesTransferred,
@@ -238,7 +240,7 @@ export async function uploadAttachment(
 		// ever list, which is the orphan the path shape exists to prevent, so
 		// the upload puts them back off the counter. Best effort: the original
 		// refusal is what the caller hears either way.
-		await rollback();
+		void rollback();
 		throw reason;
 	}
 	return entry;
