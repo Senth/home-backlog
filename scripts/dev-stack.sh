@@ -226,14 +226,18 @@ cmd_up() {
 		# shared /tmp makes the last booted worktree's stack the one every bare
 		# `firebase` command resolves to. A per-worktree TMPDIR gives this stack
 		# a locator of its own — same trick as scripts/test-rules.mjs — and the
-		# CLI does not create the directory itself.
-		mkdir -p "$STATE/tmp"
+		# CLI does not create the directory itself. It sits outside the worktree
+		# because the functions emulator binds a Unix socket in it, and a deep
+		# worktree path overruns the 108-byte socket path limit (listen EINVAL).
+		local emu_tmp
+		emu_tmp="${XDG_RUNTIME_DIR:-$HOME/.cache}/home-backlog-dev-stack/$(printf %s "$PWD" | cksum | cut -d " " -f1)"
+		mkdir -p "$emu_tmp"
 		local start_cmd="yarn --cwd functions build && firebase emulators:start --project home-backlog --config '$GENERATED_CONFIG'"
 		if [ "$import" = 1 ]; then
 			start_cmd+=" --import .emulator-seed"
 		fi
 		start_bg emulators env \
-			TMPDIR="$PWD/$STATE/tmp" TMP="$PWD/$STATE/tmp" TEMP="$PWD/$STATE/tmp" \
+			TMPDIR="$emu_tmp" TMP="$emu_tmp" TEMP="$emu_tmp" \
 			bash -c "$start_cmd"
 		wait_for_port "$firestore_port" emulators
 
