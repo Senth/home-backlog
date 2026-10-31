@@ -34,6 +34,10 @@ jobs:
           latest=$(node -e '
             const src = require("fs").readFileSync(process.argv[1], "utf8");
             const ga = [...src.matchAll(/nodejs(\d+):\s*\{[^}]*status:\s*"GA"/g)].map((m) => Number(m[1]));
+            if (!ga.length) {
+              console.error("no GA runtime parsed from firebase-tools");
+              process.exit(1);
+            }
             console.log(Math.max(...ga));
           ' package/lib/deploy/functions/runtimes/supported/types.js)
           echo "engines.node=$current, newest GA in firebase-tools $version: $latest"

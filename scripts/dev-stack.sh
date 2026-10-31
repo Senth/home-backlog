@@ -63,6 +63,7 @@ command -v jq >/dev/null 2>&1 || {
 }
 
 STATE=".tmp/dev-stack"
+EMU_TMP="${XDG_RUNTIME_DIR:-$HOME/.cache}/home-backlog-dev-stack/$(printf %s "$PWD" | cksum | cut -d " " -f1)"
 # A stack this old is torn down by the next `up` and booted fresh: a long-lived
 # Firestore emulator keeps answering REST but refuses new webchannel
 # connections (#242), and no single e2e run (~20 min) crosses the threshold.
@@ -229,15 +230,13 @@ cmd_up() {
 		# CLI does not create the directory itself. It sits outside the worktree
 		# because the functions emulator binds a Unix socket in it, and a deep
 		# worktree path overruns the 108-byte socket path limit (listen EINVAL).
-		local emu_tmp
-		emu_tmp="${XDG_RUNTIME_DIR:-$HOME/.cache}/home-backlog-dev-stack/$(printf %s "$PWD" | cksum | cut -d " " -f1)"
-		mkdir -p "$emu_tmp"
+		mkdir -p "$EMU_TMP"
 		local start_cmd="yarn --cwd functions build && firebase emulators:start --project home-backlog --config '$GENERATED_CONFIG'"
 		if [ "$import" = 1 ]; then
 			start_cmd+=" --import .emulator-seed"
 		fi
 		start_bg emulators env \
-			TMPDIR="$emu_tmp" TMP="$emu_tmp" TEMP="$emu_tmp" \
+			TMPDIR="$EMU_TMP" TMP="$EMU_TMP" TEMP="$EMU_TMP" \
 			bash -c "$start_cmd"
 		wait_for_port "$firestore_port" emulators
 
@@ -288,6 +287,7 @@ cmd_up() {
 cmd_down() {
 	stop_group web
 	stop_group emulators
+	rm -rf "$EMU_TMP"
 
 	if [ ! -f "$STATE/stack.json" ]; then
 		echo "dev-stack: nothing was started here (no stack state)"
