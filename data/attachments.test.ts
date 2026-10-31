@@ -177,6 +177,7 @@ describe("uploadAttachment, image", () => {
 		expect(changes.attachmentCount).toEqual({ __op: "increment", by: 1 });
 		expect(changes.updatedAt).toBe("server-timestamp");
 		expect(entry.contentType).toBe("image/jpeg");
+		expect(entry.hasThumbnail).toBe(true);
 		expect(entry.size).toBe(400);
 		expect(entry.uploadedBy).toBe("me");
 		expect(entry.name).toBe("badrum.jpg");
@@ -206,32 +207,36 @@ describe("uploadAttachment, not an image", () => {
 const heicBytes = 2 * oneMb;
 
 describe("uploadAttachment, a browser that cannot decode the photo", () => {
-	it("keeps the original HEIC bytes rather than losing the photo", async () => {
-		const { downscaleImage } = jest.requireMock("@/utils/downscale") as {
-			downscaleImage: jest.Mock;
-		};
-		downscaleImage.mockRejectedValueOnce(
-			Object.assign(new Error("no such codec"), { code: "image-decode" }),
-		);
+	it.each(["image/heic", "image/jpeg"])(
+		"keeps undecodable %s bytes without claiming a thumbnail",
+		async (contentType) => {
+			const { downscaleImage } = jest.requireMock("@/utils/downscale") as {
+				downscaleImage: jest.Mock;
+			};
+			downscaleImage.mockRejectedValueOnce(
+				Object.assign(new Error("no such codec"), { code: "image-decode" }),
+			);
 
-		const original = { size: heicBytes } as unknown as Blob;
-		await uploadAttachment(
-			"home",
-			"node",
-			"me",
-			aFile({ name: "badrum.heic", contentType: "image/heic", blob: original }),
-		);
+			const original = { size: heicBytes } as unknown as Blob;
+			await uploadAttachment(
+				"home",
+				"node",
+				"me",
+				aFile({ contentType, blob: original }),
+			);
 
-		expect(uploadBytesResumable).toHaveBeenCalledTimes(1);
-		const [reference, blob, meta] = uploadBytesResumable.mock.calls[0];
-		expect((reference as { path: string }).path).toMatch(
-			/^homes\/home\/nodes\/node\/[0-9a-f-]{36}$/,
-		);
-		expect(meta).toMatchObject({ contentType: "image/heic" });
-		const entry = arrayUnion.mock.calls[0][0] as Attachment;
-		expect(entry.size).toBe(heicBytes);
-		expect(blob).toBe(original);
-	});
+			expect(uploadBytesResumable).toHaveBeenCalledTimes(1);
+			const [reference, blob, meta] = uploadBytesResumable.mock.calls[0];
+			expect((reference as { path: string }).path).toMatch(
+				/^homes\/home\/nodes\/node\/[0-9a-f-]{36}$/,
+			);
+			expect(meta).toMatchObject({ contentType });
+			const entry = arrayUnion.mock.calls[0][0] as Attachment;
+			expect(entry.hasThumbnail).toBe(false);
+			expect(entry.size).toBe(heicBytes);
+			expect(blob).toBe(original);
+		},
+	);
 });
 
 describe("uploadAttachment, the entry write failing", () => {
@@ -527,6 +532,14 @@ describe("deleteAttachment", () => {
 		);
 
 		expect(deleteObject).toHaveBeenCalledTimes(1);
+	});
+
+	it("does not delete a thumbnail that was never written", async () => {
+		const attachment = anAttachment({ hasThumbnail: false });
+		txFor(aNodeWith([attachment]));
+		await deleteAttachment("home", "node", attachment);
+		expect(deleteObject).toHaveBeenCalledTimes(1);
+		expect(deleteObject).toHaveBeenCalledWith({ path: attachment.path });
 	});
 
 	it("treats an object already gone as the outcome it wanted", async () => {

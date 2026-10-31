@@ -19,6 +19,7 @@ import type { AttachmentUploadProgress } from "@/models/attachment";
 import {
 	attachmentPath,
 	attachmentRefusal,
+	hasImagePreview,
 	homeAttachmentCeiling,
 	isImageType,
 	maxImageEdge,
@@ -188,6 +189,7 @@ export async function uploadAttachment(
 		path,
 		name: file.name,
 		contentType,
+		hasThumbnail: encoded,
 		size: blob.size,
 		uploadedAt: Timestamp.fromDate(new Date()),
 		uploadedBy: uid,
@@ -285,7 +287,7 @@ export async function deleteAttachment(
 		});
 
 	await drop(attachment.path);
-	if (isImageType(attachment.contentType)) {
+	if (hasImagePreview(attachment)) {
 		await drop(thumbnailPathFor(attachment.path));
 	}
 }

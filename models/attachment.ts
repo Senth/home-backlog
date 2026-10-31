@@ -55,6 +55,12 @@ export function isImageType(contentType: string): boolean {
 	return contentType.startsWith("image/");
 }
 
+export function hasImagePreview(attachment: Attachment): boolean {
+	return (
+		isImageType(attachment.contentType) && attachment.hasThumbnail !== false
+	);
+}
+
 export const photoAccept = allowedContentTypes.filter(isImageType).join(",");
 
 /** The i18n key for an upload failure; anything else is a plain failure. */
@@ -308,9 +314,7 @@ export function badgeAttachmentId(
  * stored preference back to life on its own.
  */
 export function cardFace(node: Node): CardFace {
-	const images = node.attachments.filter((entry) =>
-		isImageType(entry.contentType),
-	);
+	const images = node.attachments.filter(hasImagePreview);
 	const mode: AttachmentDisplay =
 		images.length === 0 ? "count" : node.attachmentDisplay;
 	const hero =

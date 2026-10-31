@@ -7,6 +7,7 @@ import {
 	cardFace,
 	formatBytes,
 	formatUploadBytes,
+	hasImagePreview,
 	isImageType,
 	maxAttachmentBytes,
 	namedRefusals,
@@ -54,6 +55,17 @@ describe("isImageType", () => {
 		expect(isImageType("image/jpeg")).toBe(true);
 		expect(isImageType("application/pdf")).toBe(false);
 		expect(isImageType("")).toBe(false);
+	});
+});
+
+describe("hasImagePreview", () => {
+	it("keeps legacy images previewable but excludes images with no thumbnail", () => {
+		expect(hasImagePreview(anEntry())).toBe(true);
+		expect(hasImagePreview(anEntry({ hasThumbnail: true }))).toBe(true);
+		expect(hasImagePreview(anEntry({ hasThumbnail: false }))).toBe(false);
+		expect(hasImagePreview(anEntry({ contentType: "application/pdf" }))).toBe(
+			false,
+		);
 	});
 });
 
@@ -226,6 +238,16 @@ function aNode(
 }
 
 describe("cardFace", () => {
+	it("excludes undecodable images from every face while keeping their count", () => {
+		const undecodable = anEntry({ hasThumbnail: false });
+		const image = anEntry({ id: "previewable" });
+		const face = cardFace(aNode([undecodable, image], "hero", undecodable.id));
+		expect(face.images).toEqual([image]);
+		expect(face.hero).toBe(image);
+		expect(face.total).toBe(2);
+		expect(cardFace(aNode([undecodable], "thumbnails")).mode).toBe("count");
+	});
+
 	it("a card with nothing attached draws the count, and nothing else", () => {
 		const face = cardFace(aNode([]));
 		expect(face.mode).toBe("count");

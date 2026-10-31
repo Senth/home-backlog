@@ -1140,6 +1140,43 @@ describe("homes/{homeId}/nodes", () => {
 		});
 
 		describe("attachments (#298)", () => {
+			const attachment = {
+				id: "original",
+				path: `homes/${HOME_ID}/nodes/snappy/original`,
+				name: "corrupt.jpg",
+				contentType: "image/jpeg",
+				size: oneKb,
+				uploadedAt: new Date("2026-01-01T00:00:00Z"),
+				uploadedBy: MEMBER.uid,
+			};
+
+			it("accepts legacy entries and boolean thumbnail availability at the limit", async () => {
+				await assertSucceeds(
+					create(dbAs(env, MEMBER), "snappy", {
+						attachments: Array.from({ length: 50 }, (_value, index) => ({
+							...attachment,
+							id: `p${index}`,
+							...(index === 0 ? {} : { hasThumbnail: index % 2 === 0 }),
+						})),
+					}),
+				);
+			});
+
+			it.each([0, 9, 10, 49])(
+				"refuses non-boolean thumbnail availability at index %s",
+				async (at) => {
+					await assertFails(
+						create(dbAs(env, MEMBER), "snappy", {
+							attachments: Array.from({ length: 50 }, (_value, index) => ({
+								...attachment,
+								id: `p${index}`,
+								hasThumbnail: index === at ? "false" : false,
+							})),
+						}),
+					);
+				},
+			);
+
 			/**
 			 * The new fields are read through get() with a default rather than
 			 * required outright: every node stored before the rename lacks all

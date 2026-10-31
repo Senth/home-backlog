@@ -515,6 +515,7 @@ export interface Attachment {
 	path: string;
 	name: string;
 	contentType: string;
+	hasThumbnail?: boolean;
 	size: number;
 	uploadedAt: Timestamp | null;
 	uploadedBy: string;
@@ -1292,6 +1293,9 @@ function attachmentList(value: unknown): Attachment[] {
 		path: stringOr(item?.path, ""),
 		name: stringOr(item?.name, ""),
 		contentType: stringOr(item?.contentType, ""),
+		...(typeof item?.hasThumbnail === "boolean"
+			? { hasThumbnail: item.hasThumbnail }
+			: {}),
 		size: counter(item?.size),
 		uploadedAt: item?.uploadedAt ?? null,
 		uploadedBy: stringOr(item?.uploadedBy, ""),

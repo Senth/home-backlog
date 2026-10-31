@@ -35,6 +35,7 @@ import {
 	attachmentErrorKey,
 	formatBytes,
 	formatUploadBytes,
+	hasImagePreview,
 	isImageType,
 	maxAttachmentBytes,
 	photoAccept,
@@ -168,12 +169,8 @@ export function AttachmentsSection({
 		[setBatch],
 	);
 
-	const images = node.attachments.filter((entry) =>
-		isImageType(entry.contentType),
-	);
-	const files = node.attachments.filter(
-		(entry) => !isImageType(entry.contentType),
-	);
+	const images = node.attachments.filter(hasImagePreview);
+	const files = node.attachments.filter((entry) => !hasImagePreview(entry));
 	const [lead, ...rest] = images;
 	// The grid draws only what the face draws: an image whose thumbnail
 	// cannot resolve takes no slot at all, the way the lead above skips.
@@ -324,7 +321,7 @@ export function AttachmentsSection({
 	useEffect(() => {
 		const wanted: string[] = [];
 		for (const entry of node.attachments) {
-			if (!isImageType(entry.contentType)) continue;
+			if (!hasImagePreview(entry)) continue;
 			wanted.push(entry.path, thumbnailPathFor(entry.path));
 		}
 		if (wanted.length === 0) return;

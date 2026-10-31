@@ -4,7 +4,7 @@ import { Platform, View } from "react-native";
 import { Menu } from "react-native-paper";
 import { AppMenu } from "@/components/ui/AppMenu";
 import { storage } from "@/config/firebase";
-import { isImageType } from "@/models/attachment";
+import { hasImagePreview } from "@/models/attachment";
 import type { Attachment, Node } from "@/models/node";
 
 /**
@@ -43,10 +43,7 @@ export function useAttachmentActions(
 			onPress: handlers.onDownload,
 		},
 	];
-	if (
-		isImageType(attachment.contentType) &&
-		node.heroAttachmentId !== attachment.id
-	) {
+	if (hasImagePreview(attachment) && node.heroAttachmentId !== attachment.id) {
 		actions.push({
 			key: "hero",
 			icon: "wallpaper",

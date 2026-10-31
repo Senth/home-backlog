@@ -1239,6 +1239,21 @@ describe("flipPlan", () => {
 });
 
 describe("toNode", () => {
+	it("preserves explicit thumbnail availability without changing legacy entries", () => {
+		const result = toNode(
+			snapshot("node-9", {
+				attachments: [
+					{ id: "original", hasThumbnail: false },
+					{ id: "encoded", hasThumbnail: true },
+					{ id: "legacy" },
+				],
+			}),
+		);
+		expect(result.attachments[0]?.hasThumbnail).toBe(false);
+		expect(result.attachments[1]?.hasThumbnail).toBe(true);
+		expect(result.attachments[2]?.hasThumbnail).toBeUndefined();
+	});
+
 	it("reads a document that is missing every optional field", () => {
 		const result = toNode(snapshot("node-9", { title: "Bare" }));
 

@@ -400,6 +400,31 @@ describe("AttachmentsSection", () => {
 		expect(screen.getByText("3 megabytes")).toBeOnTheScreen();
 	});
 
+	it("renders an undecodable JPEG as a file row without requesting image URLs", async () => {
+		const attachment = anAttachment({
+			id: "corrupt",
+			path: "homes/home/nodes/node/corrupt",
+			name: "corrupt.jpg",
+			hasThumbnail: false,
+		});
+		await renderSection(aNode([attachment]));
+		expect(screen.getByText("corrupt.jpg")).toBeOnTheScreen();
+		expect(screen.getByText("3 megabytes")).toBeOnTheScreen();
+		expect(screen.queryByLabelText("corrupt.jpg")).toBeNull();
+		expect(getDownloadURL).not.toHaveBeenCalled();
+		expect(screen.queryByLabelText("detail.attachmentsModeChange")).toBeNull();
+		await fireEvent.press(screen.getByText("corrupt.jpg"));
+		await waitFor(() => {
+			expect(
+				screen.getByLabelText("detail.attachmentsDownload"),
+			).toBeOnTheScreen();
+		});
+		expect(screen.getByLabelText("detail.attachmentsDelete")).toBeOnTheScreen();
+		expect(screen.queryByLabelText("detail.attachmentsHero")).toBeNull();
+		expect(screen.queryByLabelText("corrupt.jpg")).toBeNull();
+		expect(getDownloadURL).not.toHaveBeenCalled();
+	});
+
 	it("asks Storage for a missing thumbnail once, and leaves no slot for it", async () => {
 		// A unique path, because `urlOf`'s cache is module-level and outlives
 		// a test.
