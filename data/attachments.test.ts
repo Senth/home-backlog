@@ -45,7 +45,11 @@ jest.mock("@/utils/downscale", () => ({
 	downscaleImage: jest.fn(async () => new Blob([new ArrayBuffer(400)])),
 }));
 
-import { deleteAttachment, uploadAttachment } from "@/data/attachments";
+import {
+	deleteAttachment,
+	readHomeAttachmentBytes,
+	uploadAttachment,
+} from "@/data/attachments";
 import { homeAttachmentCeiling } from "@/models/attachment";
 
 const { arrayUnion, updateDoc } = jest.requireMock("firebase/firestore") as {
@@ -88,6 +92,27 @@ function anAttachment(over: Partial<Attachment> = {}): Attachment {
 }
 
 describe("uploadAttachment refusals", () => {
+	it("reads the home quota once and reuses a supplied batch snapshot", async () => {
+		const { getDoc } = jest.requireMock("firebase/firestore") as {
+			getDoc: jest.Mock;
+		};
+		getDoc.mockResolvedValueOnce({ get: () => documentBytes });
+		await expect(readHomeAttachmentBytes("home")).resolves.toBe(documentBytes);
+		expect(getDoc).toHaveBeenCalledTimes(1);
+		getDoc.mockClear();
+
+		await uploadAttachment(
+			"home",
+			"node",
+			"me",
+			aFile(),
+			undefined,
+			undefined,
+			0,
+		);
+		expect(getDoc).not.toHaveBeenCalled();
+	});
+
 	it("refuses an unknown type before anything is sent", async () => {
 		await expect(
 			uploadAttachment(

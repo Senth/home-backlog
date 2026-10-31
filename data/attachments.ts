@@ -70,6 +70,12 @@ async function preparing<T>(step: string, work: Promise<T>): Promise<T> {
 	}
 }
 
+export async function readHomeAttachmentBytes(homeId: string): Promise<number> {
+	const home = await preparing("quota", getDoc(doc(db, "homes", homeId)));
+	const bytes = home.get("attachmentBytes");
+	return typeof bytes === "number" ? bytes : 0;
+}
+
 /**
  * One file, in: refused on type and size before anything is sent, then on the
  * home's byte ceiling — read from the home document, the number only the
@@ -91,14 +97,14 @@ export async function uploadAttachment(
 	file: { name: string; contentType: string; size: number; blob: Blob },
 	onProgress?: (progress: AttachmentUploadProgress) => void,
 	onError?: (reason: unknown) => void,
+	homeAttachmentBytes?: number,
 ): Promise<Attachment> {
 	const reason = attachmentRefusal(file.contentType, file.size);
 	if (reason !== null) throw refused(reason);
 
 	onProgress?.({ phase: "preparing" });
-	const home = await preparing("quota", getDoc(doc(db, "homes", homeId)));
-	const bytes = home.get("attachmentBytes");
-	if (typeof bytes === "number" && bytes >= homeAttachmentCeiling) {
+	const bytes = homeAttachmentBytes ?? (await readHomeAttachmentBytes(homeId));
+	if (bytes >= homeAttachmentCeiling) {
 		throw refused("attachment-quota");
 	}
 
