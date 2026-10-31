@@ -157,6 +157,18 @@ export function formatBytes(bytes: number, locale: string): string {
 	}).format(value);
 }
 
+export function formatUploadBytes(bytes: number, locale: string): string {
+	const step = bytes < 1024 * 1024 ? 1024 : 1024 * 1024;
+	const unit = bytes < 1024 * 1024 ? "kilobyte" : "megabyte";
+	const value = bytes / step;
+	return new Intl.NumberFormat(locale, {
+		style: "unit",
+		unit,
+		unitDisplay: "short",
+		maximumFractionDigits: value < 10 ? 1 : 0,
+	}).format(value);
+}
+
 /** Where an attachment object lives — the exact shape `storage.rules` allows. */
 export function attachmentPath(
 	homeId: string,

@@ -11,7 +11,12 @@ import { Provider } from "react-native-paper";
 import { AttachmentsSection } from "@/components/node/AttachmentsSection";
 import enUS from "@/i18n/locales/en-US.json";
 import svSE from "@/i18n/locales/sv-SE.json";
-import { attachmentAccept, photoAccept } from "@/models/attachment";
+import type { AttachmentUploadProgress } from "@/models/attachment";
+import {
+	attachmentAccept,
+	homeAttachmentCeiling,
+	photoAccept,
+} from "@/models/attachment";
 import type { Attachment, Node } from "@/models/node";
 import { newNodeData } from "@/models/node";
 import { lightTheme } from "@/theme";
@@ -20,6 +25,11 @@ const mockScreenFocus = createContext(true);
 jest.mock("@react-navigation/native", () => ({
 	...jest.requireActual("@react-navigation/native"),
 	useIsFocused: () => require("react").useContext(mockScreenFocus),
+}));
+
+jest.mock("react-native-paper", () => ({
+	...jest.requireActual("react-native-paper"),
+	ProgressBar: () => null,
 }));
 
 jest.mock("react-i18next", () => ({
@@ -37,11 +47,16 @@ jest.mock("@/contexts/AuthContext", () => ({
 
 jest.mock("@/data/attachments", () => ({
 	uploadAttachment: jest.fn(),
+	readHomeAttachmentBytes: jest.fn(async () => 0),
 	deleteAttachment: jest.fn(async () => undefined),
 }));
 
 import { getDownloadURL } from "firebase/storage";
-import { deleteAttachment, uploadAttachment } from "@/data/attachments";
+import {
+	deleteAttachment,
+	readHomeAttachmentBytes,
+	uploadAttachment,
+} from "@/data/attachments";
 
 jest.mock("@/config/firebase", () => ({ db: {}, storage: {} }));
 
@@ -108,6 +123,8 @@ describe("AttachmentsSection", () => {
 	beforeEach(() => {
 		mockOnline = true;
 		mockCoarse = false;
+		jest.mocked(uploadAttachment).mockReset().mockResolvedValue(anAttachment());
+		jest.mocked(readHomeAttachmentBytes).mockReset().mockResolvedValue(0);
 	});
 
 	it("offers a named zone and states the limits on an empty card", async () => {
@@ -194,29 +211,47 @@ describe("AttachmentsSection", () => {
 		expect(screen.queryByText(/detail.attachmentsLimits/)).toBeNull();
 	});
 
-	it("disables both coarse pickers and shows the batch count while uploading", async () => {
+	it("keeps both coarse pickers enabled and shows progress while uploading", async () => {
 		mockCoarse = true;
-		let finish!: (value: unknown) => void;
+		let progress!: (value: AttachmentUploadProgress) => void;
+		let finish!: (value: Attachment) => void;
 		(uploadAttachment as jest.Mock).mockImplementation(
-			() =>
-				new Promise((resolve) => {
+			(_home, _node, _uid, _file, onProgress) => {
+				progress = onProgress;
+				return new Promise((resolve) => {
 					finish = resolve;
-				}),
+				});
+			},
 		);
 		await renderSection(aNode([]));
-		await act(() =>
+		await act(async () => {
 			mockDroppedFiles([
 				{ name: "photo.jpg", type: "image/jpeg", size: photoBytes },
-			] as File[]),
-		);
-		expect(screen.getByText("detail.attachmentsAddPhotos")).toBeDisabled();
-		expect(screen.getByText("detail.attachmentsAddFiles")).toBeDisabled();
+			] as File[]);
+		});
+		expect(readHomeAttachmentBytes).toHaveBeenCalledWith("home");
+		expect(screen.getByText("detail.attachmentsAddPhotos")).toBeEnabled();
+		expect(screen.getByText("detail.attachmentsAddFiles")).toBeEnabled();
 		expect(
-			screen.getByText('detail.attachmentsUploadingCount:{"count":1}'),
+			screen.getByText('detail.attachmentsBatchCount:{"done":0,"total":1}'),
 		).toBeOnTheScreen();
-		await act(async () => finish(undefined));
+		expect(screen.getByText("photo.jpg")).toBeOnTheScreen();
+		await act(async () =>
+			progress({
+				phase: "uploading",
+				bytesTransferred: oneMb,
+				totalBytes: 2 * oneMb,
+			}),
+		);
 		expect(
-			screen.getByText('detail.attachmentsLimits:{"limit":"20 megabytes"}'),
+			screen.getByText(
+				'detail.attachmentsBytesProgress:{"done":"1 MB","total":"2 MB"}',
+			),
+		).toBeOnTheScreen();
+		await act(async () => finish(anAttachment()));
+		expect(screen.queryByText("photo.jpg")).toBeNull();
+		expect(
+			screen.getByText('detail.attachmentsBatchCount:{"done":1,"total":1}'),
 		).toBeOnTheScreen();
 	});
 
@@ -308,12 +343,20 @@ describe("AttachmentsSection", () => {
 					for (const listener of [...listeners]) listener(paste);
 				});
 				expect(uploadAttachment).toHaveBeenCalledTimes(1);
-				expect(uploadAttachment).toHaveBeenCalledWith("home", id, "me", {
-					name: file.name,
-					contentType: file.type,
-					size: file.size,
-					blob: file,
-				});
+				expect(uploadAttachment).toHaveBeenCalledWith(
+					"home",
+					id,
+					"me",
+					expect.objectContaining({
+						name: file.name,
+						contentType: file.type,
+						size: file.size,
+						blob: file,
+					}),
+					expect.any(Function),
+					undefined,
+					0,
+				);
 				jest.mocked(uploadAttachment).mockClear();
 			}
 			await view.rerender(panes(null));
@@ -429,46 +472,147 @@ describe("AttachmentsSection", () => {
 		expect(screen.getByText("detail.attachmentsOffline")).toBeOnTheScreen();
 	});
 
-	it("counts a pending batch and names both refusals, with one quota action", async () => {
-		const rejectors: ((reason: unknown) => void)[] = [];
+	it("shows five rows, keeps failures, lands files, and appends picks mid-batch", async () => {
+		const uploads: {
+			name: string;
+			progress: (value: AttachmentUploadProgress) => void;
+			resolve: (value: Attachment) => void;
+			reject: (reason: unknown) => void;
+		}[] = [];
 		(uploadAttachment as jest.Mock).mockImplementation(
-			() =>
-				new Promise((_resolve, reject) => {
-					rejectors.push(reject);
+			(_home, _node, _uid, file, onProgress) =>
+				new Promise((resolve, reject) => {
+					uploads.push({
+						name: file.name,
+						progress: onProgress,
+						resolve,
+						reject,
+					});
 				}),
 		);
 		await renderSection(aNode([]));
-		const files = ["first.zip", "second.zip", "third.zip"].map((name) => ({
-			name,
-			type: "application/zip",
-			size: photoBytes,
-		})) as File[];
-		await act(() => mockDroppedFiles(files));
-		expect(
-			screen.getByText('detail.attachmentsUploadingCount:{"count":3}'),
-		).toBeOnTheScreen();
-		expect(
-			screen.getByRole("button", { name: "detail.attachmentsChooseFiles" }),
-		).toBeDisabled();
 		await act(async () => {
-			rejectors[0]?.({ code: "attachment-quota" });
-			rejectors[1]?.({ code: "attachment-type" });
-			rejectors[2]?.({ code: "attachment-quota" });
+			mockDroppedFiles(
+				["one.jpg", "two.jpg", "three.jpg", "four.jpg", "five.jpg"].map(
+					(name) => ({ name, type: "image/jpeg", size: photoBytes }),
+				) as File[],
+			);
 		});
+		await waitFor(() => expect(uploads).toHaveLength(3));
 		expect(
-			screen.getByText(/"name":"first.zip","reason":"detail.attachmentsQuota/),
+			screen.getByText('detail.attachmentsBatchCount:{"done":0,"total":5}'),
 		).toBeOnTheScreen();
+		for (const name of [
+			"one.jpg",
+			"two.jpg",
+			"three.jpg",
+			"four.jpg",
+			"five.jpg",
+		])
+			expect(screen.getByText(name)).toBeOnTheScreen();
+		expect(screen.getAllByText("detail.attachmentsPreparing")).toHaveLength(3);
+		expect(screen.getAllByText("detail.attachmentsWaiting")).toHaveLength(2);
+
+		await act(async () =>
+			uploads[0]?.progress({
+				phase: "uploading",
+				bytesTransferred: 1.2 * oneMb,
+				totalBytes: 2.8 * oneMb,
+			}),
+		);
 		expect(
 			screen.getByText(
-				/"name":"second.zip","reason":"detail.attachmentsWrongType/,
+				'detail.attachmentsBytesProgress:{"done":"1.2 MB","total":"2.8 MB"}',
 			),
 		).toBeOnTheScreen();
+		await act(async () => uploads[0]?.reject({ code: "attachment-type" }));
+		await waitFor(() => expect(uploads).toHaveLength(4));
+		expect(screen.getByText("one.jpg")).toBeOnTheScreen();
 		expect(
-			screen.getByText(/"name":"third.zip","reason":"detail.attachmentsQuota/),
+			screen.getByText('detail.attachmentsWrongType:{"limit":"20 megabytes"}'),
 		).toBeOnTheScreen();
-		expect(screen.getAllByText("detail.attachmentsInventoryOpen")).toHaveLength(
-			1,
-		);
+		await act(async () => uploads[1]?.resolve(anAttachment()));
+		await waitFor(() => expect(uploads).toHaveLength(5));
+		expect(
+			screen.getByText('detail.attachmentsBatchCount:{"done":1,"total":5}'),
+		).toBeOnTheScreen();
+		expect(screen.queryByText("two.jpg")).toBeNull();
+
+		await act(async () => {
+			mockDroppedFiles([
+				{ name: "six.jpg", type: "image/jpeg", size: photoBytes } as File,
+			]);
+		});
+		expect(
+			screen.getByText('detail.attachmentsBatchCount:{"done":1,"total":6}'),
+		).toBeOnTheScreen();
+		expect(screen.getByText("six.jpg")).toBeOnTheScreen();
+
+		await act(async () => uploads[2]?.resolve(anAttachment()));
+		await waitFor(() => expect(uploads).toHaveLength(6));
+		await act(async () => uploads[3]?.resolve(anAttachment()));
+		await act(async () => uploads[4]?.resolve(anAttachment()));
+		await act(async () => uploads[5]?.resolve(anAttachment()));
+		expect(
+			screen.getByText('detail.attachmentsBatchCount:{"done":5,"total":6}'),
+		).toBeOnTheScreen();
+		expect(screen.getByText("one.jpg")).toBeOnTheScreen();
+		expect(screen.queryByText("six.jpg")).toBeNull();
+	});
+
+	it("shows quota refusal under its file and offers the inventory", async () => {
+		jest
+			.mocked(readHomeAttachmentBytes)
+			.mockResolvedValue(homeAttachmentCeiling - photoBytes);
+		jest
+			.mocked(uploadAttachment)
+			.mockRejectedValue({ code: "attachment-type" });
+		await renderSection(aNode([]));
+		await act(async () => {
+			mockDroppedFiles(
+				["fits.jpg", "over-quota.jpg"].map((name) => ({
+					name,
+					type: "image/jpeg",
+					size: photoBytes,
+				})) as File[],
+			);
+		});
+		expect(screen.getByText("fits.jpg")).toBeOnTheScreen();
+		expect(screen.getByText("over-quota.jpg")).toBeOnTheScreen();
+		expect(
+			screen.getByText('detail.attachmentsQuota:{"limit":"20 megabytes"}'),
+		).toBeOnTheScreen();
+		expect(
+			screen.getByText("detail.attachmentsInventoryOpen"),
+		).toBeOnTheScreen();
+	});
+
+	it("revokes a photo preview when its row leaves", async () => {
+		const original = Platform.OS;
+		Platform.OS = "web";
+		const create = jest
+			.spyOn(URL, "createObjectURL")
+			.mockReturnValue("blob:upload-preview");
+		const revoke = jest
+			.spyOn(URL, "revokeObjectURL")
+			.mockImplementation(() => {});
+		jest.mocked(uploadAttachment).mockResolvedValue(anAttachment());
+		try {
+			await renderSection(aNode([]));
+			await act(async () => {
+				mockDroppedFiles([
+					{ name: "preview.jpg", type: "image/jpeg", size: photoBytes } as File,
+				]);
+			});
+			expect(create).toHaveBeenCalledTimes(1);
+			await waitFor(() =>
+				expect(revoke).toHaveBeenCalledWith("blob:upload-preview"),
+			);
+		} finally {
+			Platform.OS = original;
+			create.mockRestore();
+			revoke.mockRestore();
+		}
 	});
 
 	it("shows both refused files with the same name without a duplicate key warning", async () => {
@@ -488,9 +632,10 @@ describe("AttachmentsSection", () => {
 				})) as File[],
 			);
 		});
+		expect(screen.getAllByText("same.jpg")).toHaveLength(2);
 		expect(
 			screen.getAllByText(
-				/"name":"same.jpg","reason":"detail.attachmentsWrongType/,
+				'detail.attachmentsWrongType:{"limit":"20 megabytes"}',
 			),
 		).toHaveLength(2);
 		expect(consoleError).not.toHaveBeenCalled();
@@ -509,10 +654,11 @@ describe("AttachmentsSection", () => {
 			"attachmentsDropArmed",
 			"attachmentsDropOver",
 			"attachmentsLimits",
-			"attachmentsUploadingCount_one",
-			"attachmentsUploadingCount_other",
+			"attachmentsBatchCount",
+			"attachmentsBytesProgress",
+			"attachmentsPreparing",
+			"attachmentsWaiting",
 			"attachmentsChooseFiles",
-			"attachmentsNamedRefusal",
 		] as const) {
 			expect(enUS.detail[key]).toBeTruthy();
 			expect(svSE.detail[key]).toBeTruthy();

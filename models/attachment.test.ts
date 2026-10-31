@@ -6,6 +6,7 @@ import {
 	badgeAttachmentId,
 	cardFace,
 	formatBytes,
+	formatUploadBytes,
 	isImageType,
 	maxAttachmentBytes,
 	namedRefusals,
@@ -171,6 +172,15 @@ describe("formatBytes", () => {
 		expect(
 			formatBytes(oneKb * oneKb * oneKb + 512 * oneKb * oneKb, "sv-SE"),
 		).toBe("1,5 gigabyte");
+	});
+});
+
+describe("formatUploadBytes", () => {
+	it("formats progress in short kilobyte and megabyte units", () => {
+		expect(formatUploadBytes(1.2 * 1024 * 1024, "en-US")).toBe("1.2 MB");
+		expect(formatUploadBytes(2.8 * 1024 * 1024, "en-US")).toBe("2.8 MB");
+		expect(formatUploadBytes(512, "en-US")).toBe("0.5 kB");
+		expect(formatUploadBytes(1536, "sv-SE")).toBe("1,5 kB");
 	});
 });
 
