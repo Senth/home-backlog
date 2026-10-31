@@ -9,19 +9,36 @@ jest.mock("firebase/firestore", () => ({
 	collection: jest.fn(() => ({})),
 	doc: jest.fn(() => ({ id: "ref" })),
 	getDoc: jest.fn(async () => ({ get: () => 0 })),
+	onSnapshot: jest.fn((_ref, _options, next) => {
+		Promise.resolve().then(() =>
+			next({
+				get: () => [
+					jest
+						.requireMock("firebase/firestore")
+						.arrayUnion.mock.calls.at(-1)[0],
+				],
+			}),
+		);
+		return jest.fn();
+	}),
 	increment: jest.fn((by: number) => ({ __op: "increment", by })),
 	query: jest.fn((value: unknown) => value),
 	runTransaction: jest.fn(),
 	serverTimestamp: jest.fn(() => "server-timestamp"),
 	Timestamp: { fromDate: jest.fn(() => "timestamp") },
-	updateDoc: jest.fn(),
+	updateDoc: jest.fn(async () => undefined),
 	where: jest.fn(),
 }));
 
 jest.mock("firebase/storage", () => ({
 	deleteObject: jest.fn(async () => undefined),
 	ref: jest.fn((_storage: unknown, path: string) => ({ path })),
-	uploadBytes: jest.fn(async () => undefined),
+	uploadBytesResumable: jest.fn(() =>
+		Object.assign(Promise.resolve(), {
+			on: jest.fn(() => jest.fn()),
+			cancel: jest.fn(),
+		}),
+	),
 }));
 
 jest.mock("@/utils/downscale", () => ({
@@ -35,8 +52,10 @@ const { arrayUnion, updateDoc } = jest.requireMock("firebase/firestore") as {
 	arrayUnion: jest.Mock;
 	updateDoc: jest.Mock;
 };
-const { uploadBytes, deleteObject } = jest.requireMock("firebase/storage") as {
-	uploadBytes: jest.Mock;
+const { uploadBytesResumable, deleteObject } = jest.requireMock(
+	"firebase/storage",
+) as {
+	uploadBytesResumable: jest.Mock;
 	deleteObject: jest.Mock;
 };
 
@@ -78,7 +97,7 @@ describe("uploadAttachment refusals", () => {
 				aFile({ contentType: "application/zip" }),
 			),
 		).rejects.toMatchObject({ code: "attachment-type" });
-		expect(uploadBytes).not.toHaveBeenCalled();
+		expect(uploadBytesResumable).not.toHaveBeenCalled();
 		expect(updateDoc).not.toHaveBeenCalled();
 	});
 
@@ -86,7 +105,7 @@ describe("uploadAttachment refusals", () => {
 		await expect(
 			uploadAttachment("home", "node", "me", aFile({ size: ceiling })),
 		).rejects.toMatchObject({ code: "attachment-too-large" });
-		expect(uploadBytes).not.toHaveBeenCalled();
+		expect(uploadBytesResumable).not.toHaveBeenCalled();
 		expect(updateDoc).not.toHaveBeenCalled();
 	});
 
@@ -104,7 +123,7 @@ describe("uploadAttachment refusals", () => {
 		await expect(
 			uploadAttachment("home", "node", "me", aFile()),
 		).rejects.toMatchObject({ code: "attachment-quota" });
-		expect(uploadBytes).not.toHaveBeenCalled();
+		expect(uploadBytesResumable).not.toHaveBeenCalled();
 		expect(updateDoc).not.toHaveBeenCalled();
 	});
 });
@@ -115,9 +134,9 @@ describe("uploadAttachment, image", () => {
 
 		// The stored object goes first: a failure halfway leaves a missing
 		// preview, never an orphaned thumbnail the counter has counted.
-		expect(uploadBytes).toHaveBeenCalledTimes(2);
-		const [mainRef, , mainMeta] = uploadBytes.mock.calls[0];
-		const [thumbRef, thumbBlob, thumbMeta] = uploadBytes.mock.calls[1];
+		expect(uploadBytesResumable).toHaveBeenCalledTimes(2);
+		const [mainRef, , mainMeta] = uploadBytesResumable.mock.calls[0];
+		const [thumbRef, thumbBlob, thumbMeta] = uploadBytesResumable.mock.calls[1];
 		const mainPath = (mainRef as { path: string }).path;
 		expect(mainPath).toMatch(/^homes\/home\/nodes\/node\/[0-9a-f-]{36}$/);
 		expect((thumbRef as { path: string }).path).toBe(`${mainPath}_thumb.jpg`);
@@ -152,7 +171,7 @@ describe("uploadAttachment, not an image", () => {
 			}),
 		);
 
-		expect(uploadBytes).toHaveBeenCalledTimes(1);
+		expect(uploadBytesResumable).toHaveBeenCalledTimes(1);
 		const entry = arrayUnion.mock.calls[0][0] as Attachment;
 		expect(entry.contentType).toBe("text/plain");
 		expect(entry.size).toBe(documentBytes);
@@ -178,8 +197,8 @@ describe("uploadAttachment, a browser that cannot decode the photo", () => {
 			aFile({ name: "badrum.heic", contentType: "image/heic", blob: original }),
 		);
 
-		expect(uploadBytes).toHaveBeenCalledTimes(1);
-		const [reference, blob, meta] = uploadBytes.mock.calls[0];
+		expect(uploadBytesResumable).toHaveBeenCalledTimes(1);
+		const [reference, blob, meta] = uploadBytesResumable.mock.calls[0];
 		expect((reference as { path: string }).path).toMatch(
 			/^homes\/home\/nodes\/node\/[0-9a-f-]{36}$/,
 		);
@@ -204,6 +223,186 @@ describe("uploadAttachment, the entry write failing", () => {
 		expect(paths).toHaveLength(2);
 		expect(paths[0]).not.toMatch(/_thumb\.jpg$/);
 		expect(paths[1]).toMatch(/_thumb\.jpg$/);
+	});
+});
+
+describe("uploadAttachment, stalled steps", () => {
+	let log: jest.SpyInstance;
+	beforeEach(() => {
+		jest.useFakeTimers();
+		log = jest.spyOn(console, "info").mockImplementation();
+	});
+	afterEach(() => {
+		expect(jest.getTimerCount()).toBe(0);
+		jest.useRealTimers();
+		log.mockRestore();
+	});
+
+	it.each(["quota", "original", "thumbnail"])(
+		"bounds a stalled %s step to 15 seconds",
+		async (step) => {
+			const never = new Promise(() => {});
+			if (step === "quota")
+				jest
+					.requireMock("firebase/firestore")
+					.getDoc.mockReturnValueOnce(never);
+			else {
+				const { downscaleImage } = jest.requireMock("@/utils/downscale");
+				if (step === "thumbnail")
+					downscaleImage.mockResolvedValueOnce(new Blob(["jpeg"]));
+				downscaleImage.mockReturnValueOnce(never);
+			}
+			const result = expect(
+				uploadAttachment("home", "node", "me", aFile()),
+			).rejects.toMatchObject({ code: "attachment-stalled" });
+			await jest.advanceTimersByTimeAsync(15_000);
+			await result;
+			expect(log).toHaveBeenCalledWith(`[upload] stalled at ${step}`);
+			expect(updateDoc).not.toHaveBeenCalled();
+			expect(deleteObject).toHaveBeenCalledTimes(step === "thumbnail" ? 1 : 0);
+		},
+	);
+
+	it.each(["original", "thumbnail"])(
+		"cancels %s upload after 30 seconds without bytes moving, even with duplicate snapshots",
+		async (step) => {
+			let next!: (snapshot: {
+				bytesTransferred: number;
+				totalBytes: number;
+			}) => void;
+			let reject!: (reason: unknown) => void;
+			const completion = new Promise((_resolve, fail) => {
+				reject = fail;
+			});
+			const cancel = jest.fn(() => reject({ code: "storage/canceled" }));
+			const unsubscribe = jest.fn();
+			if (step === "thumbnail")
+				uploadBytesResumable.mockReturnValueOnce(
+					Object.assign(Promise.resolve(), {
+						on: jest.fn(() => jest.fn()),
+						cancel: jest.fn(),
+					}),
+				);
+			uploadBytesResumable.mockReturnValueOnce(
+				Object.assign(completion, {
+					on: jest.fn((_event, callback) => {
+						next = callback;
+						return unsubscribe;
+					}),
+					cancel,
+				}),
+			);
+			const result = expect(
+				uploadAttachment("home", "node", "me", aFile()),
+			).rejects.toMatchObject({ code: "attachment-stalled" });
+			await jest.advanceTimersByTimeAsync(29_000);
+			next({ bytesTransferred: 0, totalBytes: 400 });
+			await jest.advanceTimersByTimeAsync(1_000);
+			await result;
+			expect(cancel).toHaveBeenCalledTimes(1);
+			expect(unsubscribe).toHaveBeenCalledTimes(1);
+			expect(log).toHaveBeenCalledWith(`[upload] stalled at ${step} upload`);
+			expect(deleteObject).toHaveBeenCalledTimes(step === "thumbnail" ? 2 : 1);
+		},
+	);
+
+	it("keeps uploading while bytes move and reports preparing then byte progress", async () => {
+		let next!: (snapshot: {
+			bytesTransferred: number;
+			totalBytes: number;
+		}) => void;
+		let finish!: () => void;
+		const completion = new Promise<void>((resolve) => {
+			finish = resolve;
+		});
+		const cancel = jest.fn();
+		uploadBytesResumable.mockReturnValueOnce(
+			Object.assign(completion, {
+				on: jest.fn((_event, callback) => {
+					next = callback;
+					return jest.fn();
+				}),
+				cancel,
+			}),
+		);
+		const onProgress = jest.fn();
+		const upload = uploadAttachment("home", "node", "me", aFile(), onProgress);
+		for (const bytesTransferred of [100, 200, 300, 400]) {
+			await jest.advanceTimersByTimeAsync(29_000);
+			next({ bytesTransferred, totalBytes: 400 });
+		}
+		finish();
+		await upload;
+		expect(cancel).not.toHaveBeenCalled();
+		expect(log).not.toHaveBeenCalled();
+		expect(onProgress.mock.calls[0]).toEqual([{ phase: "preparing" }]);
+		expect(onProgress).toHaveBeenCalledWith({
+			phase: "uploading",
+			bytesTransferred: 300,
+			totalBytes: 400,
+		});
+	});
+});
+
+describe("uploadAttachment, local entry write", () => {
+	it("rolls back the original when thumbnail preparation fails", async () => {
+		const { downscaleImage } = jest.requireMock("@/utils/downscale");
+		downscaleImage
+			.mockResolvedValueOnce(new Blob(["jpeg"]))
+			.mockRejectedValueOnce(new Error("thumbnail failed"));
+		await expect(
+			uploadAttachment("home", "node", "me", aFile()),
+		).rejects.toThrow("thumbnail failed");
+		expect(deleteObject).toHaveBeenCalledTimes(1);
+	});
+
+	it("returns after the local entry applies, before server acknowledgement, then rolls back a late rejection", async () => {
+		let reject!: (reason: unknown) => void;
+		updateDoc.mockReturnValueOnce(
+			new Promise((_resolve, fail) => {
+				reject = fail;
+			}),
+		);
+		const onError = jest.fn();
+		const notified = new Promise((resolve) => {
+			onError.mockImplementation(resolve);
+		});
+		await expect(
+			uploadAttachment("home", "node", "me", aFile(), undefined, onError),
+		).resolves.toMatchObject({ name: "badrum.jpg" });
+		expect(deleteObject).not.toHaveBeenCalled();
+		const reason = { code: "permission-denied" };
+		reject(reason);
+		await notified;
+		expect(deleteObject).toHaveBeenCalledTimes(2);
+		expect(onError).toHaveBeenCalledWith(reason);
+	});
+
+	it("waits until the entry appears locally and removes its listener", async () => {
+		const { onSnapshot } = jest.requireMock("firebase/firestore");
+		let next!: (snapshot: { get: () => unknown }) => void;
+		const unsubscribe = jest.fn();
+		let registered!: () => void;
+		const ready = new Promise<void>((resolve) => {
+			registered = resolve;
+		});
+		onSnapshot.mockImplementationOnce(
+			(_ref: unknown, _options: unknown, callback: typeof next) => {
+				next = callback;
+				registered();
+				return unsubscribe;
+			},
+		);
+		updateDoc.mockReturnValueOnce(new Promise(() => {}));
+		const landed = jest.fn();
+		const upload = uploadAttachment("home", "node", "me", aFile()).then(landed);
+		await ready;
+		next({ get: () => [] });
+		await Promise.resolve();
+		expect(landed).not.toHaveBeenCalled();
+		next({ get: () => [arrayUnion.mock.calls[0][0]] });
+		await upload;
+		expect(unsubscribe).toHaveBeenCalledTimes(1);
 	});
 });
 

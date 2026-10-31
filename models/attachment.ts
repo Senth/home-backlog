@@ -63,13 +63,19 @@ export type AttachmentErrorKey =
 	| "detail.attachmentsWrongType"
 	| "detail.attachmentsQuota"
 	| "detail.attachmentsRefused"
+	| "detail.attachmentsStalled"
 	| "detail.attachmentsFailed";
+
+export type AttachmentUploadProgress =
+	| { phase: "preparing" }
+	| { phase: "uploading"; bytesTransferred: number; totalBytes: number };
 
 export function attachmentErrorKey(reason: unknown): AttachmentErrorKey {
 	const code = (reason as { code?: string } | null)?.code;
 	if (code === "attachment-too-large") return "detail.attachmentsTooLarge";
 	if (code === "attachment-type") return "detail.attachmentsWrongType";
 	if (code === "attachment-quota") return "detail.attachmentsQuota";
+	if (code === "attachment-stalled") return "detail.attachmentsStalled";
 	if (code === "storage/unauthorized" || code === "storage/unauthenticated")
 		return "detail.attachmentsRefused";
 	return "detail.attachmentsFailed";

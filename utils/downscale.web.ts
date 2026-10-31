@@ -53,18 +53,23 @@ export async function downscaleImage(
 	const width = Math.round(source.width * scale);
 	const height = Math.round(source.height * scale);
 
-	const canvas = canvasOf(width, height);
-	const context = canvas.getContext("2d");
-	if (context === null) {
+	let canvas: HTMLCanvasElement | undefined;
+	try {
+		canvas = canvasOf(width, height);
+		const context = canvas.getContext("2d");
+		if (context === null) throw new Error("Could not get a canvas to draw on.");
+		context.drawImage(source, 0, 0, width, height);
+		const target = canvas;
+		const blob = await new Promise<Blob | null>((resolve) => {
+			target.toBlob(resolve, "image/jpeg", jpegQuality);
+		});
+		if (blob === null) throw new Error("Could not re-encode the image.");
+		return blob;
+	} finally {
 		source.close();
-		throw new Error("Could not get a canvas to draw on.");
+		if (canvas !== undefined) {
+			canvas.width = 0;
+			canvas.height = 0;
+		}
 	}
-	context.drawImage(source, 0, 0, width, height);
-	source.close();
-
-	const blob = await new Promise<Blob | null>((resolve) => {
-		canvas.toBlob(resolve, "image/jpeg", jpegQuality);
-	});
-	if (blob === null) throw new Error("Could not re-encode the image.");
-	return blob;
 }

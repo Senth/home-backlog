@@ -4,6 +4,7 @@ import {
 	doc,
 	getDoc,
 	increment,
+	onSnapshot,
 	query,
 	runTransaction,
 	serverTimestamp,
@@ -11,9 +12,10 @@ import {
 	updateDoc,
 	where,
 } from "firebase/firestore";
-import { deleteObject, ref, uploadBytes } from "firebase/storage";
+import { deleteObject, ref, uploadBytesResumable } from "firebase/storage";
 import { db, storage } from "@/config/firebase";
 import { nodeRef, nodesRef } from "@/data/nodes";
+import type { AttachmentUploadProgress } from "@/models/attachment";
 import {
 	attachmentPath,
 	attachmentRefusal,
@@ -49,6 +51,25 @@ function refused(code: string): Error {
 	return error;
 }
 
+function stalled(step: string): Error {
+	console.info(`[upload] stalled at ${step}`);
+	return refused("attachment-stalled");
+}
+
+async function preparing<T>(step: string, work: Promise<T>): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			work,
+			new Promise<never>((_resolve, reject) => {
+				timer = setTimeout(() => reject(stalled(step)), 15_000);
+			}),
+		]);
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
 /**
  * One file, in: refused on type and size before anything is sent, then on the
  * home's byte ceiling — read from the home document, the number only the
@@ -68,11 +89,14 @@ export async function uploadAttachment(
 	nodeId: string,
 	uid: string,
 	file: { name: string; contentType: string; size: number; blob: Blob },
+	onProgress?: (progress: AttachmentUploadProgress) => void,
+	onError?: (reason: unknown) => void,
 ): Promise<Attachment> {
 	const reason = attachmentRefusal(file.contentType, file.size);
 	if (reason !== null) throw refused(reason);
 
-	const home = await getDoc(doc(db, "homes", homeId));
+	onProgress?.({ phase: "preparing" });
+	const home = await preparing("quota", getDoc(doc(db, "homes", homeId)));
 	const bytes = home.get("attachmentBytes");
 	if (typeof bytes === "number" && bytes >= homeAttachmentCeiling) {
 		throw refused("attachment-quota");
@@ -90,7 +114,10 @@ export async function uploadAttachment(
 	let encoded = false;
 	if (image) {
 		try {
-			blob = await downscaleImage(file.blob, maxImageEdge);
+			blob = await preparing(
+				"original",
+				downscaleImage(file.blob, maxImageEdge),
+			);
 			contentType = "image/jpeg";
 			encoded = true;
 		} catch (reason) {
@@ -103,17 +130,50 @@ export async function uploadAttachment(
 		}
 	}
 
-	const objects: string[] = [path];
-	await uploadBytes(ref(storage, path), blob, { ...metadata, contentType });
-	if (encoded) {
-		const thumbnail = await downscaleImage(file.blob, thumbnailEdge);
-		const thumbPath = thumbnailPathFor(path);
-		objects.push(thumbPath);
-		await uploadBytes(ref(storage, thumbPath), thumbnail, {
+	const objects: string[] = [];
+	const rollback = () =>
+		Promise.allSettled(
+			objects.map((objectPath) => deleteObject(ref(storage, objectPath))),
+		);
+	const upload = async (objectPath: string, bytes: Blob, step: string) => {
+		objects.push(objectPath);
+		const task = uploadBytesResumable(ref(storage, objectPath), bytes, {
 			...metadata,
 			contentType,
 		});
-	}
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		let transferred = 0;
+		let unsubscribe = () => {};
+		try {
+			await Promise.race([
+				Promise.resolve(task),
+				new Promise<never>((_resolve, reject) => {
+					const reset = () => {
+						clearTimeout(timer);
+						timer = setTimeout(() => {
+							reject(stalled(step));
+							task.cancel();
+						}, 30_000);
+					};
+					reset();
+					unsubscribe = task.on("state_changed", (snapshot) => {
+						if (snapshot.bytesTransferred > transferred) {
+							transferred = snapshot.bytesTransferred;
+							reset();
+						}
+						onProgress?.({
+							phase: "uploading",
+							bytesTransferred: snapshot.bytesTransferred,
+							totalBytes: snapshot.totalBytes,
+						});
+					});
+				}),
+			]);
+		} finally {
+			clearTimeout(timer);
+			unsubscribe();
+		}
+	};
 
 	// `uploadedAt` cannot be a server timestamp inside an array element, so it
 	// is the device's clock — it orders a list, it does not vouch for anything.
@@ -127,20 +187,50 @@ export async function uploadAttachment(
 		uploadedBy: uid,
 	};
 	try {
-		await updateDoc(nodeRef(homeId, nodeId), {
-			attachments: arrayUnion(entry),
-			attachmentCount: increment(1),
-			updatedAt: serverTimestamp(),
+		await upload(path, blob, "original upload");
+		if (encoded) {
+			const thumbnail = await preparing(
+				"thumbnail",
+				downscaleImage(file.blob, thumbnailEdge),
+			);
+			await upload(thumbnailPathFor(path), thumbnail, "thumbnail upload");
+		}
+		const reference = nodeRef(homeId, nodeId);
+		let unsubscribe = () => {};
+		const local = new Promise<void>((resolve, reject) => {
+			unsubscribe = onSnapshot(
+				reference,
+				{ source: "cache" },
+				(snapshot) => {
+					const entries = snapshot.get("attachments") as
+						| Attachment[]
+						| undefined;
+					if (entries?.some((attachment) => attachment.id === id)) resolve();
+				},
+				reject,
+			);
 		});
+		try {
+			const written = updateDoc(reference, {
+				attachments: arrayUnion(entry),
+				attachmentCount: increment(1),
+				updatedAt: serverTimestamp(),
+			});
+			await Promise.race([local, written]);
+			void written.catch(async (reason: unknown) => {
+				await rollback();
+				onError?.(reason);
+			});
+		} finally {
+			unsubscribe();
+		}
 	} catch (reason) {
 		// The bytes landed but the entry did not — a card deleted under the
 		// upload, most likely. Left alone they are counted bytes nothing can
 		// ever list, which is the orphan the path shape exists to prevent, so
 		// the upload puts them back off the counter. Best effort: the original
 		// refusal is what the caller hears either way.
-		await Promise.allSettled(
-			objects.map((objectPath) => deleteObject(ref(storage, objectPath))),
-		);
+		await rollback();
 		throw reason;
 	}
 	return entry;
