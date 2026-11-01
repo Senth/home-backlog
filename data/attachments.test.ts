@@ -3,7 +3,7 @@ import { newNodeData } from "@/models/node";
 
 jest.mock("@/config/firebase", () => ({
 	db: {},
-	storage: { maxUploadRetryTime: 600_000 },
+	storage: {},
 }));
 
 jest.mock("firebase/firestore", () => ({
@@ -460,14 +460,16 @@ describe("uploadAttachment, stalled steps", () => {
 		},
 	);
 
-	it.each([
-		{ byteCount: 400, completes: true },
-		{ byteCount: 128 * 1024, completes: true },
-		{ byteCount: 256 * 1024, completes: true },
-		{ byteCount: 400, completes: false },
-	])(
-		"bounds a $byteCount-byte multipart upload using the actual Firebase SDK (completes=$completes)",
-		async ({ byteCount, completes }) => {
+	it.each(
+		[400, 128 * 1024, 256 * 1024, 256 * 1024 + 1].flatMap((byteCount) =>
+			["moving", "stalled", "stops"].map((behavior) => ({
+				byteCount,
+				behavior,
+			})),
+		),
+	)(
+		"bounds a $byteCount-byte upload by inactivity using the actual Firebase SDK ($behavior)",
+		async ({ byteCount, behavior }) => {
 			const sdk =
 				jest.requireActual<typeof import("firebase/storage")>(
 					"firebase/storage",
@@ -479,72 +481,124 @@ describe("uploadAttachment, stalled steps", () => {
 				crypto.randomUUID(),
 			);
 			const sdkStorage = sdk.getStorage(app);
-			let finish!: (metadata: object) => void;
-			let reject!: (reason: unknown) => void;
-			const completion = new Promise<object>((resolve, fail) => {
-				finish = resolve;
-				reject = fail;
-			});
-			const cancel = jest.fn(() =>
-				reject(new sdk.StorageError(sdk.StorageErrorCode.CANCELED, "canceled")),
-			);
+			let finish = () => {};
+			let finishing = false;
+			let progress!: (loaded: number, total: number) => void;
+			const cancel = jest.fn();
 			const request = jest
 				.spyOn(
 					sdkStorage as typeof sdkStorage & { _makeRequest: () => unknown },
 					"_makeRequest",
 				)
-				.mockReturnValue({ getPromise: () => completion, cancel });
+				.mockImplementation((...args: unknown[]) => {
+					const info = args[0] as {
+						headers: Record<string, string>;
+						body: Uint8Array;
+						progressCallback: typeof progress;
+					};
+					if (info.headers["X-Goog-Upload-Command"] === "start")
+						return {
+							getPromise: () => Promise.resolve("https://uploads.test/session"),
+							cancel,
+						};
+					progress = info.progressCallback;
+					const current =
+						Number(info.headers["X-Goog-Upload-Offset"]) + info.body.byteLength;
+					const completion = new Promise((resolve, reject) => {
+						finish = () =>
+							resolve({
+								current,
+								total: byteCount,
+								finalized: current === byteCount,
+								metadata: { fullPath: "file.txt" },
+							});
+						cancel.mockImplementation(() =>
+							reject(
+								new sdk.StorageError(sdk.StorageErrorCode.CANCELED, "canceled"),
+							),
+						);
+					});
+					if (finishing) finish();
+					return { getPromise: () => completion, cancel };
+				});
 			uploadBytesResumable.mockImplementationOnce(
 				(_reference, _bytes, metadata) =>
 					sdk.uploadBytesResumable(
-						sdk.ref(sdkStorage, "small.txt"),
+						sdk.ref(sdkStorage, "file.txt"),
 						new Uint8Array(byteCount),
 						metadata,
 					),
 			);
 			const failed = jest.fn();
 			const landed = jest.fn();
+			const onProgress = jest.fn();
 			const upload = uploadAttachment(
 				"home",
 				"node",
 				"me",
-				aFile({ contentType: "text/plain", blob: { size: byteCount } }),
+				aFile({
+					contentType: "text/plain",
+					size: byteCount,
+					blob: { size: byteCount },
+				}),
+				onProgress,
 			).then(landed, failed);
 			try {
-				await jest.advanceTimersByTimeAsync(60_000);
-				expect(failed).not.toHaveBeenCalled();
-				expect(landed).not.toHaveBeenCalled();
-				expect(cancel).not.toHaveBeenCalled();
+				await jest.advanceTimersByTimeAsync(1);
 				expect(request).toHaveBeenCalledWith(
 					expect.objectContaining({
 						headers: expect.objectContaining({
-							"X-Goog-Upload-Protocol": "multipart",
+							"X-Goog-Upload-Protocol": "resumable",
+							"X-Goog-Upload-Command": "start",
 						}),
-						progressCallback: null,
 					}),
 					expect.any(Function),
 					null,
 					null,
 				);
-				if (completes) {
-					finish({ fullPath: "small.txt" });
+				expect(progress).toEqual(expect.any(Function));
+				if (behavior !== "stalled") {
+					for (const bytesTransferred of [100, 200, 300]) {
+						await jest.advanceTimersByTimeAsync(29_000);
+						progress(bytesTransferred, byteCount);
+						await jest.advanceTimersByTimeAsync(0);
+						expect(onProgress).toHaveBeenLastCalledWith({
+							phase: "uploading",
+							bytesTransferred,
+							totalBytes: byteCount,
+						});
+					}
+					await jest.advanceTimersByTimeAsync(29_999);
+				} else {
+					await jest.advanceTimersByTimeAsync(29_998);
+				}
+				expect(failed).not.toHaveBeenCalled();
+				expect(landed).not.toHaveBeenCalled();
+				expect(cancel).not.toHaveBeenCalled();
+				if (behavior === "moving") {
+					finishing = true;
+					finish();
+					await jest.advanceTimersByTimeAsync(0);
 					await upload;
 					expect(failed).not.toHaveBeenCalled();
 					expect(landed).toHaveBeenCalledTimes(1);
 					expect(cancel).not.toHaveBeenCalled();
 				} else {
-					await jest.advanceTimersByTimeAsync(
-						sdkStorage.maxUploadRetryTime - 60_000,
-					);
+					await jest.advanceTimersByTimeAsync(1);
 					await upload;
 					expect(failed).toHaveBeenCalledWith(
 						expect.objectContaining({ code: "attachment-stalled" }),
 					);
 					expect(landed).not.toHaveBeenCalled();
 					expect(cancel).toHaveBeenCalledTimes(1);
+					expect(log).toHaveBeenCalledWith(
+						"[upload] stalled at original upload",
+					);
 				}
 			} finally {
-				finish({ fullPath: "small.txt" });
+				finishing = true;
+				finish();
+				await jest.advanceTimersByTimeAsync(0);
 				await upload;
 				request.mockRestore();
 				await deleteApp(app);

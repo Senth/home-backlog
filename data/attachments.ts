@@ -148,8 +148,6 @@ export async function uploadAttachment(
 			...metadata,
 			contentType,
 		});
-		const timeout =
-			bytes.size > 256 * 1024 ? 30_000 : storage.maxUploadRetryTime;
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		let transferred = 0;
 		let unsubscribe = () => {};
@@ -162,7 +160,7 @@ export async function uploadAttachment(
 						timer = setTimeout(() => {
 							reject(stalled(step));
 							task.cancel();
-						}, timeout);
+						}, 30_000);
 					};
 					reset();
 					unsubscribe = task.on("state_changed", (snapshot) => {
