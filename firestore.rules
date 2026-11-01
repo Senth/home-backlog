@@ -337,6 +337,7 @@ service cloud.firestore {
             // performs, until the migration has reached them. Lenient here is
             // what keeps the deploy order irrelevant; the migration is about
             // cleaning up, not about unblocking writes.
+            && data.get('attachments', []) is list
             && data.get('attachments', []).size() <= 50
             && data.get('attachmentCount', 0) is int
             && data.get('attachmentDisplay', 'count') in ['count', 'thumbnails', 'hero']

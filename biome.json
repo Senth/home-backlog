@@ -8,6 +8,24 @@
 	"files": {
 		"includes": ["**", "!.claude/settings.local.json", "!.emulator-seed"]
 	},
+	"markdown": {
+		"formatter": {
+			"enabled": false
+		}
+	},
+	"linter": {
+		"rules": {
+			"preset": "recommended",
+			"correctness": {
+				"noReactNativeRawText": {
+					"level": "error",
+					"options": {
+						"skip": ["Button"]
+					}
+				}
+			}
+		}
+	},
 	"overrides": [
 		{
 			"includes": ["**/*.test.ts", "**/*.test.tsx"],

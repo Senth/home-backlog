@@ -112,6 +112,17 @@ describe("a node on the wire", () => {
 		});
 	});
 
+	it("preserves thumbnail availability in attachment entries", () => {
+		const attachments = [
+			{ id: "original", contentType: "image/jpeg", hasThumbnail: false },
+			{ id: "encoded", contentType: "image/jpeg", hasThumbnail: true },
+			{ id: "legacy", contentType: "image/jpeg" },
+		];
+		expect(apiNode("node-1", { ...stored, attachments }).attachments).toEqual(
+			attachments,
+		);
+	});
+
 	// An agent has no Firestore SDK, and `{"_seconds":...}` is not a date
 	// anything can parse.
 	it("renders timestamps as ISO 8601", () => {

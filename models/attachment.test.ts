@@ -6,6 +6,8 @@ import {
 	badgeAttachmentId,
 	cardFace,
 	formatBytes,
+	formatUploadBytes,
+	hasImagePreview,
 	isImageType,
 	maxAttachmentBytes,
 	namedRefusals,
@@ -56,6 +58,17 @@ describe("isImageType", () => {
 	});
 });
 
+describe("hasImagePreview", () => {
+	it("keeps legacy images previewable but excludes images with no thumbnail", () => {
+		expect(hasImagePreview(anEntry())).toBe(true);
+		expect(hasImagePreview(anEntry({ hasThumbnail: true }))).toBe(true);
+		expect(hasImagePreview(anEntry({ hasThumbnail: false }))).toBe(false);
+		expect(hasImagePreview(anEntry({ contentType: "application/pdf" }))).toBe(
+			false,
+		);
+	});
+});
+
 describe("photoAccept", () => {
 	it("includes exactly the allowed images, without documents", () => {
 		expect(photoAccept.split(",")).toEqual([
@@ -79,6 +92,9 @@ describe("attachmentErrorKey", () => {
 		);
 		expect(attachmentErrorKey({ code: "attachment-type" })).toBe(
 			"detail.attachmentsWrongType",
+		);
+		expect(attachmentErrorKey({ code: "attachment-stalled" })).toBe(
+			"detail.attachmentsStalled",
 		);
 		expect(attachmentErrorKey(new Error("storage/retry-limit-exceeded"))).toBe(
 			"detail.attachmentsFailed",
@@ -171,6 +187,15 @@ describe("formatBytes", () => {
 	});
 });
 
+describe("formatUploadBytes", () => {
+	it("formats progress in short kilobyte and megabyte units", () => {
+		expect(formatUploadBytes(1.2 * 1024 * 1024, "en-US")).toBe("1.2 MB");
+		expect(formatUploadBytes(2.8 * 1024 * 1024, "en-US")).toBe("2.8 MB");
+		expect(formatUploadBytes(512, "en-US")).toBe("0.5 kB");
+		expect(formatUploadBytes(1536, "sv-SE")).toBe("1,5 kB");
+	});
+});
+
 describe("paths", () => {
 	it("builds the exact shape storage.rules allows, and the thumb beside it", () => {
 		const path = attachmentPath("home", "node", "att-1");
@@ -213,6 +238,16 @@ function aNode(
 }
 
 describe("cardFace", () => {
+	it("excludes undecodable images from every face while keeping their count", () => {
+		const undecodable = anEntry({ hasThumbnail: false });
+		const image = anEntry({ id: "previewable" });
+		const face = cardFace(aNode([undecodable, image], "hero", undecodable.id));
+		expect(face.images).toEqual([image]);
+		expect(face.hero).toBe(image);
+		expect(face.total).toBe(2);
+		expect(cardFace(aNode([undecodable], "thumbnails")).mode).toBe("count");
+	});
+
 	it("a card with nothing attached draws the count, and nothing else", () => {
 		const face = cardFace(aNode([]));
 		expect(face.mode).toBe("count");

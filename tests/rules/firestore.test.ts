@@ -1140,6 +1140,99 @@ describe("homes/{homeId}/nodes", () => {
 		});
 
 		describe("attachments (#298)", () => {
+			const attachment = {
+				id: "original",
+				path: `homes/${HOME_ID}/nodes/snappy/original`,
+				name: "corrupt.jpg",
+				contentType: "image/jpeg",
+				size: oneKb,
+				uploadedAt: new Date("2026-01-01T00:00:00Z"),
+				uploadedBy: MEMBER.uid,
+			};
+
+			it("accepts legacy entries and boolean thumbnail availability at the limit", async () => {
+				await assertSucceeds(
+					create(dbAs(env, MEMBER), "snappy", {
+						attachments: Array.from({ length: 50 }, (_value, index) => ({
+							...attachment,
+							id: `p${index}`,
+							...(index === 0 ? {} : { hasThumbnail: index % 2 === 0 }),
+						})),
+					}),
+				);
+			});
+
+			it.each(["shared", "private"])(
+				"updates a fully populated %s node at the attachment limit within the evaluator budget",
+				async (visibility) => {
+					const attachments = Array.from({ length: 50 }, (_value, index) => ({
+						...attachment,
+						id: `p${index}`,
+						path: `homes/${HOME_ID}/nodes/snappy/p${index}`,
+						hasThumbnail: index % 2 === 0,
+					}));
+					await seed(env, async (db) => {
+						await setDoc(doc(db, nodesPath, "parent"), nodeDoc({ visibility }));
+						await setDoc(
+							doc(db, nodesPath, "snappy"),
+							nodeDoc({
+								visibility,
+								parentId: "parent",
+								ancestorIds: ["parent"],
+								status: "done",
+								completedAt: new Date("2026-01-01T00:00:00Z"),
+								dueDate: "2026-09-30",
+								priority: "high",
+								effort: "weekend",
+								assigneeIds: [OWNER.uid],
+								locationId: "bathroom",
+								locationAncestorIds: ["upstairs"],
+								blockedBy: ["delivery"],
+								labelIds: Array.from({ length: 6 }, (_, index) => `l${index}`),
+								notes: "x".repeat(10000),
+								checklist: Array.from({ length: 200 }, (_, index) => ({
+									id: `c${index}`,
+									text: "Buy brackets",
+									done: true,
+								})),
+								attachments: attachments.slice(0, 49),
+								attachmentCount: 49,
+								attachmentDisplay: "hero",
+								heroAttachmentId: "p0",
+							}),
+						);
+					});
+					const reference = doc(dbAs(env, OWNER), nodesPath, "snappy");
+					await assertSucceeds(
+						updateDoc(reference, {
+							attachments: arrayUnion(attachments[49]),
+							attachmentCount: increment(1),
+							updatedAt: new Date(),
+						}),
+					);
+					await assertSucceeds(
+						updateDoc(reference, {
+							participantIds: [OWNER.uid, MEMBER.uid],
+							updatedAt: new Date(),
+						}),
+					);
+					expect((await getDoc(reference)).get("attachments")).toHaveLength(50);
+				},
+			);
+
+			it("validates only the attachment container, leaving entries to defensive readers", async () => {
+				await assertSucceeds(
+					create(dbAs(env, MEMBER), "snappy", {
+						attachments: [{ ...attachment, hasThumbnail: "false" }],
+					}),
+				);
+				await assertFails(
+					updateDoc(doc(dbAs(env, MEMBER), nodesPath, "snappy"), {
+						attachments: { original: attachment },
+					}),
+				);
+			});
+
 			/**
 			 * The new fields are read through get() with a default rather than
 			 * required outright: every node stored before the rename lacks all

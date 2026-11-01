@@ -1,6 +1,6 @@
 import { Trans, useTranslation } from "react-i18next";
 import { Pressable, View } from "react-native";
-import { ActivityIndicator, Icon, Text } from "react-native-paper";
+import { Icon, Text } from "react-native-paper";
 import {
 	type DropPhase,
 	formatBytes,
@@ -13,18 +13,16 @@ export function AttachmentDropZone({
 	size,
 	phase,
 	state,
-	uploadingCount,
 	onPress,
 }: {
 	size: "large" | "slim";
 	phase: DropPhase;
-	state: "ready" | "uploading" | "offline";
-	uploadingCount: number;
+	state: "ready" | "offline";
 	onPress: () => void;
 }) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
-	const active = state === "ready";
+	const active = state !== "offline";
 	const over = active && phase === "over";
 	const armed = active && phase === "armed";
 	const leadColor = over
@@ -61,23 +59,17 @@ export function AttachmentDropZone({
 					gap: size === "large" ? space.md : space.sm,
 				}}
 			>
-				{state === "uploading" ? (
-					<ActivityIndicator
-						accessibilityLabel={t("detail.attachmentsUploading")}
-					/>
-				) : (
-					<Icon
-						source={state === "offline" ? "cloud-off-outline" : "tray-arrow-up"}
-						size={icon.md}
-						color={
-							over
-								? theme.colors.onPrimaryContainer
-								: active
-									? theme.colors.onSurfaceVariant
-									: theme.colors.onSurfaceDisabled
-						}
-					/>
-				)}
+				<Icon
+					source={state === "offline" ? "cloud-off-outline" : "tray-arrow-up"}
+					size={icon.md}
+					color={
+						over
+							? theme.colors.onPrimaryContainer
+							: active
+								? theme.colors.onSurfaceVariant
+								: theme.colors.onSurfaceDisabled
+					}
+				/>
 				<View
 					style={{
 						alignItems: size === "large" ? "center" : "flex-start",
@@ -95,8 +87,6 @@ export function AttachmentDropZone({
 					>
 						{state === "offline" ? (
 							t("detail.attachmentsOffline")
-						) : state === "uploading" ? (
-							t("detail.attachmentsUploadingCount", { count: uploadingCount })
 						) : over ? (
 							t("detail.attachmentsDropOver")
 						) : armed ? (
