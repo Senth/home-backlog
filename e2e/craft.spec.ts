@@ -265,7 +265,7 @@ function spacingSweep(args: {
 }): string[] {
 	const onScale = new Set(args.allowed);
 	const offenders = new Set<string>();
-	const describe = (element: Element): string => {
+	const describeElement = (element: Element): string => {
 		const testID = element.getAttribute("data-testid");
 		const text = (element.textContent ?? "").trim().slice(0, 30);
 		return `<${element.tagName.toLowerCase()}${testID ? ` data-testid=${testID}` : ""}${text ? ` "${text}"` : ""}>`;
@@ -316,7 +316,7 @@ function spacingSweep(args: {
 			const value = Math.abs(Number.parseFloat(raw));
 			if (onScale.has(value)) continue;
 			if (paperExcuse(element, value)) continue;
-			offenders.add(`${prop}: ${raw} on ${describe(element)}`);
+			offenders.add(`${prop}: ${raw} on ${describeElement(element)}`);
 		}
 	}
 	return [...offenders];
@@ -332,7 +332,7 @@ function spacingSweep(args: {
 function paletteSweep(args: { palette: string[] }): string[] {
 	const onPalette = new Set(args.palette);
 	const offenders = new Set<string>();
-	const describe = (element: Element): string => {
+	const describeElement = (element: Element): string => {
 		const testID = element.getAttribute("data-testid");
 		const text = (element.textContent ?? "").trim().slice(0, 30);
 		return `<${element.tagName.toLowerCase()}${testID ? ` data-testid=${testID}` : ""}${text ? ` "${text}"` : ""}>`;
@@ -362,7 +362,7 @@ function paletteSweep(args: { palette: string[] }): string[] {
 		);
 		const textColor = canonical(style.color);
 		if (paintsText && textColor !== null && !onPalette.has(textColor)) {
-			offenders.add(`color: ${style.color} on ${describe(element)}`);
+			offenders.add(`color: ${style.color} on ${describeElement(element)}`);
 		}
 		const background = canonical(style.backgroundColor);
 		if (
@@ -371,7 +371,7 @@ function paletteSweep(args: { palette: string[] }): string[] {
 			!onPalette.has(background)
 		) {
 			offenders.add(
-				`backgroundColor: ${style.backgroundColor} on ${describe(element)}`,
+				`backgroundColor: ${style.backgroundColor} on ${describeElement(element)}`,
 			);
 		}
 		for (const [widthProp, styleProp, colorProp, side] of [
@@ -387,7 +387,7 @@ function paletteSweep(args: { palette: string[] }): string[] {
 				style[styleProp] !== "none";
 			if (drawn && borderColor !== null && !onPalette.has(borderColor)) {
 				offenders.add(
-					`border${side}Color: ${style[colorProp]} on ${describe(element)}`,
+					`border${side}Color: ${style[colorProp]} on ${describeElement(element)}`,
 				);
 			}
 		}
@@ -414,7 +414,7 @@ function paletteSweep(args: { palette: string[] }): string[] {
  */
 function alignmentSweep(args: { xs: number }): string[] {
 	const offenders = new Set<string>();
-	const describe = (element: Element): string => {
+	const describeElement = (element: Element): string => {
 		const testID = element.getAttribute("data-testid");
 		const text = (element.textContent ?? "").trim().slice(0, 30);
 		return `<${element.tagName.toLowerCase()}${testID ? ` data-testid=${testID}` : ""}${text ? ` "${text}"` : ""}>`;
@@ -451,7 +451,7 @@ function alignmentSweep(args: { xs: number }): string[] {
 		if (!painted(element)) continue;
 		const rect = element.getBoundingClientRect();
 		if (rect.width === 0 || rect.height === 0) continue;
-		boxes.push({ rect, name: describe(element), element });
+		boxes.push({ rect, name: describeElement(element), element });
 	}
 
 	for (let i = 0; i < boxes.length; i++) {
@@ -519,6 +519,7 @@ async function craftFindings(
  * English one.
  */
 for (const scheme of ["light", "dark"] as const) {
+	// biome-ignore lint/correctness/usePlaywrightValidDescribeCallback: the details-object overload is Playwright API; the rule only knows the two-argument form.
 	test.describe(`${scheme} scheme`, { tag: `@${scheme}` }, () => {
 		test.use({ colorScheme: scheme });
 
@@ -740,7 +741,7 @@ for (const route of ROUTES) {
 		// element on the page instead of `document.documentElement`.
 		const offenders = await page.evaluate(async (window_) => {
 			const seen = new Map<string, number>();
-			const describe = (element: Element) =>
+			const describeElement = (element: Element) =>
 				`${element.tagName.toLowerCase()}${element.id !== "" ? `#${element.id}` : ""}` +
 				`${
 					element.getAttribute("data-testid") !== null
@@ -757,7 +758,7 @@ for (const route of ROUTES) {
 					...Array.from(document.querySelectorAll("*")),
 				]) {
 					if (element.scrollTop <= 0) continue;
-					const key = describe(element);
+					const key = describeElement(element);
 					seen.set(key, Math.max(seen.get(key) ?? 0, element.scrollTop));
 				}
 			};

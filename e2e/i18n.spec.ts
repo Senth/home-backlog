@@ -67,6 +67,7 @@ for (const route of ROUTES) {
 	}) => {
 		await gotoAndSettle(page, route);
 
+		// biome-ignore lint/performance/useDomNodeTextContent: the sweep asserts rendered text, which is what innerText reads and textContent does not.
 		const text = await page.locator("body").innerText();
 		const onScreen = KEYS.filter((key) => text.includes(key));
 
