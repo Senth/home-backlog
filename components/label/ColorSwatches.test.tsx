@@ -19,28 +19,46 @@ jest.mock("react-i18next", () => ({
 	useTranslation: () => ({ t: (key: string) => key }),
 }));
 
+function Controlled({
+	initial,
+	variant,
+	dark,
+	onChange,
+}: {
+	initial: string;
+	variant: "label" | "location";
+	dark: boolean;
+	onChange: (next: string) => void;
+}) {
+	const [value, setValue] = useState(initial);
+	return (
+		<Provider theme={dark ? darkTheme : lightTheme}>
+			<ColorSwatches
+				value={value}
+				variant={variant}
+				onChange={(next) => {
+					setValue(next);
+					onChange(next);
+				}}
+			/>
+		</Provider>
+	);
+}
+
 async function renderPicker(
 	initial = "blue",
 	variant: "label" | "location" = "label",
 	dark = false,
 ) {
 	const onChange = jest.fn();
-	function Controlled() {
-		const [value, setValue] = useState(initial);
-		return (
-			<Provider theme={dark ? darkTheme : lightTheme}>
-				<ColorSwatches
-					value={value}
-					variant={variant}
-					onChange={(next) => {
-						setValue(next);
-						onChange(next);
-					}}
-				/>
-			</Provider>
-		);
-	}
-	await render(<Controlled />);
+	await render(
+		<Controlled
+			initial={initial}
+			variant={variant}
+			dark={dark}
+			onChange={onChange}
+		/>,
+	);
 	return onChange;
 }
 

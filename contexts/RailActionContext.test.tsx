@@ -11,6 +11,15 @@ import {
 	useRegisterRailAction,
 } from "@/contexts/RailActionContext";
 
+function Screen({
+	action,
+}: {
+	action: Parameters<typeof useRegisterRailAction>[0];
+}) {
+	useRegisterRailAction(action);
+	return null;
+}
+
 it("registers the focused screen's action, updates it, and clears on blur", async () => {
 	let focused = true;
 	const listeners = new Map<string, () => void>();
@@ -66,15 +75,11 @@ it("clears the action when its screen unmounts", async () => {
 		isFocused: () => true,
 		addListener: () => () => {},
 	} as unknown as NavigationProp<ParamListBase>;
-	function Screen() {
-		useRegisterRailAction(action);
-		return null;
-	}
 	function wrapper({ children }: { children: ReactNode }) {
 		return (
 			<RailActionProvider>
 				<NavigationContext.Provider value={navigation}>
-					{mounted ? <Screen /> : null}
+					{mounted ? <Screen action={action} /> : null}
 					{children}
 				</NavigationContext.Provider>
 			</RailActionProvider>
