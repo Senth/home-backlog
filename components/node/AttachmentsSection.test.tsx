@@ -644,6 +644,53 @@ describe("AttachmentsSection", () => {
 		).toBeOnTheScreen();
 	});
 
+	it("shows a prior batch rejection after a new batch starts", async () => {
+		const uploads: {
+			name: string;
+			resolve: (value: Attachment) => void;
+			onLateError: (reason: unknown) => void;
+		}[] = [];
+		(uploadAttachment as jest.Mock).mockImplementation(
+			(_home, _node, _uid, file, _progress, onLateError) =>
+				new Promise((resolve) =>
+					uploads.push({
+						name: file.name,
+						resolve,
+						onLateError,
+					}),
+				),
+		);
+		await renderSection(aNode([]));
+		await act(async () => {
+			mockDroppedFiles([
+				{ name: "batch-a.jpg", type: "image/jpeg", size: photoBytes } as File,
+			]);
+		});
+		await waitFor(() => expect(uploads).toHaveLength(1));
+		await act(async () => uploads[0]?.resolve(anAttachment()));
+		await waitFor(() =>
+			expect(
+				screen.getByText('detail.attachmentsBatchCount:{"done":1,"total":1}'),
+			).toBeOnTheScreen(),
+		);
+
+		await act(async () => {
+			mockDroppedFiles([
+				{ name: "batch-b.jpg", type: "image/jpeg", size: photoBytes } as File,
+			]);
+		});
+		await waitFor(() => expect(uploads).toHaveLength(2));
+		await act(async () =>
+			uploads[0]?.onLateError({ code: "storage/unauthorized" }),
+		);
+
+		expect(screen.getByText("batch-a.jpg")).toBeOnTheScreen();
+		expect(screen.getByText("batch-b.jpg")).toBeOnTheScreen();
+		expect(
+			screen.getByText('detail.attachmentsRefused:{"limit":"20 megabytes"}'),
+		).toBeOnTheScreen();
+	});
+
 	it("continues draining the picked node batch after the section unmounts", async () => {
 		const uploads: {
 			nodeId: string;

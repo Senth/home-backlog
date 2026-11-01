@@ -43,6 +43,7 @@ import {
 } from "@/models/attachment";
 import type { Attachment, Node } from "@/models/node";
 import type {
+	UploadBatchEntry,
 	UploadBatchFile,
 	UploadBatchState,
 	UploadBatchUpdate,
@@ -77,7 +78,6 @@ type MenuAnchor = { x: number; y: number };
 
 interface PickedAttachment extends UploadBatchFile {
 	blob: File;
-	previewUrl?: string;
 }
 
 interface UploadTarget {
@@ -148,6 +148,9 @@ export function AttachmentsSection({
 	const [urls, setUrls] = useState<Record<string, string>>({});
 	const [batch, setBatchState] =
 		useState<UploadBatchState<PickedAttachment> | null>(null);
+	const [lateFailures, setLateFailures] = useState<
+		UploadBatchEntry<PickedAttachment>[]
+	>([]);
 	const batchRef = useRef<UploadBatchState<PickedAttachment> | null>(null);
 	const batchGeneration = useRef(0);
 	const nextFileId = useRef(0);
@@ -196,12 +199,20 @@ export function AttachmentsSection({
 					);
 				};
 				const onLateError = (reason: unknown) => {
-					if (generation !== batchGeneration.current) return;
+					const key = attachmentErrorKey(reason);
+					const failedFile = { ...file, previewUrl: undefined };
+					if (generation !== batchGeneration.current) {
+						setLateFailures((current) => [
+							...current.filter((entry) => entry.file.id !== file.id),
+							{ file: failedFile, state: { status: "failed", key } },
+						]);
+						return;
+					}
 					updateBatch({
 						type: "late-failed",
 						id: file.id,
-						file,
-						key: attachmentErrorKey(reason),
+						file: failedFile,
+						key,
 					});
 				};
 				void uploadAttachment(
@@ -293,6 +304,7 @@ export function AttachmentsSection({
 				attachmentBytes: null,
 			};
 			batchTarget.current = target;
+			setLateFailures([]);
 			setBatch(startUploadBatch(entries, 0));
 			void readHomeAttachmentBytes(homeId).then(
 				(bytes) => {
@@ -553,10 +565,10 @@ export function AttachmentsSection({
 						>
 							{t("detail.attachmentsBatchCount", {
 								done: batch.landed,
-								total: batch.total,
+								total: batch.total + lateFailures.length,
 							})}
 						</Text>
-						{batch.files.map(({ file, state }) => {
+						{[...batch.files, ...lateFailures].map(({ file, state }) => {
 							const status =
 								state.status === "uploading"
 									? t("detail.attachmentsBytesProgress", {

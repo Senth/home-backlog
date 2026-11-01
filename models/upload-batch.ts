@@ -12,6 +12,7 @@ export interface UploadBatchFile {
 	name: string;
 	size: number;
 	contentType: string;
+	previewUrl?: string;
 }
 
 export type UploadBatchStatus =
@@ -134,6 +135,8 @@ export function updateUploadBatch<T extends UploadBatchFile>(
 	}
 	if (update.type === "late-failed") {
 		if (!state.landedIds.includes(update.id)) return state;
+		const file = { ...update.file };
+		delete file.previewUrl;
 		return {
 			...state,
 			landed: state.landed - 1,
@@ -141,7 +144,7 @@ export function updateUploadBatch<T extends UploadBatchFile>(
 			landedIds: state.landedIds.filter((id) => id !== update.id),
 			files: [
 				...state.files,
-				{ file: update.file, state: { status: "failed", key: update.key } },
+				{ file, state: { status: "failed", key: update.key } },
 			],
 		};
 	}

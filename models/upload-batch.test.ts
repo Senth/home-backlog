@@ -157,4 +157,27 @@ describe("upload batches", () => {
 			status: "waiting",
 		});
 	});
+
+	it("does not restore a revoked preview when a landed file fails later", () => {
+		const picked = files(1)[0];
+		if (picked === undefined) throw new Error("Missing test file");
+		const file = { ...picked, previewUrl: "blob:revoked-preview" };
+		const claimed = claimUploadBatch(startUploadBatch([file], 0));
+		const landed = updateUploadBatch(claimed.state, {
+			type: "landed",
+			id: file.id,
+		});
+		const lateFailed = updateUploadBatch(landed, {
+			type: "late-failed",
+			id: file.id,
+			file,
+			key: "detail.attachmentsRefused",
+		});
+
+		expect(lateFailed.files[0]?.file).not.toHaveProperty("previewUrl");
+		expect(lateFailed.files[0]?.state).toEqual({
+			status: "failed",
+			key: "detail.attachmentsRefused",
+		});
+	});
 });
