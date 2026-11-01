@@ -11,7 +11,7 @@ import {
 	View,
 	type ViewInstance,
 } from "react-native";
-import { Button, Icon, Text } from "react-native-paper";
+import { Button, Icon, ProgressBar, Text } from "react-native-paper";
 import { urlOf } from "@/components/board/CardThumbnails";
 import { AttachmentDropZone } from "@/components/node/AttachmentDropZone";
 import { AttachmentMenu } from "@/components/node/AttachmentMenu";
@@ -20,23 +20,50 @@ import { AttachmentViewer } from "@/components/node/AttachmentViewer";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { Row } from "@/components/ui/Row";
 import { useAuth } from "@/contexts/AuthContext";
-import { deleteAttachment, uploadAttachment } from "@/data/attachments";
+import {
+	deleteAttachment,
+	readHomeAttachmentBytes,
+	uploadAttachment,
+} from "@/data/attachments";
 import type { NodeChanges } from "@/data/nodes";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useCoarsePointer } from "@/hooks/use-pointer";
+import type { AttachmentUploadProgress } from "@/models/attachment";
 import {
 	attachmentAccept,
+	attachmentErrorKey,
 	formatBytes,
+	formatUploadBytes,
+	hasImagePreview,
 	isImageType,
 	maxAttachmentBytes,
-	namedRefusals,
 	photoAccept,
 	thumbnailPathFor,
 } from "@/models/attachment";
 import type { Attachment, Node } from "@/models/node";
+import type {
+	UploadBatchEntry,
+	UploadBatchFile,
+	UploadBatchState,
+	UploadBatchUpdate,
+} from "@/models/upload-batch";
+import {
+	appendUploadBatch,
+	claimUploadBatch,
+	startUploadBatch,
+	updateUploadBatch,
+	uploadBatchActive,
+} from "@/models/upload-batch";
 import { useAppTheme } from "@/theme";
-import { icon, radius, size, space, touchTarget } from "@/theme/tokens";
+import {
+	aspectRatio,
+	icon,
+	radius,
+	size,
+	space,
+	touchTarget,
+} from "@/theme/tokens";
 
 interface AttachmentsSectionProps {
 	homeId: string;
@@ -48,6 +75,17 @@ interface AttachmentsSectionProps {
 
 /** Where a long-press or right-click happened, in viewport coordinates. */
 type MenuAnchor = { x: number; y: number };
+
+interface PickedAttachment extends UploadBatchFile {
+	blob: File;
+}
+
+interface UploadTarget {
+	homeId: string;
+	nodeId: string;
+	uid: string;
+	attachmentBytes: number | null;
+}
 
 /** Across on the content column; a row of fewer keeps the same tile size. */
 const gridColumns = 3;
@@ -108,10 +146,16 @@ export function AttachmentsSection({
 	const coarse = useCoarsePointer();
 
 	const [urls, setUrls] = useState<Record<string, string>>({});
-	const [uploadingCount, setUploadingCount] = useState(0);
-	const [refusals, setRefusals] = useState<ReturnType<typeof namedRefusals>>(
-		[],
-	);
+	const [batch, setBatchState] =
+		useState<UploadBatchState<PickedAttachment> | null>(null);
+	const [lateFailures, setLateFailures] = useState<
+		UploadBatchEntry<PickedAttachment>[]
+	>([]);
+	const batchRef = useRef<UploadBatchState<PickedAttachment> | null>(null);
+	const batchGeneration = useRef(0);
+	const nextFileId = useRef(0);
+	const batchTarget = useRef<UploadTarget | null>(null);
+	const previewUrls = useRef(new Map<string, string>());
 	const [deleteFailed, setDeleteFailed] = useState(false);
 	const [viewing, setViewing] = useState<Attachment | null>(null);
 	const [menu, setMenu] = useState<{
@@ -119,13 +163,94 @@ export function AttachmentsSection({
 		attachment: Attachment;
 	} | null>(null);
 	const [confirming, setConfirming] = useState<Attachment | null>(null);
+	const setBatch = useCallback(
+		(next: UploadBatchState<PickedAttachment> | null) => {
+			batchRef.current = next;
+			setBatchState(next);
+		},
+		[],
+	);
+	const updateBatch = useCallback(
+		(update: UploadBatchUpdate<PickedAttachment>) => {
+			const current = batchRef.current;
+			if (current !== null) setBatch(updateUploadBatch(current, update));
+		},
+		[setBatch],
+	);
+	const drainUploads = useCallback(
+		function drain(target: UploadTarget, generation: number) {
+			if (generation !== batchGeneration.current) return;
+			const current = batchRef.current;
+			if (current === null) return;
+			const { state, claimed } = claimUploadBatch(current);
+			if (claimed.length === 0) return;
+			setBatch(state);
+			for (const file of claimed) {
+				const onProgress = (progress: AttachmentUploadProgress) => {
+					updateBatch(
+						progress.phase === "preparing"
+							? { type: "preparing", id: file.id }
+							: {
+									type: "uploading",
+									id: file.id,
+									transferred: progress.bytesTransferred,
+									total: progress.totalBytes,
+								},
+					);
+				};
+				const onLateError = (reason: unknown) => {
+					const key = attachmentErrorKey(reason);
+					const failedFile = { ...file, previewUrl: undefined };
+					if (generation !== batchGeneration.current) {
+						setLateFailures((current) => [
+							...current.filter((entry) => entry.file.id !== file.id),
+							{ file: failedFile, state: { status: "failed", key } },
+						]);
+						return;
+					}
+					updateBatch({
+						type: "late-failed",
+						id: file.id,
+						file: failedFile,
+						key,
+					});
+				};
+				void uploadAttachment(
+					target.homeId,
+					target.nodeId,
+					target.uid,
+					{
+						name: file.name,
+						contentType: file.contentType,
+						size: file.size,
+						blob: file.blob,
+					},
+					onProgress,
+					onLateError,
+					target.attachmentBytes ?? 0,
+				).then(
+					() => {
+						if (generation !== batchGeneration.current) return;
+						updateBatch({ type: "landed", id: file.id });
+						drain(target, generation);
+					},
+					(reason: unknown) => {
+						if (generation !== batchGeneration.current) return;
+						updateBatch({
+							type: "failed",
+							id: file.id,
+							key: attachmentErrorKey(reason),
+						});
+						drain(target, generation);
+					},
+				);
+			}
+		},
+		[setBatch, updateBatch],
+	);
 
-	const images = node.attachments.filter((entry) =>
-		isImageType(entry.contentType),
-	);
-	const files = node.attachments.filter(
-		(entry) => !isImageType(entry.contentType),
-	);
+	const images = node.attachments.filter(hasImagePreview);
+	const files = node.attachments.filter((entry) => !hasImagePreview(entry));
 	const [lead, ...rest] = images;
 	// The grid draws only what the face draws: an image whose thumbnail
 	// cannot resolve takes no slot at all, the way the lead above skips.
@@ -137,37 +262,100 @@ export function AttachmentsSection({
 		(list: FileList | readonly File[]) => {
 			const picked = Array.from(list);
 			const uid = user?.uid;
-			if (
-				picked.length === 0 ||
-				uploadingCount > 0 ||
-				!online ||
-				uid === undefined
-			) {
+			if (picked.length === 0 || !online || uid === undefined) return;
+			setDeleteFailed(false);
+			const entries = picked.map((file) => {
+				const id = `upload-${nextFileId.current++}`;
+				let previewUrl: string | undefined;
+				if (
+					Platform.OS === "web" &&
+					isImageType(file.type) &&
+					typeof URL.createObjectURL === "function"
+				) {
+					try {
+						previewUrl = URL.createObjectURL(file);
+					} catch {
+						previewUrl = undefined;
+					}
+				}
+				if (previewUrl !== undefined) previewUrls.current.set(id, previewUrl);
+				return {
+					id,
+					name: file.name,
+					size: file.size,
+					contentType: file.type,
+					blob: file,
+					...(previewUrl === undefined ? {} : { previewUrl }),
+				};
+			});
+			const current = batchRef.current;
+			if (current !== null && uploadBatchActive(current)) {
+				setBatch(appendUploadBatch(current, entries));
+				const target = batchTarget.current;
+				if (target !== null && target.attachmentBytes !== null)
+					drainUploads(target, batchGeneration.current);
 				return;
 			}
-			setRefusals([]);
-			setDeleteFailed(false);
-			setUploadingCount(picked.length);
-			void Promise.allSettled(
-				picked.map((file) =>
-					uploadAttachment(homeId, node.id, uid, {
-						name: file.name,
-						contentType: file.type,
-						size: file.size,
-						blob: file,
-					}),
-				),
-			).then((results) => {
-				setUploadingCount(0);
-				setRefusals(
-					namedRefusals(
-						picked.map((file) => file.name),
-						results,
-					),
-				);
-			});
+			const generation = ++batchGeneration.current;
+			const target: UploadTarget = {
+				homeId,
+				nodeId: node.id,
+				uid,
+				attachmentBytes: null,
+			};
+			batchTarget.current = target;
+			setLateFailures([]);
+			setBatch(startUploadBatch(entries, 0));
+			void readHomeAttachmentBytes(homeId).then(
+				(bytes) => {
+					if (generation !== batchGeneration.current) return;
+					const latest = batchRef.current;
+					if (latest === null) return;
+					const readyTarget = { ...target, attachmentBytes: bytes };
+					batchTarget.current = readyTarget;
+					setBatch(
+						startUploadBatch(
+							latest.files.map(({ file }) => file),
+							bytes,
+						),
+					);
+					drainUploads(readyTarget, generation);
+				},
+				(reason: unknown) => {
+					if (generation !== batchGeneration.current) return;
+					const latest = batchRef.current;
+					if (latest === null) return;
+					const key = attachmentErrorKey(reason);
+					let failed = latest;
+					for (const { file } of latest.files) {
+						failed = updateUploadBatch(failed, {
+							type: "failed",
+							id: file.id,
+							key,
+						});
+					}
+					setBatch(failed);
+				},
+			);
 		},
-		[homeId, node.id, online, uploadingCount, user],
+		[drainUploads, homeId, node.id, online, setBatch, user],
+	);
+
+	useEffect(() => {
+		const ids = new Set(batch?.files.map(({ file }) => file.id) ?? []);
+		for (const [id, url] of previewUrls.current) {
+			if (ids.has(id)) continue;
+			URL.revokeObjectURL(url);
+			previewUrls.current.delete(id);
+		}
+	}, [batch]);
+
+	useEffect(
+		() => () => {
+			for (const url of previewUrls.current.values()) URL.revokeObjectURL(url);
+			previewUrls.current.clear();
+		},
+		[],
 	);
 
 	// A download URL carries a rotating token, so it is asked for at render
@@ -178,7 +366,7 @@ export function AttachmentsSection({
 	useEffect(() => {
 		const wanted: string[] = [];
 		for (const entry of node.attachments) {
-			if (!isImageType(entry.contentType)) continue;
+			if (!hasImagePreview(entry)) continue;
 			wanted.push(entry.path, thumbnailPathFor(entry.path));
 		}
 		if (wanted.length === 0) return;
@@ -302,7 +490,7 @@ export function AttachmentsSection({
 							source={{ uri: urls[lead.path] }}
 							style={{
 								width: "100%",
-								aspectRatio: 4 / 3,
+								aspectRatio: aspectRatio.attachmentHero,
 								borderRadius: radius.sm,
 							}}
 							resizeMode="cover"
@@ -321,7 +509,7 @@ export function AttachmentsSection({
 								return (
 									<View
 										key={cell.placeholder}
-										style={{ flex: 1, aspectRatio: 1 }}
+										style={{ flex: 1, aspectRatio: aspectRatio.square }}
 									/>
 								);
 							}
@@ -331,7 +519,7 @@ export function AttachmentsSection({
 							return (
 								<Pressable
 									key={entry.id}
-									style={{ flex: 1, aspectRatio: 1 }}
+									style={{ flex: 1, aspectRatio: aspectRatio.square }}
 									{...pressProps(entry)}
 								>
 									<Image
@@ -369,6 +557,88 @@ export function AttachmentsSection({
 					</Pressable>
 				))}
 
+				{batch === null ? null : (
+					<>
+						<Text
+							variant="bodyMedium"
+							style={{ color: theme.colors.onSurfaceVariant }}
+						>
+							{t("detail.attachmentsBatchCount", {
+								done: batch.landed,
+								total: batch.total + lateFailures.length,
+							})}
+						</Text>
+						{[...batch.files, ...lateFailures].map(({ file, state }) => {
+							const status =
+								state.status === "uploading"
+									? t("detail.attachmentsBytesProgress", {
+											done: formatUploadBytes(state.transferred, i18n.language),
+											total: formatUploadBytes(state.total, i18n.language),
+										})
+									: state.status === "preparing"
+										? t("detail.attachmentsPreparing")
+										: state.status === "waiting"
+											? t("detail.attachmentsWaiting")
+											: undefined;
+							return (
+								<Row
+									key={file.id}
+									left={
+										file.previewUrl === undefined ? (
+											<Icon
+												source={fileGlyph(file.contentType)}
+												size={icon.md}
+											/>
+										) : (
+											<Image
+												source={{ uri: file.previewUrl }}
+												style={{
+													width: size.attachmentPreview,
+													height: size.attachmentPreview,
+													borderRadius: radius.sm,
+												}}
+												resizeMode="cover"
+											/>
+										)
+									}
+									title={file.name}
+									right={
+										status === undefined ? undefined : (
+											<Text
+												variant="bodyMedium"
+												style={{ color: theme.colors.onSurfaceVariant }}
+											>
+												{status}
+											</Text>
+										)
+									}
+								>
+									{state.status === "preparing" ||
+									state.status === "uploading" ? (
+										<ProgressBar
+											indeterminate={state.status === "preparing"}
+											progress={
+												state.status === "uploading" && state.total > 0
+													? state.transferred / state.total
+													: 0
+											}
+										/>
+									) : state.status === "failed" ? (
+										<Text
+											variant="bodyMedium"
+											style={{ color: theme.colors.error }}
+										>
+											{t(state.key, {
+												limit: formatBytes(maxAttachmentBytes, i18n.language),
+											})}
+										</Text>
+									) : null}
+								</Row>
+							);
+						})}
+					</>
+				)}
+
 				{coarse ? (
 					<View style={{ gap: space.sm }}>
 						<View
@@ -378,7 +648,7 @@ export function AttachmentsSection({
 								mode="outlined"
 								icon="image-plus-outline"
 								onPress={() => openPicker(photoAccept)}
-								disabled={!online || uploadingCount > 0}
+								disabled={!online}
 								style={{ flex: 1, minWidth: size.attachmentButtonMin }}
 								contentStyle={{ minHeight: touchTarget }}
 							>
@@ -388,7 +658,7 @@ export function AttachmentsSection({
 								mode="outlined"
 								icon="file-plus-outline"
 								onPress={() => openPicker(attachmentAccept)}
-								disabled={!online || uploadingCount > 0}
+								disabled={!online}
 								style={{ flex: 1, minWidth: size.attachmentButtonMin }}
 								contentStyle={{ minHeight: touchTarget }}
 							>
@@ -401,62 +671,37 @@ export function AttachmentsSection({
 						>
 							{!online
 								? t("detail.attachmentsOffline")
-								: uploadingCount > 0
-									? t("detail.attachmentsUploadingCount", {
-											count: uploadingCount,
-										})
-									: t("detail.attachmentsLimits", {
-											limit: formatBytes(maxAttachmentBytes, i18n.language),
-										})}
+								: t("detail.attachmentsLimits", {
+										limit: formatBytes(maxAttachmentBytes, i18n.language),
+									})}
 						</Text>
 					</View>
 				) : (
 					<AttachmentDropZone
 						size={node.attachments.length === 0 ? "large" : "slim"}
 						phase={phase}
-						state={
-							!online ? "offline" : uploadingCount > 0 ? "uploading" : "ready"
-						}
-						uploadingCount={uploadingCount}
+						state={!online ? "offline" : "ready"}
 						onPress={() => openPicker(attachmentAccept)}
 					/>
 				)}
 
-				{refusals.length > 0 || deleteFailed ? (
-					<View style={{ gap: space.xs }}>
-						{refusals.map(({ name, key, index }) => (
-							<Text
-								key={index}
-								variant="bodyMedium"
-								style={{ color: theme.colors.error }}
-							>
-								{t("detail.attachmentsNamedRefusal", {
-									name,
-									reason: t(key, {
-										limit: formatBytes(maxAttachmentBytes, i18n.language),
-									}),
-								})}
-							</Text>
-						))}
-						{deleteFailed ? (
-							<Text variant="bodyMedium" style={{ color: theme.colors.error }}>
-								{t("detail.attachmentsDeleteFailed")}
-							</Text>
-						) : null}
-						{/* The one refusal with a remedy: at the ceiling, the way to
-						    do something about it is the inventory, and the refusal
-						    names it instead of leaving a failure with nothing behind
-						    it. */}
-						{refusals.some(({ key }) => key === "detail.attachmentsQuota") ? (
-							<Button
-								mode="text"
-								icon="clipboard-list-outline"
-								onPress={() => router.push(`/homes/${homeId}/attachments`)}
-							>
-								{t("detail.attachmentsInventoryOpen")}
-							</Button>
-						) : null}
-					</View>
+				{deleteFailed ? (
+					<Text variant="bodyMedium" style={{ color: theme.colors.error }}>
+						{t("detail.attachmentsDeleteFailed")}
+					</Text>
+				) : null}
+				{batch?.files.some(
+					({ state }) =>
+						state.status === "failed" &&
+						state.key === "detail.attachmentsQuota",
+				) ? (
+					<Button
+						mode="text"
+						icon="clipboard-list-outline"
+						onPress={() => router.push(`/homes/${homeId}/attachments`)}
+					>
+						{t("detail.attachmentsInventoryOpen")}
+					</Button>
 				) : null}
 			</View>
 

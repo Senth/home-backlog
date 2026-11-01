@@ -38,6 +38,34 @@ afterEach(() => {
 });
 
 describe("downscaleImage (web)", () => {
+	it.each(["success", "context", "draw", "encode", "empty"])(
+		"releases bitmap and canvas after %s",
+		async (failure) => {
+			const close = jest.fn();
+			const drawImage = jest.fn(() => {
+				if (failure === "draw") throw new Error("draw failed");
+			});
+			installCanvas({
+				bitmap: { width: wide, height: tall, close },
+				blob: failure === "empty" ? null : new Blob(["jpeg"]),
+				context: failure === "context" ? null : { drawImage },
+			});
+			const canvas = document.createElement("canvas");
+			(document.createElement as jest.Mock).mockReturnValue(canvas);
+			if (failure === "encode")
+				(canvas.toBlob as jest.Mock).mockImplementation(() => {
+					throw new Error("encode failed");
+				});
+			const result = downscaleImage(new Blob([]));
+			if (failure === "success")
+				await expect(result).resolves.toBeInstanceOf(Blob);
+			else await expect(result).rejects.toThrow();
+			expect(close).toHaveBeenCalledTimes(1);
+			expect(canvas.width).toBe(0);
+			expect(canvas.height).toBe(0);
+		},
+	);
+
 	it("draws a landscape photo at 2048 on the long edge and returns the re-encode", async () => {
 		const drawImage = jest.fn();
 		const close = jest.fn();

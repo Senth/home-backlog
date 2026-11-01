@@ -55,6 +55,12 @@ export function isImageType(contentType: string): boolean {
 	return contentType.startsWith("image/");
 }
 
+export function hasImagePreview(attachment: Attachment): boolean {
+	return (
+		isImageType(attachment.contentType) && attachment.hasThumbnail !== false
+	);
+}
+
 export const photoAccept = allowedContentTypes.filter(isImageType).join(",");
 
 /** The i18n key for an upload failure; anything else is a plain failure. */
@@ -63,13 +69,19 @@ export type AttachmentErrorKey =
 	| "detail.attachmentsWrongType"
 	| "detail.attachmentsQuota"
 	| "detail.attachmentsRefused"
+	| "detail.attachmentsStalled"
 	| "detail.attachmentsFailed";
+
+export type AttachmentUploadProgress =
+	| { phase: "preparing" }
+	| { phase: "uploading"; bytesTransferred: number; totalBytes: number };
 
 export function attachmentErrorKey(reason: unknown): AttachmentErrorKey {
 	const code = (reason as { code?: string } | null)?.code;
 	if (code === "attachment-too-large") return "detail.attachmentsTooLarge";
 	if (code === "attachment-type") return "detail.attachmentsWrongType";
 	if (code === "attachment-quota") return "detail.attachmentsQuota";
+	if (code === "attachment-stalled") return "detail.attachmentsStalled";
 	if (code === "storage/unauthorized" || code === "storage/unauthenticated")
 		return "detail.attachmentsRefused";
 	return "detail.attachmentsFailed";
@@ -147,6 +159,18 @@ export function formatBytes(bytes: number, locale: string): string {
 		// ungrammatical "208 byte" beside a short-form "28 kB" — sv-SE spells
 		// every tier "byte", "kilobyte", … either way.
 		unitDisplay: "long",
+		maximumFractionDigits: value < 10 ? 1 : 0,
+	}).format(value);
+}
+
+export function formatUploadBytes(bytes: number, locale: string): string {
+	const step = bytes < 1024 * 1024 ? 1024 : 1024 * 1024;
+	const unit = bytes < 1024 * 1024 ? "kilobyte" : "megabyte";
+	const value = bytes / step;
+	return new Intl.NumberFormat(locale, {
+		style: "unit",
+		unit,
+		unitDisplay: "short",
 		maximumFractionDigits: value < 10 ? 1 : 0,
 	}).format(value);
 }
@@ -290,9 +314,7 @@ export function badgeAttachmentId(
  * stored preference back to life on its own.
  */
 export function cardFace(node: Node): CardFace {
-	const images = node.attachments.filter((entry) =>
-		isImageType(entry.contentType),
-	);
+	const images = node.attachments.filter(hasImagePreview);
 	const mode: AttachmentDisplay =
 		images.length === 0 ? "count" : node.attachmentDisplay;
 	const hero =

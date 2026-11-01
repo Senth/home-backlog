@@ -1,11 +1,15 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { Provider } from "react-native-paper";
 import AttachmentsInventory from "@/app/(app)/homes/[homeId]/attachments";
+import { urlOf } from "@/components/board/CardThumbnails";
+import type { Node } from "@/models/node";
+import { newNodeData } from "@/models/node";
 import { lightTheme } from "@/theme";
 import { denseBreakpoint } from "@/theme/tokens";
 
 let mockWidth = denseBreakpoint - 1;
 const mockHeight = 844;
+const oneKb = 1024;
 jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
 	__esModule: true,
 	default: () => ({
@@ -52,8 +56,17 @@ jest.mock("@/data/attachments", () => ({
 	sharedInventoryQuery: jest.fn(),
 }));
 
+let mockNodes: Node[] = [];
 jest.mock("@/hooks/use-paired-listener", () => ({
-	usePairedListener: () => ({ nodes: [], loading: false, failed: false }),
+	usePairedListener: () => ({
+		nodes: mockNodes,
+		loading: false,
+		failed: false,
+	}),
+}));
+
+jest.mock("@/components/board/CardThumbnails", () => ({
+	urlOf: jest.fn(async () => "https://files.test/object"),
 }));
 
 async function renderInventory(width: number) {
@@ -67,6 +80,42 @@ async function renderInventory(width: number) {
 }
 
 describe("AttachmentsInventory", () => {
+	beforeEach(() => {
+		mockNodes = [];
+	});
+
+	it("shows an undecodable JPEG without requesting a missing thumbnail", async () => {
+		mockNodes = [
+			{
+				...newNodeData({
+					title: "Badrummet",
+					rank: "a0",
+					participantIds: ["uid-me"],
+				}),
+				id: "node",
+				completedAt: null,
+				createdAt: null,
+				createdBy: "uid-me",
+				updatedAt: null,
+				attachments: [
+					{
+						id: "corrupt",
+						path: "homes/home-1/nodes/node/corrupt",
+						name: "corrupt.jpg",
+						contentType: "image/jpeg",
+						hasThumbnail: false,
+						size: oneKb,
+						uploadedAt: null,
+						uploadedBy: "uid-me",
+					},
+				],
+			},
+		];
+		await renderInventory(denseBreakpoint);
+		expect(screen.getByText("corrupt.jpg")).toBeOnTheScreen();
+		expect(urlOf).not.toHaveBeenCalled();
+	});
+
 	it("below denseBreakpoint shows both sort choices and updates selection", async () => {
 		await renderInventory(denseBreakpoint - 1);
 

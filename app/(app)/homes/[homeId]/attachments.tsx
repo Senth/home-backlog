@@ -27,11 +27,11 @@ import {
 import { usePairedListener } from "@/hooks/use-paired-listener";
 import {
 	formatBytes,
+	hasImagePreview,
 	homeAttachmentCeiling,
 	type InventoryOrder,
 	type InventoryRow,
 	inventoryRows,
-	isImageType,
 	quotaShare,
 	quotaWarning,
 	thumbnailPathFor,
@@ -339,7 +339,7 @@ function InventoryEntry({
 /** The attachment's thumbnail, or its type's glyph when it has no picture. */
 function Thumb({ entry }: { entry: Attachment }) {
 	const theme = useAppTheme();
-	const image = isImageType(entry.contentType);
+	const image = hasImagePreview(entry);
 	const [url, setUrl] = useState<string | null>(null);
 
 	useEffect(() => {

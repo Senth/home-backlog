@@ -85,6 +85,7 @@ const EXPECTED_PREFIXES = [
 	"%cDownload the React DevTools",
 	'Running application "main"',
 	"[dev-console] Filtering known react-native-web warnings",
+	"[upload]",
 ];
 
 const EXPECTED_ERRORS = [

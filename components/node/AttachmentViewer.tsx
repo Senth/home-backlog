@@ -18,7 +18,7 @@ import { storage } from "@/config/firebase";
 import { deleteAttachment } from "@/data/attachments";
 import type { NodeChanges } from "@/data/nodes";
 import { useModalFocus } from "@/hooks/use-modal-focus";
-import { formatBytes, isImageType } from "@/models/attachment";
+import { formatBytes, hasImagePreview } from "@/models/attachment";
 import type { Attachment, Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import { space } from "@/theme/tokens";
@@ -53,7 +53,7 @@ export function AttachmentViewer({
 }: AttachmentViewerProps) {
 	const { t, i18n } = useTranslation();
 	const theme = useAppTheme();
-	const image = isImageType(attachment.contentType);
+	const image = hasImagePreview(attachment);
 
 	const [url, setUrl] = useState<string | null>(null);
 	const [deleting, setDeleting] = useState(false);
@@ -62,6 +62,7 @@ export function AttachmentViewer({
 	// The original at full size, from the stored path — the thumbnail stays
 	// where it belongs, on the card.
 	useEffect(() => {
+		if (!image) return;
 		let cancelled = false;
 		getDownloadURL(ref(storage, attachment.path))
 			.then((resolved) => {
@@ -71,7 +72,7 @@ export function AttachmentViewer({
 		return () => {
 			cancelled = true;
 		};
-	}, [attachment.path]);
+	}, [attachment.path, image]);
 
 	const testID = `attachment-viewer-${attachment.id}`;
 	useModalFocus(true, testID, onDismiss, {

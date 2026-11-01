@@ -91,6 +91,7 @@ export const size = {
 	avatarXs: 24,
 	avatarSm: 32,
 	avatarMd: 48,
+	attachmentPreview: 48,
 	appBarSmall: 64,
 	appBarMedium: 112,
 	brandMark: 96,
@@ -154,6 +155,11 @@ export const size = {
 	 * exactly that height and this value is never used.
 	 */
 	menuPage: 320,
+} as const;
+
+export const aspectRatio = {
+	attachmentHero: 4 / 3,
+	square: 1,
 } as const;
 
 /**
