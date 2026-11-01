@@ -20,6 +20,7 @@ function files(count: number, size = 1): UploadBatchFile[] {
 		id: `file-${index}`,
 		name: `file-${index}.jpg`,
 		size,
+		contentType: "image/jpeg",
 	}));
 }
 
@@ -46,8 +47,18 @@ describe("upload batches", () => {
 	it("appends picks during a running batch and keeps pick order", () => {
 		const initial = claimUploadBatch(startUploadBatch(files(4), 0));
 		const added = appendUploadBatch(initial.state, [
-			{ id: "file-4", name: "file-4.jpg", size: oneByte },
-			{ id: "file-5", name: "file-5.jpg", size: oneByte },
+			{
+				id: "file-4",
+				name: "file-4.jpg",
+				size: oneByte,
+				contentType: "image/jpeg",
+			},
+			{
+				id: "file-5",
+				name: "file-5.jpg",
+				size: oneByte,
+				contentType: "image/jpeg",
+			},
 		]);
 		expect(added.total).toBe(6);
 		expect(added.files.map(({ file }) => file.id)).toEqual([
@@ -64,9 +75,24 @@ describe("upload batches", () => {
 	it("refuses only files that exceed the remaining quota", () => {
 		const state = startUploadBatch(
 			[
-				{ id: "fits", name: "fits.pdf", size: fitsBytes },
-				{ id: "too-large", name: "large.pdf", size: overBudgetBytes },
-				{ id: "also-fits", name: "small.pdf", size: extraBytes },
+				{
+					id: "fits",
+					name: "fits.pdf",
+					size: fitsBytes,
+					contentType: "application/pdf",
+				},
+				{
+					id: "too-large",
+					name: "large.pdf",
+					size: overBudgetBytes,
+					contentType: "application/pdf",
+				},
+				{
+					id: "also-fits",
+					name: "small.pdf",
+					size: extraBytes,
+					contentType: "application/pdf",
+				},
 			],
 			homeAttachmentCeiling - bytesAvailable,
 		);
@@ -75,6 +101,32 @@ describe("upload batches", () => {
 			{ status: "failed", key: "detail.attachmentsQuota" },
 			{ status: "waiting" },
 		]);
+	});
+
+	it("does not reserve quota for locally refused files", () => {
+		const state = startUploadBatch(
+			[
+				{
+					id: "wrong-type",
+					name: "archive.zip",
+					size: bytesAvailable,
+					contentType: "application/zip",
+				},
+				{
+					id: "valid",
+					name: "note.txt",
+					size: oneByte,
+					contentType: "text/plain",
+				},
+			],
+			homeAttachmentCeiling - bytesAvailable,
+		);
+
+		expect(state.files.map(({ state: status }) => status)).toEqual([
+			{ status: "failed", key: "detail.attachmentsWrongType" },
+			{ status: "waiting" },
+		]);
+		expect(state.remainingQuota).toBe(bytesAvailable - oneByte);
 	});
 
 	it("keeps failures while other files land, then ends until a new batch", () => {

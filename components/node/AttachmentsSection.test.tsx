@@ -354,7 +354,7 @@ describe("AttachmentsSection", () => {
 						blob: file,
 					}),
 					expect.any(Function),
-					undefined,
+					expect.any(Function),
 					0,
 				);
 				jest.mocked(uploadAttachment).mockClear();
@@ -610,6 +610,70 @@ describe("AttachmentsSection", () => {
 		expect(
 			screen.getByText("detail.attachmentsInventoryOpen"),
 		).toBeOnTheScreen();
+	});
+
+	it("restores a landed row when its local Firestore write is rejected later", async () => {
+		let onError!: (reason: unknown) => void;
+		(uploadAttachment as jest.Mock).mockImplementation(
+			(_home, _node, _uid, _file, _onProgress, onLateError) => {
+				onError = onLateError;
+				return Promise.resolve(anAttachment());
+			},
+		);
+		await renderSection(aNode([]));
+		await act(async () => {
+			mockDroppedFiles([
+				{ name: "late.jpg", type: "image/jpeg", size: photoBytes } as File,
+			]);
+		});
+		await waitFor(() =>
+			expect(
+				screen.getByText('detail.attachmentsBatchCount:{"done":1,"total":1}'),
+			).toBeOnTheScreen(),
+		);
+		expect(screen.queryByText("late.jpg")).toBeNull();
+
+		await act(async () => onError({ code: "storage/unauthorized" }));
+
+		expect(
+			screen.getByText('detail.attachmentsBatchCount:{"done":0,"total":1}'),
+		).toBeOnTheScreen();
+		expect(screen.getByText("late.jpg")).toBeOnTheScreen();
+		expect(
+			screen.getByText('detail.attachmentsRefused:{"limit":"20 megabytes"}'),
+		).toBeOnTheScreen();
+	});
+
+	it("continues draining the picked node batch after the section unmounts", async () => {
+		const uploads: {
+			nodeId: string;
+			resolve: (value: Attachment) => void;
+		}[] = [];
+		(uploadAttachment as jest.Mock).mockImplementation(
+			(_home, nodeId, _uid, _file) =>
+				new Promise((resolve) => uploads.push({ nodeId, resolve })),
+		);
+		const view = await renderSection(aNode([], { id: "picked-node" }));
+		await act(async () => {
+			mockDroppedFiles(
+				["one.jpg", "two.jpg", "three.jpg", "four.jpg", "five.jpg"].map(
+					(name) => ({ name, type: "image/jpeg", size: photoBytes }),
+				) as File[],
+			);
+		});
+		await waitFor(() => expect(uploads).toHaveLength(3));
+		await view.unmount();
+
+		await act(async () => uploads[0]?.resolve(anAttachment()));
+		await waitFor(() => expect(uploads).toHaveLength(4));
+		await act(async () => uploads[1]?.resolve(anAttachment()));
+		await waitFor(() => expect(uploads).toHaveLength(5));
+		expect(uploads.map(({ nodeId }) => nodeId)).toEqual(
+			Array.from({ length: 5 }, () => "picked-node"),
+		);
+		await act(async () => {
+			for (const upload of uploads.slice(2)) upload.resolve(anAttachment());
+		});
 	});
 
 	it("revokes a photo preview when its row leaves", async () => {

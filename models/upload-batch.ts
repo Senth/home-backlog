@@ -1,5 +1,9 @@
 import type { AttachmentErrorKey } from "@/models/attachment";
-import { homeAttachmentCeiling } from "@/models/attachment";
+import {
+	attachmentErrorKey,
+	attachmentRefusal,
+	homeAttachmentCeiling,
+} from "@/models/attachment";
 
 export const maxConcurrentUploads = 3;
 
@@ -7,6 +11,7 @@ export interface UploadBatchFile {
 	id: string;
 	name: string;
 	size: number;
+	contentType: string;
 }
 
 export type UploadBatchStatus =
@@ -24,10 +29,11 @@ export interface UploadBatchState<T extends UploadBatchFile> {
 	total: number;
 	landed: number;
 	remainingQuota: number;
+	landedIds: string[];
 	files: UploadBatchEntry<T>[];
 }
 
-export type UploadBatchUpdate =
+export type UploadBatchUpdate<T extends UploadBatchFile = UploadBatchFile> =
 	| { type: "preparing"; id: string }
 	| {
 			type: "uploading";
@@ -36,6 +42,7 @@ export type UploadBatchUpdate =
 			total: number;
 	  }
 	| { type: "failed"; id: string; key: AttachmentErrorKey }
+	| { type: "late-failed"; id: string; file: T; key: AttachmentErrorKey }
 	| { type: "landed"; id: string };
 
 function allocateFiles<T extends UploadBatchFile>(
@@ -45,7 +52,13 @@ function allocateFiles<T extends UploadBatchFile>(
 	const entries: UploadBatchEntry<T>[] = [];
 	let remaining = remainingQuota;
 	for (const file of files) {
-		if (remaining <= 0 || file.size > remaining) {
+		const refusal = attachmentRefusal(file.contentType, file.size);
+		if (refusal !== null) {
+			entries.push({
+				file,
+				state: { status: "failed", key: attachmentErrorKey({ code: refusal }) },
+			});
+		} else if (remaining <= 0 || file.size > remaining) {
 			entries.push({
 				file,
 				state: { status: "failed", key: "detail.attachmentsQuota" },
@@ -68,6 +81,7 @@ export function startUploadBatch<T extends UploadBatchFile>(
 		total: files.length,
 		landed: 0,
 		remainingQuota: allocated.remainingQuota,
+		landedIds: [],
 		files: allocated.entries,
 	};
 }
@@ -105,19 +119,35 @@ export function claimUploadBatch<T extends UploadBatchFile>(
 
 export function updateUploadBatch<T extends UploadBatchFile>(
 	state: UploadBatchState<T>,
-	update: UploadBatchUpdate,
+	update: UploadBatchUpdate<T>,
 ): UploadBatchState<T> {
 	const index = state.files.findIndex((entry) => entry.file.id === update.id);
-	if (index === -1) return state;
-	const entry = state.files[index];
-	if (!entry) return state;
 	if (update.type === "landed") {
+		const entry = state.files[index];
+		if (!entry) return state;
 		return {
 			...state,
 			landed: state.landed + 1,
+			landedIds: [...state.landedIds, update.id],
 			files: state.files.filter((file) => file.file.id !== update.id),
 		};
 	}
+	if (update.type === "late-failed") {
+		if (!state.landedIds.includes(update.id)) return state;
+		return {
+			...state,
+			landed: state.landed - 1,
+			remainingQuota: state.remainingQuota + update.file.size,
+			landedIds: state.landedIds.filter((id) => id !== update.id),
+			files: [
+				...state.files,
+				{ file: update.file, state: { status: "failed", key: update.key } },
+			],
+		};
+	}
+	if (index === -1) return state;
+	const entry = state.files[index];
+	if (!entry) return state;
 	if (update.type === "failed") {
 		if (entry.state.status === "failed") return state;
 		return {

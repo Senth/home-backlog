@@ -42,7 +42,11 @@ import {
 	thumbnailPathFor,
 } from "@/models/attachment";
 import type { Attachment, Node } from "@/models/node";
-import type { UploadBatchFile, UploadBatchState } from "@/models/upload-batch";
+import type {
+	UploadBatchFile,
+	UploadBatchState,
+	UploadBatchUpdate,
+} from "@/models/upload-batch";
 import {
 	appendUploadBatch,
 	claimUploadBatch,
@@ -73,8 +77,14 @@ type MenuAnchor = { x: number; y: number };
 
 interface PickedAttachment extends UploadBatchFile {
 	blob: File;
-	contentType: string;
 	previewUrl?: string;
+}
+
+interface UploadTarget {
+	homeId: string;
+	nodeId: string;
+	uid: string;
+	attachmentBytes: number | null;
 }
 
 /** Across on the content column; a row of fewer keeps the same tile size. */
@@ -139,10 +149,9 @@ export function AttachmentsSection({
 	const [batch, setBatchState] =
 		useState<UploadBatchState<PickedAttachment> | null>(null);
 	const batchRef = useRef<UploadBatchState<PickedAttachment> | null>(null);
-	const [batchReady, setBatchReadyState] = useState(false);
 	const batchGeneration = useRef(0);
 	const nextFileId = useRef(0);
-	const batchHomeBytes = useRef<number | null>(null);
+	const batchTarget = useRef<UploadTarget | null>(null);
 	const previewUrls = useRef(new Map<string, string>());
 	const [deleteFailed, setDeleteFailed] = useState(false);
 	const [viewing, setViewing] = useState<Attachment | null>(null);
@@ -158,15 +167,75 @@ export function AttachmentsSection({
 		},
 		[],
 	);
-	const setBatchReady = useCallback((ready: boolean) => {
-		setBatchReadyState(ready);
-	}, []);
 	const updateBatch = useCallback(
-		(update: Parameters<typeof updateUploadBatch>[1]) => {
+		(update: UploadBatchUpdate<PickedAttachment>) => {
 			const current = batchRef.current;
 			if (current !== null) setBatch(updateUploadBatch(current, update));
 		},
 		[setBatch],
+	);
+	const drainUploads = useCallback(
+		function drain(target: UploadTarget, generation: number) {
+			if (generation !== batchGeneration.current) return;
+			const current = batchRef.current;
+			if (current === null) return;
+			const { state, claimed } = claimUploadBatch(current);
+			if (claimed.length === 0) return;
+			setBatch(state);
+			for (const file of claimed) {
+				const onProgress = (progress: AttachmentUploadProgress) => {
+					updateBatch(
+						progress.phase === "preparing"
+							? { type: "preparing", id: file.id }
+							: {
+									type: "uploading",
+									id: file.id,
+									transferred: progress.bytesTransferred,
+									total: progress.totalBytes,
+								},
+					);
+				};
+				const onLateError = (reason: unknown) => {
+					if (generation !== batchGeneration.current) return;
+					updateBatch({
+						type: "late-failed",
+						id: file.id,
+						file,
+						key: attachmentErrorKey(reason),
+					});
+				};
+				void uploadAttachment(
+					target.homeId,
+					target.nodeId,
+					target.uid,
+					{
+						name: file.name,
+						contentType: file.contentType,
+						size: file.size,
+						blob: file.blob,
+					},
+					onProgress,
+					onLateError,
+					target.attachmentBytes ?? 0,
+				).then(
+					() => {
+						if (generation !== batchGeneration.current) return;
+						updateBatch({ type: "landed", id: file.id });
+						drain(target, generation);
+					},
+					(reason: unknown) => {
+						if (generation !== batchGeneration.current) return;
+						updateBatch({
+							type: "failed",
+							id: file.id,
+							key: attachmentErrorKey(reason),
+						});
+						drain(target, generation);
+					},
+				);
+			}
+		},
+		[setBatch, updateBatch],
 	);
 
 	const images = node.attachments.filter(hasImagePreview);
@@ -211,25 +280,34 @@ export function AttachmentsSection({
 			const current = batchRef.current;
 			if (current !== null && uploadBatchActive(current)) {
 				setBatch(appendUploadBatch(current, entries));
+				const target = batchTarget.current;
+				if (target !== null && target.attachmentBytes !== null)
+					drainUploads(target, batchGeneration.current);
 				return;
 			}
 			const generation = ++batchGeneration.current;
-			batchHomeBytes.current = null;
-			setBatchReady(false);
+			const target: UploadTarget = {
+				homeId,
+				nodeId: node.id,
+				uid,
+				attachmentBytes: null,
+			};
+			batchTarget.current = target;
 			setBatch(startUploadBatch(entries, 0));
 			void readHomeAttachmentBytes(homeId).then(
 				(bytes) => {
 					if (generation !== batchGeneration.current) return;
 					const latest = batchRef.current;
 					if (latest === null) return;
-					batchHomeBytes.current = bytes;
+					const readyTarget = { ...target, attachmentBytes: bytes };
+					batchTarget.current = readyTarget;
 					setBatch(
 						startUploadBatch(
 							latest.files.map(({ file }) => file),
 							bytes,
 						),
 					);
-					setBatchReady(true);
+					drainUploads(readyTarget, generation);
 				},
 				(reason: unknown) => {
 					if (generation !== batchGeneration.current) return;
@@ -245,11 +323,10 @@ export function AttachmentsSection({
 						});
 					}
 					setBatch(failed);
-					setBatchReady(true);
 				},
 			);
 		},
-		[homeId, online, setBatch, setBatchReady, user],
+		[drainUploads, homeId, node.id, online, setBatch, user],
 	);
 
 	useEffect(() => {
@@ -268,50 +345,6 @@ export function AttachmentsSection({
 		},
 		[],
 	);
-
-	useEffect(() => {
-		const uid = user?.uid;
-		if (batch === null || !batchReady || uid === undefined) return;
-		const { state, claimed } = claimUploadBatch(batch);
-		if (claimed.length === 0) return;
-		setBatch(state);
-		for (const file of claimed) {
-			const onProgress = (progress: AttachmentUploadProgress) => {
-				updateBatch(
-					progress.phase === "preparing"
-						? { type: "preparing", id: file.id }
-						: {
-								type: "uploading",
-								id: file.id,
-								transferred: progress.bytesTransferred,
-								total: progress.totalBytes,
-							},
-				);
-			};
-			void uploadAttachment(
-				homeId,
-				node.id,
-				uid,
-				{
-					name: file.name,
-					contentType: file.contentType,
-					size: file.size,
-					blob: file.blob,
-				},
-				onProgress,
-				undefined,
-				batchHomeBytes.current ?? 0,
-			).then(
-				() => updateBatch({ type: "landed", id: file.id }),
-				(reason: unknown) =>
-					updateBatch({
-						type: "failed",
-						id: file.id,
-						key: attachmentErrorKey(reason),
-					}),
-			);
-		}
-	}, [batch, batchReady, homeId, node.id, setBatch, updateBatch, user]);
 
 	// A download URL carries a rotating token, so it is asked for at render
 	// time from the stored path (`models/node.ts` explains why none are stored)
