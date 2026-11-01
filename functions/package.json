@@ -6,7 +6,7 @@
 	"description": "The REST API and the callables behind Home Backlog's API keys.",
 	"main": "lib/index.js",
 	"engines": {
-		"node": "22"
+		"node": "24"
 	},
 	"scripts": {
 		"build": "tsc",
@@ -22,7 +22,7 @@
 	"devDependencies": {
 		"@types/express": "^5.0.0",
 		"@types/jest": "^30.0.0",
-		"@types/node": "^22.20.0",
+		"@types/node": "^24.19.2",
 		"jest": "^30.0.0",
 		"ts-jest": "^29.4.7",
 		"typescript": "~5.9.2"
