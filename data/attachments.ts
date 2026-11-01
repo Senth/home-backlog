@@ -143,7 +143,6 @@ export async function uploadAttachment(
 			objects.map((objectPath) => deleteObject(ref(storage, objectPath))),
 		);
 	const upload = async (objectPath: string, bytes: Blob, step: string) => {
-		objects.push(objectPath);
 		const task = uploadBytesResumable(ref(storage, objectPath), bytes, {
 			...metadata,
 			contentType,
@@ -176,6 +175,7 @@ export async function uploadAttachment(
 					});
 				}),
 			]);
+			objects.push(objectPath);
 		} finally {
 			clearTimeout(timer);
 			unsubscribe();

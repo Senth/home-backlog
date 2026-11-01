@@ -253,69 +253,6 @@ service cloud.firestore {
           return ['backlog', 'next_up', 'execution', 'done'];
         }
 
-        function validAttachmentThumbnails(entries) {
-          let padded = entries.concat([
-            {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
-            {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
-            {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
-            {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
-            {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
-          ]);
-          return entries is list && entries.size() <= 50
-            && (entries.size() == 0 || (
-              padded[0].get('hasThumbnail', true) is bool
-              && padded[1].get('hasThumbnail', true) is bool
-              && padded[2].get('hasThumbnail', true) is bool
-              && padded[3].get('hasThumbnail', true) is bool
-              && padded[4].get('hasThumbnail', true) is bool
-              && padded[5].get('hasThumbnail', true) is bool
-              && padded[6].get('hasThumbnail', true) is bool
-              && padded[7].get('hasThumbnail', true) is bool
-              && padded[8].get('hasThumbnail', true) is bool
-              && padded[9].get('hasThumbnail', true) is bool
-              && padded[10].get('hasThumbnail', true) is bool
-              && padded[11].get('hasThumbnail', true) is bool
-              && padded[12].get('hasThumbnail', true) is bool
-              && padded[13].get('hasThumbnail', true) is bool
-              && padded[14].get('hasThumbnail', true) is bool
-              && padded[15].get('hasThumbnail', true) is bool
-              && padded[16].get('hasThumbnail', true) is bool
-              && padded[17].get('hasThumbnail', true) is bool
-              && padded[18].get('hasThumbnail', true) is bool
-              && padded[19].get('hasThumbnail', true) is bool
-              && padded[20].get('hasThumbnail', true) is bool
-              && padded[21].get('hasThumbnail', true) is bool
-              && padded[22].get('hasThumbnail', true) is bool
-              && padded[23].get('hasThumbnail', true) is bool
-              && padded[24].get('hasThumbnail', true) is bool
-              && padded[25].get('hasThumbnail', true) is bool
-              && padded[26].get('hasThumbnail', true) is bool
-              && padded[27].get('hasThumbnail', true) is bool
-              && padded[28].get('hasThumbnail', true) is bool
-              && padded[29].get('hasThumbnail', true) is bool
-              && padded[30].get('hasThumbnail', true) is bool
-              && padded[31].get('hasThumbnail', true) is bool
-              && padded[32].get('hasThumbnail', true) is bool
-              && padded[33].get('hasThumbnail', true) is bool
-              && padded[34].get('hasThumbnail', true) is bool
-              && padded[35].get('hasThumbnail', true) is bool
-              && padded[36].get('hasThumbnail', true) is bool
-              && padded[37].get('hasThumbnail', true) is bool
-              && padded[38].get('hasThumbnail', true) is bool
-              && padded[39].get('hasThumbnail', true) is bool
-              && padded[40].get('hasThumbnail', true) is bool
-              && padded[41].get('hasThumbnail', true) is bool
-              && padded[42].get('hasThumbnail', true) is bool
-              && padded[43].get('hasThumbnail', true) is bool
-              && padded[44].get('hasThumbnail', true) is bool
-              && padded[45].get('hasThumbnail', true) is bool
-              && padded[46].get('hasThumbnail', true) is bool
-              && padded[47].get('hasThumbnail', true) is bool
-              && padded[48].get('hasThumbnail', true) is bool
-              && padded[49].get('hasThumbnail', true) is bool
-            ));
-        }
-
         function validNode(data) {
           return data.title is string
             && data.title.size() >= 1
@@ -400,7 +337,8 @@ service cloud.firestore {
             // performs, until the migration has reached them. Lenient here is
             // what keeps the deploy order irrelevant; the migration is about
             // cleaning up, not about unblocking writes.
-            && validAttachmentThumbnails(data.get('attachments', []))
+            && data.get('attachments', []) is list
+            && data.get('attachments', []).size() <= 50
             && data.get('attachmentCount', 0) is int
             && data.get('attachmentDisplay', 'count') in ['count', 'thumbnails', 'hero']
             && (data.get('heroAttachmentId', null) == null

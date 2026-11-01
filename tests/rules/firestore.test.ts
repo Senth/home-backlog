@@ -1162,20 +1162,76 @@ describe("homes/{homeId}/nodes", () => {
 				);
 			});
 
-			it.each([0, 9, 10, 49])(
-				"refuses non-boolean thumbnail availability at index %s",
-				async (at) => {
-					await assertFails(
-						create(dbAs(env, MEMBER), "snappy", {
-							attachments: Array.from({ length: 50 }, (_value, index) => ({
-								...attachment,
-								id: `p${index}`,
-								hasThumbnail: index === at ? "false" : false,
-							})),
+			it.each(["shared", "private"])(
+				"updates a fully populated %s node at the attachment limit within the evaluator budget",
+				async (visibility) => {
+					const attachments = Array.from({ length: 50 }, (_value, index) => ({
+						...attachment,
+						id: `p${index}`,
+						path: `homes/${HOME_ID}/nodes/snappy/p${index}`,
+						hasThumbnail: index % 2 === 0,
+					}));
+					await seed(env, async (db) => {
+						await setDoc(doc(db, nodesPath, "parent"), nodeDoc({ visibility }));
+						await setDoc(
+							doc(db, nodesPath, "snappy"),
+							nodeDoc({
+								visibility,
+								parentId: "parent",
+								ancestorIds: ["parent"],
+								status: "done",
+								completedAt: new Date("2026-01-01T00:00:00Z"),
+								dueDate: "2026-09-30",
+								priority: "high",
+								effort: "weekend",
+								assigneeIds: [OWNER.uid],
+								locationId: "bathroom",
+								locationAncestorIds: ["upstairs"],
+								blockedBy: ["delivery"],
+								labelIds: Array.from({ length: 6 }, (_, index) => `l${index}`),
+								notes: "x".repeat(10000),
+								checklist: Array.from({ length: 200 }, (_, index) => ({
+									id: `c${index}`,
+									text: "Buy brackets",
+									done: true,
+								})),
+								attachments: attachments.slice(0, 49),
+								attachmentCount: 49,
+								attachmentDisplay: "hero",
+								heroAttachmentId: "p0",
+							}),
+						);
+					});
+					const reference = doc(dbAs(env, OWNER), nodesPath, "snappy");
+					await assertSucceeds(
+						updateDoc(reference, {
+							attachments: arrayUnion(attachments[49]),
+							attachmentCount: increment(1),
+							updatedAt: new Date(),
 						}),
 					);
+					await assertSucceeds(
+						updateDoc(reference, {
+							participantIds: [OWNER.uid, MEMBER.uid],
+							updatedAt: new Date(),
+						}),
+					);
+					expect((await getDoc(reference)).get("attachments")).toHaveLength(50);
 				},
 			);
+
+			it("validates only the attachment container, leaving entries to defensive readers", async () => {
+				await assertSucceeds(
+					create(dbAs(env, MEMBER), "snappy", {
+						attachments: [{ ...attachment, hasThumbnail: "false" }],
+					}),
+				);
+				await assertFails(
+					updateDoc(doc(dbAs(env, MEMBER), nodesPath, "snappy"), {
+						attachments: { original: attachment },
+					}),
+				);
+			});
 
 			/**
 			 * The new fields are read through get() with a default rather than

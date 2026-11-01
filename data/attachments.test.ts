@@ -257,6 +257,34 @@ describe("uploadAttachment, the entry write failing", () => {
 		expect(paths[0]).not.toMatch(/_thumb\.jpg$/);
 		expect(paths[1]).toMatch(/_thumb\.jpg$/);
 	});
+
+	it.each(["original", "thumbnail"])(
+		"rolls back only completed objects when the %s upload fails",
+		async (step) => {
+			if (step === "thumbnail")
+				uploadBytesResumable.mockReturnValueOnce(
+					Object.assign(Promise.resolve(), {
+						on: jest.fn(() => jest.fn()),
+						cancel: jest.fn(),
+					}),
+				);
+			uploadBytesResumable.mockReturnValueOnce(
+				Object.assign(Promise.reject({ code: "storage/unauthorized" }), {
+					on: jest.fn(() => jest.fn()),
+					cancel: jest.fn(),
+				}),
+			);
+			await expect(
+				uploadAttachment("home", "node", "me", aFile()),
+			).rejects.toMatchObject({ code: "storage/unauthorized" });
+			expect(updateDoc).not.toHaveBeenCalled();
+			expect(deleteObject).toHaveBeenCalledTimes(step === "thumbnail" ? 1 : 0);
+			if (step === "thumbnail")
+				expect(deleteObject).toHaveBeenCalledWith(
+					uploadBytesResumable.mock.calls[0][0],
+				);
+		},
+	);
 });
 
 describe("uploadAttachment, stalled steps", () => {
@@ -339,7 +367,12 @@ describe("uploadAttachment, stalled steps", () => {
 			expect(cancel).toHaveBeenCalledTimes(1);
 			expect(unsubscribe).toHaveBeenCalledTimes(1);
 			expect(log).toHaveBeenCalledWith(`[upload] stalled at ${step} upload`);
-			expect(deleteObject).toHaveBeenCalledTimes(step === "thumbnail" ? 2 : 1);
+			expect(deleteObject).toHaveBeenCalledTimes(step === "thumbnail" ? 1 : 0);
+			if (step === "thumbnail") {
+				expect(deleteObject).toHaveBeenCalledWith(
+					uploadBytesResumable.mock.calls[0][0],
+				);
+			}
 		},
 	);
 
@@ -437,18 +470,21 @@ describe("uploadAttachment, stalled steps", () => {
 				}),
 			);
 			uploadBytesResumable.mockReturnValueOnce(
+				Object.assign(Promise.resolve(), {
+					on: jest.fn(() => jest.fn()),
+					cancel: jest.fn(),
+				}),
+			);
+			uploadBytesResumable.mockReturnValueOnce(
 				Object.assign(new Promise(() => {}), {
 					on: jest.fn(() => jest.fn()),
 					cancel: jest.fn(),
 				}),
 			);
 			const failed = jest.fn();
-			const upload = uploadAttachment(
-				"home",
-				"node",
-				"me",
-				aFile({ contentType: "text/plain" }),
-			).catch(failed);
+			const upload = uploadAttachment("home", "node", "me", aFile()).catch(
+				failed,
+			);
 			await jest.advanceTimersByTimeAsync(30_000);
 			expect(failed).toHaveBeenCalledWith(
 				expect.objectContaining({ code: "attachment-stalled" }),
