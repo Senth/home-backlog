@@ -13,7 +13,7 @@ jest.mock("firebase/firestore", () => ({
 	doc: jest.fn(() => ({ id: "ref" })),
 	getDoc: jest.fn(async () => ({ get: () => 0 })),
 	onSnapshot: jest.fn((_ref, _options, next) => {
-		Promise.resolve().then(() =>
+		void Promise.resolve().then(() =>
 			next({
 				get: () => [
 					jest
