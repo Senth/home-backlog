@@ -31,6 +31,12 @@
 			"automerge": false
 		},
 		{
+			"description": "The functions deploy on the Node runtime engines.node names, and their types must not describe a newer one. Lift this cap together with engines.node once firebase-tools marks the next runtime GA; .github/workflows/node-runtime-watch.yml opens an issue when it does.",
+			"matchFileNames": ["functions/package.json"],
+			"matchPackageNames": ["node", "@types/node"],
+			"allowedVersions": "<25"
+		},
+		{
 			"matchManagers": ["github-actions"],
 			"groupName": "GitHub Actions",
 			"pinDigests": true,

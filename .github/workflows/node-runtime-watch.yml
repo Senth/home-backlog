@@ -1,0 +1,53 @@
+name: Watch for a newer Cloud Functions Node runtime
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    name: Compare engines.node with firebase-tools GA runtimes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24.x
+
+      - name: Open an issue when a newer runtime is GA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current=$(node -p 'require("./functions/package.json").engines.node')
+          cd "$RUNNER_TEMP"
+          tarball=$(npm pack firebase-tools@latest --silent)
+          version=${tarball#firebase-tools-}
+          version=${version%.tgz}
+          tar -xzf "$tarball" package/lib/deploy/functions/runtimes/supported/types.js
+          latest=$(node -e '
+            const src = require("fs").readFileSync(process.argv[1], "utf8");
+            const ga = [...src.matchAll(/nodejs(\d+):\s*\{[^}]*status:\s*"GA"/g)].map((m) => Number(m[1]));
+            if (!ga.length) {
+              console.error("no GA runtime parsed from firebase-tools");
+              process.exit(1);
+            }
+            console.log(Math.max(...ga));
+          ' package/lib/deploy/functions/runtimes/supported/types.js)
+          echo "engines.node=$current, newest GA in firebase-tools $version: $latest"
+          if [ "$latest" -le "$current" ]; then exit 0; fi
+          title="Move Cloud Functions to Node $latest"
+          cd "$GITHUB_WORKSPACE"
+          if [ -n "$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[].number')" ]; then exit 0; fi
+          gh issue create --label cleanup --title "$title" --body "firebase-tools $version lists \`nodejs$latest\` as GA; \`functions/package.json\` deploys on Node $current.
+
+          - Set \`engines.node\` in \`functions/package.json\` to \`\"$latest\"\`.
+          - Raise the \`allowedVersions\` cap on the \`functions/package.json\` rule in \`renovate.json\` to \`<$((latest + 1))\`.
+
+          Renovate then opens the matching \`@types/node\` update on its next run."

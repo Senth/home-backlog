@@ -63,6 +63,7 @@ command -v jq >/dev/null 2>&1 || {
 }
 
 STATE=".tmp/dev-stack"
+EMU_TMP="${XDG_RUNTIME_DIR:-$HOME/.cache}/home-backlog-dev-stack/$(printf %s "$PWD" | cksum | cut -d " " -f1)"
 # A stack this old is torn down by the next `up` and booted fresh: a long-lived
 # Firestore emulator keeps answering REST but refuses new webchannel
 # connections (#242), and no single e2e run (~20 min) crosses the threshold.
@@ -226,14 +227,16 @@ cmd_up() {
 		# shared /tmp makes the last booted worktree's stack the one every bare
 		# `firebase` command resolves to. A per-worktree TMPDIR gives this stack
 		# a locator of its own — same trick as scripts/test-rules.mjs — and the
-		# CLI does not create the directory itself.
-		mkdir -p "$STATE/tmp"
+		# CLI does not create the directory itself. It sits outside the worktree
+		# because the functions emulator binds a Unix socket in it, and a deep
+		# worktree path overruns the 108-byte socket path limit (listen EINVAL).
+		mkdir -p "$EMU_TMP"
 		local start_cmd="yarn --cwd functions build && firebase emulators:start --project home-backlog --config '$GENERATED_CONFIG'"
 		if [ "$import" = 1 ]; then
 			start_cmd+=" --import .emulator-seed"
 		fi
 		start_bg emulators env \
-			TMPDIR="$PWD/$STATE/tmp" TMP="$PWD/$STATE/tmp" TEMP="$PWD/$STATE/tmp" \
+			TMPDIR="$EMU_TMP" TMP="$EMU_TMP" TEMP="$EMU_TMP" \
 			bash -c "$start_cmd"
 		wait_for_port "$firestore_port" emulators
 
@@ -284,6 +287,7 @@ cmd_up() {
 cmd_down() {
 	stop_group web
 	stop_group emulators
+	rm -rf "$EMU_TMP"
 
 	if [ ! -f "$STATE/stack.json" ]; then
 		echo "dev-stack: nothing was started here (no stack state)"
