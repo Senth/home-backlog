@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { Provider } from "react-native-paper";
 import Overview from "@/app/(app)/(tabs)/overview";
 import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
@@ -8,9 +8,21 @@ import { lightTheme } from "@/theme";
 import { motion } from "@/theme/tokens";
 import { markLaunch } from "@/utils/launch-timing";
 
+let mockWidth = 390;
+const mockHeight = 900;
+let mockCard: string | undefined;
+jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
+	__esModule: true,
+	default: () => ({
+		width: mockWidth,
+		height: mockHeight,
+		scale: 1,
+		fontScale: 1,
+	}),
+}));
 jest.mock("expo-router", () => ({
 	useRouter: () => ({ push: jest.fn(), setParams: jest.fn() }),
-	useLocalSearchParams: () => ({}),
+	useLocalSearchParams: () => ({ card: mockCard }),
 }));
 jest.mock("react-i18next", () => ({
 	useTranslation: () => ({ t: (key: string) => key }),
@@ -38,9 +50,6 @@ jest.mock("@/hooks/use-label-ancestors", () => ({
 	useLabelAncestors: () => new Map(),
 }));
 jest.mock("@/components/auth/AccountMenu", () => ({ AccountMenu: () => null }));
-jest.mock("@/components/board/TitleDialog", () => ({
-	TitleDialog: () => null,
-}));
 jest.mock("@/components/node/DetailsPane", () => ({ DetailsPane: () => null }));
 jest.mock("@/components/overview/CardActionsMenu", () => ({
 	CardActionsMenu: () => null,
@@ -62,6 +71,8 @@ describe("Overview arrival", () => {
 
 	beforeEach(() => {
 		jest.useFakeTimers();
+		mockWidth = 390;
+		mockCard = undefined;
 		const pending = () => ({
 			nodes: [],
 			loading: true,
@@ -82,6 +93,24 @@ describe("Overview arrival", () => {
 		jest.mocked(useDashboardCardsConfig).mockImplementation(() => config);
 	});
 	afterEach(() => jest.useRealTimers());
+
+	it.each(
+		[390, 720, 1024, 1280, 1440, 1760, 2560].flatMap((width) =>
+			[undefined, "card-1"].map((card) => ({ width, card })),
+		),
+	)(
+		"opens project creation from the FAB at $width pixels with card=$card",
+		async ({ width, card }) => {
+			mockWidth = width;
+			mockCard = card;
+			await render(tree());
+			expect(screen.queryByTestId("new-project-dialog")).toBeNull();
+			await fireEvent.press(
+				screen.getByRole("button", { name: "overview.add" }),
+			);
+			expect(screen.getByTestId("new-project-dialog")).toBeOnTheScreen();
+		},
+	);
 
 	it.each(["config", "roots", "pool", "done"] as const)(
 		"keeps the delayed indicator when only %s answers without visible content",

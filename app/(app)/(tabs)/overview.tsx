@@ -23,7 +23,6 @@ import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDashboardCardsConfig } from "@/contexts/DashboardCardsContext";
 import { useHome } from "@/contexts/HomeContext";
-import { useRegisterRailAction } from "@/contexts/RailActionContext";
 import { deleteScopeCard, saveHiddenShared } from "@/data/cards";
 import { createNode } from "@/data/nodes";
 import { useLabelAncestors } from "@/hooks/use-label-ancestors";
@@ -170,6 +169,9 @@ export default function Overview() {
 		width -
 		(flowing ? railWidth : 0) -
 		(showDetails && layout.details === "beside" ? layout.panelWidth : 0);
+	const fabAreaWidth =
+		contentWidth -
+		(showDetails && layout.details === "overlay" ? layout.panelWidth : 0);
 	// The cards' gutters give their room back below `cardGutterBreakpoint`
 	// (#100) — a 390px phone at 200% text is a 195px viewport, and there the
 	// title outranks both gutters.
@@ -187,11 +189,6 @@ export default function Overview() {
 
 	const [adding, setAdding] = useState(false);
 	const openAdd = useCallback(() => setAdding(true), []);
-	useRegisterRailAction(
-		flowing
-			? { label: t("overview.add"), icon: "plus", onPress: openAdd }
-			: null,
-	);
 	const [fabHeight, setFabHeight] = useState(0);
 	/** The card whose *Remove* is waiting for its confirmation. */
 	const [removing, setRemoving] = useState<Card | null>(null);
@@ -396,7 +393,7 @@ export default function Overview() {
 				<SlimScrollView
 					style={{ flex: 1 }}
 					contentContainerStyle={{
-						paddingBottom: flowing ? space.md : fabInset,
+						paddingBottom: fabInset,
 						gap: space.md,
 					}}
 				>
@@ -480,20 +477,18 @@ export default function Overview() {
 			    width it floats over, and the words over the glyph below
 			    `denseBreakpoint` — so the claim about the FAB's room holds on the
 			    screen Ingrid opens, not only on the board. */}
-			{!flowing ? (
-				<FAB
-					icon={width < denseBreakpoint ? undefined : "plus"}
-					label={t("overview.add")}
-					onPress={openAdd}
-					onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
-					style={{
-						position: "absolute",
-						right: space.md,
-						bottom: space.md,
-						maxWidth: width * fabTokens.widthShare,
-					}}
-				/>
-			) : null}
+			<FAB
+				icon={width < denseBreakpoint ? undefined : "plus"}
+				label={t("overview.add")}
+				onPress={openAdd}
+				onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
+				style={{
+					position: "absolute",
+					right: space.md + (showDetails ? layout.panelWidth : 0),
+					bottom: space.md,
+					maxWidth: fabAreaWidth * fabTokens.widthShare,
+				}}
+			/>
 
 			<TitleDialog
 				visible={adding}
