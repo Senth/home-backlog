@@ -56,9 +56,6 @@ jest.mock("@/contexts/AuthContext", () => ({
 jest.mock("@/contexts/HomeContext", () => ({
 	useHome: () => ({ activeHome: { id: "huset", name: "Huset" } }),
 }));
-jest.mock("@/contexts/RailActionContext", () => ({
-	useRegisterRailAction: jest.fn(),
-}));
 jest.mock("@/hooks/use-online-status", () => ({ isOnline: jest.fn() }));
 jest.mock("@/hooks/use-locations", () => ({
 	useLocations: () => ({

@@ -33,9 +33,6 @@ jest.mock("@/contexts/AuthContext", () => ({
 jest.mock("@/contexts/HomeContext", () => ({
 	useHome: () => ({ activeHome: { id: "home-1", name: "Huset", labels: [] } }),
 }));
-jest.mock("@/contexts/RailActionContext", () => ({
-	useRegisterRailAction: jest.fn(),
-}));
 jest.mock("@/contexts/OutboxContext", () => ({
 	useOutbox: () => ({ intents: [] }),
 }));

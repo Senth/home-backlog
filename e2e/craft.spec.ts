@@ -1103,7 +1103,7 @@ test("at 320px full tab labels fit on one line without changing tab bar height, 
 	).toBe(originalHeight);
 });
 
-test("desktop navigation is a labelled rail with reachable destinations and visible keyboard focus, in this locale", async ({
+test("desktop navigation holds only labelled pills with visible keyboard focus and content FABs open creation dialogs, in this locale", async ({
 	page,
 }, testInfo) => {
 	test.skip(
@@ -1139,17 +1139,34 @@ test("desktop navigation is a labelled rail with reachable destinations and visi
 			await expect(page).toHaveURL(new RegExp(`/${name}$`));
 			await expect(tab).toHaveAttribute("aria-selected", "true");
 			const rail = page.getByTestId("navigation-rail");
+			await expect(rail.getByRole("button")).toHaveCount(0);
+			await expect(rail.getByRole("tab")).toHaveCount(4);
+			expect(
+				await rail
+					.locator(INTERACTIVE)
+					.evaluateAll((controls) =>
+						controls.every(
+							(control) =>
+								control.getAttribute("role") === "tab" &&
+								control.querySelector('[data-testid="navigation-pill"]') !==
+									null,
+						),
+					),
+			).toBe(true);
 			const label =
 				name === "overview"
 					? copy.overview.add
 					: name === "locations"
 						? copy.locations.add
 						: null;
-			await expect(rail.getByRole("button")).toHaveCount(label ? 1 : 0);
 			if (label) {
-				const add = page.getByRole("button", { name: label, exact: true });
+				const add = page.locator(FAB_SELECTOR).getByRole("button");
 				await expect(add).toHaveCount(1);
-				await expect(rail.getByRole("button", { name: label })).toBeVisible();
+				await expect(add).toHaveAccessibleName(label);
+				await expect(add).toBeVisible();
+				await expect(
+					page.getByRole("button", { name: label, exact: true }),
+				).toHaveCount(1);
 				const fit = await add
 					.getByText(label, { exact: true })
 					.evaluate((node) => {
@@ -1163,17 +1180,13 @@ test("desktop navigation is a labelled rail with reachable destinations and visi
 					});
 				expect(fit.overflow).toBe(false);
 				expect(fit.lines).toBeLessThanOrEqual(3);
-				if (width === 1440) {
-					await add.click();
-					const dialog = page.getByTestId(
-						name === "overview" ? "new-project-dialog" : "new-location-dialog",
-					);
-					await expect(dialog).toBeVisible();
-					await dialog
-						.getByRole("button", { name: copy.common.cancel })
-						.click();
-					await expect(dialog).not.toBeVisible();
-				}
+				await add.click();
+				const dialog = page.getByTestId(
+					name === "overview" ? "new-project-dialog" : "new-location-dialog",
+				);
+				await expect(dialog).toBeVisible();
+				await dialog.getByRole("button", { name: copy.common.cancel }).click();
+				await expect(dialog).not.toBeVisible();
 			}
 			const box = await tab.boundingBox();
 			expect(box?.width).toBeGreaterThanOrEqual(touchTarget);
