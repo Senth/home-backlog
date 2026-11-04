@@ -36,7 +36,6 @@ import { OutboxSnackbar } from "@/components/ui/OutboxSnackbar";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useHome } from "@/contexts/HomeContext";
 import { useOutbox } from "@/contexts/OutboxContext";
-import { useRegisterRailAction } from "@/contexts/RailActionContext";
 import { locationErrorKey, moveLocation } from "@/data/locations";
 import { intentMetadata, type OutboxIntent } from "@/data/outbox-store";
 import { useBoardFilter } from "@/hooks/use-board-filter";
@@ -66,6 +65,7 @@ import {
 	gutter,
 	icon,
 	radius,
+	railWidth,
 	space,
 	touchTarget,
 } from "@/theme/tokens";
@@ -103,6 +103,14 @@ export default function Locations() {
 	});
 	const cardId = detailsCardId(card);
 	const showDetails = layout.nav === "rail" && cardId !== null;
+	const rail = layout.nav === "rail";
+	const contentAreaWidth =
+		width -
+		(rail ? railWidth : 0) -
+		(showDetails && layout.details === "beside" ? layout.panelWidth : 0);
+	const fabAreaWidth =
+		contentAreaWidth -
+		(showDetails && layout.details === "overlay" ? layout.panelWidth : 0);
 	const { intents, submit, undo } = useOutbox();
 
 	const homeId = activeHome?.id ?? null;
@@ -191,7 +199,8 @@ export default function Locations() {
 	/** The card face's location facts: id → place, from the one tree listener. */
 	const locationsById = new Map(locations.map((l) => [l.id, l]));
 
-	const fabInset = fabHeight > 0 ? fabHeight + space.md + space.md : space.xxl;
+	const fabBottom = notice === null ? space.md : space.xxl + space.lg;
+	const fabInset = fabHeight > 0 ? fabHeight + fabBottom + space.md : space.xxl;
 
 	const toggle = (id: string) => {
 		setCollapsed((previous) => {
@@ -279,13 +288,7 @@ export default function Locations() {
 	const empty = !loading && !failed && locations.length === 0;
 	const showTree = !loading && !failed && locations.length > 0;
 	const moveActive = move.phase !== "idle";
-	const rail = width >= compactBreakpoint;
 	const openAdd = useCallback(() => setAdding({ parent: null }), []);
-	useRegisterRailAction(
-		rail && !moveActive && (empty || showTree)
-			? { label: t("locations.add"), icon: "plus", onPress: openAdd }
-			: null,
-	);
 
 	const footBarStyle = {
 		position: "absolute" as const,
@@ -332,7 +335,7 @@ export default function Locations() {
 					testID="locations-scroll"
 					contentContainerStyle={{
 						padding: width < compactBreakpoint ? gutter.compact : gutter.wide,
-						paddingBottom: rail && !moveActive ? space.md : fabInset,
+						paddingBottom: fabInset,
 						alignSelf: "center",
 						width: "100%",
 						maxWidth: contentWidth.tree,
@@ -388,17 +391,15 @@ export default function Locations() {
 							>
 								{t("locations.emptyBody")}
 							</Text>
-							{!rail ? (
-								<Button
-									ref={openerRef as Ref<typeof View>}
-									mode="contained"
-									icon="plus"
-									onPress={openAdd}
-									contentStyle={{ minHeight: touchTarget }}
-								>
-									{t("locations.add")}
-								</Button>
-							) : null}
+							<Button
+								ref={openerRef as Ref<typeof View>}
+								mode="contained"
+								icon="plus"
+								onPress={openAdd}
+								contentStyle={{ minHeight: touchTarget }}
+							>
+								{t("locations.add")}
+							</Button>
 						</View>
 					) : null}
 
@@ -600,7 +601,7 @@ export default function Locations() {
 			    its button is then the one create control. */}
 			{/* The FAB stands down while a move runs — the foot bar below is then
 			    the loudest shape on the screen, and the mode is unmistakable. */}
-			{!rail && showTree && !moveActive ? (
+			{showTree && !moveActive ? (
 				<FAB
 					ref={openerRef as Ref<typeof View>}
 					icon={width < denseBreakpoint ? undefined : "plus"}
@@ -609,9 +610,9 @@ export default function Locations() {
 					onLayout={(event) => setFabHeight(event.nativeEvent.layout.height)}
 					style={{
 						position: "absolute",
-						right: space.md,
-						bottom: space.md,
-						maxWidth: width * fabTokens.widthShare,
+						right: space.md + (showDetails ? layout.panelWidth : 0),
+						bottom: fabBottom,
+						maxWidth: fabAreaWidth * fabTokens.widthShare,
 					}}
 				/>
 			) : null}
