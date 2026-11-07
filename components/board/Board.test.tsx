@@ -123,7 +123,7 @@ jest.mock("@/components/node/DetailsPane", () => {
 	const { recordProps } = require("@/tests/support/record-props");
 	return { DetailsPane: recordProps(() => null) };
 });
-jest.mock("@react-navigation/native", () => ({
+jest.mock("expo-router/react-navigation", () => ({
 	useIsFocused: () => true,
 }));
 

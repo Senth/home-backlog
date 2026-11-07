@@ -1,4 +1,4 @@
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused } from "expo-router/react-navigation";
 import { useCallback, useState } from "react";
 import type { ViewInstance } from "react-native";
 import { useEscapeCancel } from "@/hooks/use-escape-cancel";

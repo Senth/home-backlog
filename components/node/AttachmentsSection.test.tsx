@@ -22,8 +22,8 @@ import { newNodeData } from "@/models/node";
 import { lightTheme } from "@/theme";
 
 const mockScreenFocus = createContext(true);
-jest.mock("@react-navigation/native", () => ({
-	...jest.requireActual("@react-navigation/native"),
+jest.mock("expo-router/react-navigation", () => ({
+	...jest.requireActual("expo-router/react-navigation"),
 	useIsFocused: () => require("react").useContext(mockScreenFocus),
 }));
 

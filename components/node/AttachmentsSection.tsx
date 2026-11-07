@@ -1,5 +1,5 @@
-import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
+import { useIsFocused } from "expo-router/react-navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { GestureResponderEvent } from "react-native";
