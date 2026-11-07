@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { setImmediate } from "node:timers/promises";
 import { runInNewContext } from "node:vm";
+import { FirebaseError } from "firebase/app";
 
-it.each(["browser-cjs/index-DBOuNQej.js", "esm/index-4NFEPWkC.js"])(
+it.each(["browser-cjs/index-DTUcAMkM.js", "esm/index-Bz2J43nW.js"])(
 	"passes the explicit resolver through reauthentication in %s",
 	(file) => {
 		const source = readFileSync(
@@ -74,7 +75,7 @@ interface Auth {
 	initializeCurrentUser: (resolver?: unknown) => Promise<void>;
 }
 
-describe.each(["browser-cjs/index-DBOuNQej.js", "esm/index-4NFEPWkC.js"])(
+describe.each(["browser-cjs/index-DTUcAMkM.js", "esm/index-Bz2J43nW.js"])(
 	"stored-session initialization in %s",
 	(file) => {
 		const source = readFileSync(
@@ -83,6 +84,11 @@ describe.each(["browser-cjs/index-DBOuNQej.js", "esm/index-4NFEPWkC.js"])(
 		);
 		const start = source.indexOf("class AuthImpl {");
 		const authClass = source.slice(start, source.indexOf("\n}\n", start) + 2);
+		const helperStart = source.indexOf("function _isUserInvalidated(");
+		const isUserInvalidated = source.slice(
+			helperStart,
+			source.indexOf("\n}\n", helperStart) + 2,
+		);
 		let user: User;
 		let resolveReload: () => void;
 		let rejectReload: (error: { code: string }) => void;
@@ -93,10 +99,12 @@ describe.each(["browser-cjs/index-DBOuNQej.js", "esm/index-4NFEPWkC.js"])(
 			user = storedUser();
 			const pending = new Promise<void>((resolve, reject) => {
 				resolveReload = resolve;
-				rejectReload = reject;
+				rejectReload = ({ code }) => reject(new FirebaseError(code, code));
 			});
 			reload = jest.fn(() => pending);
-			const AuthImpl = runInNewContext(`(${authClass})`, {
+			const AuthImpl = runInNewContext(`${isUserInvalidated}\n(${authClass})`, {
+				FirebaseError,
+				util: { FirebaseError },
 				app: { _isFirebaseServerApp: () => false },
 				_isFirebaseServerApp: () => false,
 				_reloadWithoutSaving: reload,
@@ -156,9 +164,11 @@ describe.each(["browser-cjs/index-DBOuNQej.js", "esm/index-4NFEPWkC.js"])(
 
 		it.each([
 			["auth/network-request-failed", false],
+			["auth/too-many-requests", false],
+			["auth/quota-exceeded", false],
+			["auth/internal-error", false],
 			["auth/user-disabled", true],
 			["auth/user-token-expired", true],
-			["auth/user-not-found", true],
 		])("handles %s without blocking initialization", async (code, signOut) => {
 			await auth.queue(() => auth.reloadAndSetCurrentUserOrClear(user));
 			rejectReload({ code });
