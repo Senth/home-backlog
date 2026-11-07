@@ -1,5 +1,5 @@
-import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useNavigation } from "expo-router/react-navigation";
 import {
 	type Ref,
 	useCallback,

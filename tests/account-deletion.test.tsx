@@ -25,7 +25,9 @@ jest.mock("expo-router", () => ({
 		useEffect(callback, [callback]);
 	},
 }));
-jest.mock("@react-navigation/native", () => ({ usePreventRemove: jest.fn() }));
+jest.mock("expo-router/react-navigation", () => ({
+	usePreventRemove: jest.fn(),
+}));
 jest.mock("firebase/auth", () => ({ getIdTokenResult: jest.fn() }));
 jest.mock("@/data/account", () => ({ deleteAccount: jest.fn() }));
 jest.mock("@/contexts/AuthContext", () => ({

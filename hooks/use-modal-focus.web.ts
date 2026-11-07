@@ -54,7 +54,7 @@ interface ModalFocusOptions {
 	 * modal opened is often a menu item that no longer exists by the time it
 	 * closes, and focusing a detached node silently drops focus on `<body>`.
 	 *
-	 * A ref rather than a `testID`: `@react-navigation/bottom-tabs` keeps every
+	 * A ref rather than a `testID`: Expo Router's `Tabs` keeps every
 	 * visited tab mounted, so three app bars — and three identical `testID`s —
 	 * are in the DOM at once, and a `querySelector` returns the first one, which
 	 * belongs to a screen that is `display: none`. Focusing that drops focus on

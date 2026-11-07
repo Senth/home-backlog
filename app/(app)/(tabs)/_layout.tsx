@@ -1,10 +1,7 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import {
-	BottomTabBar,
-	type BottomTabBarProps,
-} from "@react-navigation/bottom-tabs";
-import { PlatformPressable } from "@react-navigation/elements";
 import { Redirect, Tabs } from "expo-router";
+import { BottomTabBar, type BottomTabBarProps } from "expo-router/js-tabs";
+import { PlatformPressable } from "expo-router/react-navigation";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View } from "react-native";
 import { Icon, Text, TouchableRipple } from "react-native-paper";
@@ -162,11 +159,13 @@ export default function TabsLayout() {
 						: besideIcon
 							? { width: icon.md, height: icon.md }
 							: { height: icon.md, marginTop: -space.xs },
-					tabBarIcon: ({ color, size, focused }) => {
+					tabBarIcon: ({ size, focused }) => {
 						const glyph = (
 							<MaterialCommunityIcons
 								name={tabIcons[route.name as keyof typeof tabIcons]}
-								color={color}
+								color={
+									focused ? theme.colors.primary : theme.colors.onSurfaceVariant
+								}
 								size={rail ? icon.md : size}
 							/>
 						);

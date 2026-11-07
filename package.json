@@ -29,12 +29,11 @@
 	"dependencies": {
 		"@expo/vector-icons": "15.1.1",
 		"@react-native-async-storage/async-storage": "3.1.1",
-		"@react-navigation/bottom-tabs": "^7.15.5",
-		"@react-navigation/native": "^7.1.33",
 		"expo": "~58.0.0",
 		"expo-auth-session": "~58.0.0",
 		"expo-clipboard": "~58.0.0",
 		"expo-constants": "~58.0.0",
+		"expo-font": "~58.0.11",
 		"expo-linking": "~58.0.0",
 		"expo-localization": "~58.0.0",
 		"expo-router": "~58.0.0",

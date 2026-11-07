@@ -89,7 +89,7 @@ jest.mock("@/components/location/use-location-drag", () => ({
 		dragged: null,
 	})),
 }));
-jest.mock("@react-navigation/native", () => ({
+jest.mock("expo-router/react-navigation", () => ({
 	useNavigation: () => ({ addListener: jest.fn(() => jest.fn()) }),
 }));
 jest.mock("expo-router", () => ({

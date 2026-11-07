@@ -1,10 +1,10 @@
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
 	type NavigationProp,
 	type ParamListBase,
 	useFocusEffect,
 	useNavigation,
-} from "@react-navigation/native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+} from "expo-router/react-navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View, type ViewInstance } from "react-native";

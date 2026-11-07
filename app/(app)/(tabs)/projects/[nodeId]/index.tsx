@@ -1,5 +1,5 @@
-import { useIsFocused } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
+import { useIsFocused } from "expo-router/react-navigation";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View, type ViewInstance } from "react-native";

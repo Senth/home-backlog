@@ -179,6 +179,28 @@ test("2: breadcrumbs walk back up, and browser back agrees with the taps", async
 	await page.waitForURL((url) => url.pathname === "/projects", {
 		timeout: 30_000,
 	});
+
+	// A board reached directly has no history under it, so Up lands on its
+	// parent. A stack anchor would put the root board there and Up would skip
+	// every level between.
+	await openBoard(page, childId, `${PREFIX}grandchild`);
+	await page.getByRole("button", { name: enUS.board.up }).click();
+	await page.waitForURL(new RegExp(`/projects/${rootId}$`), {
+		timeout: 30_000,
+	});
+
+	// The Projects tab opened for the first time lands on the root board, not on
+	// a board with no node id.
+	await page.goto("/overview");
+	await page
+		.getByRole("tab", { name: enUS.tab.projects, exact: true })
+		.click({ timeout: 30_000 });
+	await page.waitForURL((url) => url.pathname === "/projects", {
+		timeout: 30_000,
+	});
+	await expect(
+		page.locator(columnSelector("backlog"), { hasText: `${PREFIX}root` }),
+	).toBeVisible();
 });
 
 test("3: Move under… re-parents a card onto another board", async ({

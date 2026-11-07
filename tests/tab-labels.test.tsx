@@ -1,4 +1,4 @@
-import type { BottomTabNavigationOptions } from "@react-navigation/bottom-tabs";
+import type { BottomTabNavigationOptions } from "expo-router/js-tabs";
 import type { ReactElement } from "react";
 import TabsLayout from "@/app/(app)/(tabs)/_layout";
 import en from "@/i18n/locales/en-US.json";
