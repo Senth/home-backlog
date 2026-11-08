@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react-native";
 import { useCardSelection } from "@/hooks/use-card-selection";
 
 let mockFocused = true;
-jest.mock("@react-navigation/native", () => ({
+jest.mock("expo-router/react-navigation", () => ({
 	useIsFocused: () => mockFocused,
 }));
 

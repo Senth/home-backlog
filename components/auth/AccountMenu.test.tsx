@@ -11,7 +11,7 @@ import { lightTheme } from "@/theme";
 
 let mockIntents: unknown[] = [];
 
-jest.mock("@react-navigation/native", () => ({ useIsFocused: () => true }));
+jest.mock("expo-router/react-navigation", () => ({ useIsFocused: () => true }));
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
 jest.mock("react-i18next", () => ({
 	useTranslation: () => ({

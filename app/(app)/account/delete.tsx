@@ -1,5 +1,5 @@
-import { usePreventRemove } from "@react-navigation/native";
 import { useFocusEffect, useRouter } from "expo-router";
+import { usePreventRemove } from "expo-router/react-navigation";
 import { getIdTokenResult } from "firebase/auth";
 import { type Ref, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";

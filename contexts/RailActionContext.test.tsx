@@ -1,9 +1,9 @@
+import { act, renderHook } from "@testing-library/react-native";
 import {
 	NavigationContext,
 	type NavigationProp,
 	type ParamListBase,
-} from "@react-navigation/native";
-import { act, renderHook } from "@testing-library/react-native";
+} from "expo-router/react-navigation";
 import type { ReactNode } from "react";
 import {
 	RailActionProvider,

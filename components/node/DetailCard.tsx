@@ -1,4 +1,4 @@
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused } from "expo-router/react-navigation";
 import { useTranslation } from "react-i18next";
 import { IconButton } from "react-native-paper";
 import { BoardCard } from "@/components/board/BoardCard";

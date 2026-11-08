@@ -1,8 +1,8 @@
-diff --git a/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js b/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js
-index 7453f95..b39fe09 100644
---- a/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js
-+++ b/node_modules/@firebase/auth/dist/browser-cjs/index-DBOuNQej.js
-@@ -2812,7 +2812,7 @@ class AuthImpl {
+diff --git a/node_modules/@firebase/auth/dist/browser-cjs/index-DTUcAMkM.js b/node_modules/@firebase/auth/dist/browser-cjs/index-DTUcAMkM.js
+index 33195cf..cfae771 100644
+--- a/node_modules/@firebase/auth/dist/browser-cjs/index-DTUcAMkM.js
++++ b/node_modules/@firebase/auth/dist/browser-cjs/index-DTUcAMkM.js
+@@ -2815,7 +2815,7 @@ class AuthImpl {
          if (!futureCurrentUser) {
              return this.directlySetCurrentUser(null);
          }
@@ -11,7 +11,7 @@ index 7453f95..b39fe09 100644
              // This isn't a redirect link operation, we can reload and bail.
              // First though, ensure that we check the middleware is happy.
              if (needsTocheckMiddleware) {
-@@ -2874,18 +2874,31 @@ class AuthImpl {
+@@ -2877,17 +2877,30 @@ class AuthImpl {
          return result;
      }
      async reloadAndSetCurrentUserOrClear(user) {
@@ -19,22 +19,21 @@ index 7453f95..b39fe09 100644
 -            await _reloadWithoutSaving(user);
 -        }
 -        catch (e) {
--            if (e?.code !==
+-            if (_isUserInvalidated(e)) {
+-                // Something's wrong with the user's token. Log them out and remove
+-                // them from storage
+-                return this.directlySetCurrentUser(null);
 +        await this.directlySetCurrentUser(user);
 +        _reloadWithoutSaving(user).then(() => this.queue(async () => {
 +            if (!this._deleted && this.currentUser === user) {
 +                await this.directlySetCurrentUser(user);
-+            }
-+        }), e => {
-+            if (e?.code ===
-                 `auth/${"network-request-failed" /* AuthErrorCode.NETWORK_REQUEST_FAILED */}`) {
--                // Something's wrong with the user's token. Log them out and remove
--                // them from storage
--                return this.directlySetCurrentUser(null);
-+                return;
              }
 -        }
 -        return this.directlySetCurrentUser(user);
++        }), e => {
++            if (!_isUserInvalidated(e)) {
++                return;
++            }
 +            return this.queue(async () => {
 +                if (this._deleted || this.currentUser !== user) return;
 +                await this.beforeStateQueue.runMiddleware(null);
@@ -53,7 +52,7 @@ index 7453f95..b39fe09 100644
      }
      useDeviceLanguage() {
          this.languageCode = _getUserLanguage();
-@@ -10040,7 +10053,7 @@ async function _reauthenticateWithRedirect(user, provider, resolver) {
+@@ -10053,7 +10066,7 @@ async function _reauthenticateWithRedirect(user, provider, resolver) {
      // Allow the resolver to error before persisting the redirect user
      const resolverInternal = _withDefaultResolver(userInternal.auth, resolver);
      await _setPendingRedirectStatus(resolverInternal, userInternal.auth);
@@ -62,7 +61,7 @@ index 7453f95..b39fe09 100644
      return resolverInternal._openRedirect(userInternal.auth, provider, "reauthViaRedirect" /* AuthEventType.REAUTH_VIA_REDIRECT */, eventId);
  }
  /**
-@@ -10088,7 +10101,7 @@ async function _linkWithRedirect(user, provider, resolver) {
+@@ -10101,7 +10114,7 @@ async function _linkWithRedirect(user, provider, resolver) {
      const resolverInternal = _withDefaultResolver(userInternal.auth, resolver);
      await _assertLinkedStatus(false, userInternal, provider.providerId);
      await _setPendingRedirectStatus(resolverInternal, userInternal.auth);
@@ -71,7 +70,7 @@ index 7453f95..b39fe09 100644
      return resolverInternal._openRedirect(userInternal.auth, provider, "linkViaRedirect" /* AuthEventType.LINK_VIA_REDIRECT */, eventId);
  }
  /**
-@@ -10151,10 +10164,10 @@ async function _getRedirectResult(auth, resolverExtern, bypassAuthState = false)
+@@ -10164,10 +10177,10 @@ async function _getRedirectResult(auth, resolverExtern, bypassAuthState = false)
      }
      return result;
  }
@@ -84,11 +83,11 @@ index 7453f95..b39fe09 100644
      await user.auth._persistUserIfCurrent(user);
      return eventId;
  }
-diff --git a/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js b/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js
-index 19ad008..d74506e 100644
---- a/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js
-+++ b/node_modules/@firebase/auth/dist/esm/index-4NFEPWkC.js
-@@ -2810,7 +2810,7 @@ class AuthImpl {
+diff --git a/node_modules/@firebase/auth/dist/esm/index-Bz2J43nW.js b/node_modules/@firebase/auth/dist/esm/index-Bz2J43nW.js
+index 9a1b1f8..eff2447 100644
+--- a/node_modules/@firebase/auth/dist/esm/index-Bz2J43nW.js
++++ b/node_modules/@firebase/auth/dist/esm/index-Bz2J43nW.js
+@@ -2813,7 +2813,7 @@ class AuthImpl {
          if (!futureCurrentUser) {
              return this.directlySetCurrentUser(null);
          }
@@ -97,7 +96,7 @@ index 19ad008..d74506e 100644
              // This isn't a redirect link operation, we can reload and bail.
              // First though, ensure that we check the middleware is happy.
              if (needsTocheckMiddleware) {
-@@ -2872,18 +2872,31 @@ class AuthImpl {
+@@ -2875,17 +2875,30 @@ class AuthImpl {
          return result;
      }
      async reloadAndSetCurrentUserOrClear(user) {
@@ -105,22 +104,21 @@ index 19ad008..d74506e 100644
 -            await _reloadWithoutSaving(user);
 -        }
 -        catch (e) {
--            if (e?.code !==
+-            if (_isUserInvalidated(e)) {
+-                // Something's wrong with the user's token. Log them out and remove
+-                // them from storage
+-                return this.directlySetCurrentUser(null);
 +        await this.directlySetCurrentUser(user);
 +        _reloadWithoutSaving(user).then(() => this.queue(async () => {
 +            if (!this._deleted && this.currentUser === user) {
 +                await this.directlySetCurrentUser(user);
-+            }
-+        }), e => {
-+            if (e?.code ===
-                 `auth/${"network-request-failed" /* AuthErrorCode.NETWORK_REQUEST_FAILED */}`) {
--                // Something's wrong with the user's token. Log them out and remove
--                // them from storage
--                return this.directlySetCurrentUser(null);
-+                return;
              }
 -        }
 -        return this.directlySetCurrentUser(user);
++        }), e => {
++            if (!_isUserInvalidated(e)) {
++                return;
++            }
 +            return this.queue(async () => {
 +                if (this._deleted || this.currentUser !== user) return;
 +                await this.beforeStateQueue.runMiddleware(null);
@@ -139,7 +137,7 @@ index 19ad008..d74506e 100644
      }
      useDeviceLanguage() {
          this.languageCode = _getUserLanguage();
-@@ -10038,7 +10051,7 @@ async function _reauthenticateWithRedirect(user, provider, resolver) {
+@@ -10051,7 +10064,7 @@ async function _reauthenticateWithRedirect(user, provider, resolver) {
      // Allow the resolver to error before persisting the redirect user
      const resolverInternal = _withDefaultResolver(userInternal.auth, resolver);
      await _setPendingRedirectStatus(resolverInternal, userInternal.auth);
@@ -148,7 +146,7 @@ index 19ad008..d74506e 100644
      return resolverInternal._openRedirect(userInternal.auth, provider, "reauthViaRedirect" /* AuthEventType.REAUTH_VIA_REDIRECT */, eventId);
  }
  /**
-@@ -10086,7 +10099,7 @@ async function _linkWithRedirect(user, provider, resolver) {
+@@ -10099,7 +10112,7 @@ async function _linkWithRedirect(user, provider, resolver) {
      const resolverInternal = _withDefaultResolver(userInternal.auth, resolver);
      await _assertLinkedStatus(false, userInternal, provider.providerId);
      await _setPendingRedirectStatus(resolverInternal, userInternal.auth);
@@ -157,7 +155,7 @@ index 19ad008..d74506e 100644
      return resolverInternal._openRedirect(userInternal.auth, provider, "linkViaRedirect" /* AuthEventType.LINK_VIA_REDIRECT */, eventId);
  }
  /**
-@@ -10149,10 +10162,10 @@ async function _getRedirectResult(auth, resolverExtern, bypassAuthState = false)
+@@ -10162,10 +10175,10 @@ async function _getRedirectResult(auth, resolverExtern, bypassAuthState = false)
      }
      return result;
  }
