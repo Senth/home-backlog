@@ -16,6 +16,7 @@ import {
 	type ViewInstance,
 } from "react-native";
 import { Button, FAB, Icon, Menu, Text } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { boardHref, detailsCardId } from "@/components/board/board-href";
 import { LocationDialog } from "@/components/location/LocationDialog";
@@ -96,6 +97,7 @@ export default function Locations() {
 	const { card } = useLocalSearchParams<{ card?: string | string[] }>();
 	const { activeHome } = useHome();
 	const { width } = useWindowDimensions();
+	const { bottom: bottomInset } = useSafeAreaInsets();
 	const layout = desktopLayout({
 		windowWidth: width,
 		columnCount: defaultColumns.length,
@@ -143,6 +145,7 @@ export default function Locations() {
 		intentId?: string;
 	} | null>(null);
 	const [fabHeight, setFabHeight] = useState(0);
+	const [snackbarHeight, setSnackbarHeight] = useState<number>(space.xxl);
 	const openerRef = useRef<ViewInstance | null>(null);
 	const visitingPlace = useRef(false);
 	const navigation = useNavigation();
@@ -199,7 +202,10 @@ export default function Locations() {
 	/** The card face's location facts: id → place, from the one tree listener. */
 	const locationsById = new Map(locations.map((l) => [l.id, l]));
 
-	const fabBottom = notice === null ? space.md : space.xxl + space.lg;
+	const fabBottom =
+		notice === null
+			? space.md
+			: snackbarHeight + bottomInset + space.md + space.md;
 	const fabInset = fabHeight > 0 ? fabHeight + fabBottom + space.md : space.xxl;
 
 	const toggle = (id: string) => {
@@ -673,6 +679,7 @@ export default function Locations() {
 			<OutboxSnackbar
 				intentId={notice?.intentId}
 				visible={notice !== null}
+				onLayout={(event) => setSnackbarHeight(event.nativeEvent.layout.height)}
 				onDismiss={() => setNotice(null)}
 				action={
 					notice?.intentId

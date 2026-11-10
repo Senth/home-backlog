@@ -162,11 +162,11 @@ const queuedMove: OutboxIntent = {
 	rank: "V1",
 };
 
-function open() {
+function open(bottomInset = 0) {
 	return render(
 		<SafeAreaProvider
 			initialMetrics={{
-				insets: { top: 0, bottom: 0, left: 0, right: 0 },
+				insets: { top: 0, bottom: bottomInset, left: 0, right: 0 },
 				frame: { x: 0, y: 0, width: space.none, height: space.none },
 			}}
 		>
@@ -238,6 +238,50 @@ it.each([390, 1280])(
 		expect(
 			tree.getByRole("button", { name: "locations.add" }),
 		).toBeOnTheScreen();
+	},
+);
+
+it.each([
+	[390, 0],
+	[390, 34],
+	[1280, 0],
+])(
+	"keeps the FAB and final row clear as a queued snackbar wraps at %i pixels with bottom inset %i",
+	async (width, bottomInset) => {
+		mockWidth = width;
+		const screen = await open(bottomInset);
+		const fabHeight = 56;
+		const measureFab = async () =>
+			fireEvent(screen.getByTestId("fab-container"), "layout", {
+				nativeEvent: { layout: { height: fabHeight } },
+			});
+		const expectClearance = (bottom: number) => {
+			expect(screen.getByTestId("fab-container-outer-layer")).toHaveStyle({
+				bottom,
+			});
+			expect(
+				screen.getByTestId("locations-scroll").props.contentContainerStyle
+					.paddingBottom,
+			).toBe(fabHeight + bottom + space.md);
+		};
+		await measureFab();
+		expectClearance(space.md);
+		await fireEvent.press(screen.getByTestId("move-kitchen"));
+		await fireEvent.press(screen.getByTestId("target-garden"));
+		await fireEvent.press(screen.getByText("locations.moveHere"));
+		await waitFor(() =>
+			expect(screen.getByText("Kitchen:garden")).toBeTruthy(),
+		);
+		await measureFab();
+		for (const height of [68, 128, 48]) {
+			await fireEvent(screen.getByTestId("surface"), "layout", {
+				nativeEvent: { layout: { height } },
+			});
+			expectClearance(height + bottomInset + space.md + space.md);
+		}
+		await fireEvent.press(screen.getByText("common.undo"));
+		await waitFor(() => expect(screen.getByText("Kitchen:root")).toBeTruthy());
+		expectClearance(space.md);
 	},
 );
 
