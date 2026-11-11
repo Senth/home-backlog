@@ -3,16 +3,16 @@ import "@/i18n";
 
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import {
-	DarkTheme,
-	DefaultTheme,
-	ThemeProvider,
-} from "@react-navigation/native";
-import {
 	isLoaded as isFontLoaded,
 	loadAsync as loadFontAsync,
 } from "expo-font";
 import { Slot } from "expo-router";
 import Head from "expo-router/head";
+import {
+	DarkTheme,
+	DefaultTheme,
+	ThemeProvider,
+} from "expo-router/react-navigation";
 import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -142,11 +142,10 @@ export default function RootLayout() {
 	// never recognized at all.
 	return (
 		<GestureHandlerRootView style={{ flex: 1 }}>
-			{/* Expo Router manages the document title through react-helmet, which
-			    renders an *empty* `<title>` when no screen sets one — so the page
-			    had no accessible name and a screen reader announced the URL. A
-			    static title in `+html.tsx` cannot fix it: helmet's element wins.
-			    Per-screen titles belong to the screens; this is the fallback. */}
+			{/* The localized title once JavaScript has loaded. `Head` no longer
+			    reaches the exported HTML, so `+html.tsx` carries the title the page
+			    has before then. Per-screen titles belong to the screens; this is the
+			    fallback. */}
 			<Head>
 				<title>{t("app.name")}</title>
 			</Head>

@@ -1,5 +1,9 @@
-import { ScrollViewStyleReset } from "expo-router/html";
+import {
+	ScrollViewStyleReset,
+	useServerDocumentContext,
+} from "expo-router/html";
 import type { PropsWithChildren } from "react";
+import enUS from "@/i18n/locales/en-US.json";
 import { themeColor } from "@/theme";
 import { focusVisibleCss } from "@/theme/focus-visible";
 import { scrollbarCss } from "@/theme/scrollbar";
@@ -14,8 +18,11 @@ import { buildId } from "@/utils/build-info";
  * else here is the PWA layer: manifest, icons, and theme colors.
  */
 export default function Root({ children }: PropsWithChildren) {
+	const { headNodes, bodyNodes, htmlAttributes, bodyAttributes } =
+		useServerDocumentContext();
+
 	return (
-		<html lang="en">
+		<html lang="en" {...htmlAttributes}>
 			<head>
 				<meta charSet="utf-8" />
 				<meta httpEquiv="X-UA-Compatible" content="IE=edge" />
@@ -27,6 +34,7 @@ export default function Root({ children }: PropsWithChildren) {
 					content="width=device-width, initial-scale=1, shrink-to-fit=no, interactive-widget=resizes-content"
 				/>
 
+				<title>{enUS.app.name}</title>
 				<link rel="manifest" href="/manifest.webmanifest" />
 				{/* The build identity, baked in at export. The page reads it off
 				    the wire to notice a stale shell — see utils/shell-freshness.ts. */}
@@ -59,8 +67,12 @@ export default function Root({ children }: PropsWithChildren) {
 				    stylesheet because React Native Web cannot reach a text input's
 				    own bar — see the module. */}
 				<style>{scrollbarCss}</style>
+				{headNodes}
 			</head>
-			<body>{children}</body>
+			<body {...bodyAttributes}>
+				{children}
+				{bodyNodes}
+			</body>
 		</html>
 	);
 }

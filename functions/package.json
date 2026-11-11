@@ -23,8 +23,9 @@
 		"@types/express": "^5.0.0",
 		"@types/jest": "^30.0.0",
 		"@types/node": "^24.19.2",
+		"@typescript/native": "npm:typescript@~7.0.0",
 		"jest": "^30.0.0",
 		"ts-jest": "^29.4.7",
-		"typescript": "~5.9.2"
+		"typescript": "npm:@typescript/typescript6@~6.0.2"
 	}
 }
