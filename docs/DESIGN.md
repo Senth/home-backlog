@@ -143,8 +143,7 @@ is why `Row` is not `List.Item` and `MetaChip` is not `Chip`).
 - **The FAB keeps `primaryContainer` and its extended label.** It may not take room: at most
   `fab.widthShare` of its width, and below `denseBreakpoint` the glyph yields so the label
   wraps. A FAB quieted to `surface` is a finding: loud is the room it takes, not its fill.
-  From `compactBreakpoint` up, Overview and Locations put the add button at the top of the
-  navigation rail, same fill and label.
+  At every width the FAB sits at the bottom right of the content, left of an open details pane.
 - **Control height** — `touchTarget` is a floor and Paper does not give it to you. Use
   `touchTargetStyle`, `outlinedTouchTarget` for a `Chip`, `segmentedLabelLineHeight` for
   `SegmentedButtons`.
