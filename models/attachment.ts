@@ -70,6 +70,7 @@ export type AttachmentErrorKey =
 	| "detail.attachmentsQuota"
 	| "detail.attachmentsRefused"
 	| "detail.attachmentsStalled"
+	| "detail.attachmentsUnreadable"
 	| "detail.attachmentsFailed";
 
 export type AttachmentUploadProgress =
@@ -82,6 +83,7 @@ export function attachmentErrorKey(reason: unknown): AttachmentErrorKey {
 	if (code === "attachment-type") return "detail.attachmentsWrongType";
 	if (code === "attachment-quota") return "detail.attachmentsQuota";
 	if (code === "attachment-stalled") return "detail.attachmentsStalled";
+	if (code === "attachment-unreadable") return "detail.attachmentsUnreadable";
 	if (code === "storage/unauthorized" || code === "storage/unauthenticated")
 		return "detail.attachmentsRefused";
 	return "detail.attachmentsFailed";

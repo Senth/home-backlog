@@ -96,6 +96,9 @@ describe("attachmentErrorKey", () => {
 		expect(attachmentErrorKey({ code: "attachment-stalled" })).toBe(
 			"detail.attachmentsStalled",
 		);
+		expect(attachmentErrorKey({ code: "attachment-unreadable" })).toBe(
+			"detail.attachmentsUnreadable",
+		);
 		expect(attachmentErrorKey(new Error("storage/retry-limit-exceeded"))).toBe(
 			"detail.attachmentsFailed",
 		);

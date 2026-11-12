@@ -13,6 +13,7 @@ export interface UploadBatchFile {
 	size: number;
 	contentType: string;
 	previewUrl?: string;
+	errorKey?: AttachmentErrorKey;
 }
 
 export type UploadBatchStatus =
@@ -59,6 +60,8 @@ function allocateFiles<T extends UploadBatchFile>(
 				file,
 				state: { status: "failed", key: attachmentErrorKey({ code: refusal }) },
 			});
+		} else if (file.errorKey !== undefined) {
+			entries.push({ file, state: { status: "failed", key: file.errorKey } });
 		} else if (remaining <= 0 || file.size > remaining) {
 			entries.push({
 				file,
