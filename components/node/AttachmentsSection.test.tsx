@@ -833,6 +833,78 @@ describe("AttachmentsSection", () => {
 		).toBeOnTheScreen();
 	});
 
+	it("retains a prior batch rejection arriving while the next pick copies", async () => {
+		let onError: ((reason: unknown) => void) | undefined;
+		jest
+			.mocked(uploadAttachment)
+			.mockImplementation(
+				async (_home, _node, _uid, _file, _progress, onLateError) => {
+					onError = onLateError;
+					return anAttachment();
+				},
+			);
+		let finishCopy!: (bytes: ArrayBuffer) => void;
+		const next = pickedFile("next.jpg", {
+			arrayBuffer: jest.fn(
+				() =>
+					new Promise((resolve) => {
+						finishCopy = resolve;
+					}),
+			),
+		});
+		await renderSection(aNode([]));
+		await act(async () => mockDroppedFiles([pickedFile("old.jpg")]));
+		expect(screen.queryByText("old.jpg")).toBeNull();
+		await act(async () => mockDroppedFiles([next]));
+		expect(uploadAttachment).toHaveBeenCalledTimes(1);
+		expect(onError).toBeDefined();
+		await act(async () => onError?.({ code: "storage/unauthorized" }));
+		expect(screen.getByText("old.jpg")).toBeOnTheScreen();
+		await act(async () => finishCopy(new ArrayBuffer(1)));
+		expect(uploadAttachment).toHaveBeenCalledTimes(2);
+		expect(screen.getByText("old.jpg")).toBeOnTheScreen();
+		expect(
+			screen.getByText('detail.attachmentsRefused:{"limit":"20 megabytes"}'),
+		).toBeOnTheScreen();
+		expect(
+			screen.getByText('detail.attachmentsBatchCount:{"done":1,"total":2}'),
+		).toBeOnTheScreen();
+	});
+
+	it("skips previews for copies completing after unmount but still uploads", async () => {
+		const original = Platform.OS;
+		Platform.OS = "web";
+		const create = jest
+			.spyOn(URL, "createObjectURL")
+			.mockReturnValue("blob:unmounted-copy");
+		let finishCopy!: (bytes: ArrayBuffer) => void;
+		const file = pickedFile("background.jpg", {
+			arrayBuffer: jest.fn(
+				() =>
+					new Promise((resolve) => {
+						finishCopy = resolve;
+					}),
+			),
+		});
+		const view = await renderSection(aNode([]));
+		try {
+			await act(async () => mockDroppedFiles([file]));
+			expect(create).not.toHaveBeenCalled();
+			expect(uploadAttachment).not.toHaveBeenCalled();
+			await view.unmount();
+			await act(async () => finishCopy(new ArrayBuffer(1)));
+			expect(uploadAttachment).toHaveBeenCalledTimes(1);
+			expect(jest.mocked(uploadAttachment).mock.calls[0]?.[3].blob).not.toBe(
+				file,
+			);
+			expect(create).not.toHaveBeenCalled();
+		} finally {
+			await view.unmount();
+			Platform.OS = original;
+			create.mockRestore();
+		}
+	});
+
 	it("continues draining the picked node batch after the section unmounts", async () => {
 		const uploads: {
 			nodeId: string;

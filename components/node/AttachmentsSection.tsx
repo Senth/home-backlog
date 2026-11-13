@@ -163,6 +163,7 @@ export function AttachmentsSection({
 	const nextFileId = useRef(0);
 	const batchTarget = useRef<UploadTarget | null>(null);
 	const previewUrls = useRef(new Map<string, string>());
+	const mounted = useRef(false);
 	const [deleteFailed, setDeleteFailed] = useState(false);
 	const [viewing, setViewing] = useState<Attachment | null>(null);
 	const [menu, setMenu] = useState<{
@@ -278,6 +279,7 @@ export function AttachmentsSection({
 			const generation = append
 				? batchGeneration.current
 				: ++batchGeneration.current;
+			if (!append) setLateFailures([]);
 			pendingPicks.current += 1;
 			const copies = Promise.all(
 				picked.map(async (file): Promise<PickedAttachment> => {
@@ -311,6 +313,7 @@ export function AttachmentsSection({
 					if (generation !== batchGeneration.current) return;
 					for (const entry of entries) {
 						if (
+							!mounted.current ||
 							Platform.OS !== "web" ||
 							entry.blob === undefined ||
 							!isImageType(entry.contentType) ||
@@ -348,7 +351,6 @@ export function AttachmentsSection({
 						attachmentBytes: null,
 					};
 					batchTarget.current = target;
-					setLateFailures([]);
 					setBatch(startUploadBatch(entries, 0));
 					await readHomeAttachmentBytes(homeId).then(
 						(bytes) => {
@@ -399,13 +401,14 @@ export function AttachmentsSection({
 		}
 	}, [batch]);
 
-	useEffect(
-		() => () => {
+	useEffect(() => {
+		mounted.current = true;
+		return () => {
+			mounted.current = false;
 			for (const url of previewUrls.current.values()) URL.revokeObjectURL(url);
 			previewUrls.current.clear();
-		},
-		[],
-	);
+		};
+	}, []);
 
 	// A download URL carries a rotating token, so it is asked for at render
 	// time from the stored path (`models/node.ts` explains why none are stored)
