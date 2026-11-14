@@ -15,6 +15,7 @@ import type { AttachmentUploadProgress } from "@/models/attachment";
 import {
 	attachmentAccept,
 	homeAttachmentCeiling,
+	maxAttachmentBytes,
 	photoAccept,
 } from "@/models/attachment";
 import type { Attachment, Node } from "@/models/node";
@@ -83,6 +84,17 @@ jest.mock("@/hooks/use-online-status", () => ({
 
 const oneMb = 1024 * 1024;
 const photoBytes = 3 * oneMb;
+
+function pickedFile(name: string, over: Partial<File> = {}): File {
+	return {
+		name,
+		type: "image/jpeg",
+		size: photoBytes,
+		lastModified: 123,
+		arrayBuffer: jest.fn(async () => new ArrayBuffer(photoBytes)),
+		...over,
+	} as File;
+}
 
 function anAttachment(over: Partial<Attachment> = {}): Attachment {
 	return {
@@ -225,9 +237,7 @@ describe("AttachmentsSection", () => {
 		);
 		await renderSection(aNode([]));
 		await act(async () => {
-			mockDroppedFiles([
-				{ name: "photo.jpg", type: "image/jpeg", size: photoBytes },
-			] as File[]);
+			mockDroppedFiles([pickedFile("photo.jpg")]);
 		});
 		expect(readHomeAttachmentBytes).toHaveBeenCalledWith("home");
 		expect(screen.getByText("detail.attachmentsAddPhotos")).toBeEnabled();
@@ -255,16 +265,18 @@ describe("AttachmentsSection", () => {
 		).toBeOnTheScreen();
 	});
 
-	it("opens the file picker when the zone is pressed", async () => {
+	it("opens the file picker and reads its selection before onchange returns", async () => {
 		const original = Platform.OS;
 		Platform.OS = "web";
 		const click = jest.fn();
+		const file = pickedFile("picker.jpg");
 		const input = {
 			click,
 			type: "",
 			multiple: false,
 			accept: "",
-			onchange: null,
+			onchange: null as (() => void) | null,
+			files: [file],
 		};
 		const createElement = jest.fn(() => input);
 		Object.defineProperty(globalThis, "document", {
@@ -286,6 +298,14 @@ describe("AttachmentsSection", () => {
 			multiple: true,
 			accept: attachmentAccept,
 		});
+		await act(async () => {
+			input.onchange?.();
+			expect(file.arrayBuffer).toHaveBeenCalledTimes(1);
+			expect(uploadAttachment).not.toHaveBeenCalled();
+		});
+		expect(jest.mocked(uploadAttachment).mock.calls[0]?.[3].blob).not.toBe(
+			file,
+		);
 		await view.unmount();
 		Platform.OS = original;
 		Reflect.deleteProperty(globalThis, "document");
@@ -325,11 +345,7 @@ describe("AttachmentsSection", () => {
 				))}
 			</Provider>
 		);
-		const file = {
-			name: "photo.jpg",
-			type: "image/jpeg",
-			size: photoBytes,
-		} as File;
+		const file = pickedFile("photo.jpg");
 		const paste = {
 			clipboardData: { files: [file] },
 			preventDefault: jest.fn(),
@@ -341,6 +357,7 @@ describe("AttachmentsSection", () => {
 				await view.rerender(panes(id));
 				await act(async () => {
 					for (const listener of [...listeners]) listener(paste);
+					expect(file.arrayBuffer).toHaveBeenCalledTimes(1);
 				});
 				expect(uploadAttachment).toHaveBeenCalledTimes(1);
 				expect(uploadAttachment).toHaveBeenCalledWith(
@@ -351,13 +368,14 @@ describe("AttachmentsSection", () => {
 						name: file.name,
 						contentType: file.type,
 						size: file.size,
-						blob: file,
+						blob: expect.any(File),
 					}),
 					expect.any(Function),
 					expect.any(Function),
 					0,
 				);
 				jest.mocked(uploadAttachment).mockClear();
+				jest.mocked(file.arrayBuffer).mockClear();
 			}
 			await view.rerender(panes(null));
 			expect(listeners.size).toBe(0);
@@ -519,8 +537,8 @@ describe("AttachmentsSection", () => {
 		await act(async () => {
 			mockDroppedFiles(
 				["one.jpg", "two.jpg", "three.jpg", "four.jpg", "five.jpg"].map(
-					(name) => ({ name, type: "image/jpeg", size: photoBytes }),
-				) as File[],
+					(name) => pickedFile(name),
+				),
 			);
 		});
 		await waitFor(() => expect(uploads).toHaveLength(3));
@@ -564,9 +582,7 @@ describe("AttachmentsSection", () => {
 		expect(screen.queryByText("two.jpg")).toBeNull();
 
 		await act(async () => {
-			mockDroppedFiles([
-				{ name: "six.jpg", type: "image/jpeg", size: photoBytes } as File,
-			]);
+			mockDroppedFiles([pickedFile("six.jpg")]);
 		});
 		expect(
 			screen.getByText('detail.attachmentsBatchCount:{"done":1,"total":6}'),
@@ -585,6 +601,142 @@ describe("AttachmentsSection", () => {
 		expect(screen.queryByText("six.jpg")).toBeNull();
 	});
 
+	it("keeps an unreadable file as a failed row without a preview or upload", async () => {
+		const original = Platform.OS;
+		Platform.OS = "web";
+		const create = jest.spyOn(URL, "createObjectURL");
+		const file = pickedFile("unreadable.jpg", {
+			arrayBuffer: jest.fn().mockRejectedValue(new Error("NotReadableError")),
+		});
+		try {
+			await renderSection(aNode([]));
+			await act(async () => mockDroppedFiles([file]));
+			expect(file.arrayBuffer).toHaveBeenCalledTimes(1);
+			expect(screen.getByText("unreadable.jpg")).toBeOnTheScreen();
+			expect(
+				screen.getByText(
+					'detail.attachmentsUnreadable:{"limit":"20 megabytes"}',
+				),
+			).toBeOnTheScreen();
+			expect(create).not.toHaveBeenCalled();
+			expect(uploadAttachment).not.toHaveBeenCalled();
+		} finally {
+			Platform.OS = original;
+			create.mockRestore();
+		}
+	});
+
+	it("reads picked bytes synchronously and uploads and previews only the copy", async () => {
+		const original = Platform.OS;
+		Platform.OS = "web";
+		const create = jest
+			.spyOn(URL, "createObjectURL")
+			.mockReturnValue("blob:copy");
+		jest.mocked(uploadAttachment).mockReturnValue(new Promise(() => {}));
+		let finishCopy!: (bytes: ArrayBuffer) => void;
+		const bytes = new Uint8Array([1, 2, 3]).buffer;
+		const file = pickedFile("copy.jpg", {
+			size: bytes.byteLength,
+			arrayBuffer: jest.fn(
+				() =>
+					new Promise((resolve) => {
+						finishCopy = resolve;
+					}),
+			),
+		});
+		try {
+			await renderSection(aNode([]));
+			await act(async () => {
+				mockDroppedFiles([file]);
+				expect(file.arrayBuffer).toHaveBeenCalledTimes(1);
+				expect(uploadAttachment).not.toHaveBeenCalled();
+				expect(readHomeAttachmentBytes).not.toHaveBeenCalled();
+			});
+			await act(async () => finishCopy(bytes));
+			const copy = jest.mocked(uploadAttachment).mock.calls[0]?.[3].blob;
+			expect(copy).toBeInstanceOf(File);
+			expect(copy).not.toBe(file);
+			expect(copy).toMatchObject({
+				name: file.name,
+				type: file.type,
+				size: bytes.byteLength,
+				lastModified: file.lastModified,
+			});
+			expect(create).toHaveBeenCalledWith(copy);
+			expect(await copy?.arrayBuffer()).toEqual(bytes);
+		} finally {
+			Platform.OS = original;
+			create.mockRestore();
+		}
+	});
+
+	it("serializes overlapping picks and keeps copy completion order out of one batch", async () => {
+		const resolveCopies: ((bytes: ArrayBuffer) => void)[] = [];
+		const picks = ["first.jpg", "second.jpg", "third.jpg"].map((name) =>
+			pickedFile(name, {
+				arrayBuffer: jest.fn(
+					() => new Promise((resolve) => resolveCopies.push(resolve)),
+				),
+			}),
+		);
+		await renderSection(aNode([]));
+		await act(async () => {
+			mockDroppedFiles(picks.slice(0, 2));
+			mockDroppedFiles(picks.slice(2));
+			expect(
+				picks.every(
+					(file) => jest.mocked(file.arrayBuffer).mock.calls.length === 1,
+				),
+			).toBe(true);
+		});
+		await act(async () => {
+			resolveCopies[2]?.(new ArrayBuffer(1));
+			resolveCopies[1]?.(new ArrayBuffer(1));
+		});
+		expect(uploadAttachment).not.toHaveBeenCalled();
+		await act(async () => resolveCopies[0]?.(new ArrayBuffer(1)));
+		expect(
+			jest.mocked(uploadAttachment).mock.calls.map((call) => call[3].name),
+		).toEqual(["first.jpg", "second.jpg", "third.jpg"]);
+		expect(readHomeAttachmentBytes).toHaveBeenCalledTimes(1);
+		expect(
+			screen.getByText('detail.attachmentsBatchCount:{"done":3,"total":3}'),
+		).toBeOnTheScreen();
+	});
+
+	it("refuses type and size before reading any picked bytes", async () => {
+		const picks = [
+			pickedFile("archive.zip", { type: "application/zip" }),
+			pickedFile("large.jpg", { size: maxAttachmentBytes }),
+		];
+		await renderSection(aNode([]));
+		await act(async () => mockDroppedFiles(picks));
+		for (const file of picks) expect(file.arrayBuffer).not.toHaveBeenCalled();
+		expect(uploadAttachment).not.toHaveBeenCalled();
+		expect(
+			screen.getByText('detail.attachmentsWrongType:{"limit":"20 megabytes"}'),
+		).toBeOnTheScreen();
+		expect(
+			screen.getByText('detail.attachmentsTooLarge:{"limit":"20 megabytes"}'),
+		).toBeOnTheScreen();
+	});
+
+	it("fails queued picks when reading the home quota fails instead of leaving them waiting", async () => {
+		jest
+			.mocked(readHomeAttachmentBytes)
+			.mockRejectedValue(new Error("Quota unavailable"));
+		await renderSection(aNode([]));
+		await act(async () => {
+			mockDroppedFiles([pickedFile("first.jpg")]);
+			mockDroppedFiles([pickedFile("second.jpg")]);
+		});
+		expect(
+			screen.getAllByText('detail.attachmentsFailed:{"limit":"20 megabytes"}'),
+		).toHaveLength(2);
+		expect(screen.queryByText("detail.attachmentsWaiting")).toBeNull();
+		expect(uploadAttachment).not.toHaveBeenCalled();
+	});
+
 	it("shows quota refusal under its file and offers the inventory", async () => {
 		jest
 			.mocked(readHomeAttachmentBytes)
@@ -595,11 +747,7 @@ describe("AttachmentsSection", () => {
 		await renderSection(aNode([]));
 		await act(async () => {
 			mockDroppedFiles(
-				["fits.jpg", "over-quota.jpg"].map((name) => ({
-					name,
-					type: "image/jpeg",
-					size: photoBytes,
-				})) as File[],
+				["fits.jpg", "over-quota.jpg"].map((name) => pickedFile(name)),
 			);
 		});
 		expect(screen.getByText("fits.jpg")).toBeOnTheScreen();
@@ -622,9 +770,7 @@ describe("AttachmentsSection", () => {
 		);
 		await renderSection(aNode([]));
 		await act(async () => {
-			mockDroppedFiles([
-				{ name: "late.jpg", type: "image/jpeg", size: photoBytes } as File,
-			]);
+			mockDroppedFiles([pickedFile("late.jpg")]);
 		});
 		await waitFor(() =>
 			expect(
@@ -662,9 +808,7 @@ describe("AttachmentsSection", () => {
 		);
 		await renderSection(aNode([]));
 		await act(async () => {
-			mockDroppedFiles([
-				{ name: "batch-a.jpg", type: "image/jpeg", size: photoBytes } as File,
-			]);
+			mockDroppedFiles([pickedFile("batch-a.jpg")]);
 		});
 		await waitFor(() => expect(uploads).toHaveLength(1));
 		await act(async () => uploads[0]?.resolve(anAttachment()));
@@ -675,9 +819,7 @@ describe("AttachmentsSection", () => {
 		);
 
 		await act(async () => {
-			mockDroppedFiles([
-				{ name: "batch-b.jpg", type: "image/jpeg", size: photoBytes } as File,
-			]);
+			mockDroppedFiles([pickedFile("batch-b.jpg")]);
 		});
 		await waitFor(() => expect(uploads).toHaveLength(2));
 		await act(async () =>
@@ -689,6 +831,78 @@ describe("AttachmentsSection", () => {
 		expect(
 			screen.getByText('detail.attachmentsRefused:{"limit":"20 megabytes"}'),
 		).toBeOnTheScreen();
+	});
+
+	it("retains a prior batch rejection arriving while the next pick copies", async () => {
+		let onError: ((reason: unknown) => void) | undefined;
+		jest
+			.mocked(uploadAttachment)
+			.mockImplementation(
+				async (_home, _node, _uid, _file, _progress, onLateError) => {
+					onError = onLateError;
+					return anAttachment();
+				},
+			);
+		let finishCopy!: (bytes: ArrayBuffer) => void;
+		const next = pickedFile("next.jpg", {
+			arrayBuffer: jest.fn(
+				() =>
+					new Promise((resolve) => {
+						finishCopy = resolve;
+					}),
+			),
+		});
+		await renderSection(aNode([]));
+		await act(async () => mockDroppedFiles([pickedFile("old.jpg")]));
+		expect(screen.queryByText("old.jpg")).toBeNull();
+		await act(async () => mockDroppedFiles([next]));
+		expect(uploadAttachment).toHaveBeenCalledTimes(1);
+		expect(onError).toBeDefined();
+		await act(async () => onError?.({ code: "storage/unauthorized" }));
+		expect(screen.getByText("old.jpg")).toBeOnTheScreen();
+		await act(async () => finishCopy(new ArrayBuffer(1)));
+		expect(uploadAttachment).toHaveBeenCalledTimes(2);
+		expect(screen.getByText("old.jpg")).toBeOnTheScreen();
+		expect(
+			screen.getByText('detail.attachmentsRefused:{"limit":"20 megabytes"}'),
+		).toBeOnTheScreen();
+		expect(
+			screen.getByText('detail.attachmentsBatchCount:{"done":1,"total":2}'),
+		).toBeOnTheScreen();
+	});
+
+	it("skips previews for copies completing after unmount but still uploads", async () => {
+		const original = Platform.OS;
+		Platform.OS = "web";
+		const create = jest
+			.spyOn(URL, "createObjectURL")
+			.mockReturnValue("blob:unmounted-copy");
+		let finishCopy!: (bytes: ArrayBuffer) => void;
+		const file = pickedFile("background.jpg", {
+			arrayBuffer: jest.fn(
+				() =>
+					new Promise((resolve) => {
+						finishCopy = resolve;
+					}),
+			),
+		});
+		const view = await renderSection(aNode([]));
+		try {
+			await act(async () => mockDroppedFiles([file]));
+			expect(create).not.toHaveBeenCalled();
+			expect(uploadAttachment).not.toHaveBeenCalled();
+			await view.unmount();
+			await act(async () => finishCopy(new ArrayBuffer(1)));
+			expect(uploadAttachment).toHaveBeenCalledTimes(1);
+			expect(jest.mocked(uploadAttachment).mock.calls[0]?.[3].blob).not.toBe(
+				file,
+			);
+			expect(create).not.toHaveBeenCalled();
+		} finally {
+			await view.unmount();
+			Platform.OS = original;
+			create.mockRestore();
+		}
 	});
 
 	it("continues draining the picked node batch after the section unmounts", async () => {
@@ -704,8 +918,8 @@ describe("AttachmentsSection", () => {
 		await act(async () => {
 			mockDroppedFiles(
 				["one.jpg", "two.jpg", "three.jpg", "four.jpg", "five.jpg"].map(
-					(name) => ({ name, type: "image/jpeg", size: photoBytes }),
-				) as File[],
+					(name) => pickedFile(name),
+				),
 			);
 		});
 		await waitFor(() => expect(uploads).toHaveLength(3));
@@ -736,9 +950,7 @@ describe("AttachmentsSection", () => {
 		try {
 			await renderSection(aNode([]));
 			await act(async () => {
-				mockDroppedFiles([
-					{ name: "preview.jpg", type: "image/jpeg", size: photoBytes } as File,
-				]);
+				mockDroppedFiles([pickedFile("preview.jpg")]);
 			});
 			expect(create).toHaveBeenCalledTimes(1);
 			await waitFor(() =>
@@ -761,11 +973,9 @@ describe("AttachmentsSection", () => {
 		await renderSection(aNode([]));
 		await act(async () => {
 			mockDroppedFiles(
-				["same.jpg", "same.jpg"].map((name) => ({
-					name,
-					type: "application/zip",
-					size: photoBytes,
-				})) as File[],
+				["same.jpg", "same.jpg"].map((name) =>
+					pickedFile(name, { type: "application/zip" }),
+				),
 			);
 		});
 		expect(screen.getAllByText("same.jpg")).toHaveLength(2);
@@ -779,6 +989,12 @@ describe("AttachmentsSection", () => {
 	});
 
 	it("carries the heading and the explanation in both locales", () => {
+		expect(enUS.detail.attachmentsUnreadable).toBe(
+			"Couldn't read this file. Add it again.",
+		);
+		expect(svSE.detail.attachmentsUnreadable).toBe(
+			"Kunde inte läsa filen. Lägg till den igen.",
+		);
 		expect(enUS.detail.attachments.length).toBeGreaterThan(0);
 		expect(svSE.detail.attachments.length).toBeGreaterThan(0);
 		expect(enUS.detail.attachmentsOffline.length).toBeGreaterThan(0);
@@ -795,6 +1011,7 @@ describe("AttachmentsSection", () => {
 			"attachmentsPreparing",
 			"attachmentsWaiting",
 			"attachmentsChooseFiles",
+			"attachmentsUnreadable",
 		] as const) {
 			expect(enUS.detail[key]).toBeTruthy();
 			expect(svSE.detail[key]).toBeTruthy();
