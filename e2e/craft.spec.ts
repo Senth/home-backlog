@@ -519,7 +519,6 @@ async function craftFindings(
  * English one.
  */
 for (const scheme of ["light", "dark"] as const) {
-	// biome-ignore lint/correctness/usePlaywrightValidDescribeCallback: the details-object overload is Playwright API; the rule only knows the two-argument form.
 	test.describe(`${scheme} scheme`, { tag: `@${scheme}` }, () => {
 		test.use({ colorScheme: scheme });
 

@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
+import type { TFunction } from "i18next";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
@@ -306,10 +307,7 @@ export default function ManageHome() {
  * nothing was delivered anywhere. It is given longer than a default Snackbar
  * would, since it is the only place that sentence is ever said.
  */
-function noticeText(
-	notice: string | null,
-	t: (key: string, options?: Record<string, unknown>) => string,
-): string {
+function noticeText(notice: string | null, t: TFunction): string {
 	if (notice === null) return "";
 	if (!notice.startsWith("sent:")) return t(notice);
 
