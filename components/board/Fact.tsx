@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { Icon, Text } from "react-native-paper";
-import { FadeText } from "@/components/board/FadeText";
 import { useAppTheme } from "@/theme";
 import { icon, space } from "@/theme/tokens";
 
@@ -11,11 +10,7 @@ interface FactProps {
 	color?: string;
 	/** What a screen reader hears instead of the visual shorthand. */
 	accessibilityLabel?: string;
-	/**
-	 * One line that fades at the card's right edge instead of wrapping (#339)
-	 * — the waiting fact, whose words name a card that may be called anything.
-	 */
-	fade?: boolean;
+	oneLine?: boolean;
 	children: ReactNode;
 }
 
@@ -28,7 +23,7 @@ export function Fact({
 	source,
 	color,
 	accessibilityLabel,
-	fade = false,
+	oneLine = false,
 	children,
 }: FactProps) {
 	const theme = useAppTheme();
@@ -40,26 +35,18 @@ export function Fact({
 				flexDirection: "row",
 				alignItems: "center",
 				gap: space.xs,
-				// The faded fact claims the whole line it sits on, so its fade
-				// waits at the card's edge for words that actually get there —
-				// a fact that fits is never faded.
-				flex: fade ? 1 : undefined,
+				flex: oneLine ? 1 : undefined,
 			}}
 		>
 			<Icon source={source} size={icon.sm} color={tone} />
-			{fade ? (
-				<FadeText color={tone} accessibilityLabel={accessibilityLabel}>
-					{children}
-				</FadeText>
-			) : (
-				<Text
-					variant="labelMedium"
-					accessibilityLabel={accessibilityLabel}
-					style={{ color: tone, flexShrink: 1 }}
-				>
-					{children}
-				</Text>
-			)}
+			<Text
+				variant="labelMedium"
+				numberOfLines={oneLine ? 1 : undefined}
+				accessibilityLabel={accessibilityLabel}
+				style={{ color: tone, flexShrink: 1 }}
+			>
+				{children}
+			</Text>
 		</View>
 	);
 }
