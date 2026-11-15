@@ -181,9 +181,10 @@ A label that fits only one locale is a finding.
 Three breakpoints, each earned by a real failure and none a device size: `compactBreakpoint`
 (below it a board shows one column per screen), `appBarStackBreakpoint` (below it the app
 bar puts its title on its own line), `denseBreakpoint` (below it comfortable padding costs
-more than it is worth). Long text wraps and a title is never ellipsized; rows of controls
-wrap before they shrink below `touchTarget`. At `denseBreakpoint` everything must look right; at 200% text on a phone nothing may overlap,
-become unreachable or be cut off.
+more than it is worth). Long text wraps and a title is never ellipsized. The exception is
+the waiting line in a card's footer: one line, ending in "…" only when it overflows. Rows
+of controls wrap before they shrink below `touchTarget`. At `denseBreakpoint` everything must
+look right; at 200% text on a phone nothing may overlap, become unreachable or be cut off.
 
 ## Decisions
 

@@ -518,8 +518,9 @@ async function craftFindings(
  * same ratio whatever the words say, so a Swedish dark pass re-measures the
  * English one.
  */
+const describeScheme = test.describe;
 for (const scheme of ["light", "dark"] as const) {
-	test.describe(`${scheme} scheme`, { tag: `@${scheme}` }, () => {
+	describeScheme(`${scheme} scheme`, { tag: `@${scheme}` }, () => {
 		test.use({ colorScheme: scheme });
 
 		for (const route of ROUTES) {
