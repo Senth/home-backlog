@@ -156,7 +156,7 @@ export function CardFooter({
 						<Fact
 							source="timer-sand"
 							accessibilityLabel={waiting.a11yLabel}
-							fade
+							oneLine
 						>
 							{waiting.label}
 						</Fact>

@@ -158,7 +158,7 @@ describe("CardFooter, the count face", () => {
 		expect(screen.queryByText(/attachedCount/)).toBeNull();
 	});
 
-	it("the waiting fact holds one line for the edge fade (#339)", async () => {
+	it("the waiting fact stays on one line (#339)", async () => {
 		await render(
 			<Provider theme={lightTheme}>
 				<CardFooter
