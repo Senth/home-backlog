@@ -605,6 +605,7 @@
 		"attachmentsWrongType": "That file type cannot be attached — images, PDF files and text files are allowed.",
 		"attachmentsFailed": "Could not upload the file. Try again.",
 		"attachmentsStalled": "The upload failed. Try again.",
+		"attachmentsUnreadable": "Couldn't read this file. Add it again.",
 		"attachmentsRefused": "Uploads aren't working right now. That's on us, not your file.",
 		"attachmentsClose": "Close",
 		"attachmentsHero": "Set as hero",

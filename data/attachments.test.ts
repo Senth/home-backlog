@@ -220,7 +220,10 @@ describe("uploadAttachment, a browser that cannot decode the photo", () => {
 				Object.assign(new Error("no such codec"), { code: "image-decode" }),
 			);
 
-			const original = { size: heicBytes } as unknown as Blob;
+			const slice = jest.fn(() => ({
+				arrayBuffer: jest.fn(async () => new ArrayBuffer(1)),
+			}));
+			const original = { size: heicBytes, slice } as unknown as Blob;
 			await uploadAttachment(
 				"home",
 				"node",
@@ -228,6 +231,7 @@ describe("uploadAttachment, a browser that cannot decode the photo", () => {
 				aFile({ contentType, blob: original }),
 			);
 
+			expect(slice).toHaveBeenCalledWith(0, 1);
 			expect(uploadBytesResumable).toHaveBeenCalledTimes(1);
 			const [reference, blob, meta] = uploadBytesResumable.mock.calls[0];
 			expect((reference as { path: string }).path).toMatch(
@@ -240,6 +244,30 @@ describe("uploadAttachment, a browser that cannot decode the photo", () => {
 			expect(blob).toBe(original);
 		},
 	);
+
+	it("refuses an undecodable photo when its original bytes cannot be read", async () => {
+		const { downscaleImage } = jest.requireMock("@/utils/downscale") as {
+			downscaleImage: jest.Mock;
+		};
+		downscaleImage.mockRejectedValueOnce(
+			Object.assign(new Error("no such codec"), { code: "image-decode" }),
+		);
+		const read = jest.fn().mockRejectedValue(new Error("read failed"));
+		const slice = jest.fn(() => ({ arrayBuffer: read }));
+
+		await expect(
+			uploadAttachment(
+				"home",
+				"node",
+				"me",
+				aFile({ blob: { size: heicBytes, slice } as unknown as Blob }),
+			),
+		).rejects.toMatchObject({ code: "attachment-unreadable" });
+
+		expect(slice).toHaveBeenCalledWith(0, 1);
+		expect(read).toHaveBeenCalledTimes(1);
+		expect(uploadBytesResumable).not.toHaveBeenCalled();
+	});
 });
 
 describe("uploadAttachment, the entry write failing", () => {

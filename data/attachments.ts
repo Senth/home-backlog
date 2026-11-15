@@ -134,6 +134,11 @@ export async function uploadAttachment(
 			if ((reason as { code?: string } | null)?.code !== "image-decode") {
 				throw reason;
 			}
+			try {
+				await file.blob.slice(0, 1).arrayBuffer();
+			} catch {
+				throw refused("attachment-unreadable");
+			}
 		}
 	}
 

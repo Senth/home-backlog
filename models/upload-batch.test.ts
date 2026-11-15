@@ -129,6 +129,29 @@ describe("upload batches", () => {
 		expect(state.remainingQuota).toBe(bytesAvailable - oneByte);
 	});
 
+	it("never reserves quota or claims files that failed before joining the batch", () => {
+		const unreadable: UploadBatchFile = {
+			id: "unreadable",
+			name: "unreadable.jpg",
+			contentType: "image/jpeg",
+			size: oneByte,
+			errorKey: "detail.attachmentsUnreadable",
+		};
+		const state = startUploadBatch([unreadable], homeAttachmentCeiling);
+		expect(state.files[0]?.state).toEqual({
+			status: "failed",
+			key: "detail.attachmentsUnreadable",
+		});
+		expect(claimUploadBatch(state).claimed).toEqual([]);
+		const appended = appendUploadBatch(startUploadBatch([], 0), [unreadable]);
+		expect(appended.remainingQuota).toBe(homeAttachmentCeiling);
+		expect(appended.files[0]?.state).toEqual({
+			status: "failed",
+			key: "detail.attachmentsUnreadable",
+		});
+		expect(claimUploadBatch(appended).claimed).toEqual([]);
+	});
+
 	it("keeps failures while other files land, then ends until a new batch", () => {
 		const first = claimUploadBatch(startUploadBatch(files(3), 0));
 		const failed = updateUploadBatch(first.state, {

@@ -29,10 +29,14 @@ import type { NodeChanges } from "@/data/nodes";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useCoarsePointer } from "@/hooks/use-pointer";
-import type { AttachmentUploadProgress } from "@/models/attachment";
+import type {
+	AttachmentErrorKey,
+	AttachmentUploadProgress,
+} from "@/models/attachment";
 import {
 	attachmentAccept,
 	attachmentErrorKey,
+	attachmentRefusal,
 	formatBytes,
 	formatUploadBytes,
 	hasImagePreview,
@@ -77,7 +81,7 @@ interface AttachmentsSectionProps {
 type MenuAnchor = { x: number; y: number };
 
 interface PickedAttachment extends UploadBatchFile {
-	blob: File;
+	blob?: File;
 }
 
 interface UploadTarget {
@@ -85,6 +89,7 @@ interface UploadTarget {
 	nodeId: string;
 	uid: string;
 	attachmentBytes: number | null;
+	errorKey?: AttachmentErrorKey;
 }
 
 /** Across on the content column; a row of fewer keeps the same tile size. */
@@ -153,9 +158,12 @@ export function AttachmentsSection({
 	>([]);
 	const batchRef = useRef<UploadBatchState<PickedAttachment> | null>(null);
 	const batchGeneration = useRef(0);
+	const pickQueue = useRef(Promise.resolve());
+	const pendingPicks = useRef(0);
 	const nextFileId = useRef(0);
 	const batchTarget = useRef<UploadTarget | null>(null);
 	const previewUrls = useRef(new Map<string, string>());
+	const mounted = useRef(false);
 	const [deleteFailed, setDeleteFailed] = useState(false);
 	const [viewing, setViewing] = useState<Attachment | null>(null);
 	const [menu, setMenu] = useState<{
@@ -186,6 +194,7 @@ export function AttachmentsSection({
 			if (claimed.length === 0) return;
 			setBatch(state);
 			for (const file of claimed) {
+				if (file.blob === undefined) continue;
 				const onProgress = (progress: AttachmentUploadProgress) => {
 					updateBatch(
 						progress.phase === "preparing"
@@ -264,79 +273,121 @@ export function AttachmentsSection({
 			const uid = user?.uid;
 			if (picked.length === 0 || !online || uid === undefined) return;
 			setDeleteFailed(false);
-			const entries = picked.map((file) => {
-				const id = `upload-${nextFileId.current++}`;
-				let previewUrl: string | undefined;
-				if (
-					Platform.OS === "web" &&
-					isImageType(file.type) &&
-					typeof URL.createObjectURL === "function"
-				) {
+			const append =
+				pendingPicks.current > 0 ||
+				(batchRef.current !== null && uploadBatchActive(batchRef.current));
+			const generation = append
+				? batchGeneration.current
+				: ++batchGeneration.current;
+			if (!append) setLateFailures([]);
+			pendingPicks.current += 1;
+			const copies = Promise.all(
+				picked.map(async (file): Promise<PickedAttachment> => {
+					const entry = {
+						id: `upload-${nextFileId.current++}`,
+						name: file.name,
+						size: file.size,
+						contentType: file.type,
+					};
+					if (attachmentRefusal(file.type, file.size) !== null) return entry;
 					try {
-						previewUrl = URL.createObjectURL(file);
+						const bytes = await file.arrayBuffer();
+						return {
+							...entry,
+							blob: new File([bytes], file.name, {
+								type: file.type,
+								lastModified: file.lastModified,
+							}),
+						};
 					} catch {
-						previewUrl = undefined;
+						return {
+							...entry,
+							errorKey: attachmentErrorKey({ code: "attachment-unreadable" }),
+						};
 					}
-				}
-				if (previewUrl !== undefined) previewUrls.current.set(id, previewUrl);
-				return {
-					id,
-					name: file.name,
-					size: file.size,
-					contentType: file.type,
-					blob: file,
-					...(previewUrl === undefined ? {} : { previewUrl }),
-				};
-			});
-			const current = batchRef.current;
-			if (current !== null && uploadBatchActive(current)) {
-				setBatch(appendUploadBatch(current, entries));
-				const target = batchTarget.current;
-				if (target !== null && target.attachmentBytes !== null)
-					drainUploads(target, batchGeneration.current);
-				return;
-			}
-			const generation = ++batchGeneration.current;
-			const target: UploadTarget = {
-				homeId,
-				nodeId: node.id,
-				uid,
-				attachmentBytes: null,
-			};
-			batchTarget.current = target;
-			setLateFailures([]);
-			setBatch(startUploadBatch(entries, 0));
-			void readHomeAttachmentBytes(homeId).then(
-				(bytes) => {
-					if (generation !== batchGeneration.current) return;
-					const latest = batchRef.current;
-					if (latest === null) return;
-					const readyTarget = { ...target, attachmentBytes: bytes };
-					batchTarget.current = readyTarget;
-					setBatch(
-						startUploadBatch(
-							latest.files.map(({ file }) => file),
-							bytes,
-						),
-					);
-					drainUploads(readyTarget, generation);
-				},
-				(reason: unknown) => {
-					if (generation !== batchGeneration.current) return;
-					const latest = batchRef.current;
-					if (latest === null) return;
-					const key = attachmentErrorKey(reason);
-					let failed = latest;
-					for (const { file } of latest.files) {
-						failed = updateUploadBatch(failed, {
-							type: "failed",
-							id: file.id,
-							key,
-						});
-					}
-					setBatch(failed);
-				},
+				}),
 			);
+			pickQueue.current = pickQueue.current
+				.then(async () => {
+					const entries = await copies;
+					if (generation !== batchGeneration.current) return;
+					for (const entry of entries) {
+						if (
+							!mounted.current ||
+							Platform.OS !== "web" ||
+							entry.blob === undefined ||
+							!isImageType(entry.contentType) ||
+							typeof URL.createObjectURL !== "function"
+						)
+							continue;
+						try {
+							entry.previewUrl = URL.createObjectURL(entry.blob);
+							previewUrls.current.set(entry.id, entry.previewUrl);
+						} catch {
+							entry.previewUrl = undefined;
+						}
+					}
+					const current = batchRef.current;
+					if (append && current !== null) {
+						const target = batchTarget.current;
+						setBatch(
+							appendUploadBatch(
+								current,
+								entries.map((file) =>
+									target?.errorKey === undefined
+										? file
+										: { ...file, errorKey: file.errorKey ?? target.errorKey },
+								),
+							),
+						);
+						if (target !== null && target.attachmentBytes !== null)
+							drainUploads(target, generation);
+						return;
+					}
+					const target: UploadTarget = {
+						homeId,
+						nodeId: node.id,
+						uid,
+						attachmentBytes: null,
+					};
+					batchTarget.current = target;
+					setBatch(startUploadBatch(entries, 0));
+					await readHomeAttachmentBytes(homeId).then(
+						(bytes) => {
+							if (generation !== batchGeneration.current) return;
+							const latest = batchRef.current;
+							if (latest === null) return;
+							const readyTarget = { ...target, attachmentBytes: bytes };
+							batchTarget.current = readyTarget;
+							setBatch(
+								startUploadBatch(
+									latest.files.map(({ file }) => file),
+									bytes,
+								),
+							);
+							drainUploads(readyTarget, generation);
+						},
+						(reason: unknown) => {
+							if (generation !== batchGeneration.current) return;
+							const latest = batchRef.current;
+							if (latest === null) return;
+							const key = attachmentErrorKey(reason);
+							batchTarget.current = { ...target, errorKey: key };
+							let failed = latest;
+							for (const { file } of latest.files) {
+								failed = updateUploadBatch(failed, {
+									type: "failed",
+									id: file.id,
+									key,
+								});
+							}
+							setBatch(failed);
+						},
+					);
+				})
+				.finally(() => {
+					pendingPicks.current -= 1;
+				});
 		},
 		[drainUploads, homeId, node.id, online, setBatch, user],
 	);
@@ -350,13 +401,14 @@ export function AttachmentsSection({
 		}
 	}, [batch]);
 
-	useEffect(
-		() => () => {
+	useEffect(() => {
+		mounted.current = true;
+		return () => {
+			mounted.current = false;
 			for (const url of previewUrls.current.values()) URL.revokeObjectURL(url);
 			previewUrls.current.clear();
-		},
-		[],
-	);
+		};
+	}, []);
 
 	// A download URL carries a rotating token, so it is asked for at render
 	// time from the stored path (`models/node.ts` explains why none are stored)
