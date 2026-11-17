@@ -46,9 +46,13 @@ const getServerSnapshot = () => false;
 async function promptInstall() {
 	const event = deferred;
 	if (!event) return;
-	await event.prompt();
-	await event.userChoice;
 	clear();
+	try {
+		await event.prompt();
+		await event.userChoice;
+	} catch {
+		return;
+	}
 }
 
 /**

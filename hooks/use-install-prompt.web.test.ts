@@ -72,3 +72,46 @@ it.each(["accepted", "dismissed"] as const)(
 		expect(event.prompt).toHaveBeenCalledTimes(1);
 	},
 );
+
+it("consumes the shared prompt before concurrent callers await userChoice", async () => {
+	const first = await renderHook(useInstallPrompt);
+	const second = await renderHook(useInstallPrompt);
+	let resolveChoice!: (choice: { outcome: "accepted" }) => void;
+	const event = Object.assign(installEvent(), {
+		userChoice: new Promise<{ outcome: "accepted" }>((resolve) => {
+			resolveChoice = resolve;
+		}),
+	});
+	await act(() => target.dispatchEvent(event));
+	const calls: Promise<void>[] = [];
+
+	await act(() => {
+		calls.push(first.result.current.promptInstall());
+		calls.push(second.result.current.promptInstall());
+	});
+	expect(event.prompt).toHaveBeenCalledTimes(1);
+	expect(first.result.current.canInstall).toBe(false);
+	expect(second.result.current.canInstall).toBe(false);
+
+	await act(async () => {
+		resolveChoice({ outcome: "accepted" });
+		await Promise.all(calls);
+	});
+});
+
+it("handles prompt rejection without offering the consumed event again", async () => {
+	const first = await renderHook(useInstallPrompt);
+	const second = await renderHook(useInstallPrompt);
+	const event = installEvent();
+	event.prompt.mockRejectedValueOnce(new Error("Prompt unavailable"));
+	await act(() => target.dispatchEvent(event));
+
+	await act(async () => {
+		await expect(first.result.current.promptInstall()).resolves.toBeUndefined();
+	});
+	expect(first.result.current.canInstall).toBe(false);
+	expect(second.result.current.canInstall).toBe(false);
+
+	await act(() => second.result.current.promptInstall());
+	expect(event.prompt).toHaveBeenCalledTimes(1);
+});
