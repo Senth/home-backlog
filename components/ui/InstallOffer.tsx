@@ -41,7 +41,10 @@ export function InstallOffer({ placement }: InstallOfferProps) {
 					flexDirection: "row",
 					alignItems: "center",
 					gap: space.sm,
+					flexBasis: space.none,
+					flexGrow: 1,
 					flexShrink: 1,
+					minWidth: space.none,
 				}}
 			>
 				<PaperIcon
@@ -51,7 +54,11 @@ export function InstallOffer({ placement }: InstallOfferProps) {
 				/>
 				<Text
 					variant="bodyMedium"
-					style={{ color: theme.colors.onSurfaceVariant, flexShrink: 1 }}
+					style={{
+						color: theme.colors.onSurfaceVariant,
+						flexShrink: 1,
+						minWidth: space.none,
+					}}
 				>
 					{t("install.offer")}
 				</Text>
@@ -59,7 +66,10 @@ export function InstallOffer({ placement }: InstallOfferProps) {
 			<Button
 				mode="text"
 				onPress={install}
-				style={{ flexShrink: 0 }}
+				style={[
+					touchTargetStyle,
+					{ width: "auto", flexShrink: 0, margin: space.none },
+				]}
 				contentStyle={{ minHeight: touchTargetStyle.height }}
 			>
 				{t("install.action")}
@@ -68,7 +78,7 @@ export function InstallOffer({ placement }: InstallOfferProps) {
 				icon="close"
 				accessibilityLabel={t("install.hide")}
 				onPress={dismiss}
-				style={touchTargetStyle}
+				style={[touchTargetStyle, { margin: space.none }]}
 			/>
 		</View>
 	);
