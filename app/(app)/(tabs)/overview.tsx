@@ -17,7 +17,7 @@ import { CardActionsMenu } from "@/components/overview/CardActionsMenu";
 import { ConfirmDialog } from "@/components/ui/AppDialog";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
-import { InstallCard } from "@/components/ui/InstallCard";
+import { InstallOffer } from "@/components/ui/InstallOffer";
 import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import { SlimScrollView } from "@/components/ui/SlimScrollView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -397,13 +397,7 @@ export default function Overview() {
 						gap: space.md,
 					}}
 				>
-					{/* The install offer belongs on whatever the app opens on, and that is
-				    now this screen — behind a tab tap it is never seen by the member
-				    who never opens Projects. Inside the scroller rather than pinned
-				    under the app bar: it renders only when the browser says an install
-				    is possible, and when it does it should scroll away rather than
-				    hold a phone's worth of height for a one-time offer. */}
-					<InstallCard />
+					{layout.nav === "tabs" ? <InstallOffer placement="top" /> : null}
 
 					{loading ? (
 						<LoadingIndicator style={{ marginTop: space.xl }} />
@@ -460,6 +454,7 @@ export default function Overview() {
 							) : null}
 						</>
 					)}
+					{layout.nav === "rail" ? <InstallOffer placement="end" /> : null}
 				</SlimScrollView>
 				{showDetails ? (
 					<DetailsPane

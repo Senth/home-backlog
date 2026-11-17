@@ -51,7 +51,7 @@ jest.mock("@/components/node/DetailsPane", () => ({ DetailsPane: () => null }));
 jest.mock("@/components/overview/CardActionsMenu", () => ({
 	CardActionsMenu: () => null,
 }));
-jest.mock("@/components/ui/InstallCard", () => ({ InstallCard: () => null }));
+jest.mock("@/components/ui/InstallOffer", () => ({ InstallOffer: () => null }));
 jest.mock("@/data/nodes", () => ({ createNode: jest.fn() }));
 jest.mock("@/data/cards", () => ({}));
 jest.mock("@/utils/launch-timing", () => ({ markLaunch: jest.fn() }));

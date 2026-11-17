@@ -731,9 +731,9 @@
 		"reload": "Reload"
 	},
 	"install": {
-		"title": "Install Home Backlog",
-		"body": "Add it to your home screen so it opens full screen and works offline.",
-		"action": "Install"
+		"offer": "Install the app to use it offline.",
+		"action": "Install",
+		"hide": "Hide install offer"
 	},
 	"debug": {
 		"timing": {
