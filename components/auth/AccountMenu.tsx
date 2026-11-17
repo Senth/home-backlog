@@ -19,6 +19,7 @@ import { AppMenu } from "@/components/ui/AppMenu";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOutbox } from "@/contexts/OutboxContext";
+import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { useTabTrap } from "@/hooks/use-modal-focus";
 import { useAppTheme } from "@/theme";
 import {
@@ -75,6 +76,7 @@ export function AccountMenu() {
 	const theme = useAppTheme();
 	const { user, signOut } = useAuth();
 	const { intents } = useOutbox();
+	const { canInstall, promptInstall } = useInstallPrompt();
 	const router = useRouter();
 	const { width } = useWindowDimensions();
 	const isFocused = useIsFocused();
@@ -214,6 +216,17 @@ export function AccountMenu() {
 							router.push("/automations");
 						}}
 					/>
+
+					{canInstall ? (
+						<Menu.Item
+							leadingIcon="cellphone-arrow-down"
+							title={t("account.install")}
+							onPress={() => {
+								setMenuOpen(false);
+								void promptInstall();
+							}}
+						/>
+					) : null}
 
 					{/* Between a routine row and the one that cannot be undone. */}
 					<Divider />

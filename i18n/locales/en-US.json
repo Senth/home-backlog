@@ -46,7 +46,8 @@
 			"title": "Sign out?",
 			"body": "You will need to sign in with Google again."
 		},
-		"automations": "Automations"
+		"automations": "Automations",
+		"install": "Install app"
 	},
 	"automations": {
 		"title": "Automations",

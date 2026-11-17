@@ -46,7 +46,8 @@
 			"title": "Logga ut?",
 			"body": "Du behöver logga in med Google igen."
 		},
-		"automations": "Automationer"
+		"automations": "Automationer",
+		"install": "Installera appen"
 	},
 	"automations": {
 		"title": "Automationer",
