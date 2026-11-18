@@ -46,7 +46,8 @@
 			"title": "Sign out?",
 			"body": "You will need to sign in with Google again."
 		},
-		"automations": "Automations"
+		"automations": "Automations",
+		"install": "Install app"
 	},
 	"automations": {
 		"title": "Automations",
@@ -731,9 +732,9 @@
 		"reload": "Reload"
 	},
 	"install": {
-		"title": "Install Home Backlog",
-		"body": "Add it to your home screen so it opens full screen and works offline.",
-		"action": "Install"
+		"offer": "Install the app to use it offline.",
+		"action": "Install",
+		"hide": "Hide install offer"
 	},
 	"debug": {
 		"timing": {

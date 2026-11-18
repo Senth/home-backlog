@@ -18,6 +18,7 @@ const shared = {
  * redefine it under a `@jest-environment jsdom` docblock.
  */
 module.exports = {
+	maxWorkers: 4,
 	projects: [
 		{
 			...shared,

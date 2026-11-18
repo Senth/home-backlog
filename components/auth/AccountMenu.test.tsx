@@ -10,9 +10,17 @@ import { AccountMenu } from "@/components/auth/AccountMenu";
 import { lightTheme } from "@/theme";
 
 let mockIntents: unknown[] = [];
+let mockCanInstall = false;
+const mockPromptInstall = jest.fn();
 
 jest.mock("expo-router/react-navigation", () => ({ useIsFocused: () => true }));
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
+jest.mock("@/hooks/use-install-prompt", () => ({
+	useInstallPrompt: () => ({
+		canInstall: mockCanInstall,
+		promptInstall: mockPromptInstall,
+	}),
+}));
 jest.mock("react-i18next", () => ({
 	useTranslation: () => ({
 		t: (key: string, values?: Record<string, unknown>) => {
@@ -62,6 +70,8 @@ async function renderAccountMenu() {
 beforeEach(() => {
 	jest.useFakeTimers();
 	mockIntents = [];
+	mockCanInstall = false;
+	mockPromptInstall.mockReset();
 });
 
 afterEach(async () => {
@@ -87,4 +97,20 @@ it("shows the queued change count in sign-out dialog", async () => {
 	expect(
 		screen.getByText(/outbox\.signOutPending_other:\{"count":2\}/),
 	).toBeTruthy();
+});
+
+it("does not show install app when installation is unavailable", async () => {
+	await renderAccountMenu();
+	await fireEvent.press(screen.getByTestId("account-menu-trigger"));
+	expect(screen.queryByText("account.install")).toBeNull();
+});
+
+it("closes the menu and prompts installation", async () => {
+	mockCanInstall = true;
+	await renderAccountMenu();
+	await fireEvent.press(screen.getByTestId("account-menu-trigger"));
+	await fireEvent.press(screen.getByText("account.install"));
+
+	expect(mockPromptInstall).toHaveBeenCalledTimes(1);
+	await waitFor(() => expect(screen.queryByText("account.install")).toBeNull());
 });

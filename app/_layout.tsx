@@ -1,5 +1,6 @@
 import "@/utils/raf-polyfill";
 import "@/i18n";
+import "@/hooks/use-install-prompt";
 
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import {
