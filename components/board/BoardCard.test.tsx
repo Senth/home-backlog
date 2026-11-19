@@ -318,6 +318,17 @@ describe("BoardCard", () => {
 		expect(screen.getByText(/board\.dueLate/)).toBeOnTheScreen();
 	});
 
+	it("hides due text on done cards", async () => {
+		await renderCard(
+			<BoardCard
+				node={node({ status: "done", dueDate: "2001-02-03" })}
+				onOpen={() => {}}
+			/>,
+		);
+
+		expect(screen.queryByText(/board\.due/)).toBeNull();
+	});
+
 	it("keeps the waiting mark in the footer, not on its own row", async () => {
 		const blocker = node({ id: "b1", status: "backlog" });
 		await renderCard(
