@@ -184,6 +184,29 @@ describe("matching", () => {
 			expect(rowsOf(only("none"), dated(null))).toEqual(["node-1"]);
 			expect(rowsOf(only("none"), dated("2026-09-30"))).toEqual([]);
 		});
+
+		it("does not match done dates as late or coming up, but keeps them not late", () => {
+			const donePast = task({
+				id: "done-past",
+				status: "done",
+				dueDate: "2026-08-14",
+			});
+			const doneSoon = task({
+				id: "done-soon",
+				status: "done",
+				dueDate: "2026-08-16",
+			});
+
+			expect(rowsOf(only("late"), [donePast])).toEqual([]);
+			expect(rowsOf(only("comingUp"), [donePast, doneSoon])).toEqual([]);
+			expect(rowsOf(only("notLate"), [donePast, doneSoon])).toEqual([
+				"done-past",
+				"done-soon",
+			]);
+			expect(
+				rowsOf(only("none"), [task({ status: "done", dueDate: null })]),
+			).toEqual(["node-1"]);
+		});
 	});
 
 	it("asks roots and children about the node, not its title", () => {
