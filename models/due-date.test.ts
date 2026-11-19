@@ -161,8 +161,10 @@ describe("showsDue", () => {
 	const now = at(2026, 8, 15);
 
 	/** The one field the answer reads; the rest of the node shape is noise. */
-	const withDue = (dueDate: string | null) =>
-		({ dueDate }) as Pick<Node, "dueDate">;
+	const withDue = (
+		dueDate: string | null,
+		status: Node["status"] = "backlog",
+	): Pick<Node, "dueDate" | "status"> => ({ dueDate, status });
 
 	it("says yes exactly when a chip would render", () => {
 		expect(showsDue(withDue("2026-08-14"), now)).toBe(true);
@@ -176,6 +178,12 @@ describe("showsDue", () => {
 	it("says no for no date, or one it cannot read", () => {
 		expect(showsDue(withDue(null), now)).toBe(false);
 		expect(showsDue(withDue("not a date"), now)).toBe(false);
+	});
+
+	it("shows no due chip for done nodes, without affecting open nodes", () => {
+		expect(showsDue(withDue("2026-08-14", "done"), now)).toBe(false);
+		expect(showsDue(withDue("2026-08-16", "done"), now)).toBe(false);
+		expect(showsDue(withDue("2026-08-14"), now)).toBe(true);
 	});
 
 	it("is the same rule `dueState` draws the chip from", () => {

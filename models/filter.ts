@@ -1,4 +1,4 @@
-import { dayDifference, dueState, soonInDays } from "@/models/due-date";
+import { dayDifference, dueState, isDone, soonInDays } from "@/models/due-date";
 import {
 	type CreatedVia,
 	compareNodes,
@@ -149,16 +149,18 @@ function matches(node: Node, condition: CardCondition, ctx: MatchContext) {
 		case "effort":
 			return condition.anyOf.includes(node.effort ?? "none");
 		case "dueDate": {
+			const done = isDone(node);
 			const state = dueState(node.dueDate, ctx.now);
 			if (condition.is === "comingUp") {
+				if (done) return false;
 				if (state === "late") return true;
 				const days =
 					node.dueDate === null ? null : dayDifference(node.dueDate, ctx.now);
 				return days !== null && days <= (condition.n ?? soonInDays);
 			}
-			if (condition.is === "late") return state === "late";
+			if (condition.is === "late") return !done && state === "late";
 			if (condition.is === "notLate") {
-				return node.dueDate !== null && state !== "late";
+				return node.dueDate !== null && (done || state !== "late");
 			}
 			return node.dueDate === null;
 		}

@@ -102,6 +102,10 @@ export function formatCalendarDay(dueDate: string, locale: string): string {
  */
 export type DueState = "late" | "soon" | "later";
 
+export function isDone(node: Pick<Node, "status">): boolean {
+	return node.status === "done";
+}
+
 export function dueState(dueDate: string | null, now: Date): DueState | null {
 	if (dueDate === null) return null;
 
@@ -122,9 +126,11 @@ export function dueState(dueDate: string | null, now: Date): DueState | null {
  * the card face and the Overview must never disagree about it.
  */
 export function showsDue(
-	node: Pick<Node, "dueDate">,
+	node: Pick<Node, "dueDate" | "status">,
 	now: Date,
 ): node is Node & { dueDate: string } {
+	if (isDone(node)) return false;
+
 	const state = dueState(node.dueDate, now);
 	return state === "late" || state === "soon";
 }
