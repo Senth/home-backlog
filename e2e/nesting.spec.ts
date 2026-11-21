@@ -367,7 +367,9 @@ test("6: back from a place returns to Locations", async ({ page }) => {
 	await expect(page).toHaveURL(/\/projects$/);
 	await expect(chip).toHaveCount(0);
 	await expect(
-		page.getByRole("button", { name: enUS.homes.title }),
+		page
+			.getByRole("button", { name: enUS.homes.title })
+			.and(page.locator(":not([inert] *)")),
 	).toBeVisible();
 	await gotoAndSettle(page, ROUTES[2]);
 	await page.getByRole("button", { name: place }).click();
@@ -384,7 +386,9 @@ test("6: back from a place returns to Locations", async ({ page }) => {
 	await page.waitForURL(/\/projects$/);
 	await expect(chip).toHaveCount(0);
 	await expect(
-		page.getByRole("button", { name: enUS.homes.title }),
+		page
+			.getByRole("button", { name: enUS.homes.title })
+			.and(page.locator(":not([inert] *)")),
 	).toBeVisible();
 
 	await locations.click();
@@ -403,6 +407,8 @@ test("6: back from a place returns to Locations", async ({ page }) => {
 	await gotoAndSettle(page, ROUTES[5]);
 	await projects.click();
 	await expect(
-		page.getByRole("button", { name: enUS.homes.title }),
+		page
+			.getByRole("button", { name: enUS.homes.title })
+			.and(page.locator(":not([inert] *)")),
 	).toBeVisible();
 });

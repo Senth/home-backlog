@@ -1160,7 +1160,10 @@ test("desktop navigation holds only labelled pills with visible keyboard focus a
 						? copy.locations.add
 						: null;
 			if (label) {
-				const add = page.locator(FAB_SELECTOR).getByRole("button");
+				// Unfocused tabs stay mounted under `inert`, which Playwright's role engine does not treat as hidden.
+				const add = page
+					.locator(`${FAB_SELECTOR}:not([inert] *)`)
+					.getByRole("button");
 				await expect(add).toHaveCount(1);
 				await expect(add).toHaveAccessibleName(label);
 				await expect(add).toBeVisible();

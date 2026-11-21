@@ -1,8 +1,8 @@
-diff --git a/node_modules/@firebase/auth/dist/browser-cjs/index-DTUcAMkM.js b/node_modules/@firebase/auth/dist/browser-cjs/index-DTUcAMkM.js
-index 33195cf..cfae771 100644
---- a/node_modules/@firebase/auth/dist/browser-cjs/index-DTUcAMkM.js
-+++ b/node_modules/@firebase/auth/dist/browser-cjs/index-DTUcAMkM.js
-@@ -2815,7 +2815,7 @@ class AuthImpl {
+diff --git a/node_modules/@firebase/auth/dist/browser-cjs/index-DOvdZQDO.js b/node_modules/@firebase/auth/dist/browser-cjs/index-DOvdZQDO.js
+index 699d8fc..02fceb2 100644
+--- a/node_modules/@firebase/auth/dist/browser-cjs/index-DOvdZQDO.js
++++ b/node_modules/@firebase/auth/dist/browser-cjs/index-DOvdZQDO.js
+@@ -2834,7 +2834,7 @@ class AuthImpl {
          if (!futureCurrentUser) {
              return this.directlySetCurrentUser(null);
          }
@@ -11,7 +11,7 @@ index 33195cf..cfae771 100644
              // This isn't a redirect link operation, we can reload and bail.
              // First though, ensure that we check the middleware is happy.
              if (needsTocheckMiddleware) {
-@@ -2877,17 +2877,30 @@ class AuthImpl {
+@@ -2896,17 +2896,30 @@ class AuthImpl {
          return result;
      }
      async reloadAndSetCurrentUserOrClear(user) {
@@ -52,7 +52,7 @@ index 33195cf..cfae771 100644
      }
      useDeviceLanguage() {
          this.languageCode = _getUserLanguage();
-@@ -10053,7 +10066,7 @@ async function _reauthenticateWithRedirect(user, provider, resolver) {
+@@ -10171,7 +10184,7 @@ async function _reauthenticateWithRedirect(user, provider, resolver) {
      // Allow the resolver to error before persisting the redirect user
      const resolverInternal = _withDefaultResolver(userInternal.auth, resolver);
      await _setPendingRedirectStatus(resolverInternal, userInternal.auth);
@@ -61,7 +61,7 @@ index 33195cf..cfae771 100644
      return resolverInternal._openRedirect(userInternal.auth, provider, "reauthViaRedirect" /* AuthEventType.REAUTH_VIA_REDIRECT */, eventId);
  }
  /**
-@@ -10101,7 +10114,7 @@ async function _linkWithRedirect(user, provider, resolver) {
+@@ -10219,7 +10232,7 @@ async function _linkWithRedirect(user, provider, resolver) {
      const resolverInternal = _withDefaultResolver(userInternal.auth, resolver);
      await _assertLinkedStatus(false, userInternal, provider.providerId);
      await _setPendingRedirectStatus(resolverInternal, userInternal.auth);
@@ -70,7 +70,7 @@ index 33195cf..cfae771 100644
      return resolverInternal._openRedirect(userInternal.auth, provider, "linkViaRedirect" /* AuthEventType.LINK_VIA_REDIRECT */, eventId);
  }
  /**
-@@ -10164,10 +10177,10 @@ async function _getRedirectResult(auth, resolverExtern, bypassAuthState = false)
+@@ -10282,10 +10295,10 @@ async function _getRedirectResult(auth, resolverExtern, bypassAuthState = false)
      }
      return result;
  }
@@ -83,11 +83,11 @@ index 33195cf..cfae771 100644
      await user.auth._persistUserIfCurrent(user);
      return eventId;
  }
-diff --git a/node_modules/@firebase/auth/dist/esm/index-Bz2J43nW.js b/node_modules/@firebase/auth/dist/esm/index-Bz2J43nW.js
-index 9a1b1f8..eff2447 100644
---- a/node_modules/@firebase/auth/dist/esm/index-Bz2J43nW.js
-+++ b/node_modules/@firebase/auth/dist/esm/index-Bz2J43nW.js
-@@ -2813,7 +2813,7 @@ class AuthImpl {
+diff --git a/node_modules/@firebase/auth/dist/esm/index-CI-XZ6Oy.js b/node_modules/@firebase/auth/dist/esm/index-CI-XZ6Oy.js
+index 8ae782c..3cb12dd 100644
+--- a/node_modules/@firebase/auth/dist/esm/index-CI-XZ6Oy.js
++++ b/node_modules/@firebase/auth/dist/esm/index-CI-XZ6Oy.js
+@@ -2832,7 +2832,7 @@ class AuthImpl {
          if (!futureCurrentUser) {
              return this.directlySetCurrentUser(null);
          }
@@ -96,7 +96,7 @@ index 9a1b1f8..eff2447 100644
              // This isn't a redirect link operation, we can reload and bail.
              // First though, ensure that we check the middleware is happy.
              if (needsTocheckMiddleware) {
-@@ -2875,17 +2875,30 @@ class AuthImpl {
+@@ -2894,17 +2894,30 @@ class AuthImpl {
          return result;
      }
      async reloadAndSetCurrentUserOrClear(user) {
@@ -137,7 +137,7 @@ index 9a1b1f8..eff2447 100644
      }
      useDeviceLanguage() {
          this.languageCode = _getUserLanguage();
-@@ -10051,7 +10064,7 @@ async function _reauthenticateWithRedirect(user, provider, resolver) {
+@@ -10169,7 +10182,7 @@ async function _reauthenticateWithRedirect(user, provider, resolver) {
      // Allow the resolver to error before persisting the redirect user
      const resolverInternal = _withDefaultResolver(userInternal.auth, resolver);
      await _setPendingRedirectStatus(resolverInternal, userInternal.auth);
@@ -146,7 +146,7 @@ index 9a1b1f8..eff2447 100644
      return resolverInternal._openRedirect(userInternal.auth, provider, "reauthViaRedirect" /* AuthEventType.REAUTH_VIA_REDIRECT */, eventId);
  }
  /**
-@@ -10099,7 +10112,7 @@ async function _linkWithRedirect(user, provider, resolver) {
+@@ -10217,7 +10230,7 @@ async function _linkWithRedirect(user, provider, resolver) {
      const resolverInternal = _withDefaultResolver(userInternal.auth, resolver);
      await _assertLinkedStatus(false, userInternal, provider.providerId);
      await _setPendingRedirectStatus(resolverInternal, userInternal.auth);
@@ -155,7 +155,7 @@ index 9a1b1f8..eff2447 100644
      return resolverInternal._openRedirect(userInternal.auth, provider, "linkViaRedirect" /* AuthEventType.LINK_VIA_REDIRECT */, eventId);
  }
  /**
-@@ -10162,10 +10175,10 @@ async function _getRedirectResult(auth, resolverExtern, bypassAuthState = false)
+@@ -10280,10 +10293,10 @@ async function _getRedirectResult(auth, resolverExtern, bypassAuthState = false)
      }
      return result;
  }
