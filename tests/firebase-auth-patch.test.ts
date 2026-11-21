@@ -3,7 +3,7 @@ import { setImmediate } from "node:timers/promises";
 import { runInNewContext } from "node:vm";
 import { FirebaseError } from "firebase/app";
 
-it.each(["browser-cjs/index-DTUcAMkM.js", "esm/index-Bz2J43nW.js"])(
+it.each(["browser-cjs/index-DOvdZQDO.js", "esm/index-CI-XZ6Oy.js"])(
 	"passes the explicit resolver through reauthentication in %s",
 	(file) => {
 		const source = readFileSync(
@@ -75,7 +75,7 @@ interface Auth {
 	initializeCurrentUser: (resolver?: unknown) => Promise<void>;
 }
 
-describe.each(["browser-cjs/index-DTUcAMkM.js", "esm/index-Bz2J43nW.js"])(
+describe.each(["browser-cjs/index-DOvdZQDO.js", "esm/index-CI-XZ6Oy.js"])(
 	"stored-session initialization in %s",
 	(file) => {
 		const source = readFileSync(
