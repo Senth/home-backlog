@@ -6,6 +6,7 @@ import {
 	columnSelector,
 	gotoAndSettle,
 	ROUTES,
+	VIEWPORTS,
 } from "@/e2e/support/app";
 import {
 	createFixtureNode,
@@ -14,6 +15,7 @@ import {
 	nodeFields,
 } from "@/e2e/support/firestore";
 import enUS from "@/i18n/locales/en-US.json";
+import { touchTarget } from "@/theme/tokens";
 
 /**
  * The thing `PROJECT.md` says Trello lacks: a card is a board, at any depth,
@@ -411,4 +413,67 @@ test("6: back from a place returns to Locations", async ({ page }) => {
 			.getByRole("button", { name: enUS.homes.title })
 			.and(page.locator(":not([inert] *)")),
 	).toBeVisible();
+});
+
+test("7: the completed-project offer wraps at 200% text", async ({ page }) => {
+	const marcus = await memberUid("Marcus");
+	const projectId = await createFixtureNode({
+		title: `${PREFIX}completed project`,
+		parentId: null,
+		ancestorIds: [],
+		childCount: 1,
+		doneCount: 1,
+		rank: "V1",
+		visibility: "shared",
+		participantIds: [marcus],
+		assigneeIds: [],
+		status: "backlog",
+		columns: COLUMNS,
+	});
+	await createFixtureNode({
+		title: `${PREFIX}done step`,
+		parentId: projectId,
+		ancestorIds: [projectId],
+		childCount: 0,
+		doneCount: 0,
+		rank: "V2",
+		visibility: "shared",
+		participantIds: [],
+		assigneeIds: [],
+		status: "done",
+		columns: COLUMNS,
+	});
+	await page.setViewportSize(VIEWPORTS.phoneZoomed);
+	await openBoard(page, projectId, `${PREFIX}completed project`);
+
+	const copy = page.getByText(enUS.board.allStepsDone, { exact: true });
+	const buttonLabel = enUS.detail.moveToColumn.replace(
+		"{{column}}",
+		enUS.status.done,
+	);
+	const action = page.getByRole("button", { name: buttonLabel, exact: true });
+	const copyBox = await copy.boundingBox();
+	const copyRowBox = await copy.locator("xpath=..").boundingBox();
+	const actionBox = await action.boundingBox();
+	const actionLabelBox = await action
+		.getByText(buttonLabel, { exact: true })
+		.boundingBox();
+
+	expect(copyBox?.width).toBeGreaterThanOrEqual(touchTarget);
+	expect(actionBox?.height).toBeGreaterThanOrEqual(touchTarget);
+	expect(actionBox?.y).toBeGreaterThanOrEqual(
+		(copyRowBox?.y ?? 0) + (copyRowBox?.height ?? 0),
+	);
+	expect(actionLabelBox?.x).toBeGreaterThanOrEqual(actionBox?.x ?? 0);
+	expect(
+		(actionLabelBox?.x ?? 0) + (actionLabelBox?.width ?? 0),
+	).toBeLessThanOrEqual((actionBox?.x ?? 0) + (actionBox?.width ?? 0));
+	expect(actionLabelBox?.y).toBeGreaterThanOrEqual(actionBox?.y ?? 0);
+	expect(
+		(actionLabelBox?.y ?? 0) + (actionLabelBox?.height ?? 0),
+	).toBeLessThanOrEqual((actionBox?.y ?? 0) + (actionBox?.height ?? 0));
+
+	const tabBarBox = await page.getByRole("tablist").boundingBox();
+	const boardBox = await page.locator(columnSelector("backlog")).boundingBox();
+	expect(boardBox?.y).toBeLessThan(tabBarBox?.y ?? 0);
 });

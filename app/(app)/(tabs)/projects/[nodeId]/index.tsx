@@ -301,7 +301,7 @@ export default function NodeBoard() {
 							flexDirection: "row",
 							alignItems: "center",
 							gap: space.sm,
-							flexBasis: space.none,
+							flexBasis: "auto",
 							flexGrow: 1,
 							flexShrink: 1,
 							minWidth: space.none,
