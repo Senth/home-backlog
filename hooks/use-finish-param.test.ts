@@ -1,5 +1,5 @@
 import { renderHook } from "@testing-library/react-native";
-import { useFinishParam } from "@/hooks/use-finish-param";
+import { requestProjectFinish, useFinishParam } from "@/hooks/use-finish-param";
 
 let mockFinish: string | string[] | undefined;
 let mockFocused = true;
@@ -18,7 +18,8 @@ it("waits for a loaded, focused board and hands off each arrival once", async ()
 	mockFocused = false;
 	const onFinish = jest.fn();
 	const view = await renderHook(
-		({ ready }: { ready: boolean }) => useFinishParam(ready, onFinish),
+		({ ready }: { ready: boolean }) =>
+			useFinishParam("home", null, ready, onFinish),
 		{
 			initialProps: { ready: false },
 		},
@@ -36,7 +37,7 @@ it("waits for a loaded, focused board and hands off each arrival once", async ()
 
 	mockFocused = true;
 	await view.rerender({ ready: true });
-	expect(onFinish).toHaveBeenCalledWith("project");
+	expect(onFinish).toHaveBeenCalledWith("project", false);
 	expect(mockSetParams).toHaveBeenCalledWith({ finish: undefined });
 
 	await view.rerender({ ready: false });
@@ -58,8 +59,35 @@ it("waits for a loaded, focused board and hands off each arrival once", async ()
 it("clears a malformed finish param without handing it off", async () => {
 	mockFinish = ["first", "second"];
 	const onFinish = jest.fn();
-	await renderHook(() => useFinishParam(true, onFinish));
+	await renderHook(() => useFinishParam("home", null, true, onFinish));
 
 	expect(mockSetParams).toHaveBeenCalledWith({ finish: undefined });
 	expect(onFinish).not.toHaveBeenCalled();
+});
+
+it("only the tapped project's loaded parent can consume travel without a URL param", async () => {
+	mockFinish = undefined;
+	const onFinish = jest.fn();
+	requestProjectFinish("home", "parent", "project");
+	const view = await renderHook(
+		({
+			home,
+			parent,
+			ready,
+		}: {
+			home: string;
+			parent: string;
+			ready: boolean;
+		}) => useFinishParam(home, parent, ready, onFinish),
+		{ initialProps: { home: "other", parent: "parent", ready: true } },
+	);
+	await view.rerender({ home: "home", parent: "sibling", ready: true });
+	await view.rerender({ home: "home", parent: "parent", ready: false });
+	expect(onFinish).not.toHaveBeenCalled();
+	await view.rerender({ home: "home", parent: "parent", ready: true });
+	expect(onFinish).toHaveBeenCalledWith("project", true);
+	await view.rerender({ home: "home", parent: "parent", ready: false });
+	await view.rerender({ home: "home", parent: "parent", ready: true });
+	expect(onFinish).toHaveBeenCalledTimes(1);
+	expect(mockSetParams).not.toHaveBeenCalled();
 });

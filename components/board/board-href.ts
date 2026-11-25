@@ -51,12 +51,3 @@ export function goneHref(nodeId: string | null): Href {
 		? { pathname: "/projects", params: { gone: goneFlag } }
 		: { pathname: "/projects/[nodeId]", params: { nodeId, gone: goneFlag } };
 }
-
-export function finishHref(parentId: string | null, nodeId: string): Href {
-	return parentId === null
-		? { pathname: "/projects", params: { finish: nodeId } }
-		: {
-				pathname: "/projects/[nodeId]",
-				params: { nodeId: parentId, finish: nodeId },
-			};
-}

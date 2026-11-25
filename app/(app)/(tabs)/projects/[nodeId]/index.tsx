@@ -12,7 +12,7 @@ import {
 } from "@/components/board/BoardFilterSheet";
 import { BoardMenu } from "@/components/board/BoardMenu";
 import { Breadcrumbs } from "@/components/board/Breadcrumbs";
-import { boardHref, finishHref, goneHref } from "@/components/board/board-href";
+import { boardHref, goneHref } from "@/components/board/board-href";
 import {
 	SelectCardsAction,
 	SelectionBar,
@@ -26,6 +26,7 @@ import { useAncestors } from "@/hooks/use-ancestors";
 import { useBoardFilter } from "@/hooks/use-board-filter";
 import { useBoardNodes } from "@/hooks/use-board-nodes";
 import { useCardSelection } from "@/hooks/use-card-selection";
+import { requestProjectFinish } from "@/hooks/use-finish-param";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useLocations } from "@/hooks/use-locations";
 import { useNode } from "@/hooks/use-node";
@@ -146,8 +147,9 @@ export default function NodeBoard() {
 		!selection.selecting;
 	const desktop = width >= compactBreakpoint;
 	const moveToDone = () => {
-		if (node !== null) {
-			router.dismissTo(finishHref(node.parentId ?? null, node.id));
+		if (node !== null && homeId !== null) {
+			requestProjectFinish(homeId, node.parentId, node.id);
+			router.dismissTo(boardHref(node.parentId));
 		}
 	};
 	const moveToDoneButton = (

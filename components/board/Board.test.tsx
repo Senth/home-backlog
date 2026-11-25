@@ -36,7 +36,13 @@ jest.mock("@/data/outbox-store", () => ({
 	intentMetadata: jest.fn(() => ({ id: "intent-1" })),
 }));
 
-import { Dimensions, Platform, View, type ViewInstance } from "react-native";
+import {
+	Animated,
+	Dimensions,
+	Platform,
+	View,
+	type ViewInstance,
+} from "react-native";
 import { DragArea } from "@/components/board/DragArea";
 import {
 	SelectCardsAction,
@@ -49,6 +55,7 @@ import {
 } from "@/components/board/use-board-drag";
 import { createNode, moveNodes } from "@/data/nodes";
 import { useCardSelection } from "@/hooks/use-card-selection";
+import { requestProjectFinish } from "@/hooks/use-finish-param";
 import type { BoardFilter } from "@/models/board-filter";
 import type { Node } from "@/models/node";
 import {
@@ -128,8 +135,9 @@ jest.mock("expo-router/react-navigation", () => ({
 	useIsFocused: () => true,
 }));
 
+let mockReducedMotion = false;
 jest.mock("@/hooks/use-reduced-motion", () => ({
-	useReducedMotion: () => false,
+	useReducedMotion: () => mockReducedMotion,
 }));
 jest.mock("@/hooks/use-online-status", () => ({
 	useOnlineStatus: () => true,
@@ -384,7 +392,7 @@ describe("Board", () => {
 				});
 				expect(column().selectedIds).toEqual([a.id, b.id]);
 				await fireEvent.press(screen.getByLabelText("board.stopSelecting"));
-				const register = column().drag?.register;
+				const register = column().register;
 				if (!register)
 					throw new Error("Board column rendered no drag registry");
 				const frame = (top: number, height: number) =>
@@ -464,6 +472,7 @@ describe("Board", () => {
 		mockIntents = [];
 		mockFeedbackVisible = false;
 		mockSearchParams = {};
+		mockReducedMotion = false;
 	});
 
 	it.each(["ctrlKey", "metaKey"])(
@@ -676,6 +685,7 @@ describe("Board", () => {
 			rank: rankBetween(null, existing.rank),
 		};
 		const rank = rankBetween(null, hidden.rank);
+		requestProjectFinish("home-1", parent.id, project.id);
 		mockSearchParams = { finish: project.id };
 		jest.mocked(moveNodes).mockReturnValueOnce(new Promise(() => {}));
 		const props: TestBoardProps = {
@@ -722,6 +732,65 @@ describe("Board", () => {
 		]);
 		expect(mockPush).not.toHaveBeenCalled();
 	});
+
+	it("slides the finished project into Done once, then offers Undo without a return flight", async () => {
+		const project = node("execution");
+		const rank = rankBetween(null, null);
+		let landed: (() => void) | undefined;
+		const spring = jest.spyOn(Animated, "spring").mockImplementation(() => ({
+			start: (callback) => {
+				landed = () => callback?.({ finished: true });
+			},
+			stop: jest.fn(),
+			reset: jest.fn(),
+		}));
+		measureAnchors();
+		try {
+			requestProjectFinish("home-1", null, project.id);
+			const props = { loading: false, viewport: 390, nodes: [project] };
+			const board = await renderBoard(props);
+			await board.rerenderBoard({
+				...props,
+				nodes: [{ ...project, status: "done", rank }],
+			});
+			expect(spring).toHaveBeenCalledTimes(1);
+			expect(
+				screen.getByTestId("board-finish-travel", {
+					includeHiddenElements: true,
+				}),
+			).toBeOnTheScreen();
+			expect(screen.queryByText("common.undo")).toBeNull();
+			await act(() => landed?.());
+			await fireEvent.press(screen.getByText("common.undo"));
+			await board.rerenderBoard(props);
+			expect(moveNodes).toHaveBeenCalledTimes(2);
+			expect(spring).toHaveBeenCalledTimes(1);
+		} finally {
+			jest.restoreAllMocks();
+		}
+	});
+
+	it.each([false, true])(
+		"offers immediate Undo for a cold URL or reduced-motion tap (tapped=%s)",
+		async (tapped) => {
+			mockReducedMotion = tapped;
+			const project = node("execution");
+			if (tapped) requestProjectFinish("home-1", null, project.id);
+			else mockSearchParams = { finish: project.id };
+			const props = { loading: false, viewport: 390, nodes: [project] };
+			const board = await renderBoard(props);
+			expect(screen.getByText("common.undo")).toBeOnTheScreen();
+			await board.rerenderBoard({
+				...props,
+				nodes: [{ ...project, status: "done" }],
+			});
+			expect(
+				screen.queryByTestId("board-finish-travel", {
+					includeHiddenElements: true,
+				}),
+			).toBeNull();
+		},
+	);
 
 	it.each(["missing", "node-done", "node-execution"])(
 		"clears finish=%s without moving a missing, Done, or non-child card",

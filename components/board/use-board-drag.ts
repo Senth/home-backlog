@@ -50,7 +50,6 @@ export interface ColumnDrag {
 	gapAt: number | null;
 	/** How tall the gap is: exactly the card it is holding a place for. */
 	gapHeight: number;
-	register: (key: string) => (view: ViewInstance | null) => void;
 	handlers: (node: Node) => CardDragHandlers;
 }
 
@@ -131,6 +130,7 @@ export interface BoardDrag {
 	offset: Animated.ValueXY;
 	/** A ref callback for one of the things a drop is measured against. */
 	register: (key: string) => (view: ViewInstance | null) => void;
+	measureFrame: (key: string) => Promise<Box | null>;
 	handlers: (node: Node) => CardDragHandlers;
 	/** Which screen edge the card is resting in, below the breakpoint. */
 	edge: "left" | "right" | null;
@@ -142,6 +142,8 @@ export const boardKey = "board";
 export const columnKey = (status: Status) => `column:${status}`;
 export const chipKey = (status: Status) => `chip:${status}`;
 export const cardKey = (id: string) => `card:${id}`;
+
+export const dropSpring = { useNativeDriver: false, speed: 20, bounciness: 0 };
 
 /**
  * Picking a card up, carrying it, and putting it down.
@@ -224,6 +226,10 @@ export function useBoardDrag({
 		refCallbacks.current.set(key, callback);
 		return callback;
 	}, []);
+	const measureFrame = useCallback(
+		(key: string) => boxOf(views.current.get(key)),
+		[],
+	);
 
 	// Not a token bump: this also runs as the settle spring's tidy-up, long after
 	// the press ended, and bumping there would cancel a *new* grab that started
@@ -266,9 +272,7 @@ export function useBoardDrag({
 			setSession(home);
 			Animated.spring(offset, {
 				toValue: { x: 0, y: 0 },
-				useNativeDriver: false,
-				speed: 20,
-				bounciness: 0,
+				...dropSpring,
 			}).start(() => {
 				if (live.current === home) clear();
 			});
@@ -690,11 +694,12 @@ export function useBoardDrag({
 			overlay: session?.overlay ?? null,
 			offset,
 			register,
+			measureFrame,
 			handlers,
 			edge,
 			dwell,
 		}),
-		[dwell, edge, handlers, nodes, offset, register, session],
+		[dwell, edge, handlers, measureFrame, nodes, offset, register, session],
 	);
 }
 

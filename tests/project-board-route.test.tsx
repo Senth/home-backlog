@@ -2,8 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import { Dimensions } from "react-native";
 import { Provider } from "react-native-paper";
 import NodeBoard from "@/app/(app)/(tabs)/projects/[nodeId]/index";
-import { finishHref } from "@/components/board/board-href";
+import { boardHref } from "@/components/board/board-href";
 import { PaperIcon } from "@/components/ui/PaperIcon";
+import { requestProjectFinish } from "@/hooks/use-finish-param";
 import type { Node, Status } from "@/models/node";
 import { lightTheme } from "@/theme";
 
@@ -97,6 +98,9 @@ jest.mock("@/hooks/use-board-nodes", () => ({
 jest.mock("@/hooks/use-card-selection", () => ({
 	useCardSelection: () => mockSelection,
 }));
+jest.mock("@/hooks/use-finish-param", () => ({
+	requestProjectFinish: jest.fn(),
+}));
 jest.mock("@/hooks/use-gone-notice", () => ({
 	useGoneNotice: () => ({ showing: false, dismiss: jest.fn() }),
 }));
@@ -167,7 +171,12 @@ it("shows desktop offer and returns to the parent board", async () => {
 		screen.getByRole("button", { name: "Move to Done" }),
 	).toBeOnTheScreen();
 	await fireEvent.press(screen.getByRole("button", { name: "Move to Done" }));
-	expect(mockDismissTo).toHaveBeenCalledWith(finishHref("parent", "project"));
+	expect(requestProjectFinish).toHaveBeenCalledWith(
+		"home",
+		"parent",
+		"project",
+	);
+	expect(mockDismissTo).toHaveBeenCalledWith(boardHref("parent"));
 });
 
 it("shows phone offer below the home subtitle", async () => {

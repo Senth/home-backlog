@@ -1,10 +1,11 @@
 import { Fragment, type ReactNode, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { type GestureResponderEvent, View } from "react-native";
+import { type GestureResponderEvent, Platform, View } from "react-native";
 import { Button, Text } from "react-native-paper";
 import { BoardCard } from "@/components/board/BoardCard";
 import { DragArea } from "@/components/board/DragArea";
 import {
+	type BoardDrag,
 	type ColumnDrag,
 	cardKey,
 	columnKey,
@@ -76,6 +77,8 @@ interface BoardColumnProps {
 	 * out of this column and into another one.
 	 */
 	drag?: ColumnDrag;
+	register: BoardDrag["register"];
+	travelId?: string;
 	/**
 	 * What a card resolves its waiting mark against — see `BoardCard`. The
 	 * board hands down its own nodes plus the watcher's cross-board documents.
@@ -128,6 +131,8 @@ export function BoardColumn({
 	openDetailsId,
 	renderMenu,
 	drag,
+	register,
+	travelId,
 	blockers,
 	ancestorLabelIds,
 	ancestorLocationId,
@@ -308,7 +313,7 @@ export function BoardColumn({
 			    inside it too, so a drop on the row still lands at the column's end
 			    rather than reading as a drop outside the board. */}
 			<View
-				ref={drag?.register(columnKey(status))}
+				ref={register(columnKey(status))}
 				style={{ flex: 1 }}
 				collapsable={false}
 			>
@@ -362,9 +367,12 @@ export function BoardColumn({
 						    picks the card up. Neither reaches the card face: it gains
 						    nothing at all, and the drag is invisible until it is used. */}
 							<View
-								ref={drag?.register(cardKey(node.id))}
+								ref={register(cardKey(node.id))}
 								collapsable={false}
-								style={held ? flattened : undefined}
+								style={
+									held ? flattened : node.id === travelId ? inFlight : undefined
+								}
+								{...(node.id === travelId ? hiddenFromInteraction : {})}
 							>
 								{drag === undefined ? (
 									<BoardCard
@@ -475,3 +483,10 @@ export const columnTestID = (status: Status) => `board-column-${status}`;
  * per column per frame.
  */
 const headingWeight = { fontWeight: "bold" } as const;
+const inFlight = { opacity: 0, pointerEvents: "none" } as const;
+const hiddenFromInteraction = {
+	"aria-hidden": true,
+	accessibilityElementsHidden: true,
+	importantForAccessibility: "no-hide-descendants",
+	...(Platform.OS === "web" ? { inert: true } : {}),
+} as const;
