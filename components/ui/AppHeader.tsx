@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
-import { useWindowDimensions } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { Appbar, Text } from "react-native-paper";
 import { useAppTheme } from "@/theme";
 import { appBarStackBreakpoint, size, space } from "@/theme/tokens";
@@ -8,13 +8,40 @@ interface AppHeaderProps {
 	title: string;
 	leading?: ReactNode;
 	children?: ReactNode;
+	subtitle?: ReactNode;
+	titleVariant?: ComponentProps<typeof Text>["variant"];
 	style?: ComponentProps<typeof Appbar.Header>["style"];
 }
 
-export function AppHeader({ title, leading, children, style }: AppHeaderProps) {
+export function AppHeader({
+	title,
+	leading,
+	children,
+	subtitle,
+	titleVariant,
+	style,
+}: AppHeaderProps) {
 	const { width } = useWindowDimensions();
 	const theme = useAppTheme();
 	const stacked = width < appBarStackBreakpoint;
+	const variant = titleVariant ?? (stacked ? "headlineSmall" : "titleLarge");
+	const titleContent =
+		subtitle === undefined && titleVariant === undefined ? (
+			title
+		) : (
+			<View style={{ flexShrink: 1, minWidth: space.none }}>
+				<Text
+					variant={variant}
+					style={{ color: theme.colors.onSurface, flexShrink: 1 }}
+					accessible
+					accessibilityRole="header"
+					testID="app-header-title"
+				>
+					{title}
+				</Text>
+				{subtitle}
+			</View>
+		);
 
 	return (
 		<Appbar.Header
@@ -31,20 +58,7 @@ export function AppHeader({ title, leading, children, style }: AppHeaderProps) {
 			]}
 		>
 			{leading}
-			<Appbar.Content
-				style={{ minWidth: space.none }}
-				title={
-					<Text
-						variant={stacked ? "headlineSmall" : "titleLarge"}
-						style={{ color: theme.colors.onSurface }}
-						accessible
-						accessibilityRole="header"
-						testID="app-header-title"
-					>
-						{title}
-					</Text>
-				}
-			/>
+			<Appbar.Content style={{ minWidth: space.none }} title={titleContent} />
 			{children}
 		</Appbar.Header>
 	);

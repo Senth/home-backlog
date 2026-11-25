@@ -2,6 +2,7 @@ import {
 	boardHref,
 	detailsCardId,
 	detailsHref,
+	finishHref,
 } from "@/components/board/board-href";
 
 describe("details URLs", () => {
@@ -32,5 +33,18 @@ describe("details URLs", () => {
 		expect(detailsCardId("card-1")).toBe("card-1");
 		for (const value of [undefined, "", ["one", "two"], "one/two", ".", ".."])
 			expect(detailsCardId(value)).toBeNull();
+	});
+});
+
+describe("finish URLs", () => {
+	it("returns to the parent board with the project to finish", () => {
+		expect(finishHref(null, "project-1")).toEqual({
+			pathname: "/projects",
+			params: { finish: "project-1" },
+		});
+		expect(finishHref("parent-1", "project-1")).toEqual({
+			pathname: "/projects/[nodeId]",
+			params: { nodeId: "parent-1", finish: "project-1" },
+		});
 	});
 });

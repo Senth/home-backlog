@@ -283,6 +283,7 @@
 		"hiddenHere_one": "Ett projekt till här är någon annans eget. Öppna filtret för att se det.",
 		"hiddenHere_other": "{{count}} fler här är någon annans egna projekt. Öppna filtret för att se dem.",
 		"columnEmpty": "Inget här",
+		"allStepsDone": "Alla steg är klara",
 		"columnChip": "{{column}} · {{count}}",
 		"columnChipA11y_one": "{{column}}, {{count}} kort",
 		"columnChipA11y_other": "{{column}}, {{count}} kort",
