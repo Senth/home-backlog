@@ -1,5 +1,6 @@
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import {
+	allStepsDone,
 	appendRanks,
 	assignableMembers,
 	childAncestorIds,
@@ -13,6 +14,7 @@ import {
 	doneChange,
 	effectiveLocation,
 	effectiveParticipants,
+	finishMove,
 	flipPlan,
 	hasDetails,
 	hasSteps,
@@ -329,6 +331,95 @@ describe("hasSteps", () => {
 	 */
 	it("does not become true on a counter that has drifted below zero", () => {
 		expect(hasSteps(node({ childCount: -3 }))).toBe(false);
+	});
+});
+
+describe("allStepsDone", () => {
+	it("requires at least one direct child", () => {
+		const project = node({ id: "project", childCount: 4, doneCount: 4 });
+		const unrelated = node({
+			id: "unrelated",
+			parentId: "another-project",
+			status: "done",
+		});
+
+		expect(allStepsDone(project, [])).toBe(false);
+		expect(allStepsDone(project, [unrelated])).toBe(false);
+	});
+
+	it("is false when any direct child is unfinished or the project is done", () => {
+		const project = node({ id: "project" });
+		const doneStep = node({
+			id: "done-step",
+			parentId: "project",
+			status: "done",
+		});
+		const unfinishedStep = node({
+			id: "unfinished-step",
+			parentId: "project",
+			status: "execution",
+		});
+
+		expect(allStepsDone(project, [doneStep, unfinishedStep])).toBe(false);
+		expect(allStepsDone(node({ ...project, status: "done" }), [doneStep])).toBe(
+			false,
+		);
+	});
+
+	it.each(["backlog", "next_up", "execution"] as const)(
+		"is true for a %s project with all direct steps done, using loaded steps",
+		(status) => {
+			const project = node({
+				id: "project",
+				status,
+				childCount: 0,
+				doneCount: 0,
+			});
+			const steps = [
+				node({ id: "step-a", parentId: "project", status: "done" }),
+				node({ id: "step-b", parentId: "project", status: "done" }),
+			];
+
+			expect(allStepsDone(project, steps)).toBe(true);
+		},
+	);
+});
+
+describe("finishMove", () => {
+	it("moves before the first Done sibling, regardless of input order", () => {
+		const doneFirst = node({
+			id: "done-first",
+			status: "done",
+			rank: rankAtEnd(null),
+		});
+		const doneLater = node({
+			id: "done-later",
+			status: "done",
+			rank: rankAtEnd(doneFirst.rank),
+		});
+		const moving = node({ id: "moving" });
+		const move = finishMove([doneLater, node(), doneFirst], moving);
+
+		expect(move).toEqual({
+			node: moving,
+			status: "done",
+			rank: rankBetween(null, doneFirst.rank),
+		});
+		expect(move !== null && move.rank < doneFirst.rank).toBe(true);
+		expect(move !== null && move.rank < doneLater.rank).toBe(true);
+	});
+
+	it("starts the Done column when it has no Done siblings", () => {
+		const move = finishMove(
+			[node({ id: "working", status: "execution" })],
+			node({ id: "moving" }),
+		);
+
+		expect(move?.rank).toBe(rankBetween(null, null));
+	});
+
+	it("does not move a node already in Done", () => {
+		expect(finishMove([], node({ status: "done" }))).toBeNull();
 	});
 });
 
