@@ -38,9 +38,10 @@ import { useAppTheme } from "@/theme";
 import {
 	compactBreakpoint,
 	denseBreakpoint,
+	focusRing,
 	icon,
 	space,
-	touchTargetStyle,
+	touchTarget,
 } from "@/theme/tokens";
 import { goBack } from "@/utils/navigation";
 
@@ -157,16 +158,20 @@ export default function NodeBoard() {
 			mode="text"
 			onPress={moveToDone}
 			style={[
-				touchTargetStyle,
-				{ width: "auto", flexShrink: 0, margin: space.none },
+				{
+					width: "auto",
+					minHeight: touchTarget,
+					flexShrink: 0,
+					margin: space.none,
+				},
 			]}
-			contentStyle={{ minHeight: touchTargetStyle.height }}
+			contentStyle={{ minHeight: touchTarget }}
 		>
 			{t("detail.moveToColumn", { column: t("status.done") })}
 		</Button>
 	);
 	const finishSubtitle =
-		showFinishOffer && desktop ? (
+		showFinishOffer && dense ? undefined : showFinishOffer && desktop ? (
 			<View
 				style={{
 					flexDirection: "row",
@@ -194,6 +199,46 @@ export default function NodeBoard() {
 				{activeHome?.name ?? ""}
 			</Text>
 		) : undefined;
+	const finishOffer =
+		showFinishOffer && !desktop ? (
+			<View
+				style={{
+					alignSelf: "flex-start",
+					flexDirection: "row",
+					alignItems: "center",
+					flexWrap: "wrap",
+					gap: space.sm,
+					marginHorizontal: space.md,
+					paddingBottom: focusRing.width + focusRing.offset,
+					maxWidth: "100%",
+				}}
+			>
+				<View
+					style={{
+						flexDirection: "row",
+						alignItems: "center",
+						gap: space.sm,
+						flexBasis: "auto",
+						flexGrow: 1,
+						flexShrink: 1,
+						minWidth: space.none,
+					}}
+				>
+					<PaperIcon name="check" size={icon.md} color={theme.colors.success} />
+					<Text
+						variant="bodyLarge"
+						style={{
+							color: theme.colors.onSurfaceVariant,
+							flexShrink: 1,
+							minWidth: space.none,
+						}}
+					>
+						{t("board.allStepsDone")}
+					</Text>
+				</View>
+				{moveToDoneButton}
+			</View>
+		) : null;
 	// Where "up" is once the card itself has stopped existing. Remembered while
 	// it still does, because a deleted card cannot say who its parent was.
 	const parentId = useRef<string | null>(null);
@@ -229,7 +274,13 @@ export default function NodeBoard() {
 			) : (
 				<AppHeader
 					title={node?.title ?? ""}
-					titleVariant={desktop ? "headlineSmall" : undefined}
+					titleVariant={
+						desktop
+							? "headlineSmall"
+							: dense && showFinishOffer
+								? "titleMedium"
+								: undefined
+					}
 					subtitle={finishSubtitle}
 					leading={
 						<BackAction
@@ -277,6 +328,7 @@ export default function NodeBoard() {
 					</View>
 				</AppHeader>
 			)}
+			{dense ? finishOffer : null}
 
 			<Breadcrumbs
 				crumbs={crumbs}
@@ -284,48 +336,7 @@ export default function NodeBoard() {
 				onNavigate={(id) => router.dismissTo(boardHref(id))}
 				isPrivate={node?.visibility === "private"}
 			/>
-			{showFinishOffer && !desktop ? (
-				<View
-					style={{
-						alignSelf: "flex-start",
-						flexDirection: "row",
-						alignItems: "center",
-						flexWrap: "wrap",
-						gap: space.sm,
-						marginHorizontal: space.md,
-						maxWidth: "100%",
-					}}
-				>
-					<View
-						style={{
-							flexDirection: "row",
-							alignItems: "center",
-							gap: space.sm,
-							flexBasis: "auto",
-							flexGrow: 1,
-							flexShrink: 1,
-							minWidth: space.none,
-						}}
-					>
-						<PaperIcon
-							name="check"
-							size={icon.md}
-							color={theme.colors.success}
-						/>
-						<Text
-							variant="bodyLarge"
-							style={{
-								color: theme.colors.onSurfaceVariant,
-								flexShrink: 1,
-								minWidth: space.none,
-							}}
-						>
-							{t("board.allStepsDone")}
-						</Text>
-					</View>
-					{moveToDoneButton}
-				</View>
-			) : null}
+			{dense ? null : finishOffer}
 
 			{/* No board until its own node has arrived. `Board` hands `parent`
 			    straight to `createNode`, and a null parent is not "this board" but

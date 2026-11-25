@@ -15,7 +15,7 @@ import {
 	nodeFields,
 } from "@/e2e/support/firestore";
 import enUS from "@/i18n/locales/en-US.json";
-import { touchTarget } from "@/theme/tokens";
+import { focusRing, touchTarget } from "@/theme/tokens";
 
 /**
  * The thing `PROJECT.md` says Trello lacks: a card is a board, at any depth,
@@ -476,4 +476,55 @@ test("7: the completed-project offer wraps at 200% text", async ({ page }) => {
 	const tabBarBox = await page.getByRole("tablist").boundingBox();
 	const boardBox = await page.locator(columnSelector("backlog")).boundingBox();
 	expect(boardBox?.y).toBeLessThan(tabBarBox?.y ?? 0);
+
+	const actionBounds = await action.boundingBox();
+	expect(actionBounds).not.toBeNull();
+	if (actionBounds === null) return;
+	const focusClearance = focusRing.width + focusRing.offset;
+	const focusedActionBounds = {
+		x: actionBounds.x - focusClearance,
+		y: actionBounds.y - focusClearance,
+		width: actionBounds.width + focusClearance * 2,
+		height: actionBounds.height + focusClearance * 2,
+	};
+	const overlaps = (
+		first: NonNullable<typeof actionBounds>,
+		second: NonNullable<typeof actionBounds>,
+	) =>
+		first.x < second.x + second.width &&
+		first.x + first.width > second.x &&
+		first.y < second.y + second.height &&
+		first.y + first.height > second.y;
+	const collisions: Array<{
+		target: string;
+		bounds: NonNullable<typeof actionBounds>;
+	}> = [];
+	const columnControls = page.getByRole("button", {
+		name: /, \d+ cards?(, current)?$/,
+	});
+	await expect(columnControls).toHaveCount(COLUMNS.length);
+	for (const [index, control] of (await columnControls.all()).entries()) {
+		const controlBounds = await control.boundingBox();
+		expect(controlBounds).not.toBeNull();
+		if (
+			controlBounds !== null &&
+			overlaps(focusedActionBounds, controlBounds)
+		) {
+			collisions.push({
+				target: `column control ${index}`,
+				bounds: controlBounds,
+			});
+		}
+	}
+	const fabBounds = await page
+		.getByRole("button", { name: `Add to ${enUS.status.backlog}`, exact: true })
+		.boundingBox();
+	expect(fabBounds).not.toBeNull();
+	if (fabBounds !== null && overlaps(focusedActionBounds, fabBounds)) {
+		collisions.push({ target: "FAB", bounds: fabBounds });
+	}
+	expect(
+		collisions,
+		JSON.stringify({ focusedActionBounds, collisions }),
+	).toEqual([]);
 });
