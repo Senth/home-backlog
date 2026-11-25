@@ -216,11 +216,11 @@ function node(status: Node["status"]): Node {
 	};
 }
 
-function finishSteps(nodes: Node[], loading = false) {
+function finishSteps(nodes: Node[], loading = false, failed = false) {
 	jest.mocked(useNodes).mockReturnValue({
 		nodes,
 		loading,
-		failed: false,
+		failed,
 		retry: jest.fn(),
 	});
 }
@@ -240,6 +240,7 @@ interface TestBoardProps {
 	reach?: "board" | "subtree";
 	pool?: Node[];
 	directNodes?: Node[];
+	directFailed?: boolean;
 	parent?: Node | null;
 }
 
@@ -266,7 +267,7 @@ function SelectionBoard({ current }: { current: TestBoardProps }) {
 						...(current.hidden ?? []),
 					],
 					loading: current.loading,
-					failed: false,
+					failed: current.directFailed ?? false,
 				}}
 				hidden={current.hidden}
 				loading={current.loading}
@@ -883,6 +884,51 @@ describe("Board", () => {
 			{ node: project, status: "done", rank: rankBetween(null, older.rank) },
 		]);
 	});
+
+	it("queues an offline finish when the only open step is queued for deletion", async () => {
+		mockReducedMotion = true;
+		const project = node("execution");
+		const open = { ...stepOf(project, "backlog"), id: "open-step" };
+		mockIntents = [
+			{
+				kind: "deleteNode",
+				id: "delete",
+				nodeId: open.id,
+				homeId: "home-1",
+				title: open.title,
+				sourceParentId: project.id,
+				sourceAncestorIds: [project.id],
+				queuedAt: 1,
+			},
+		];
+		finishSteps([stepOf(project), open]);
+		requestProjectFinish("home-1", null, project.id);
+		jest.mocked(moveNodes).mockReturnValueOnce(new Promise(() => {}));
+		await renderBoard({ loading: false, viewport: 800, nodes: [project] });
+		expect(moveNodes).toHaveBeenCalledWith("home-1", [
+			{ node: project, status: "done", rank: rankBetween(null, null) },
+		]);
+		expect(screen.getByText("common.undo")).toBeOnTheScreen();
+	});
+
+	it.each(["step", "direct"])(
+		"shows the existing failure notice when the %s list fails to load",
+		async (list) => {
+			const project = node("execution");
+			finishSteps([stepOf(project)], false, list === "step");
+			requestProjectFinish("home-1", null, project.id);
+			await renderBoard({
+				loading: false,
+				viewport: 800,
+				reach: "subtree",
+				nodes: [project],
+				directFailed: list === "direct",
+			});
+			expect(screen.getByText("error.saveFailed")).toBeOnTheScreen();
+			expect(moveNodes).not.toHaveBeenCalled();
+			expect(screen.queryByText("common.undo")).toBeNull();
+		},
+	);
 
 	it("replaces the finish notice with the existing failure text if the write fails", async () => {
 		const project = node("execution");

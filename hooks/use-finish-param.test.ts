@@ -13,6 +13,9 @@ jest.mock("expo-router", () => ({
 jest.mock("expo-router/react-navigation", () => ({
 	useIsFocused: () => mockFocused,
 }));
+jest.mock("@/contexts/OutboxContext", () => ({
+	useOutbox: () => ({ intents: [] }),
+}));
 jest.mock("@/hooks/use-nodes", () => ({ useNodes: jest.fn() }));
 
 beforeEach(() => {

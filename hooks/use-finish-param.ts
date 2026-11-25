@@ -2,8 +2,10 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useIsFocused } from "expo-router/react-navigation";
 import { useEffect, useRef, useState } from "react";
 import { detailsCardId } from "@/components/board/board-href";
+import { useOutbox } from "@/contexts/OutboxContext";
 import { useNodes } from "@/hooks/use-nodes";
 import type { Node } from "@/models/node";
+import { hiddenNodeIds } from "@/models/outbox";
 
 type FinishRequest = { homeId: string; parentId: string | null; id: string };
 
@@ -21,12 +23,13 @@ export function useFinishParam(
 	homeId: string,
 	parentId: string | null,
 	ready: boolean,
-	onFinish: (id: string, steps: Node[]) => void,
+	onFinish: (id: string, steps: Node[] | null) => void,
 ) {
 	const { finish } = useLocalSearchParams<{ finish?: string | string[] }>();
 	const id = finish === undefined ? undefined : detailsCardId(finish);
 	const { setParams } = useRouter();
 	const focused = useIsFocused();
+	const { intents } = useOutbox();
 	const consumed = useRef<string | null | undefined>(undefined);
 	const [request, setRequest] = useState<FinishRequest>();
 	const arrival =
@@ -54,7 +57,15 @@ export function useFinishParam(
 		if (arrival === undefined) setRequest(undefined);
 		else if (ready && !steps.loading) {
 			setRequest(undefined);
-			if (!steps.failed) onFinish(arrival.id, steps.nodes);
+			if (steps.failed) {
+				onFinish(arrival.id, null);
+			} else {
+				const hidden = hiddenNodeIds(intents, homeId);
+				onFinish(
+					arrival.id,
+					steps.nodes.filter((node) => !hidden.has(node.id)),
+				);
+			}
 		}
 	}, [
 		request,
@@ -63,6 +74,8 @@ export function useFinishParam(
 		steps.loading,
 		steps.failed,
 		steps.nodes,
+		intents,
+		homeId,
 		onFinish,
 	]);
 }

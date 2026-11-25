@@ -499,7 +499,11 @@ export function Board({
 		parent?.id ?? null,
 		contentReady && !failed && !direct.loading,
 		(id, steps) => {
-			if (direct.failed) return;
+			const failureText = t("error.saveFailed");
+			if (direct.failed || steps === null) {
+				setNotice({ text: failureText });
+				return;
+			}
 			const node = direct.nodes.find(
 				(candidate) =>
 					candidate.id === id && candidate.parentId === (parent?.id ?? null),
@@ -527,7 +531,7 @@ export function Board({
 					[move],
 					t("board.moved", { column: t(`status.${move.status}`) }),
 					receive,
-					t("error.saveFailed"),
+					failureText,
 				),
 			);
 		},
