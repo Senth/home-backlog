@@ -55,6 +55,7 @@ import {
 	appendRanks,
 	defaultColumns,
 	rankAtEnd,
+	rankBetween,
 	rankSequence,
 } from "@/models/node";
 import type { RecordedComponent } from "@/tests/support/record-props";
@@ -114,7 +115,7 @@ jest.mock("@/contexts/HomeContext", () => ({
 
 const mockPush = jest.fn();
 const mockSetParams = jest.fn();
-let mockSearchParams: { card?: string } = {};
+let mockSearchParams: { card?: string; finish?: string } = {};
 jest.mock("expo-router", () => ({
 	useRouter: () => ({ push: mockPush, setParams: mockSetParams }),
 	useLocalSearchParams: () => mockSearchParams,
@@ -653,6 +654,110 @@ describe("Board", () => {
 		expect(
 			screen.getByText('board.moved:{"column":"status.done"}'),
 		).toBeOnTheScreen();
+	});
+
+	it("finishes a filtered-out project at the top of Done and offers Undo while the write is queued", async () => {
+		const parent = { ...node("backlog"), id: "parent" };
+		const project = {
+			...node("execution"),
+			title: "Filtered project",
+			parentId: parent.id,
+			rank: rankAtEnd(null),
+			priority: "high" as const,
+		};
+		const existing = {
+			...node("done"),
+			parentId: parent.id,
+			rank: rankAtEnd(null),
+		};
+		const hidden = {
+			...existing,
+			id: "hidden",
+			rank: rankBetween(null, existing.rank),
+		};
+		const rank = rankBetween(null, hidden.rank);
+		mockSearchParams = { finish: project.id };
+		jest.mocked(moveNodes).mockReturnValueOnce(new Promise(() => {}));
+		const props: TestBoardProps = {
+			loading: false,
+			viewport: 390,
+			parent,
+			nodes: [project, existing],
+			hidden: [hidden],
+			filter: {
+				mode: "open",
+				reach: "board",
+				conditions: [{ field: "priority", anyOf: ["none"] }],
+			},
+		};
+		const board = await renderBoard(props);
+
+		expect(moveNodes).toHaveBeenCalledTimes(1);
+		expect(moveNodes).toHaveBeenCalledWith("home-1", [
+			{ node: project, status: "done", rank },
+		]);
+		expect(mockSetParams).toHaveBeenCalledWith({ finish: undefined });
+		expect(
+			screen.getByLabelText(
+				/^board\.columnChipCurrentA11y:\{"column":"status\.done"/,
+			),
+		).toBeOnTheScreen();
+		expect(
+			screen.getByText('board.moved:{"column":"status.done"}'),
+		).toBeOnTheScreen();
+
+		await board.rerenderBoard({
+			...props,
+			nodes: [{ ...project, status: "done", rank }, existing],
+		});
+		expect(screen.queryByText(project.title)).toBeNull();
+		await fireEvent.press(screen.getByText("common.undo"));
+		expect(moveNodes).toHaveBeenCalledTimes(2);
+		expect(moveNodes).toHaveBeenLastCalledWith("home-1", [
+			{
+				node: { ...project, status: "done", rank },
+				status: project.status,
+				rank: project.rank,
+			},
+		]);
+		expect(mockPush).not.toHaveBeenCalled();
+	});
+
+	it.each(["missing", "node-done", "node-execution"])(
+		"clears finish=%s without moving a missing, Done, or non-child card",
+		async (finish) => {
+			mockSearchParams = { finish };
+			await renderBoard({
+				loading: false,
+				viewport: 390,
+				reach: "subtree",
+				nodes: [node("done"), { ...node("execution"), parentId: "other" }],
+			});
+			expect(mockSetParams).toHaveBeenCalledWith({ finish: undefined });
+			expect(moveNodes).not.toHaveBeenCalled();
+			expect(screen.queryByText(/^board\.moved:/)).toBeNull();
+			expect(
+				screen.getByLabelText(
+					'board.columnChipCurrentA11y:{"column":"status.backlog","count":0}',
+				),
+			).toBeOnTheScreen();
+		},
+	);
+
+	it("replaces the finish notice with the existing failure text if the write fails", async () => {
+		const project = node("execution");
+		mockSearchParams = { finish: project.id };
+		const reason = new Error("write rejected");
+		jest.mocked(moveNodes).mockRejectedValueOnce(reason);
+		const log = jest.spyOn(console, "error").mockImplementation(() => {});
+		try {
+			await renderBoard({ loading: false, viewport: 800, nodes: [project] });
+			expect(screen.getByText("error.saveFailed")).toBeOnTheScreen();
+			expect(screen.queryByText("common.undo")).toBeNull();
+			expect(log).toHaveBeenCalledWith("Could not move the cards:", reason);
+		} finally {
+			log.mockRestore();
+		}
 	});
 
 	it("filter changes prune hidden selections without selecting them again when cleared", async () => {

@@ -38,6 +38,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { createNode } from "@/data/nodes";
 import type { useCardSelection } from "@/hooks/use-card-selection";
+import { useFinishParam } from "@/hooks/use-finish-param";
 import { useLabelAncestors } from "@/hooks/use-label-ancestors";
 import { useTabTrap } from "@/hooks/use-modal-focus";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
@@ -57,6 +58,7 @@ import {
 	crossBoardBlockerIds,
 	type EffectiveLocation,
 	effectiveLocation,
+	finishMove,
 	hasSteps,
 	type Node,
 	rankAtEnd,
@@ -161,20 +163,17 @@ interface BoardProps {
  * side and the board scrolls horizontally; the headers say what the strip says,
  * so the strip is not rendered.
  *
- * The pane on screen is **state, set only by a tap on a chip** — it is never
- * read back from a scroll position. It was a swipeable pager, and the pager is
- * what broke it: the browser moves a scroll-snapping container on its own, to
- * re-snap after content changes and to bring a focused element into view, so
+ * The pane on screen is **state**, never read back from a scroll position.
+ * The old swipeable pager broke that: the browser moves a scroll-snapping
+ * container on its own to re-snap after content changes or bring focus into view, so
  * the board drifted to whichever column a card happened to land in. Twelve
  * cards added in a row from a FAB that said "Add to To do" went to In progress
  * and Next up, alternately — the Marcus-forty-cards Saturday morning this
  * feature exists for. Swiping between columns is worth having back, but not at
  * the price of cards landing in a column nobody chose.
  *
- * A board **always opens on its first column** rather than restoring the last
- * pane anyone was on. Where you were on a board is not something anyone
- * remembers, and a board that opens somewhere unexpected reads as the wrong
- * board.
+ * A board **opens on its first column**, except when arriving to finish a
+ * project. Restoring the last pane makes the board read as the wrong board.
  */
 export function Board({
 	homeId,
@@ -246,9 +245,8 @@ export function Board({
 		});
 	}, []);
 
-	// A board always opens on its first column. Cleared during render, because
-	// one screen can become another board — a breadcrumb re-points the screen it
-	// is on — and carrying the last pane anyone swiped to into a different board
+	// Reset to the first column during render because a breadcrumb can re-point
+	// this screen, and carrying the last pane anyone swiped to into a different board
 	// makes it read as the wrong board. The watcher's answers go with it: they
 	// belong to the board they were read for.
 	const board = `${homeId} ${parent?.id ?? ""}`;
@@ -414,6 +412,25 @@ export function Board({
 		screen: "board",
 	});
 	const compact = layout.details === "page";
+	useFinishParam(!loading && !failed, (id) => {
+		const siblings = siblingsOf(universe, parent?.id ?? null);
+		const node = siblings.find((candidate) => candidate.id === id);
+		if (node === undefined) return;
+		const move = finishMove(siblings, node);
+		if (move === null) return;
+
+		if (compact) {
+			const done = shown.indexOf(move.status);
+			setCurrent(done === -1 ? shown.length : done);
+		}
+		moveCardsWithNotice(
+			homeId,
+			[move],
+			t("board.moved", { column: t(`status.${move.status}`) }),
+			setNotice,
+			t("error.saveFailed"),
+		);
+	});
 	/**
 	 * Below `cardGutterBreakpoint` the card's gutters give back their room: the
 	 * left one narrows, the right one disappears and the menu floats. The board
