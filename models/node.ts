@@ -690,13 +690,20 @@ export function finishMove(
 	node: Node,
 ): { node: Node; status: "done"; rank: string } | null {
 	if (node.status === "done") return null;
-	const firstDone = siblings
-		.filter((sibling) => sibling.status === "done")
-		.sort(compareNodes)[0];
+	let firstDone: string | null = null;
+	for (const sibling of siblings) {
+		if (
+			sibling.parentId === node.parentId &&
+			sibling.status === "done" &&
+			(firstDone === null || sibling.rank < firstDone)
+		) {
+			firstDone = sibling.rank;
+		}
+	}
 	return {
 		node,
 		status: "done",
-		rank: rankBetween(null, firstDone?.rank ?? null),
+		rank: rankBetween(null, firstDone),
 	};
 }
 

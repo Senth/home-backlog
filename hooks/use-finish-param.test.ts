@@ -1,5 +1,6 @@
 import { renderHook } from "@testing-library/react-native";
 import { requestProjectFinish, useFinishParam } from "@/hooks/use-finish-param";
+import { useNodes } from "@/hooks/use-nodes";
 
 let mockFinish: string | string[] | undefined;
 let mockFocused = true;
@@ -12,8 +13,18 @@ jest.mock("expo-router", () => ({
 jest.mock("expo-router/react-navigation", () => ({
 	useIsFocused: () => mockFocused,
 }));
+jest.mock("@/hooks/use-nodes", () => ({ useNodes: jest.fn() }));
 
-it("waits for a loaded, focused board and hands off each arrival once", async () => {
+beforeEach(() => {
+	jest.mocked(useNodes).mockReturnValue({
+		nodes: [],
+		loading: false,
+		failed: false,
+		retry: jest.fn(),
+	});
+});
+
+it("clears each bare URL once on the loaded, focused board without handing it off", async () => {
 	mockFinish = "project";
 	mockFocused = false;
 	const onFinish = jest.fn();
@@ -37,22 +48,22 @@ it("waits for a loaded, focused board and hands off each arrival once", async ()
 
 	mockFocused = true;
 	await view.rerender({ ready: true });
-	expect(onFinish).toHaveBeenCalledWith("project", false);
+	expect(onFinish).not.toHaveBeenCalled();
 	expect(mockSetParams).toHaveBeenCalledWith({ finish: undefined });
 
 	await view.rerender({ ready: false });
 	await view.rerender({ ready: true });
-	expect(onFinish).toHaveBeenCalledTimes(1);
+	expect(onFinish).not.toHaveBeenCalled();
 	expect(mockSetParams).toHaveBeenCalledTimes(1);
 
 	mockFinish = undefined;
 	await view.rerender({ ready: true });
-	expect(onFinish).toHaveBeenCalledTimes(1);
+	expect(onFinish).not.toHaveBeenCalled();
 	expect(mockSetParams).toHaveBeenCalledTimes(1);
 
 	mockFinish = "project";
 	await view.rerender({ ready: true });
-	expect(onFinish).toHaveBeenCalledTimes(2);
+	expect(onFinish).not.toHaveBeenCalled();
 	expect(mockSetParams).toHaveBeenCalledTimes(2);
 });
 
@@ -85,7 +96,7 @@ it("only the tapped project's loaded parent can consume travel without a URL par
 	await view.rerender({ home: "home", parent: "parent", ready: false });
 	expect(onFinish).not.toHaveBeenCalled();
 	await view.rerender({ home: "home", parent: "parent", ready: true });
-	expect(onFinish).toHaveBeenCalledWith("project", true);
+	expect(onFinish).toHaveBeenCalledWith("project", []);
 	await view.rerender({ home: "home", parent: "parent", ready: false });
 	await view.rerender({ home: "home", parent: "parent", ready: true });
 	expect(onFinish).toHaveBeenCalledTimes(1);

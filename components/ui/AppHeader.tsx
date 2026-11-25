@@ -25,23 +25,17 @@ export function AppHeader({
 	const theme = useAppTheme();
 	const stacked = width < appBarStackBreakpoint;
 	const variant = titleVariant ?? (stacked ? "headlineSmall" : "titleLarge");
-	const titleContent =
-		subtitle === undefined && titleVariant === undefined ? (
-			title
-		) : (
-			<View style={{ flexShrink: 1, minWidth: space.none }}>
-				<Text
-					variant={variant}
-					style={{ color: theme.colors.onSurface, flexShrink: 1 }}
-					accessible
-					accessibilityRole="header"
-					testID="app-header-title"
-				>
-					{title}
-				</Text>
-				{subtitle}
-			</View>
-		);
+	const titleContent = (
+		<Text
+			variant={variant}
+			style={{ color: theme.colors.onSurface, flexShrink: 1 }}
+			accessible
+			accessibilityRole="header"
+			testID="app-header-title"
+		>
+			{title}
+		</Text>
+	);
 
 	return (
 		<Appbar.Header
@@ -58,7 +52,19 @@ export function AppHeader({
 			]}
 		>
 			{leading}
-			<Appbar.Content style={{ minWidth: space.none }} title={titleContent} />
+			<Appbar.Content
+				style={{ minWidth: space.none }}
+				title={
+					subtitle === undefined ? (
+						titleContent
+					) : (
+						<View style={{ flexShrink: 1, minWidth: space.none }}>
+							{titleContent}
+							{subtitle}
+						</View>
+					)
+				}
+			/>
 			{children}
 		</Appbar.Header>
 	);

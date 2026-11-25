@@ -81,7 +81,7 @@ export default function NodeBoard() {
 	// The reach the stored filter names (D2): this board's children, or
 	// everything below them — the pool pair and the done pair (Q1), filtered
 	// on the trail.
-	const { nodes, pool, loading, failed, retry } = useBoardNodes(
+	const { nodes, pool, direct, loading, failed, retry } = useBoardNodes(
 		homeId,
 		board,
 		filter?.reach ?? "board",
@@ -140,14 +140,14 @@ export default function NodeBoard() {
 		locations.length,
 	);
 	const showFinishOffer =
-		!loading &&
-		!failed &&
+		!direct.loading &&
+		!direct.failed &&
 		node !== null &&
-		allStepsDone(node, nodes) &&
+		allStepsDone(node, direct.nodes) &&
 		!selection.selecting;
 	const desktop = width >= compactBreakpoint;
 	const moveToDone = () => {
-		if (node !== null && homeId !== null) {
+		if (showFinishOffer && homeId !== null) {
 			requestProjectFinish(homeId, node.parentId, node.id);
 			router.dismissTo(boardHref(node.parentId));
 		}
@@ -339,6 +339,7 @@ export default function NodeBoard() {
 					parent={node}
 					columns={node.columns}
 					nodes={filtered.nodes}
+					direct={direct}
 					loading={loading || filterLoading}
 					failed={failed}
 					onRetry={retry}

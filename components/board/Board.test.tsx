@@ -56,6 +56,7 @@ import {
 import { createNode, moveNodes } from "@/data/nodes";
 import { useCardSelection } from "@/hooks/use-card-selection";
 import { requestProjectFinish } from "@/hooks/use-finish-param";
+import { useNodes } from "@/hooks/use-nodes";
 import type { BoardFilter } from "@/models/board-filter";
 import type { Node } from "@/models/node";
 import {
@@ -142,6 +143,7 @@ jest.mock("@/hooks/use-reduced-motion", () => ({
 jest.mock("@/hooks/use-online-status", () => ({
 	useOnlineStatus: () => true,
 }));
+jest.mock("@/hooks/use-nodes", () => ({ useNodes: jest.fn() }));
 jest.mock("@/components/ui/AppMenu", () => ({
 	AppMenu: ({
 		visible,
@@ -214,6 +216,19 @@ function node(status: Node["status"]): Node {
 	};
 }
 
+function finishSteps(nodes: Node[], loading = false) {
+	jest.mocked(useNodes).mockReturnValue({
+		nodes,
+		loading,
+		failed: false,
+		retry: jest.fn(),
+	});
+}
+
+function stepOf(project: Node, status: Node["status"] = "done"): Node {
+	return { ...node(status), id: "finish-step", parentId: project.id };
+}
+
 interface TestBoardProps {
 	loading: boolean;
 	viewport: number;
@@ -224,6 +239,7 @@ interface TestBoardProps {
 	onOpenFilter?: () => void;
 	reach?: "board" | "subtree";
 	pool?: Node[];
+	directNodes?: Node[];
 	parent?: Node | null;
 }
 
@@ -244,6 +260,14 @@ function SelectionBoard({ current }: { current: TestBoardProps }) {
 				parent={current.parent ?? null}
 				columns={defaultColumns}
 				nodes={current.nodes ?? []}
+				direct={{
+					nodes: current.directNodes ?? [
+						...(current.nodes ?? []),
+						...(current.hidden ?? []),
+					],
+					loading: current.loading,
+					failed: false,
+				}}
 				hidden={current.hidden}
 				loading={current.loading}
 				filter={current.filter}
@@ -473,6 +497,7 @@ describe("Board", () => {
 		mockFeedbackVisible = false;
 		mockSearchParams = {};
 		mockReducedMotion = false;
+		finishSteps([]);
 	});
 
 	it.each(["ctrlKey", "metaKey"])(
@@ -685,6 +710,7 @@ describe("Board", () => {
 			rank: rankBetween(null, existing.rank),
 		};
 		const rank = rankBetween(null, hidden.rank);
+		finishSteps([stepOf(project)]);
 		requestProjectFinish("home-1", parent.id, project.id);
 		mockSearchParams = { finish: project.id };
 		jest.mocked(moveNodes).mockReturnValueOnce(new Promise(() => {}));
@@ -746,6 +772,7 @@ describe("Board", () => {
 		}));
 		measureAnchors();
 		try {
+			finishSteps([stepOf(project)]);
 			requestProjectFinish("home-1", null, project.id);
 			const props = { loading: false, viewport: 390, nodes: [project] };
 			const board = await renderBoard(props);
@@ -770,37 +797,38 @@ describe("Board", () => {
 		}
 	});
 
-	it.each([false, true])(
-		"offers immediate Undo for a cold URL or reduced-motion tap (tapped=%s)",
-		async (tapped) => {
-			mockReducedMotion = tapped;
-			const project = node("execution");
-			if (tapped) requestProjectFinish("home-1", null, project.id);
-			else mockSearchParams = { finish: project.id };
-			const props = { loading: false, viewport: 390, nodes: [project] };
-			const board = await renderBoard(props);
-			expect(screen.getByText("common.undo")).toBeOnTheScreen();
-			await board.rerenderBoard({
-				...props,
-				nodes: [{ ...project, status: "done" }],
-			});
-			expect(
-				screen.queryByTestId("board-finish-travel", {
-					includeHiddenElements: true,
-				}),
-			).toBeNull();
-		},
-	);
+	it("offers immediate Undo for a reduced-motion tap", async () => {
+		mockReducedMotion = true;
+		const project = node("execution");
+		finishSteps([stepOf(project)]);
+		requestProjectFinish("home-1", null, project.id);
+		const props = { loading: false, viewport: 390, nodes: [project] };
+		const board = await renderBoard(props);
+		expect(screen.getByText("common.undo")).toBeOnTheScreen();
+		await board.rerenderBoard({
+			...props,
+			nodes: [{ ...project, status: "done" }],
+		});
+		expect(
+			screen.queryByTestId("board-finish-travel", {
+				includeHiddenElements: true,
+			}),
+		).toBeNull();
+	});
 
-	it.each(["missing", "node-done", "node-execution"])(
-		"clears finish=%s without moving a missing, Done, or non-child card",
+	it.each(["missing", "node-done", "node-execution", "direct-project"])(
+		"clears bare finish=%s without moving a card",
 		async (finish) => {
 			mockSearchParams = { finish };
 			await renderBoard({
 				loading: false,
 				viewport: 390,
 				reach: "subtree",
-				nodes: [node("done"), { ...node("execution"), parentId: "other" }],
+				nodes: [
+					node("done"),
+					{ ...node("execution"), parentId: "other" },
+					{ ...node("execution"), id: "direct-project" },
+				],
 			});
 			expect(mockSetParams).toHaveBeenCalledWith({ finish: undefined });
 			expect(moveNodes).not.toHaveBeenCalled();
@@ -813,9 +841,53 @@ describe("Board", () => {
 		},
 	);
 
+	it.each([
+		["missing", []],
+		["open", ["next_up"]],
+	] as const)(
+		"does not finish when the reloaded steps are %s",
+		async (_name, statuses) => {
+			const project = node("execution");
+			finishSteps([stepOf(project)], true);
+			requestProjectFinish("home-1", null, project.id);
+			const props = { loading: false, viewport: 390, nodes: [project] };
+			const board = await renderBoard(props);
+			expect(moveNodes).not.toHaveBeenCalled();
+
+			finishSteps(statuses.map((status) => stepOf(project, status)));
+			await board.rerenderBoard(props);
+			expect(moveNodes).not.toHaveBeenCalled();
+			expect(screen.queryByText("common.undo")).toBeNull();
+		},
+	);
+
+	it("finishes above older Done siblings excluded from subtree reach", async () => {
+		mockReducedMotion = true;
+		const project = node("execution");
+		const recent = { ...node("done"), rank: rankAtEnd(null) };
+		const older = {
+			...recent,
+			id: "older",
+			rank: rankBetween(null, recent.rank),
+		};
+		finishSteps([stepOf(project)]);
+		requestProjectFinish("home-1", null, project.id);
+		await renderBoard({
+			loading: false,
+			viewport: 390,
+			reach: "subtree",
+			nodes: [project, recent],
+			directNodes: [project, recent, older],
+		});
+		expect(moveNodes).toHaveBeenCalledWith("home-1", [
+			{ node: project, status: "done", rank: rankBetween(null, older.rank) },
+		]);
+	});
+
 	it("replaces the finish notice with the existing failure text if the write fails", async () => {
 		const project = node("execution");
-		mockSearchParams = { finish: project.id };
+		finishSteps([stepOf(project)]);
+		requestProjectFinish("home-1", null, project.id);
 		const reason = new Error("write rejected");
 		jest.mocked(moveNodes).mockRejectedValueOnce(reason);
 		const log = jest.spyOn(console, "error").mockImplementation(() => {});

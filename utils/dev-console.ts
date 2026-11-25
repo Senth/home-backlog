@@ -29,8 +29,7 @@
  *
  * - **`console.warn` only.** Nothing here is ever logged as an error, and an
  *   error is the thing the checklist most needs to keep seeing.
- * - **A long literal prefix**, not a keyword or a regular expression. Each entry
- *   below is the opening of the message as `react-native-web` spells it.
+ * - **A literal message or long prefix**, not a keyword or a regular expression.
  * - **Development only.** `__DEV__` is false in an `expo export` bundle, so a
  *   production build never patches `console` at all.
  *
@@ -46,8 +45,8 @@ import { Platform } from "react-native";
 type KnownWarning = {
 	/** Stable name for the summary line and the tests. */
 	id: string;
-	/** The literal opening of the message, matched with `startsWith`. */
 	prefix: string;
+	exact?: true;
 	/** Why it cannot be fixed here rather than filtered. */
 	why: string;
 	/**
@@ -70,6 +69,13 @@ export const KNOWN_FRAMEWORK_WARNINGS: readonly KnownWarning[] = [
 		// a blind spot in the one line that explains a broken autolink, on the
 		// native builds this project has not done yet.
 		webOnly: true,
+	},
+	{
+		id: "reducedMotion",
+		prefix:
+			"[Reanimated] Reduced motion setting is enabled on this device. This warning is visible only in the development mode. Some animations will be disabled by default. You can override the behavior for individual animations, see https://docs.swmansion.com/react-native-reanimated/docs/guides/troubleshooting#reduced-motion-setting-is-enabled-on-this-device.",
+		exact: true,
+		why: "Reanimated reports a user preference at import time, before its logger can be configured.",
 	},
 ];
 
@@ -100,7 +106,11 @@ export function isKnownFrameworkWarning(
 ): boolean {
 	const [first] = args;
 	if (typeof first !== "string") return false;
-	return warnings.some((known) => first.startsWith(known.prefix));
+	return warnings.some((known) =>
+		known.exact
+			? args.length === 1 && first === known.prefix
+			: first.startsWith(known.prefix),
+	);
 }
 
 /**
@@ -147,7 +157,7 @@ export function installDevConsoleFilter(
 			if (!announced) {
 				announced = true;
 				const ids = warnings.map((known) => known.id).join(", ");
-				const line = `[dev-console] Filtering known react-native-web warnings (${ids}). See utils/dev-console.ts.`;
+				const line = `[dev-console] Filtering known framework warnings (${ids}). See utils/dev-console.ts.`;
 				// `info` where there is one, so the announcement does not itself
 				// count against the console gate. A console without `info` is not
 				// worth losing the line over.

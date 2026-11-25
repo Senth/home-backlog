@@ -5,6 +5,7 @@ import NodeBoard from "@/app/(app)/(tabs)/projects/[nodeId]/index";
 import { boardHref } from "@/components/board/board-href";
 import { PaperIcon } from "@/components/ui/PaperIcon";
 import { requestProjectFinish } from "@/hooks/use-finish-param";
+import type { BoardReach } from "@/models/board-filter";
 import type { Node, Status } from "@/models/node";
 import { lightTheme } from "@/theme";
 
@@ -20,6 +21,8 @@ let mockNode: Node | null;
 let mockNodes: Node[];
 let mockLoading: boolean;
 let mockFailed: boolean;
+let mockReach: BoardReach;
+let mockDirectNodes: Node[] | undefined;
 const viewportHeight = 800;
 const viewportScale = 1;
 const viewportFontScale = 1;
@@ -81,7 +84,7 @@ jest.mock("@/hooks/use-ancestors", () => ({
 }));
 jest.mock("@/hooks/use-board-filter", () => ({
 	useBoardFilter: () => ({
-		filter: null,
+		filter: { reach: mockReach, conditions: [] },
 		loading: false,
 		setFilter: jest.fn(),
 	}),
@@ -93,6 +96,11 @@ jest.mock("@/hooks/use-board-nodes", () => ({
 		loading: mockLoading,
 		failed: mockFailed,
 		retry: jest.fn(),
+		direct: {
+			nodes: mockDirectNodes ?? mockNodes,
+			loading: mockLoading,
+			failed: mockFailed,
+		},
 	}),
 }));
 jest.mock("@/hooks/use-card-selection", () => ({
@@ -161,6 +169,8 @@ beforeEach(() => {
 	mockNodes = [node("step", "project", "done")];
 	mockLoading = false;
 	mockFailed = false;
+	mockReach = "board";
+	mockDirectNodes = undefined;
 });
 
 it("shows desktop offer and returns to the parent board", async () => {
@@ -184,6 +194,17 @@ it("shows phone offer below the home subtitle", async () => {
 
 	expect(screen.getByText("Huset")).toBeOnTheScreen();
 	expect(screen.getByText("board.allStepsDone")).toBeOnTheScreen();
+	expect(
+		screen.getByRole("button", { name: "Move to Done" }),
+	).toBeOnTheScreen();
+});
+
+it("offers to finish when subtree reach hides the only completed step", async () => {
+	mockReach = "subtree";
+	mockDirectNodes = mockNodes;
+	mockNodes = [];
+	await renderBoard(1280);
+
 	expect(
 		screen.getByRole("button", { name: "Move to Done" }),
 	).toBeOnTheScreen();

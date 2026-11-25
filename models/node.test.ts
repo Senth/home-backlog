@@ -398,7 +398,13 @@ describe("finishMove", () => {
 			rank: rankAtEnd(doneFirst.rank),
 		});
 		const moving = node({ id: "moving" });
-		const move = finishMove([doneLater, node(), doneFirst], moving);
+		const unrelated = node({
+			id: "unrelated",
+			parentId: "elsewhere",
+			status: "done",
+			rank: rankBetween(null, doneFirst.rank),
+		});
+		const move = finishMove([doneLater, node(), unrelated, doneFirst], moving);
 
 		expect(move).toEqual({
 			node: moving,

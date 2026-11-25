@@ -43,6 +43,7 @@ import type { useCardSelection } from "@/hooks/use-card-selection";
 import { useFinishParam } from "@/hooks/use-finish-param";
 import { useLabelAncestors } from "@/hooks/use-label-ancestors";
 import { useTabTrap } from "@/hooks/use-modal-focus";
+import type { PairedResult } from "@/hooks/use-paired-listener";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { BoardFilter, BoardReach } from "@/models/board-filter";
 import { desktopLayout } from "@/models/desktop-layout";
@@ -55,6 +56,7 @@ import { membersOf } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
 import type { Location } from "@/models/locations";
 import {
+	allStepsDone,
 	appendRanks,
 	compareNodes,
 	crossBoardBlockerIds,
@@ -94,6 +96,7 @@ interface BoardProps {
 	/** The frozen column set: the parent's `columns`, or `defaultColumns`. */
 	columns: readonly Status[];
 	nodes: Node[];
+	direct: Pick<PairedResult, "nodes" | "loading" | "failed">;
 	loading: boolean;
 	/**
 	 * True once the board's listeners gave up, which makes `nodes` the last thing
@@ -182,6 +185,7 @@ export function Board({
 	parent,
 	columns,
 	nodes,
+	direct,
 	loading,
 	failed = false,
 	onRetry,
@@ -493,12 +497,15 @@ export function Board({
 	useFinishParam(
 		homeId,
 		parent?.id ?? null,
-		contentReady && !failed,
-		(id, justTapped) => {
-			const siblings = siblingsOf(universe, parent?.id ?? null);
-			const node = siblings.find((candidate) => candidate.id === id);
-			if (node === undefined) return;
-			const move = finishMove(siblings, node);
+		contentReady && !failed && !direct.loading,
+		(id, steps) => {
+			if (direct.failed) return;
+			const node = direct.nodes.find(
+				(candidate) =>
+					candidate.id === id && candidate.parentId === (parent?.id ?? null),
+			);
+			if (node === undefined || !allStepsDone(node, steps)) return;
+			const move = finishMove(direct.nodes, node);
 			if (move === null) return;
 
 			if (compact) {
@@ -506,7 +513,6 @@ export function Board({
 				setCurrent(done === -1 ? shown.length : done);
 			}
 			const eligible =
-				justTapped &&
 				!travelBlocked &&
 				shownNodes.some((candidate) => candidate.id === id) &&
 				(matchCtx === null ||

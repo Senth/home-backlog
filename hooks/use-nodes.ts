@@ -19,8 +19,6 @@ import {
 export function useNodes(
 	homeId: string | null,
 	parentId: string | null,
-	/** False keeps the pair closed — the board's subtree reach (#62) asks the
-	 *  pool pair and the done pair instead, and this one stays shut. */
 	enabled = true,
 ): PairedResult {
 	const { user } = useAuth();
