@@ -231,13 +231,7 @@ export function Board({
 	const [fabHeight, setFabHeight] = useState(0);
 	const [current, setCurrent] = useState(0);
 	const [adding, setAdding] = useState<Status | null>(null);
-	const [notice, setNotice] = useState<(Notice & { finish?: true }) | null>(
-		null,
-	);
-	const showFinishNotice = useCallback(
-		(next: Notice) => setNotice(next.undo ? { ...next, finish: true } : next),
-		[],
-	);
+	const [notice, setNotice] = useState<Notice | null>(null);
 	const moveFabAnchor = useRef<ViewInstance>(null);
 	useTabTrap(selection.moveAnchor !== null, "selection-move-menu");
 
@@ -492,7 +486,7 @@ export function Board({
 		onScreen,
 		shownNodes,
 		measure: drag.measureFrame,
-		onNotice: showFinishNotice,
+		onNotice: setNotice,
 	});
 	useFinishParam(
 		homeId,
@@ -536,9 +530,6 @@ export function Board({
 			);
 		},
 	);
-	const denseFinish = compact && boardWidth > 0 && boardWidth < denseBreakpoint;
-	const dockFinishNotice = denseFinish && notice?.finish === true;
-	const hideFinishFab = denseFinish && (travel.pending || dockFinishNotice);
 
 	// The frozen order while a card is up, the live one otherwise. A board is two
 	// listeners, and a card arriving mid-drag would move the gap out from under
@@ -1147,7 +1138,6 @@ export function Board({
 			    the pane's bottom padding. */}
 				{compact &&
 				!loading &&
-				!hideFinishFab &&
 				onScreen !== undefined &&
 				!(filterActive && shownNodes.length === 0) &&
 				(!selection.selecting || selected.ids.length > 0) ? (
@@ -1228,24 +1218,18 @@ export function Board({
 					visible={notice !== null}
 					onDismiss={() => setNotice(null)}
 					theme={reduced ? { animation: { scale: 0 } } : undefined}
-					wrapperStyle={dockFinishNotice ? { position: "relative" } : undefined}
 					// Material caps a snackbar well short of the window. Left to stretch,
 					// a wide monitor gets "Moved down" and "Undo" pinned to opposite ends
 					// of two metres of empty bar.
 					style={{
 						maxWidth: contentWidth.snackbar,
 						alignSelf: "center",
-						...(dockFinishNotice
-							? { width: "100%", margin: space.none }
-							: { marginBottom: space.md }),
+						marginBottom: space.md,
 					}}
 					action={
 						notice?.undo
 							? {
 									label: t("common.undo"),
-									contentStyle: dockFinishNotice
-										? { minHeight: touchTarget }
-										: undefined,
 									onPress: () => {
 										notice.undo?.();
 										setNotice(null);
