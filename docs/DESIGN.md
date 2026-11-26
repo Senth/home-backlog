@@ -184,7 +184,7 @@ bar puts its title on its own line), `denseBreakpoint` (below it comfortable pad
 more than it is worth). Long text wraps and a title is never ellipsized. The exception is
 the waiting line in a card's footer: one line, ending in "…" only when it overflows. Rows
 of controls wrap before they shrink below `touchTarget`. At `denseBreakpoint` everything must
-look right; at 200% text on a phone nothing may overlap, become unreachable or be cut off.
+look right. Narrower is best effort, and no test or review targets it.
 
 ## Decisions
 
