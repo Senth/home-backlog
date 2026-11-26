@@ -238,8 +238,8 @@ export function BoardFilterSheet({
 					<View>
 						{/* Below `denseBreakpoint` the reach answers become chips that
 					    wrap, the card editor's own swap for its mode control: Paper's
-					    `SegmentedButtons` pins its labels to one line, and at 195px
-					    both Swedish answers ellipsized to *Den…* / *Allt l…* (#415). */}
+					    `SegmentedButtons` pins its labels to one line, and both Swedish
+					    answers ellipsized to *Den…* / *Allt l…* (#415). */}
 						{width < denseBreakpoint ? (
 							<View
 								style={{

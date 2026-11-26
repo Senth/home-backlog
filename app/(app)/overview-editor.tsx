@@ -103,9 +103,9 @@ export default function OverviewEditor() {
 	const [fabHeight, setFabHeight] = useState(0);
 
 	// Measured, not assumed: the FAB names its action in words, so it is taller
-	// in Swedish and taller again at 200% text. `space.xxl` is only the value for
-	// the single frame before it has laid itself out — the same reserve the
-	// board and Overview keep under their own FABs.
+	// in Swedish. `space.xxl` is only the value for the single frame before it
+	// has laid itself out — the same reserve the board and Overview keep under
+	// their own FABs.
 	const fabInset = fabHeight > 0 ? fabHeight + space.md + space.md : space.xxl;
 
 	const members = useMemo(

@@ -143,9 +143,8 @@ export const size = {
 	 * the root page's own `onLayout` has measured — Paper measures its menu once
 	 * and never again, and an uncapped page hangs off the bottom of the window
 	 * and takes the whole document scroll with it (#96 again). Roughly 6.5 menu
-	 * rows, and it fits a 390x844 phone at 200% text, where the viewport is 422
-	 * CSS px tall. Once the root page has measured, every later page is capped at
-	 * exactly that height and this value is never used.
+	 * rows. Once the root page has measured, every later page is capped at exactly
+	 * that height and this value is never used.
 	 */
 	menuPage: 320,
 } as const;
@@ -184,11 +183,10 @@ export const indent = {
 
 /**
  * The FAB's footprint. The one primary action per surface earns its color,
- * and what it must not take is room: at 200% text a full-label FAB once
- * spanned 91.8% of a 195px window — essentially the whole screen. Capped at
- * this share of the width it is laid out in, the label wraps and the words
- * stay. Measured against the *viewport* the claim names, and applied through
- * the box the FAB actually sits in.
+ * and what it must not take is room. Capped at this share of the width it is
+ * laid out in, the label wraps and the words stay. Measured against the
+ * *viewport* the claim names, and applied through the box the FAB actually sits
+ * in.
  */
 export const fab = {
 	widthShare: 0.6,
@@ -343,10 +341,10 @@ export const detailsSplitMin = 720;
  *
  * A back arrow, an overflow and the account menu are three 48dp targets, and
  * with the bar's own padding they claim ~192px of the row whatever the text
- * size. A 390px phone at 200% text is a 195px viewport, so a single-line bar
- * has three pixels left for the title and the screen loses its name. Material's
- * medium top app bar is the component for a title that needs the room, so
- * narrow screens get it and roomy ones keep the compact bar.
+ * size. A single-line bar can leave too little room for the title and the
+ * screen loses its name. Material's medium top app bar is the component for a
+ * title that needs the room, so narrow screens get it and roomy ones keep the
+ * compact bar.
  */
 export const appBarStackBreakpoint = 360;
 

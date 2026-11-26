@@ -20,8 +20,8 @@ import { space, touchTarget } from "@/theme/tokens";
  *
  * `iconColumns` is the grid's column count for a measured width: the most
  * columns whose cells still clear `touchTarget` after the field's padding and
- * the gaps between cells. Six at 390px, three at 195px — four at 195px would
- * land the cells under the target, so the floor is arithmetic, not taste.
+ * the gaps between cells. The count is arithmetic, not taste: each cell must
+ * clear the target.
  */
 const allNames = Object.keys(MaterialCommunityIcons.glyphMap).sort();
 const nameWords = allNames.map((name) => name.split("-"));

@@ -189,9 +189,8 @@ export default function Overview() {
 	const [removing, setRemoving] = useState<Card | null>(null);
 
 	// Measured, not assumed: the FAB names its action in words, so it is taller
-	// in Swedish and taller again at 200% text. `space.xxl` is only the value for
-	// the single frame before it has laid itself out — the same reserve the board
-	// keeps under its own FAB.
+	// in Swedish. `space.xxl` is only the value for the single frame before it
+	// has laid itself out — the same reserve the board keeps under its own FAB.
 	const fabInset = fabHeight > 0 ? fabHeight + space.md + space.md : space.xxl;
 
 	const anyLoading =

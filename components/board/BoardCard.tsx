@@ -172,7 +172,7 @@ const noAncestorLabelIds: readonly string[] = [];
  *   where and how long, then due and waiting. Words, never chips: the old
  *   outlined pills put a box around every fact and an edge around every row,
  *   and overdue — the one fact that is a status — is carried by words in the
- *   warning color, which survives 200% text and color blindness.
+ *   warning color, never by color alone.
  * - **The right gutter** — the menu at the top, the assignees and the step
  *   count anchored to the foot.
  *

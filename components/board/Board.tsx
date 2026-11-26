@@ -430,10 +430,9 @@ export function Board({
 	 * than merely not under it.
 	 *
 	 * Measured rather than assumed. The FAB names its destination in words, so it
-	 * is taller in Swedish than in English and taller again at 200% text, and the
-	 * `space.xxl` that used to stand here was a guess that stopped clearing the
-	 * last card the moment either of those was true. `space.xxl` survives only as
-	 * the value for the single frame before the FAB has laid itself out.
+	 * is taller in Swedish than in English, and the `space.xxl` that used to stand
+	 * here was a guess that stopped clearing the last card. `space.xxl` survives
+	 * only as the value for the single frame before the FAB has laid itself out.
 	 *
 	 * The FAB's own offset is the first term rather than a constant, because the
 	 * button rises while a snackbar is up. Reserving the resting clearance while
@@ -1017,8 +1016,7 @@ export function Board({
 
 				{/* The card itself, off the board and under the hand. Nothing else is
 			    drawn under the finger — the gap the other cards leave is the whole
-			    indicator, which is what survives a three-line card at 200% text and
-			    a thumb covering most of the pane. */}
+			    indicator, even with a thumb covering most of the pane. */}
 				{drag.node !== null && drag.overlay !== null ? (
 					<Animated.View
 						testID="board-drag-overlay"
@@ -1112,9 +1110,8 @@ export function Board({
 			    biggest thing on the screen:
 
 			    - `maxWidth` is a share of the board the FAB floats over. Wide
-			      enough to be a no-op at a phone's full width; at 200% text, where
-			      the window is 195px and the Swedish label once claimed 91.8% of
-			      it, the label wraps instead and the words stay.
+			      enough to be a no-op at a phone's full width; the label wraps
+			      instead and the words stay.
 			    - Below `denseBreakpoint` the plus glyph gives way to those words:
 			      with the icon kept, a wrapped Swedish label would need three
 			      lines and overflow the button's own box. The glyph is the part

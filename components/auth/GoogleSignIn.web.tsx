@@ -19,9 +19,8 @@ import { touchTarget } from "@/theme/tokens";
  *
  * Paper offers no prop for it, but React Native Web appends `labelStyle` after
  * its own single-line clamp in the style array, so these win. Without them the
- * only control on the login screen reads "C…" at 200 % zoom — which is the text
- * size the person least able to guess what the button does is most likely to be
- * using. The cast is because neither property exists in React Native's
+ * only control on the login screen truncates its label, leaving no clue what
+ * the button does. The cast is because neither property exists in React Native's
  * `TextStyle`; both are web-only, and so is this file.
  */
 const wrappingLabel = {

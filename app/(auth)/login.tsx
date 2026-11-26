@@ -23,9 +23,9 @@ import {
  * One layout at every width: a card centered in a scroll view and clamped to
  * `contentWidth.form`, filling the screen below that.
  *
- * The `ScrollView` is not decoration. At 200 % text scale the card outgrows a
- * phone, and content that no longer fits has to scroll rather than clip — the
- * one screen in the app where clipping means locked out.
+ * The `ScrollView` is not decoration. The card can outgrow the viewport, and
+ * content that no longer fits has to scroll rather than clip — the one screen
+ * in the app where clipping means locked out.
  *
  * Signed out with no connection, nothing in the app works: Firestore's offline
  * cache only helps a session that already exists. So the button is disabled
@@ -43,8 +43,8 @@ export default function Login() {
 	const { width } = useWindowDimensions();
 	const [error, setError] = useState<AuthErrorKey | null>(null);
 
-	// At high zoom the padding is what starves the button label of room to wrap
-	// into, so below `denseBreakpoint` the control wins and the whitespace loses.
+	// Below `denseBreakpoint`, padding starves the button label of room to wrap
+	// into, so the control wins and the whitespace loses.
 	const dense = width < denseBreakpoint;
 	const screenPadding = dense ? space.sm : space.lg;
 	const cardPadding = dense ? space.md : space.xl;

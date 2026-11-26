@@ -25,8 +25,7 @@ import {
 /**
  * How long a **touch** must stay still before a card lifts.
  *
- * `PERSONAS.md` has Ingrid, 71, at 200% text doing the most scrolling in the
- * app, and her scroll is *press → hesitate → move*. A 200ms hold reads that
+ * Ingrid's scroll is *press → hesitate → move*. A 200ms hold reads that
  * hesitation as a drag, so ordinary scrolling would move cards she never
  * touched — her stated quit line. Half a second is long enough that the pause
  * has to be deliberate.
