@@ -71,6 +71,5 @@ export function detailsContentLayout(width: number) {
 		split,
 		contentWidth: available,
 		fieldsWidth,
-		cardWidth: available - space.md * 2 - (split ? fieldsWidth + space.lg : 0),
 	};
 }

@@ -554,7 +554,6 @@ export function DetailsView({
 								<DetailCard
 									homeId={homeId}
 									node={node}
-									width={layout.cardWidth}
 									locations={locationsById}
 									onRename={() => setRenaming(true)}
 									onOpenCrumb={(crumbId) =>

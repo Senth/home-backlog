@@ -71,10 +71,8 @@ export const contentWidth = {
 	tree: 800,
 	/**
 	 * The cap on a place's own card list (#205). At and above it the list
-	 * splits into two columns, so each card is ~292px — inside the 300–400
-	 * band the card face is built for, and above `cardGutterBreakpoint` so
-	 * both gutters survive. Below it the list is one column at full width,
-	 * which is the width the face was designed for.
+	 * splits into two columns, so each card is ~292px. Below it the list is
+	 * one column at full width.
 	 */
 	cards: 600,
 } as const;
@@ -126,17 +124,12 @@ export const size = {
 	sliderLabel: 96,
 	/**
 	 * The card's left gutter (#100), which carries the priority glyph and the
-	 * label dots. Narrowed below `cardGutterBreakpoint`, where the same 36px is
-	 * a fifth of the card before the title has had a word.
+	 * label dots.
 	 */
 	cardGutter: 36,
-	cardGutterNarrow: 28,
 	/**
 	 * The card's right gutter (#100): the menu at the top, the assignees and the
-	 * step count anchored to the foot. It disappears below
-	 * `cardGutterBreakpoint`, where the menu floats in the card's corner
-	 * instead and the people and the count join the content as a trailing
-	 * line.
+	 * step count anchored to the foot.
 	 *
 	 * 44 rather than the 40 the settled card face was first written with: the
 	 * step count's glyph and its `2/5` measure almost exactly 40, and a mark
@@ -269,11 +262,8 @@ export const markTargetMinimum = 24;
  * above or below, and no spill sideways into the card body, where the card's
  * own `onPress` would win the tap.
  *
- * **It takes the gutter's width, so it must be told which gutter.** The gutter
- * narrows to `size.cardGutterNarrow` below `cardGutterBreakpoint`; a box fixed
- * at the wide width spills ~3.5px over the card there and hands those taps to
- * the card. The hairline comes off because the gutter's border is drawn inside
- * its own width, so the content box is that much narrower.
+ * The hairline comes off because the gutter's border is drawn inside its own
+ * width, so the content box is that much narrower.
  *
  * **A mark does not get `touchTarget`, and cannot.** Six 20px dots on a
  * `space.xs` pitch put 24px between their centers; a 48px box around each one
@@ -286,12 +276,10 @@ export const markTargetMinimum = 24;
  * React Native Web's `Pressable` drops `hitSlop`, so the box is a real box and
  * negative margins hand the room back to the flow.
  */
-export function markTouch(gutterWidth: number) {
-	return {
-		width: gutterWidth - border.hairline,
-		height: size.labelDot + space.xs,
-	} as const;
-}
+export const markTouch = {
+	width: size.cardGutter - border.hairline,
+	height: size.labelDot + space.xs,
+} as const;
 
 /**
  * Line height for a `SegmentedButtons` label, and the only way to make that
@@ -368,14 +356,6 @@ export const appBarStackBreakpoint = 360;
  * which is exactly when a label most needs somewhere to wrap into.
  */
 export const denseBreakpoint = 320;
-
-/**
- * Width below which a card's left gutter gives up room it does not have (#100):
- * the gutter narrows, the right gutter disappears and the menu floats in the
- * card's top-right corner. A 390px phone at 200 % text is a 195px viewport, so
- * the gutter's 36px is a fifth of the card before the title has had a word.
- */
-export const cardGutterBreakpoint = 250;
 
 /**
  * The priority ramp's ordinal glyphs and colors (#100), indexed with

@@ -75,7 +75,6 @@ import { ordered } from "@/models/selection";
 import { useAppTheme } from "@/theme";
 import {
 	border,
-	cardGutterBreakpoint,
 	compactBreakpoint,
 	contentWidth,
 	denseBreakpoint,
@@ -419,14 +418,6 @@ export function Board({
 		screen: "board",
 	});
 	const compact = layout.details === "page";
-	/**
-	 * Below `cardGutterBreakpoint` the card's gutters give back their room: the
-	 * left one narrows, the right one disappears and the menu floats. The board
-	 * width is the viewport's stand-in, the same proxy `compact` rides on — and
-	 * the breakpoint is far under `compactBreakpoint`, so this only ever bites
-	 * a phone at 200% text.
-	 */
-	const narrow = boardWidth > 0 && boardWidth < cardGutterBreakpoint;
 	/**
 	 * How far the last card in a pane has to stop short of the FAB: the band the
 	 * FAB occupies — the height it actually measured, plus the `space.md` it
@@ -876,7 +867,6 @@ export function Board({
 										nodes={visible || carrying ? cardsIn(status) : noCards}
 										width="100%"
 										wide={false}
-										narrow={narrow}
 										bottomInset={fabInset}
 										hiddenCount={visible ? hiddenIn(status) : undefined}
 										doneWindowDays={
@@ -921,7 +911,6 @@ export function Board({
 								// and the board scrolls, as it always did.
 								width={layout.columnWidth}
 								wide
-								narrow={narrow}
 								hiddenCount={hiddenIn(status)}
 								doneWindowDays={
 									reach === "subtree" ? doneWithinDays : undefined
@@ -988,7 +977,6 @@ export function Board({
 								menu={menu(travel.node)}
 								wide={!compact}
 								onColumn={!compact}
-								narrow={narrow}
 								blockers={blockers}
 								ancestorLabelIds={ancestorLabelIds}
 								ancestorLocationId={ancestorLocationId}
@@ -1092,7 +1080,6 @@ export function Board({
 								menu={menu(drag.node)}
 								wide={!compact}
 								onColumn={!compact}
-								narrow={narrow}
 								blockers={blockers}
 								ancestorLabelIds={ancestorLabelIds}
 								ancestorLocationId={ancestorLocationId}

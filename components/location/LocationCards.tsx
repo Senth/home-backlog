@@ -10,7 +10,6 @@ import type { Location } from "@/models/locations";
 import { hasSteps, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
 import {
-	cardGutterBreakpoint,
 	compactBreakpoint,
 	contentWidth,
 	icon,
@@ -90,7 +89,6 @@ export function LocationCards({
 						<BoardCard
 							node={node}
 							wide={width >= compactBreakpoint}
-							narrow={column !== null && column < cardGutterBreakpoint}
 							blockers={byId}
 							path={node.ancestorIds.map((id) => byId.get(id)?.title ?? null)}
 							locations={locationTitles}
