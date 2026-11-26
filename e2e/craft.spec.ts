@@ -106,7 +106,7 @@ import {
  * The claims that are *not* a width-independent sweep get a test of their own:
  * the desktop column's own strings below, which are not inside an interactive
  * element and so are invisible to the clipped-label sweep, and the FAB's width
- * share at 200% text. The FAB clearance claim was dropped with #201, together
+ * share at 320px. The FAB clearance claim was dropped with #201, together
  * with the spec that made it.
  */
 
@@ -637,12 +637,13 @@ for (const scheme of ["light", "dark"] as const) {
 				expect(offenders, `craft findings on /login (${scheme})`).toEqual([]);
 			});
 
-			test("29: /login legal labels fit at 195px", async ({
+			test("29: /login legal labels fit at 320px", async ({
 				page,
 			}, testInfo) => {
 				test.skip(
-					page.viewportSize()?.width !== VIEWPORTS.phone.width,
-					"195px login check runs in phone projects",
+					scheme === "dark" ||
+						page.viewportSize()?.width !== VIEWPORTS.phone.width,
+					"320px login layout runs in light mode in phone projects",
 				);
 				await page.setViewportSize(VIEWPORTS.phoneZoomed);
 				await gotoAndSettle(page, LOGIN_ROUTE);
@@ -661,7 +662,7 @@ for (const scheme of ["light", "dark"] as const) {
 							);
 						});
 
-						expect(labelFits, `${label} fits in its button at 195px`).toBe(
+						expect(labelFits, `${label} fits in its button at 320px`).toBe(
 							true,
 						);
 						return button.boundingBox();
@@ -874,7 +875,7 @@ for (const route of ROUTES) {
 
 		// Paper hardcodes `numberOfLines={1}` on button labels, which becomes
 		// an ellipsis rather than a wrap. That is how the login button once
-		// read "C…" at 200% zoom, and it is the failure Swedish is most
+		// read "C…" in a narrow viewport, and it is the failure Swedish is most
 		// likely to reproduce — longer words, same box.
 		const clipped = await page.evaluate((selector) => {
 			const offenders: string[] = [];
@@ -903,7 +904,7 @@ for (const route of ROUTES) {
  *
  * All are claims about *both locales*, and the Swedish projects run this file
  * and `i18n.spec.ts` and nothing else. Each is pinned to the one width it is
- * about — the desktop column, and a 200% phone — so none costs a second run
+ * about — the desktop column, and a 320px phone — so none costs a second run
  * of the same measurement in the project at the other width.
  */
 
@@ -1240,15 +1241,14 @@ test("desktop navigation holds only labelled pills with visible keyboard focus a
 	}
 });
 
-test("21: at 195px app bars, tabs, list rows and attachment sorting stay readable, locations toolbar stays one line, in this locale", async ({
+test("21: at 320px app bars, tabs, list rows, attachment sorting and the locations toolbar stay readable, in this locale", async ({
 	page,
 }, testInfo) => {
 	test.skip(
 		page.viewportSize()?.width !== VIEWPORTS.phone.width,
-		"the 200% claim pins a 195px window; the desktop project would re-measure it identically",
+		"320px layout runs in phone projects",
 	);
 
-	// D9's 195px floor must not break; cramped is allowed.
 	await page.setViewportSize(VIEWPORTS.phoneZoomed);
 	const copy = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
 	const checkText = async (rows: Locator) => {
@@ -1307,7 +1307,7 @@ test("21: at 195px app bars, tabs, list rows and attachment sorting stay readabl
 		const titleNode = page.getByTestId("app-header").getByRole("heading");
 		await expect(titleNode).toHaveText(title);
 		await page.evaluate(() => document.fonts.ready);
-		const where = `${new URL(page.url()).pathname} at 195px (${testInfo.project.name})`;
+		const where = `${new URL(page.url()).pathname} at 320px (${testInfo.project.name})`;
 		const titleBox = await titleNode.evaluate((node) => ({
 			scrollWidth: node.scrollWidth,
 			clientWidth: node.clientWidth,
@@ -1427,37 +1427,22 @@ test("21: at 195px app bars, tabs, list rows and attachment sorting stay readabl
 		name: copy.homes.sortNewest,
 		exact: true,
 	});
-	await expect(largestSort).toHaveAttribute("aria-pressed", "true");
-	await expect(newestSort).toHaveAttribute("aria-pressed", "false");
-	await expect(
-		page.getByRole("button", {
-			name: copy.homes.sortLargest,
-			pressed: true,
-			exact: true,
-		}),
-	).toBeVisible();
-	await expect(
-		page.getByRole("button", {
-			name: copy.homes.sortNewest,
-			pressed: false,
-			exact: true,
-		}),
-	).toBeVisible();
+	const selectedFill = await largestSort
+		.locator("..")
+		.evaluate((segment) => getComputedStyle(segment).backgroundColor);
+	await expect(newestSort.locator("..")).not.toHaveCSS(
+		"background-color",
+		selectedFill,
+	);
 	await newestSort.click();
-	await expect(
-		page.getByRole("button", {
-			name: copy.homes.sortNewest,
-			pressed: true,
-			exact: true,
-		}),
-	).toBeVisible();
-	await expect(
-		page.getByRole("button", {
-			name: copy.homes.sortLargest,
-			pressed: false,
-			exact: true,
-		}),
-	).toBeVisible();
+	await expect(newestSort.locator("..")).toHaveCSS(
+		"background-color",
+		selectedFill,
+	);
+	await expect(largestSort.locator("..")).not.toHaveCSS(
+		"background-color",
+		selectedFill,
+	);
 	await checkText(
 		page
 			.getByText(copy.homes.sortLargest, { exact: true })
@@ -1502,51 +1487,37 @@ test("21: at 195px app bars, tabs, list rows and attachment sorting stay readabl
 			placeGlyphRect.left < chevronRect.right &&
 			chevronRect.top < placeGlyphRect.bottom &&
 			placeGlyphRect.top < chevronRect.bottom,
-		"chevron and place glyph rectangles at 195px",
+		"chevron and place glyph rectangles at 320px",
 	).toBe(false);
 	await toggle.click({ timeout: 5_000 });
 	await expect(toggle).toHaveAttribute("aria-expanded", "false");
 	await toggle.click();
 	await expect(toggle).toHaveAttribute("aria-expanded", "true");
-	const toolbarHeight = await page
-		.getByRole("button", {
-			name: copy.locations.view ?? copy.locations.collapseAll,
-			exact: true,
-		})
-		.evaluate((button) => {
-			let row = button.parentElement;
-			while (row) {
-				const style = getComputedStyle(row);
-				if (style.flexDirection === "row" && style.flexWrap === "wrap") {
-					return row.getBoundingClientRect().height;
-				}
-				row = row.parentElement;
-			}
-			return null;
-		});
-	expect(toolbarHeight, "locations toolbar exists").not.toBeNull();
-	expect
-		.soft(toolbarHeight, "locations toolbar at 195px")
-		.toBeLessThanOrEqual(touchTarget + border.hairline * 2);
+	for (const name of [
+		copy.locations.collapseAll,
+		copy.locations.expandAll,
+		copy.locations.showCards,
+	]) {
+		const button = page.getByRole("button", { name, exact: true });
+		await expect(button).toBeInViewport({ ratio: 1 });
+		expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(
+			touchTarget,
+		);
+		await checkText(button);
+	}
 
 	await gotoAndSettle(page, ROUTES[4]);
 	await checkScreen(copy.automations.title, false);
 });
 
-test("31: the FAB spans no more than 60% of a 195px viewport, in this locale", async ({
+test("31: the FAB spans no more than 60% of a 320px viewport, in this locale", async ({
 	page,
 }, testInfo) => {
 	test.skip(
 		page.viewportSize()?.width !== VIEWPORTS.phone.width,
-		"the 200% claim pins a 195px window; the desktop project would re-measure it identically",
+		"320px layout runs in phone projects",
 	);
 
-	// A 390px phone at 200% browser zoom is a 195x422 window, and the extended
-	// FAB's translated label once took 77.9% of that window in English and
-	// 91.8% in Swedish. The FAB's own cap is a share of the width it floats
-	// over (`fab.widthShare`, measured from the board), so the check reads the
-	// share the app enforces rather than a second copy of the number — the
-	// label wraps under it, the words stay, and both FAB routes are measured.
 	await page.setViewportSize(VIEWPORTS.phoneZoomed);
 
 	const failures: string[] = [];
@@ -1573,7 +1544,7 @@ test("31: the FAB spans no more than 60% of a 195px viewport, in this locale", a
 
 	expect(
 		failures,
-		`FAB width share at 195px (${testInfo.project.name})`,
+		`FAB width share at 320px (${testInfo.project.name})`,
 	).toEqual([]);
 });
 
@@ -1595,10 +1566,8 @@ test("32: the board's filter pills center glyph, word and ✕ on one line", asyn
 	// a glyph that un-centers inside that line box — a baseline shift — would
 	// pass a row-only check while looking exactly like the fixed bug; the
 	// deepest painted box under the row (the icon stack, the glyphs) is
-	// measured against the ✕ too. And the overflow count chip co-renders with
-	// the pills exactly in the 200%-Swedish state this component's docblock
-	// says it exists for, so it is held to the same floors and the shared
-	// center line at `phoneZoomed`, where the row always overflows.
+	// measured against the ✕ too. The count chip is held to the same floors
+	// and center line when the filters overflow at 320px.
 	const strings = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
 
 	await gotoAndSettle(page, BOARD);
@@ -1607,11 +1576,18 @@ test("32: the board's filter pills center glyph, word and ✕ on one line", asyn
 	await page
 		.getByRole("button", { name: new RegExp(strings.board.filter.labels) })
 		.click();
-	await page.getByRole("checkbox").first().click();
+	const labels = page.getByTestId("board-filter-labelIds");
+	await labels.getByRole("checkbox").first().click();
 	// The labels row opened its picker over the sheet's root page, whose
 	// backdrop eats every press until it is gone — the picker's own footer
-	// *Done* (the later of the two footers) is what returns to the root.
-	await page.getByRole("button", { name: strings.common.done }).last().click();
+	// *Done* is what returns to the root.
+	await labels.getByRole("button", { name: strings.common.done }).click();
+	await page.getByTestId("board-filter-row-locationId").click();
+	const places = page.getByTestId("board-filter-locationId");
+	await places
+		.getByRole("checkbox", { name: "Bottenvåning", exact: true })
+		.click();
+	await places.getByRole("button", { name: strings.common.done }).click();
 	// The reach pill is the word pill: no glyph, so the label's line box is
 	// the only thing centering it. The sheet edits the live filter — Done
 	// only dismisses — so the pills are already on the board when it closes.
@@ -1700,9 +1676,7 @@ test("32: the board's filter pills center glyph, word and ✕ on one line", asyn
 
 	const offenders = await measure('[data-testid^="board-filter-pill-"]', null);
 
-	// The count chip renders beside the pills only when the row overflows —
-	// guaranteed at 195px, the 200%-Swedish window. It has no ✕, so its center
-	// line is the row's own: the first pill's pressable.
+	// The count chip has no ✕, so its center line is the first pill's pressable.
 	await page.setViewportSize(VIEWPORTS.phoneZoomed);
 	await page.getByTestId("board-filter-count").waitFor();
 	const rowCenter = await page.evaluate(() => {
@@ -1727,94 +1701,60 @@ test("32: the board's filter pills center glyph, word and ✕ on one line", asyn
 	).toEqual([]);
 });
 
-test("33: at 195px the filter sheet's reach answers are whole on their own lines, in this locale", async ({
+test("33: at 320px the filter sheet's reach segments are readable and tappable, in this locale", async ({
 	page,
 }, testInfo) => {
 	test.skip(
 		page.viewportSize()?.width !== VIEWPORTS.phone.width,
-		"the 200% claim pins a 195px window; the desktop project would re-measure it identically",
+		"320px layout runs in phone projects",
 	);
 
-	// #415. The reach control is the sheet's one segmented pair, and Paper's
-	// `SegmentedButtons` pins each label to one line — at this window both
-	// Swedish answers read *Den…* and *Allt l…*. Below `denseBreakpoint` the
-	// component swaps the control for wrapping chips, the card editor's own
-	// narrow-width swap, so the claim is measured on both halves: the two
-	// labels hold the same no-clip box test 21 holds the app bar titles to,
-	// and each chip's pressable holds the `touchTarget` floor the contract
-	// makes rows keep before they shrink.
 	await page.setViewportSize(VIEWPORTS.phoneZoomed);
 	const strings = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
+	const {
+		thisBoard,
+		everythingBelow,
+		thisBoardDescription,
+		everythingBelowDescription,
+	} = strings.board.filter;
 
 	await gotoAndSettle(page, BOARD);
 	await page.getByRole("button", { name: strings.board.filter.title }).click();
-	const reachChips = page
-		.getByTestId("board-filter-sheet")
-		.locator('[data-testid="chip"]');
-	await expect(reachChips).toHaveCount(2);
-	const thisBoard = page.getByRole("button", {
-		name: strings.board.filter.thisBoard,
-		pressed: true,
-		exact: true,
-	});
-	const everythingBelow = page.getByRole("button", {
-		name: strings.board.filter.everythingBelow,
-		pressed: false,
-		exact: true,
-	});
-	await expect(thisBoard).toBeVisible();
-	await expect(everythingBelow).toBeVisible();
-	await everythingBelow.click();
-	await expect(
-		page.getByRole("button", {
-			name: strings.board.filter.everythingBelow,
-			pressed: true,
-			exact: true,
-		}),
-	).toBeVisible();
-	await expect(
-		page.getByRole("button", {
-			name: strings.board.filter.thisBoard,
-			pressed: false,
-			exact: true,
-		}),
-	).toBeVisible();
-	await page
-		.getByRole("button", {
-			name: strings.board.filter.thisBoard,
-			pressed: false,
-			exact: true,
-		})
-		.click();
-	await expect(thisBoard).toBeVisible();
+	const sheet = page.getByTestId("board-filter-sheet");
+	const segment = (name: string) =>
+		sheet.getByRole("button", { name, exact: true });
+	await expect(sheet.getByText(thisBoardDescription)).toBeVisible();
+	await expect(sheet.getByTestId("chip")).toHaveCount(0);
+	await page.evaluate(() => document.fonts.ready);
 
-	for (const label of [
-		strings.board.filter.thisBoard,
-		strings.board.filter.everythingBelow,
-	]) {
-		const box = await page
-			.getByTestId("board-filter-sheet")
+	for (const label of [thisBoard, everythingBelow]) {
+		const button = segment(label);
+		await expect(button).toBeVisible();
+		const box = await button
 			.getByText(label, { exact: true })
 			.evaluate((node) => ({
 				scrollWidth: node.scrollWidth,
 				clientWidth: node.clientWidth,
+				scrollHeight: node.scrollHeight,
+				clientHeight: node.clientHeight,
 			}));
 		expect(
 			box.scrollWidth,
-			`"${label}" is clipped at 195px`,
+			`"${label}" is clipped horizontally at 320px`,
 		).toBeLessThanOrEqual(box.clientWidth + 1);
-	}
-
-	const heights = await reachChips.evaluateAll((nodes) =>
-		nodes.map((node) => node.getBoundingClientRect().height),
-	);
-	for (const height of heights) {
 		expect(
-			height,
-			`a reach chip's pressable is ${height}px, under the ${touchTarget - 1}px floor`,
+			box.scrollHeight,
+			`"${label}" is clipped vertically at 320px`,
+		).toBeLessThanOrEqual(box.clientHeight + 1);
+		expect(
+			(await button.boundingBox())?.height ?? 0,
+			`"${label}" segment height at 320px`,
 		).toBeGreaterThanOrEqual(touchTarget - 1);
 	}
 
-	// Restore the default reach above; Escape dismisses without leaving a filter.
+	await segment(everythingBelow).click();
+	await expect(sheet.getByText(everythingBelowDescription)).toBeVisible();
+	await segment(thisBoard).click();
+	await expect(sheet.getByText(thisBoardDescription)).toBeVisible();
 	await page.keyboard.press("Escape");
 });

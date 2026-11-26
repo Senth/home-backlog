@@ -720,13 +720,13 @@ test("4: a card whose board has a non-default column set steps through that set"
 });
 
 /**
- * The 200% claim (#237 phase 3 and 4), at the size that broke it: a 195x422
- * window in Swedish. The name column of every row once collapsed to zero —
+ * At the 320px floor in Swedish, details rows and column controls stay
+ * readable. The name column of every row once collapsed to zero —
  * `flex: 1` gives a column zero basis, so in the shrink phase it yielded
  * everything and the names spelled one character per line — and the bar's
  * column name collapsed the same way while *Done* clipped off the screen.
  */
-test.describe("at 200% text in sv-SE (#237)", () => {
+test.describe("at 320px in sv-SE (#237)", () => {
 	test.use({ locale: "sv-SE", viewport: VIEWPORTS.phoneZoomed });
 	test("5: every row keeps a name column and a value that reads, and the bar's name reads before it clips", async ({
 		page,
@@ -816,14 +816,14 @@ test.describe("at 200% text in sv-SE (#237)", () => {
 			const nameBox = await row.getByText(name, { exact: true }).boundingBox();
 			expect(
 				nameBox?.width ?? 0,
-				`the name column of "${name}" at 195px`,
+				`the name column of "${name}" at 320px`,
 			).toBeGreaterThanOrEqual(touchTarget);
 			const valueBox = await row
 				.getByText(value, { exact: true })
 				.boundingBox();
 			expect(
 				valueBox?.width ?? 0,
-				`the value of "${name}" at 195px`,
+				`the value of "${name}" at 320px`,
 			).toBeGreaterThan(0);
 			// The chevron is a sibling of the row's pressable, never inside it —
 			// a real <button> may not contain another button (#237) — so it is
@@ -834,12 +834,11 @@ test.describe("at 200% text in sv-SE (#237)", () => {
 				.boundingBox();
 			expect(
 				valueBox !== null && chevron !== null && overlaps(valueBox, chevron),
-				`the value of "${name}" overlaps its chevron at 195px`,
+				`the value of "${name}" overlaps its chevron at 320px`,
 			).toBe(false);
 		}
 
-		// The bar stacks: the name on a line of its own, whole — one line, no
-		// ellipsis — and both arrows a full touch target below it.
+		// The bar name stays on one line and both arrows keep a full touch target.
 		const bar = page.getByTestId(`column-bar-${nodeId}`);
 		const name = page
 			.getByTestId(`column-name-${nodeId}`)
@@ -851,8 +850,8 @@ test.describe("at 200% text in sv-SE (#237)", () => {
 				element.scrollWidth > element.clientWidth ||
 				element.scrollHeight > element.clientHeight,
 		}));
-		expect(fit.clipped, "the bar's name is clipped at 195px").toBe(false);
-		expect(fit.height, "the bar's name wraps at 195px").toBeLessThan(
+		expect(fit.clipped, "the bar's name is clipped at 320px").toBe(false);
+		expect(fit.height, "the bar's name wraps at 320px").toBeLessThan(
 			2 * fit.line,
 		);
 		const arrowTo = (column: string) =>
@@ -872,7 +871,7 @@ test.describe("at 200% text in sv-SE (#237)", () => {
 			);
 			expect(
 				(box?.x ?? 0) + (box?.width ?? 0),
-				`${column} arrow stays inside a 195px viewport`,
+				`${column} arrow stays inside a 320px viewport`,
 			).toBeLessThanOrEqual(VIEWPORTS.phoneZoomed.width);
 		}
 

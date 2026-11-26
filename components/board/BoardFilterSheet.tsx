@@ -296,11 +296,13 @@ export function BoardFilterSheet({
 									{
 										value: "board",
 										label: t("board.filter.thisBoard"),
+										style: { flexBasis: "auto" },
 										labelStyle: { lineHeight: segmentedLabelLineHeight },
 									},
 									{
 										value: "subtree",
 										label: t("board.filter.everythingBelow"),
+										style: { flexBasis: "auto" },
 										labelStyle: { lineHeight: segmentedLabelLineHeight },
 									},
 								]}
