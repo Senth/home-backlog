@@ -452,13 +452,18 @@ test("7: the completed-project offer fits at 320px", async ({ page }) => {
 		enUS.status.done,
 	);
 	const action = page.getByRole("button", { name: buttonLabel, exact: true });
-	await expect(action).toBeVisible();
+	await expect(action).toBeInViewport({ ratio: 1 });
 	const copyBox = await copy.boundingBox();
 	const copyRowBox = await copy.locator("xpath=..").boundingBox();
 	const actionBounds = await action.boundingBox();
-	const actionLabelBox = await action
-		.getByText(buttonLabel, { exact: true })
-		.boundingBox();
+	const actionLabel = action.getByText(buttonLabel, { exact: true });
+	const actionLabelBox = await actionLabel.boundingBox();
+	const labelOverflow = await actionLabel.evaluate((label) => ({
+		horizontal: label.scrollWidth - label.clientWidth,
+		vertical: label.scrollHeight - label.clientHeight,
+	}));
+	expect(labelOverflow.horizontal).toBeLessThanOrEqual(0);
+	expect(labelOverflow.vertical).toBeLessThanOrEqual(0);
 	const overlaps = (
 		first: NonNullable<typeof actionBounds>,
 		second: NonNullable<typeof actionBounds>,

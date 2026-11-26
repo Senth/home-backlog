@@ -1,6 +1,7 @@
 import { type RefObject, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+	Platform,
 	Pressable,
 	useWindowDimensions,
 	View,
@@ -50,6 +51,10 @@ import {
 	touchTarget,
 	touchTargetStyle,
 } from "@/theme/tokens";
+
+const reachSegmentStyle = Platform.select({
+	web: { minWidth: "auto" },
+} as const);
 
 interface BoardFilterSheetProps {
 	visible: boolean;
@@ -296,13 +301,13 @@ export function BoardFilterSheet({
 									{
 										value: "board",
 										label: t("board.filter.thisBoard"),
-										style: { flexBasis: "auto" },
+										style: reachSegmentStyle,
 										labelStyle: { lineHeight: segmentedLabelLineHeight },
 									},
 									{
 										value: "subtree",
 										label: t("board.filter.everythingBelow"),
-										style: { flexBasis: "auto" },
+										style: reachSegmentStyle,
 										labelStyle: { lineHeight: segmentedLabelLineHeight },
 									},
 								]}

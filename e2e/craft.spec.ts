@@ -1701,15 +1701,15 @@ test("32: the board's filter pills center glyph, word and ✕ on one line", asyn
 	).toEqual([]);
 });
 
-test("33: at 320px the filter sheet's reach segments are readable and tappable, in this locale", async ({
+test("33: at 320px the filter sheet's reach segments fit, and at 1280px they split equally", async ({
 	page,
 }, testInfo) => {
-	test.skip(
-		page.viewportSize()?.width !== VIEWPORTS.phone.width,
-		"320px layout runs in phone projects",
-	);
-
-	await page.setViewportSize(VIEWPORTS.phoneZoomed);
+	const desktop = page.viewportSize()?.width === VIEWPORTS.desktop.width;
+	const viewport = desktop
+		? { ...VIEWPORTS.desktop, width: 1280 }
+		: VIEWPORTS.phoneZoomed;
+	await page.setViewportSize(viewport);
+	const { width } = viewport;
 	const strings = testInfo.project.name.startsWith("sv-SE") ? svSE : enUS;
 	const {
 		thisBoard,
@@ -1740,16 +1740,25 @@ test("33: at 320px the filter sheet's reach segments are readable and tappable, 
 			}));
 		expect(
 			box.scrollWidth,
-			`"${label}" is clipped horizontally at 320px`,
+			`"${label}" is clipped horizontally at ${width}px`,
 		).toBeLessThanOrEqual(box.clientWidth + 1);
 		expect(
 			box.scrollHeight,
-			`"${label}" is clipped vertically at 320px`,
+			`"${label}" is clipped vertically at ${width}px`,
 		).toBeLessThanOrEqual(box.clientHeight + 1);
 		expect(
 			(await button.boundingBox())?.height ?? 0,
-			`"${label}" segment height at 320px`,
+			`"${label}" segment height at ${width}px`,
 		).toBeGreaterThanOrEqual(touchTarget - 1);
+	}
+
+	if (desktop) {
+		const widths = await Promise.all(
+			[thisBoard, everythingBelow].map((label) =>
+				segment(label).evaluate((node) => node.getBoundingClientRect().width),
+			),
+		);
+		expect(Math.abs(widths[0] - widths[1])).toBeLessThanOrEqual(1);
 	}
 
 	await segment(everythingBelow).click();
