@@ -197,6 +197,15 @@ export function hasSteps(node: Node): boolean {
 	return node.childCount > 0;
 }
 
+export function allStepsDone(node: Node, children: readonly Node[]): boolean {
+	const steps = children.filter((child) => child.parentId === node.id);
+	return (
+		node.status !== "done" &&
+		steps.length > 0 &&
+		steps.every((child) => child.status === "done")
+	);
+}
+
 /**
  * Whether opening a card's details would show anything at all.
  *
@@ -674,6 +683,28 @@ export function rankBetween(
 /** The rank of a card appended to a column, given that column's last rank. */
 export function rankAtEnd(last: string | null): string {
 	return rankBetween(last, null);
+}
+
+export function finishMove(
+	siblings: readonly Node[],
+	node: Node,
+): { node: Node; status: "done"; rank: string } | null {
+	if (node.status === "done") return null;
+	let firstDone: string | null = null;
+	for (const sibling of siblings) {
+		if (
+			sibling.parentId === node.parentId &&
+			sibling.status === "done" &&
+			(firstDone === null || sibling.rank < firstDone)
+		) {
+			firstDone = sibling.rank;
+		}
+	}
+	return {
+		node,
+		status: "done",
+		rank: rankBetween(null, firstDone),
+	};
 }
 
 /**

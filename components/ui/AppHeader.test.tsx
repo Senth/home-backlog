@@ -31,9 +31,11 @@ describe("AppHeader", () => {
 				</Provider>,
 			);
 
-			expect(
-				screen.getByRole("header", { name: "Sommarstugan vid Vättern" }),
-			).toBeOnTheScreen();
+			const title = screen.getByRole("header", {
+				name: "Sommarstugan vid Vättern",
+			});
+			expect(title).toBeOnTheScreen();
+			expect(title.props.numberOfLines).toBeUndefined();
 			await fireEvent.press(screen.getByRole("button", { name: "Homes" }));
 			await fireEvent.press(screen.getByRole("button", { name: "Settings" }));
 			expect(onBack).toHaveBeenCalledTimes(1);

@@ -61,3 +61,14 @@ it("does not exempt warnings or uncaught exceptions", () => {
 	expect(recording.warnings()).toEqual([badRequest]);
 	expect(recording.errors()).toEqual([`uncaught: ${badRequest}`]);
 });
+
+it("does not exempt warnings or errors that start with an expected log prefix", () => {
+	const page = new EventEmitter();
+	const recording = recordConsole(page as unknown as Page);
+	const text = "[dev-console] Filtering known framework warnings";
+	for (const type of ["info", "log", "warning", "error"]) {
+		page.emit("console", message(text, "", type));
+	}
+	expect(recording.warnings()).toEqual([text]);
+	expect(recording.errors()).toEqual([text]);
+});

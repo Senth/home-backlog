@@ -144,6 +144,10 @@ describe("useBoardNodes", () => {
 					? ["kept", "other-home"]
 					: ["kept", "kept", "other-home", "other-home"],
 			);
+			expect(hook.result.current.direct.nodes.map((each) => each.id)).toEqual([
+				"kept",
+				"other-home",
+			]);
 			expect(hook.result.current.pool.some((each) => each.id === "moved")).toBe(
 				true,
 			);
@@ -174,7 +178,7 @@ describe("useBoardNodes", () => {
 		expect(jest.mocked(sharedDoneQuery)).not.toHaveBeenCalled();
 	});
 
-	it("subtree reach builds the pool pair and the done pair, and not the board pair", async () => {
+	it("subtree reach adds the windowed pool and Done pairs without closing the direct pair", async () => {
 		await renderHook(() => useBoardNodes("home-1", "board-1", "subtree"));
 
 		for (const { build } of pairs()) {
@@ -198,11 +202,18 @@ describe("useBoardNodes", () => {
 			"uid-me",
 			30,
 		);
-		expect(jest.mocked(sharedBoardQuery)).not.toHaveBeenCalled();
-		expect(jest.mocked(participatingBoardQuery)).not.toHaveBeenCalled();
+		expect(jest.mocked(sharedBoardQuery)).toHaveBeenCalledWith(
+			"home-1",
+			"board-1",
+		);
+		expect(jest.mocked(participatingBoardQuery)).toHaveBeenCalledWith(
+			"home-1",
+			"board-1",
+			"uid-me",
+		);
 	});
 
-	it("re-keys every pair when the reach changes, so no stale rows survive", async () => {
+	it("keeps the direct pair and re-keys display-only pairs when the reach changes", async () => {
 		const view = await renderHook(
 			({ reach }: { reach: "board" | "subtree" }) =>
 				useBoardNodes("home-1", "board-1", reach),
@@ -214,7 +225,8 @@ describe("useBoardNodes", () => {
 		const after = pairs();
 
 		expect(after).toHaveLength(before.length);
-		for (let index = 0; index < after.length; index += 1) {
+		expect(after[0]).toEqual(before[0]);
+		for (let index = 1; index < after.length; index += 1) {
 			expect(after[index].key).not.toBe(before[index].key);
 			expect(after[index].build).not.toBe(before[index].build);
 		}

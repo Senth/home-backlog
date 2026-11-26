@@ -3,7 +3,7 @@ import { useIsFocused } from "expo-router/react-navigation";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions, View, type ViewInstance } from "react-native";
-import { Snackbar } from "react-native-paper";
+import { Button, Snackbar, Text } from "react-native-paper";
 import { AccountMenu } from "@/components/auth/AccountMenu";
 import { Board } from "@/components/board/Board";
 import {
@@ -20,20 +20,29 @@ import {
 import { AppHeader } from "@/components/ui/AppHeader";
 import { BackAction } from "@/components/ui/BackAction";
 import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
+import { PaperIcon } from "@/components/ui/PaperIcon";
 import { useHome } from "@/contexts/HomeContext";
 import { useAncestors } from "@/hooks/use-ancestors";
 import { useBoardFilter } from "@/hooks/use-board-filter";
 import { useBoardNodes } from "@/hooks/use-board-nodes";
 import { useCardSelection } from "@/hooks/use-card-selection";
+import { requestProjectFinish } from "@/hooks/use-finish-param";
 import { useGoneNotice } from "@/hooks/use-gone-notice";
 import { useLocations } from "@/hooks/use-locations";
 import { useNode } from "@/hooks/use-node";
 import { useParticipantFilter } from "@/hooks/use-participant-filter";
 import { filterActionVisible } from "@/models/board-filter";
 import { membersOf } from "@/models/home";
-import { effectiveLocation } from "@/models/node";
+import { allStepsDone, effectiveLocation } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import { denseBreakpoint, space } from "@/theme/tokens";
+import {
+	compactBreakpoint,
+	denseBreakpoint,
+	focusRing,
+	icon,
+	space,
+	touchTarget,
+} from "@/theme/tokens";
 import { goBack } from "@/utils/navigation";
 
 const noAncestors: string[] = [];
@@ -48,9 +57,8 @@ const noLabelIds: string[] = [];
  * #99 was one — would otherwise swap the set under every board that already
  * exists and strand each card sitting in a column the new set drops.
  *
- * The app bar names the card and keeps the home as its subtitle — which home you
- * are in has to be visible without a tap at every depth, and the breadcrumbs
- * below it say where in the tree you are.
+ * The app bar names the card, and the breadcrumbs below say where in the tree
+ * it sits.
  */
 export default function NodeBoard() {
 	const { t } = useTranslation();
@@ -74,7 +82,7 @@ export default function NodeBoard() {
 	// The reach the stored filter names (D2): this board's children, or
 	// everything below them — the pool pair and the done pair (Q1), filtered
 	// on the trail.
-	const { nodes, pool, loading, failed, retry } = useBoardNodes(
+	const { nodes, pool, direct, loading, failed, retry } = useBoardNodes(
 		homeId,
 		board,
 		filter?.reach ?? "board",
@@ -132,6 +140,105 @@ export default function NodeBoard() {
 		activeHome?.labels.length ?? 0,
 		locations.length,
 	);
+	const showFinishOffer =
+		!direct.loading &&
+		!direct.failed &&
+		node !== null &&
+		allStepsDone(node, direct.nodes) &&
+		!selection.selecting;
+	const desktop = width >= compactBreakpoint;
+	const moveToDone = () => {
+		if (showFinishOffer && homeId !== null) {
+			requestProjectFinish(homeId, node.parentId, node.id);
+			router.dismissTo(boardHref(node.parentId));
+		}
+	};
+	const moveToDoneButton = (
+		<Button
+			mode="text"
+			onPress={moveToDone}
+			style={[
+				{
+					width: "auto",
+					minHeight: touchTarget,
+					flexShrink: 0,
+					margin: space.none,
+				},
+			]}
+			contentStyle={{ minHeight: touchTarget }}
+		>
+			{t("detail.moveToColumn", { column: t("status.done") })}
+		</Button>
+	);
+	const finishSubtitle =
+		showFinishOffer && dense ? undefined : showFinishOffer && desktop ? (
+			<View
+				style={{
+					flexDirection: "row",
+					alignItems: "center",
+					flexWrap: "wrap",
+					gap: space.xs,
+				}}
+			>
+				<Text
+					variant="bodySmall"
+					style={{ color: theme.colors.onSurfaceVariant }}
+				>
+					{activeHome?.name ?? ""} ·
+				</Text>
+				<PaperIcon name="check" size={icon.sm} color={theme.colors.success} />
+				<Text variant="bodySmall" style={{ color: theme.colors.success }}>
+					{t("board.allStepsDone")}
+				</Text>
+			</View>
+		) : !desktop ? (
+			<Text
+				variant="bodySmall"
+				style={{ color: theme.colors.onSurfaceVariant }}
+			>
+				{activeHome?.name ?? ""}
+			</Text>
+		) : undefined;
+	const finishOffer =
+		showFinishOffer && !desktop ? (
+			<View
+				style={{
+					alignSelf: "flex-start",
+					flexDirection: "row",
+					alignItems: "center",
+					flexWrap: "wrap",
+					gap: space.sm,
+					marginHorizontal: space.md,
+					paddingBottom: focusRing.width + focusRing.offset,
+					maxWidth: "100%",
+				}}
+			>
+				<View
+					style={{
+						flexDirection: "row",
+						alignItems: "center",
+						gap: space.sm,
+						flexBasis: "auto",
+						flexGrow: 1,
+						flexShrink: 1,
+						minWidth: space.none,
+					}}
+				>
+					<PaperIcon name="check" size={icon.md} color={theme.colors.success} />
+					<Text
+						variant="bodyLarge"
+						style={{
+							color: theme.colors.onSurfaceVariant,
+							flexShrink: 1,
+							minWidth: space.none,
+						}}
+					>
+						{t("board.allStepsDone")}
+					</Text>
+				</View>
+				{moveToDoneButton}
+			</View>
+		) : null;
 	// Where "up" is once the card itself has stopped existing. Remembered while
 	// it still does, because a deleted card cannot say who its parent was.
 	const parentId = useRef<string | null>(null);
@@ -162,14 +269,19 @@ export default function NodeBoard() {
 			    with no history. Dismissing on back could skip the source board. */}
 			{/* The label names where the arrow *goes*, which is the parent card
 			    at every depth but one — not "Projects". */}
-			{/* No `subtitle`: Paper renders it only outside Material 3, so the
-			    home's name lives on the root board's app bar and one crumb away
-			    — the first crumb goes there. */}
 			{selection.selecting ? (
 				<SelectionBar selection={selection} />
 			) : (
 				<AppHeader
 					title={node?.title ?? ""}
+					titleVariant={
+						desktop
+							? "headlineSmall"
+							: dense && showFinishOffer
+								? "titleMedium"
+								: undefined
+					}
+					subtitle={finishSubtitle}
 					leading={
 						<BackAction
 							accessibilityLabel={t("board.up")}
@@ -188,6 +300,7 @@ export default function NodeBoard() {
 							maxWidth: "100%",
 						}}
 					>
+						{showFinishOffer && desktop ? moveToDoneButton : null}
 						{(filter?.reach ?? "board") === "board" ? (
 							<SelectCardsAction onPress={selection.start} />
 						) : null}
@@ -215,6 +328,7 @@ export default function NodeBoard() {
 					</View>
 				</AppHeader>
 			)}
+			{dense ? finishOffer : null}
 
 			<Breadcrumbs
 				crumbs={crumbs}
@@ -222,6 +336,7 @@ export default function NodeBoard() {
 				onNavigate={(id) => router.dismissTo(boardHref(id))}
 				isPrivate={node?.visibility === "private"}
 			/>
+			{dense ? null : finishOffer}
 
 			{/* No board until its own node has arrived. `Board` hands `parent`
 			    straight to `createNode`, and a null parent is not "this board" but
@@ -235,6 +350,7 @@ export default function NodeBoard() {
 					parent={node}
 					columns={node.columns}
 					nodes={filtered.nodes}
+					direct={direct}
 					loading={loading || filterLoading}
 					failed={failed}
 					onRetry={retry}

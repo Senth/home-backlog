@@ -283,6 +283,7 @@
 		"hiddenHere_one": "1 more here is somebody's own project. Open the filter to see it.",
 		"hiddenHere_other": "{{count}} more here are somebody's own projects. Open the filter to see them.",
 		"columnEmpty": "Nothing here",
+		"allStepsDone": "All steps are done",
 		"columnChip": "{{column}} · {{count}}",
 		"columnChipA11y_one": "{{column}}, {{count}} card",
 		"columnChipA11y_other": "{{column}}, {{count}} cards",

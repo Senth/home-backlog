@@ -10,6 +10,7 @@ import {
 import { useCalendarDay } from "@/hooks/use-calendar-day";
 import { useNodes } from "@/hooks/use-nodes";
 import { useOverviewPair } from "@/hooks/use-overview";
+import type { PairedResult } from "@/hooks/use-paired-listener";
 import type { BoardReach } from "@/models/board-filter";
 import { compareNodes, type Node } from "@/models/node";
 import { hiddenNodeIds } from "@/models/outbox";
@@ -18,10 +19,8 @@ import { doneWithinDays } from "@/models/overview";
 /**
  * What a board holds at the reach the filter names (D2): **this board** is the
  * board's own pair, its children; **everything below** is Overview's pool pair
- * and done pair (Q1), filtered client-side on the ancestor trail — no new
- * query, no new composite index, and the documents are warm in the same cache
- * Overview already fills. On the root board there is no ancestor test, because
- * everything below the root *is* the home.
+ * and done pair (Q1), filtered client-side on the ancestor trail. The board's
+ * own pair stays open at either reach for project completion.
  *
  * The done arm of subtree reach is the windowed pair (phase 3), floored at
  * `doneWithinDays` — the board has no card config to widen it with — which is
@@ -41,6 +40,7 @@ export function useBoardNodes(
 	nodes: Node[];
 	/** Everything the open listeners hold, unordered. */
 	pool: Node[];
+	direct: PairedResult;
 	loading: boolean;
 	failed: boolean;
 	retry: () => void;
@@ -52,7 +52,7 @@ export function useBoardNodes(
 	// the same turnover rule Overview's done pair runs on.
 	const day = useCalendarDay();
 
-	const board = useNodes(homeId, parentId, reach === "board");
+	const board = useNodes(homeId, parentId);
 	const poolPair = useOverviewPair(
 		homeId,
 		uid,
@@ -80,26 +80,29 @@ export function useBoardNodes(
 		reach === "subtree",
 	);
 
-	const visibleNodes = useMemo(() => {
-		const hidden = hiddenNodeIds(intents, homeId ?? "");
-		const candidates =
-			reach === "board"
-				? board.nodes
-				: subtreeNodes([...poolPair.nodes, ...donePair.nodes], parentId);
-		return candidates.filter((node) => !hidden.has(node.id));
-	}, [
-		intents,
-		homeId,
-		reach,
-		board.nodes,
-		poolPair.nodes,
-		donePair.nodes,
-		parentId,
-	]);
+	const hidden = useMemo(
+		() => hiddenNodeIds(intents, homeId ?? ""),
+		[intents, homeId],
+	);
+	const directNodes = useMemo(
+		() => board.nodes.filter((node) => !hidden.has(node.id)),
+		[board.nodes, hidden],
+	);
+	const direct = { ...board, nodes: directNodes };
+	const subtree = useMemo(
+		() =>
+			reach === "subtree"
+				? subtreeNodes([...poolPair.nodes, ...donePair.nodes], parentId).filter(
+						(node) => !hidden.has(node.id),
+					)
+				: [],
+		[reach, poolPair.nodes, donePair.nodes, parentId, hidden],
+	);
 	if (reach === "board") {
 		return {
-			nodes: visibleNodes,
+			nodes: directNodes,
 			pool: board.nodes,
+			direct,
 			loading: board.loading,
 			failed: board.failed,
 			retry: board.retry,
@@ -108,8 +111,9 @@ export function useBoardNodes(
 
 	const pool = [...poolPair.nodes, ...donePair.nodes];
 	return {
-		nodes: visibleNodes,
+		nodes: subtree,
 		pool,
+		direct,
 		loading: poolPair.loading || donePair.loading,
 		// Either pair failing makes the answer incomplete, the same rule one
 		// board half failing runs on.

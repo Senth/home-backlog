@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useIsFocused } from "expo-router/react-navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -28,6 +29,7 @@ import {
 	moveCardsWithNotice,
 	useBoardDrag,
 } from "@/components/board/use-board-drag";
+import { useFinishTravel } from "@/components/board/use-finish-travel";
 import { DetailsPane } from "@/components/node/DetailsPane";
 import { fieldSpecs } from "@/components/overview/CardEditForm";
 import { AppMenu } from "@/components/ui/AppMenu";
@@ -38,8 +40,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { createNode } from "@/data/nodes";
 import type { useCardSelection } from "@/hooks/use-card-selection";
+import { useFinishParam } from "@/hooks/use-finish-param";
 import { useLabelAncestors } from "@/hooks/use-label-ancestors";
 import { useTabTrap } from "@/hooks/use-modal-focus";
+import type { PairedResult } from "@/hooks/use-paired-listener";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { BoardFilter, BoardReach } from "@/models/board-filter";
 import { desktopLayout } from "@/models/desktop-layout";
@@ -52,11 +56,13 @@ import { membersOf } from "@/models/home";
 import type { LabelWithId } from "@/models/label";
 import type { Location } from "@/models/locations";
 import {
+	allStepsDone,
 	appendRanks,
 	compareNodes,
 	crossBoardBlockerIds,
 	type EffectiveLocation,
 	effectiveLocation,
+	finishMove,
 	hasSteps,
 	type Node,
 	rankAtEnd,
@@ -90,6 +96,7 @@ interface BoardProps {
 	/** The frozen column set: the parent's `columns`, or `defaultColumns`. */
 	columns: readonly Status[];
 	nodes: Node[];
+	direct: Pick<PairedResult, "nodes" | "loading" | "failed">;
 	loading: boolean;
 	/**
 	 * True once the board's listeners gave up, which makes `nodes` the last thing
@@ -161,26 +168,24 @@ interface BoardProps {
  * side and the board scrolls horizontally; the headers say what the strip says,
  * so the strip is not rendered.
  *
- * The pane on screen is **state, set only by a tap on a chip** — it is never
- * read back from a scroll position. It was a swipeable pager, and the pager is
- * what broke it: the browser moves a scroll-snapping container on its own, to
- * re-snap after content changes and to bring a focused element into view, so
+ * The pane on screen is **state**, never read back from a scroll position.
+ * The old swipeable pager broke that: the browser moves a scroll-snapping
+ * container on its own to re-snap after content changes or bring focus into view, so
  * the board drifted to whichever column a card happened to land in. Twelve
  * cards added in a row from a FAB that said "Add to To do" went to In progress
  * and Next up, alternately — the Marcus-forty-cards Saturday morning this
  * feature exists for. Swiping between columns is worth having back, but not at
  * the price of cards landing in a column nobody chose.
  *
- * A board **always opens on its first column** rather than restoring the last
- * pane anyone was on. Where you were on a board is not something anyone
- * remembers, and a board that opens somewhere unexpected reads as the wrong
- * board.
+ * A board **opens on its first column**, except when arriving to finish a
+ * project. Restoring the last pane makes the board read as the wrong board.
  */
 export function Board({
 	homeId,
 	parent,
 	columns,
 	nodes,
+	direct,
 	loading,
 	failed = false,
 	onRetry,
@@ -198,6 +203,7 @@ export function Board({
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 	const router = useRouter();
+	const focused = useIsFocused();
 	const { width: windowWidth } = useWindowDimensions();
 	const { card } = useLocalSearchParams<{ card?: string | string[] }>();
 	const cardId = detailsCardId(card);
@@ -225,7 +231,13 @@ export function Board({
 	const [fabHeight, setFabHeight] = useState(0);
 	const [current, setCurrent] = useState(0);
 	const [adding, setAdding] = useState<Status | null>(null);
-	const [notice, setNotice] = useState<Notice | null>(null);
+	const [notice, setNotice] = useState<(Notice & { finish?: true }) | null>(
+		null,
+	);
+	const showFinishNotice = useCallback(
+		(next: Notice) => setNotice(next.undo ? { ...next, finish: true } : next),
+		[],
+	);
 	const moveFabAnchor = useRef<ViewInstance>(null);
 	useTabTrap(selection.moveAnchor !== null, "selection-move-menu");
 
@@ -246,9 +258,8 @@ export function Board({
 		});
 	}, []);
 
-	// A board always opens on its first column. Cleared during render, because
-	// one screen can become another board — a breadcrumb re-points the screen it
-	// is on — and carrying the last pane anyone swiped to into a different board
+	// Reset to the first column during render because a breadcrumb can re-point
+	// this screen, and carrying the last pane anyone swiped to into a different board
 	// makes it read as the wrong board. The watcher's answers go with it: they
 	// belong to the board they were read for.
 	const board = `${homeId} ${parent?.id ?? ""}`;
@@ -472,6 +483,62 @@ export function Board({
 				? { index: column, count: shown.length, onChange: setCurrent }
 				: undefined,
 	});
+	const travelBlocked = reduced || failed || loading || drag.node !== null;
+	const travel = useFinishTravel({
+		board,
+		focused,
+		compact,
+		blocked: travelBlocked,
+		onScreen,
+		shownNodes,
+		measure: drag.measureFrame,
+		onNotice: showFinishNotice,
+	});
+	useFinishParam(
+		homeId,
+		parent?.id ?? null,
+		contentReady && !failed && !direct.loading,
+		(id, steps) => {
+			const failureText = t("error.saveFailed");
+			if (direct.failed || steps === null) {
+				setNotice({ text: failureText });
+				return;
+			}
+			const node = direct.nodes.find(
+				(candidate) =>
+					candidate.id === id && candidate.parentId === (parent?.id ?? null),
+			);
+			if (node === undefined || !allStepsDone(node, steps)) return;
+			const move = finishMove(direct.nodes, node);
+			if (move === null) return;
+
+			if (compact) {
+				const done = shown.indexOf(move.status);
+				setCurrent(done === -1 ? shown.length : done);
+			}
+			const eligible =
+				!travelBlocked &&
+				shownNodes.some((candidate) => candidate.id === id) &&
+				(matchCtx === null ||
+					matchesConditions(
+						{ ...node, status: move.status },
+						conditions,
+						matchCtx,
+					));
+			void travel.start(node, eligible, (receive) =>
+				moveCardsWithNotice(
+					homeId,
+					[move],
+					t("board.moved", { column: t(`status.${move.status}`) }),
+					receive,
+					failureText,
+				),
+			);
+		},
+	);
+	const denseFinish = compact && boardWidth > 0 && boardWidth < denseBreakpoint;
+	const dockFinishNotice = denseFinish && notice?.finish === true;
+	const hideFinishFab = denseFinish && (travel.pending || dockFinishNotice);
 
 	// The frozen order while a card is up, the live one otherwise. A board is two
 	// listeners, and a card arriving mid-drag would move the gap out from under
@@ -489,7 +556,6 @@ export function Board({
 					carried: drag.carried,
 					gapAt: drag.over?.status === status ? drag.over.index : null,
 					gapHeight: drag.gapHeight,
-					register: drag.register,
 					handlers: drag.handlers,
 				}
 			: undefined;
@@ -831,6 +897,8 @@ export function Board({
 										openDetailsId={compact ? null : cardId}
 										renderMenu={menu}
 										drag={columnDrag(status)}
+										register={drag.register}
+										travelId={status === "done" ? travel.hiddenId : undefined}
 										blockers={blockers}
 										ancestorLabelIds={ancestorLabelIds}
 										ancestorLocationId={ancestorLocationId}
@@ -873,6 +941,8 @@ export function Board({
 								openDetailsId={cardId}
 								renderMenu={menu}
 								drag={columnDrag(status)}
+								register={drag.register}
+								travelId={status === "done" ? travel.hiddenId : undefined}
 								blockers={blockers}
 								ancestorLabelIds={ancestorLabelIds}
 								ancestorLocationId={ancestorLocationId}
@@ -882,6 +952,61 @@ export function Board({
 						))}
 					</SlimScrollView>
 				)}
+
+				{travel.flight !== null && travel.node !== undefined ? (
+					<View
+						aria-hidden
+						accessibilityElementsHidden
+						importantForAccessibility="no-hide-descendants"
+						{...(Platform.OS === "web" ? { inert: true } : {})}
+						style={{
+							position: "absolute",
+							left: space.none,
+							right: space.none,
+							top: space.none,
+							bottom: space.none,
+							overflow: "hidden",
+							pointerEvents: "none",
+						}}
+					>
+						<View
+							style={{
+								position: "absolute",
+								left: travel.flight.left,
+								top: travel.flight.top,
+								width: travel.flight.width,
+								height: travel.flight.height,
+								borderRadius: radius.md,
+								borderWidth: border.hairline,
+								borderStyle: "dashed",
+								borderColor: theme.colors.boardCardBorder,
+							}}
+						/>
+						<Animated.View
+							testID="board-finish-travel"
+							style={{
+								position: "absolute",
+								left: travel.flight.left,
+								top: travel.flight.top,
+								width: travel.flight.width,
+								transform: travel.flight.transform,
+							}}
+						>
+							<BoardCard
+								node={travel.node}
+								menu={menu(travel.node)}
+								wide={!compact}
+								onColumn={!compact}
+								narrow={narrow}
+								blockers={blockers}
+								ancestorLabelIds={ancestorLabelIds}
+								ancestorLocationId={ancestorLocationId}
+								locations={locations}
+								showPrivate={showPrivate}
+							/>
+						</Animated.View>
+					</View>
+				) : null}
 
 				{/* The edge a held card is resting in, filling as the pane it would
 			    switch to gets closer. The switch is never a surprise, and the fill
@@ -1022,6 +1147,7 @@ export function Board({
 			    the pane's bottom padding. */}
 				{compact &&
 				!loading &&
+				!hideFinishFab &&
 				onScreen !== undefined &&
 				!(filterActive && shownNodes.length === 0) &&
 				(!selection.selecting || selected.ids.length > 0) ? (
@@ -1101,18 +1227,25 @@ export function Board({
 					intentId={notice?.intentId}
 					visible={notice !== null}
 					onDismiss={() => setNotice(null)}
+					theme={reduced ? { animation: { scale: 0 } } : undefined}
+					wrapperStyle={dockFinishNotice ? { position: "relative" } : undefined}
 					// Material caps a snackbar well short of the window. Left to stretch,
 					// a wide monitor gets "Moved down" and "Undo" pinned to opposite ends
 					// of two metres of empty bar.
 					style={{
 						maxWidth: contentWidth.snackbar,
 						alignSelf: "center",
-						marginBottom: space.md,
+						...(dockFinishNotice
+							? { width: "100%", margin: space.none }
+							: { marginBottom: space.md }),
 					}}
 					action={
 						notice?.undo
 							? {
 									label: t("common.undo"),
+									contentStyle: dockFinishNotice
+										? { minHeight: touchTarget }
+										: undefined,
 									onPress: () => {
 										notice.undo?.();
 										setNotice(null);

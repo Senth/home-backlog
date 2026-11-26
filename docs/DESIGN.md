@@ -161,7 +161,7 @@ gets real motion: `drag.lift`, a spring on release, `drag.landing` kept free in 
 `drag.edgeZone` for the pane strip. What changes underneath you may animate only when already
 on screen, never while dragging, and never by moving the scroll position. What merely arrives
 does not animate: no entrance animation, staggered reveal, or skeleton shimmer. Transform and
-opacity only.
+opacity only. One exception: a move you made just before leaving plays once where it lands.
 
 A wait you caused shows at once. A wait you arrived into shows only once it has lasted (`motion.loadingDelay`). After a tap, nothing reads as a missed tap; on arrival, nothing reads as fast.
 

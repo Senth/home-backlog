@@ -1304,9 +1304,7 @@ test("21: at 195px app bars, tabs, list rows and attachment sorting stay readabl
 			.toEqual([]);
 	};
 	const checkScreen = async (title: string, hasTabs: boolean) => {
-		const titleNode = page
-			.getByTestId("app-header-title")
-			.filter({ visible: true });
+		const titleNode = page.getByTestId("app-header").getByRole("heading");
 		await expect(titleNode).toHaveText(title);
 		await page.evaluate(() => document.fonts.ready);
 		const where = `${new URL(page.url()).pathname} at 195px (${testInfo.project.name})`;

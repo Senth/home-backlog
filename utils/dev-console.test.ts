@@ -7,10 +7,6 @@ import {
 	restoreGlobalConsole,
 } from "@/utils/dev-console";
 
-// The only remaining entry is web-only, and the module-scope suite below
-// exercises the self-install against the default `activeWarnings()`. jest-expo
-// reports `ios` unless told otherwise, so pin the platform the app ships: the
-// web.
 jest.mock("react-native", () => ({
 	Platform: { OS: "web", select: (o: { web: unknown }) => o.web },
 }));
@@ -20,14 +16,11 @@ jest.mock("react-native", () => ({
 // testing — and every case below uses a fake console anyway.
 restoreGlobalConsole();
 
-/**
- * The message verbatim, as `react-native-web` emits it. It is checked against
- * the installed package below, so a framework release that rewords it fails
- * here rather than silently leaving the filter matching nothing.
- */
 const REAL_MESSAGES = {
 	useNativeDriver:
 		"Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation. To resolve this, add `RCTAnimation` module to this app, or remove `useNativeDriver`. Make sure to run `bundle exec pod install` first. Read more about autolinking: https://github.com/react-native-community/cli/blob/master/docs/autolinking.md",
+	reducedMotion:
+		"[Reanimated] Reduced motion setting is enabled on this device. This warning is visible only in the development mode. Some animations will be disabled by default. You can override the behavior for individual animations, see https://docs.swmansion.com/react-native-reanimated/docs/guides/troubleshooting#reduced-motion-setting-is-enabled-on-this-device.",
 } as const;
 
 /**
@@ -40,6 +33,9 @@ const REAL_MESSAGES = {
 const UPSTREAM: Record<keyof typeof REAL_MESSAGES, string> = {
 	useNativeDriver: require.resolve(
 		"react-native-web/dist/vendor/react-native/Animated/NativeAnimatedHelper.js",
+	),
+	reducedMotion: require.resolve(
+		"react-native-reanimated/lib/module/animation/utilCommon.js",
 	),
 };
 
@@ -102,7 +98,7 @@ describe("isKnownFrameworkWarning", () => {
 	);
 
 	it.each(Object.entries(UPSTREAM))(
-		"still matches what the installed react-native-web writes for %s",
+		"still matches what the installed framework writes for %s",
 		(id, path) => {
 			const known = KNOWN_FRAMEWORK_WARNINGS.find((k) => k.id === id);
 			if (!known) throw new Error(`no entry for ${id}`);
@@ -112,8 +108,20 @@ describe("isKnownFrameworkWarning", () => {
 			// be the message the package actually builds. Without this the fixture
 			// and the prefix drift together and the suite stays green while the
 			// filter matches nothing.
-			expect(source).toContain(known.prefix);
-			expect(source).toContain(REAL_MESSAGES[id as keyof typeof REAL_MESSAGES]);
+			const message = REAL_MESSAGES[id as keyof typeof REAL_MESSAGES];
+			if (id === "reducedMotion") {
+				expect(source).toContain(message.replace(/^\[Reanimated\] /, ""));
+				expect(
+					upstreamText(
+						require.resolve(
+							"react-native-reanimated/lib/module/common/logger.js",
+						),
+					),
+				).toContain("'[Reanimated]'");
+			} else {
+				expect(source).toContain(known.prefix);
+				expect(source).toContain(message);
+			}
 		},
 	);
 
@@ -127,6 +135,21 @@ describe("isKnownFrameworkWarning", () => {
 		expect(isKnownFrameworkWarning(["Could not save the card:"], ON_WEB)).toBe(
 			false,
 		);
+	});
+
+	it("passes messages that only start with the Reanimated reduced-motion warning", () => {
+		expect(
+			isKnownFrameworkWarning(
+				[`${REAL_MESSAGES.reducedMotion} Extra detail.`],
+				ON_WEB,
+			),
+		).toBe(false);
+		expect(
+			isKnownFrameworkWarning(
+				[REAL_MESSAGES.reducedMotion, "Extra detail."],
+				ON_WEB,
+			),
+		).toBe(false);
 	});
 
 	it("passes a warning that only contains the phrase", () => {
@@ -271,8 +294,10 @@ describe("installDevConsoleFilter", () => {
 		const restore = installDevConsoleFilter(target, ON_WEB);
 
 		expect(target.warn).toBe(original);
-		target.warn(REAL_MESSAGES.useNativeDriver);
-		expect(original).toHaveBeenCalledWith(REAL_MESSAGES.useNativeDriver);
+		for (const message of Object.values(REAL_MESSAGES)) {
+			target.warn(message);
+			expect(original).toHaveBeenCalledWith(message);
+		}
 		restore();
 		expect(target.warn).toBe(original);
 	});

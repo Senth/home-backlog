@@ -84,7 +84,7 @@ export const ROUTES = [
 const EXPECTED_PREFIXES = [
 	"%cDownload the React DevTools",
 	'Running application "main"',
-	"[dev-console] Filtering known react-native-web warnings",
+	"[dev-console] Filtering known framework warnings",
 	"[upload]",
 ];
 
@@ -169,7 +169,8 @@ export function recordConsole(page: Page): ConsoleRecording {
 	const all: string[] = [];
 
 	const expected = (message: ConsoleMessage) =>
-		EXPECTED_PREFIXES.some((prefix) => message.text().startsWith(prefix)) ||
+		((message.type() === "info" || message.type() === "log") &&
+			EXPECTED_PREFIXES.some((prefix) => message.text().startsWith(prefix))) ||
 		(message.type() === "error" &&
 			EXPECTED_ERRORS.some(
 				({ text, url }) =>

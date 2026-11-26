@@ -90,8 +90,8 @@ export default function Projects() {
 	// The reach the stored filter names (D2): this board's children, or
 	// everything below them — the pool pair and the done pair (Q1), filtered
 	// on the trail. Nothing on the board reads the filter before this: the
-	// reach is what decides which listeners exist at all.
-	const { nodes, pool, loading, failed, retry } = useBoardNodes(
+	// reach is what decides whether to open the windowed subtree listeners.
+	const { nodes, pool, direct, loading, failed, retry } = useBoardNodes(
 		homeId,
 		null,
 		filter?.reach ?? "board",
@@ -173,6 +173,7 @@ export default function Projects() {
 					parent={null}
 					columns={defaultColumns}
 					nodes={board.nodes}
+					direct={direct}
 					loading={loading || filterLoading}
 					failed={failed}
 					onRetry={retry}
