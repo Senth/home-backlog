@@ -42,7 +42,7 @@
 		"expo-web-browser": "~58.1.0",
 		"firebase": "13.4.0",
 		"fractional-indexing": "^4.0.0",
-		"i18next": "27.1.5",
+		"i18next": "27.2.7",
 		"react": "19.3.1",
 		"react-dom": "19.3.1",
 		"react-i18next": "17.1.13",
@@ -50,12 +50,12 @@
 		"react-native-gesture-handler": "~3.5.0",
 		"react-native-paper": "5.15.5",
 		"react-native-paper-dates": "^0.24.0",
-		"react-native-reanimated": "4.7.2",
+		"react-native-reanimated": "4.8.0",
 		"react-native-safe-area-context": "~5.11.0",
 		"react-native-screens": "~4.30.0",
 		"react-native-svg": "15.16.1",
 		"react-native-web": "0.21.4",
-		"react-native-worklets": "0.13.1"
+		"react-native-worklets": "0.14.0"
 	},
 	"resolutions": {
 		"@react-native/babel-preset": "0.88.1",
