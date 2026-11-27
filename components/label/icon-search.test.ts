@@ -149,7 +149,7 @@ describe("iconColumns", () => {
 		},
 	);
 
-	it("lands on six columns at 390px and three at 195px", () => {
+	it("chooses the most columns that fit the touch target", () => {
 		expect(iconColumns(390)).toBe(6);
 		expect(iconColumns(195)).toBe(3);
 	});

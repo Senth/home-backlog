@@ -16,8 +16,6 @@ interface CardGutterProps {
 	node: Pick<Node, "priority">;
 	/** The card's own and inherited labels, in the home's order, already capped. */
 	labels: readonly LabelWithId[];
-	/** Below `cardGutterBreakpoint` the gutter gives back the room it does not have. */
-	narrow?: boolean;
 	selected?: boolean;
 }
 
@@ -40,7 +38,6 @@ interface CardGutterProps {
 export function CardGutter({
 	node,
 	labels,
-	narrow = false,
 	selected = false,
 }: CardGutterProps) {
 	const { t } = useTranslation();
@@ -52,7 +49,7 @@ export function CardGutter({
 		<View
 			testID="card-gutter"
 			style={{
-				width: narrow ? size.cardGutterNarrow : size.cardGutter,
+				width: size.cardGutter,
 				// The full mark stack is guaranteed room by construction: the card
 				// is at least as tall as the gutter's own arithmetic asks, so the
 				// bottom padding always clears the card's rounded edge.
@@ -89,7 +86,7 @@ export function CardGutter({
 				/>
 			)}
 			{labels.map((label) => (
-				<LabelDot key={label.id} label={label} narrow={narrow} />
+				<LabelDot key={label.id} label={label} />
 			))}
 		</View>
 	);

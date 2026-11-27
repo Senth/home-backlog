@@ -195,7 +195,7 @@ export function AccountMenu() {
 							<Text
 								variant="bodySmall"
 								// The email is the one string whose job is to be recognised
-								// at a glance: at 195 px it otherwise wraps inside itself.
+								// at a glance.
 								numberOfLines={1}
 								style={{ color: theme.colors.onSurfaceVariant }}
 							>

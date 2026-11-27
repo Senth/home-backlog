@@ -75,7 +75,6 @@ import { ordered } from "@/models/selection";
 import { useAppTheme } from "@/theme";
 import {
 	border,
-	cardGutterBreakpoint,
 	compactBreakpoint,
 	contentWidth,
 	denseBreakpoint,
@@ -231,13 +230,7 @@ export function Board({
 	const [fabHeight, setFabHeight] = useState(0);
 	const [current, setCurrent] = useState(0);
 	const [adding, setAdding] = useState<Status | null>(null);
-	const [notice, setNotice] = useState<(Notice & { finish?: true }) | null>(
-		null,
-	);
-	const showFinishNotice = useCallback(
-		(next: Notice) => setNotice(next.undo ? { ...next, finish: true } : next),
-		[],
-	);
+	const [notice, setNotice] = useState<Notice | null>(null);
 	const moveFabAnchor = useRef<ViewInstance>(null);
 	useTabTrap(selection.moveAnchor !== null, "selection-move-menu");
 
@@ -426,14 +419,6 @@ export function Board({
 	});
 	const compact = layout.details === "page";
 	/**
-	 * Below `cardGutterBreakpoint` the card's gutters give back their room: the
-	 * left one narrows, the right one disappears and the menu floats. The board
-	 * width is the viewport's stand-in, the same proxy `compact` rides on — and
-	 * the breakpoint is far under `compactBreakpoint`, so this only ever bites
-	 * a phone at 200% text.
-	 */
-	const narrow = boardWidth > 0 && boardWidth < cardGutterBreakpoint;
-	/**
 	 * How far the last card in a pane has to stop short of the FAB: the band the
 	 * FAB occupies — the height it actually measured, plus the `space.md` it
 	 * floats above the bottom edge — and then one `space.md` of daylight.
@@ -445,10 +430,9 @@ export function Board({
 	 * than merely not under it.
 	 *
 	 * Measured rather than assumed. The FAB names its destination in words, so it
-	 * is taller in Swedish than in English and taller again at 200% text, and the
-	 * `space.xxl` that used to stand here was a guess that stopped clearing the
-	 * last card the moment either of those was true. `space.xxl` survives only as
-	 * the value for the single frame before the FAB has laid itself out.
+	 * is taller in Swedish than in English, and the `space.xxl` that used to stand
+	 * here was a guess that stopped clearing the last card. `space.xxl` survives
+	 * only as the value for the single frame before the FAB has laid itself out.
 	 *
 	 * The FAB's own offset is the first term rather than a constant, because the
 	 * button rises while a snackbar is up. Reserving the resting clearance while
@@ -492,7 +476,7 @@ export function Board({
 		onScreen,
 		shownNodes,
 		measure: drag.measureFrame,
-		onNotice: showFinishNotice,
+		onNotice: setNotice,
 	});
 	useFinishParam(
 		homeId,
@@ -536,9 +520,6 @@ export function Board({
 			);
 		},
 	);
-	const denseFinish = compact && boardWidth > 0 && boardWidth < denseBreakpoint;
-	const dockFinishNotice = denseFinish && notice?.finish === true;
-	const hideFinishFab = denseFinish && (travel.pending || dockFinishNotice);
 
 	// The frozen order while a card is up, the live one otherwise. A board is two
 	// listeners, and a card arriving mid-drag would move the gap out from under
@@ -885,7 +866,6 @@ export function Board({
 										nodes={visible || carrying ? cardsIn(status) : noCards}
 										width="100%"
 										wide={false}
-										narrow={narrow}
 										bottomInset={fabInset}
 										hiddenCount={visible ? hiddenIn(status) : undefined}
 										doneWindowDays={
@@ -930,7 +910,6 @@ export function Board({
 								// and the board scrolls, as it always did.
 								width={layout.columnWidth}
 								wide
-								narrow={narrow}
 								hiddenCount={hiddenIn(status)}
 								doneWindowDays={
 									reach === "subtree" ? doneWithinDays : undefined
@@ -997,7 +976,6 @@ export function Board({
 								menu={menu(travel.node)}
 								wide={!compact}
 								onColumn={!compact}
-								narrow={narrow}
 								blockers={blockers}
 								ancestorLabelIds={ancestorLabelIds}
 								ancestorLocationId={ancestorLocationId}
@@ -1038,8 +1016,7 @@ export function Board({
 
 				{/* The card itself, off the board and under the hand. Nothing else is
 			    drawn under the finger — the gap the other cards leave is the whole
-			    indicator, which is what survives a three-line card at 200% text and
-			    a thumb covering most of the pane. */}
+			    indicator, even with a thumb covering most of the pane. */}
 				{drag.node !== null && drag.overlay !== null ? (
 					<Animated.View
 						testID="board-drag-overlay"
@@ -1101,7 +1078,6 @@ export function Board({
 								menu={menu(drag.node)}
 								wide={!compact}
 								onColumn={!compact}
-								narrow={narrow}
 								blockers={blockers}
 								ancestorLabelIds={ancestorLabelIds}
 								ancestorLocationId={ancestorLocationId}
@@ -1134,9 +1110,8 @@ export function Board({
 			    biggest thing on the screen:
 
 			    - `maxWidth` is a share of the board the FAB floats over. Wide
-			      enough to be a no-op at a phone's full width; at 200% text, where
-			      the window is 195px and the Swedish label once claimed 91.8% of
-			      it, the label wraps instead and the words stay.
+			      enough to be a no-op at a phone's full width; the label wraps
+			      instead and the words stay.
 			    - Below `denseBreakpoint` the plus glyph gives way to those words:
 			      with the icon kept, a wrapped Swedish label would need three
 			      lines and overflow the button's own box. The glyph is the part
@@ -1147,7 +1122,6 @@ export function Board({
 			    the pane's bottom padding. */}
 				{compact &&
 				!loading &&
-				!hideFinishFab &&
 				onScreen !== undefined &&
 				!(filterActive && shownNodes.length === 0) &&
 				(!selection.selecting || selected.ids.length > 0) ? (
@@ -1228,24 +1202,18 @@ export function Board({
 					visible={notice !== null}
 					onDismiss={() => setNotice(null)}
 					theme={reduced ? { animation: { scale: 0 } } : undefined}
-					wrapperStyle={dockFinishNotice ? { position: "relative" } : undefined}
 					// Material caps a snackbar well short of the window. Left to stretch,
 					// a wide monitor gets "Moved down" and "Undo" pinned to opposite ends
 					// of two metres of empty bar.
 					style={{
 						maxWidth: contentWidth.snackbar,
 						alignSelf: "center",
-						...(dockFinishNotice
-							? { width: "100%", margin: space.none }
-							: { marginBottom: space.md }),
+						marginBottom: space.md,
 					}}
 					action={
 						notice?.undo
 							? {
 									label: t("common.undo"),
-									contentStyle: dockFinishNotice
-										? { minHeight: touchTarget }
-										: undefined,
 									onPress: () => {
 										notice.undo?.();
 										setNotice(null);

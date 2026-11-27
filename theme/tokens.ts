@@ -71,10 +71,8 @@ export const contentWidth = {
 	tree: 800,
 	/**
 	 * The cap on a place's own card list (#205). At and above it the list
-	 * splits into two columns, so each card is ~292px — inside the 300–400
-	 * band the card face is built for, and above `cardGutterBreakpoint` so
-	 * both gutters survive. Below it the list is one column at full width,
-	 * which is the width the face was designed for.
+	 * splits into two columns, so each card is ~292px. Below it the list is
+	 * one column at full width.
 	 */
 	cards: 600,
 } as const;
@@ -126,17 +124,12 @@ export const size = {
 	sliderLabel: 96,
 	/**
 	 * The card's left gutter (#100), which carries the priority glyph and the
-	 * label dots. Narrowed below `cardGutterBreakpoint`, where the same 36px is
-	 * a fifth of the card before the title has had a word.
+	 * label dots.
 	 */
 	cardGutter: 36,
-	cardGutterNarrow: 28,
 	/**
 	 * The card's right gutter (#100): the menu at the top, the assignees and the
-	 * step count anchored to the foot. It disappears below
-	 * `cardGutterBreakpoint`, where the menu floats in the card's corner
-	 * instead and the people and the count join the content as a trailing
-	 * line.
+	 * step count anchored to the foot.
 	 *
 	 * 44 rather than the 40 the settled card face was first written with: the
 	 * step count's glyph and its `2/5` measure almost exactly 40, and a mark
@@ -150,9 +143,8 @@ export const size = {
 	 * the root page's own `onLayout` has measured — Paper measures its menu once
 	 * and never again, and an uncapped page hangs off the bottom of the window
 	 * and takes the whole document scroll with it (#96 again). Roughly 6.5 menu
-	 * rows, and it fits a 390x844 phone at 200% text, where the viewport is 422
-	 * CSS px tall. Once the root page has measured, every later page is capped at
-	 * exactly that height and this value is never used.
+	 * rows. Once the root page has measured, every later page is capped at exactly
+	 * that height and this value is never used.
 	 */
 	menuPage: 320,
 } as const;
@@ -191,11 +183,10 @@ export const indent = {
 
 /**
  * The FAB's footprint. The one primary action per surface earns its color,
- * and what it must not take is room: at 200% text a full-label FAB once
- * spanned 91.8% of a 195px window — essentially the whole screen. Capped at
- * this share of the width it is laid out in, the label wraps and the words
- * stay. Measured against the *viewport* the claim names, and applied through
- * the box the FAB actually sits in.
+ * and what it must not take is room. Capped at this share of the width it is
+ * laid out in, the label wraps and the words stay. Measured against the
+ * *viewport* the claim names, and applied through the box the FAB actually sits
+ * in.
  */
 export const fab = {
 	widthShare: 0.6,
@@ -269,11 +260,8 @@ export const markTargetMinimum = 24;
  * above or below, and no spill sideways into the card body, where the card's
  * own `onPress` would win the tap.
  *
- * **It takes the gutter's width, so it must be told which gutter.** The gutter
- * narrows to `size.cardGutterNarrow` below `cardGutterBreakpoint`; a box fixed
- * at the wide width spills ~3.5px over the card there and hands those taps to
- * the card. The hairline comes off because the gutter's border is drawn inside
- * its own width, so the content box is that much narrower.
+ * The hairline comes off because the gutter's border is drawn inside its own
+ * width, so the content box is that much narrower.
  *
  * **A mark does not get `touchTarget`, and cannot.** Six 20px dots on a
  * `space.xs` pitch put 24px between their centers; a 48px box around each one
@@ -286,12 +274,10 @@ export const markTargetMinimum = 24;
  * React Native Web's `Pressable` drops `hitSlop`, so the box is a real box and
  * negative margins hand the room back to the flow.
  */
-export function markTouch(gutterWidth: number) {
-	return {
-		width: gutterWidth - border.hairline,
-		height: size.labelDot + space.xs,
-	} as const;
-}
+export const markTouch = {
+	width: size.cardGutter - border.hairline,
+	height: size.labelDot + space.xs,
+} as const;
 
 /**
  * Line height for a `SegmentedButtons` label, and the only way to make that
@@ -355,10 +341,10 @@ export const detailsSplitMin = 720;
  *
  * A back arrow, an overflow and the account menu are three 48dp targets, and
  * with the bar's own padding they claim ~192px of the row whatever the text
- * size. A 390px phone at 200% text is a 195px viewport, so a single-line bar
- * has three pixels left for the title and the screen loses its name. Material's
- * medium top app bar is the component for a title that needs the room, so
- * narrow screens get it and roomy ones keep the compact bar.
+ * size. A single-line bar can leave too little room for the title and the
+ * screen loses its name. Material's medium top app bar is the component for a
+ * title that needs the room, so narrow screens get it and roomy ones keep the
+ * compact bar.
  */
 export const appBarStackBreakpoint = 360;
 
@@ -368,14 +354,6 @@ export const appBarStackBreakpoint = 360;
  * which is exactly when a label most needs somewhere to wrap into.
  */
 export const denseBreakpoint = 320;
-
-/**
- * Width below which a card's left gutter gives up room it does not have (#100):
- * the gutter narrows, the right gutter disappears and the menu floats in the
- * card's top-right corner. A 390px phone at 200 % text is a 195px viewport, so
- * the gutter's 36px is a fifth of the card before the title has had a word.
- */
-export const cardGutterBreakpoint = 250;
 
 /**
  * The priority ramp's ordinal glyphs and colors (#100), indexed with

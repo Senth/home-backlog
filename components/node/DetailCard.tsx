@@ -6,18 +6,12 @@ import { useAncestors } from "@/hooks/use-ancestors";
 import { useBlockerReads } from "@/hooks/use-blockers";
 import type { Location } from "@/models/locations";
 import { inheritedLocation, type Node } from "@/models/node";
-import {
-	cardGutterBreakpoint,
-	icon,
-	space,
-	touchTargetStyle,
-} from "@/theme/tokens";
+import { icon, space, touchTargetStyle } from "@/theme/tokens";
 
 interface DetailCardProps {
 	homeId: string | null;
 	/** The card this screen is about — the one that was tapped. */
 	node: Node;
-	width: number;
 	/** Location id → place, read by the screen and handed down. */
 	locations: ReadonlyMap<string, Location>;
 	/** Opens the rename dialog the overflow menu also opens. */
@@ -42,7 +36,6 @@ interface DetailCardProps {
 export function DetailCard({
 	homeId,
 	node,
-	width,
 	locations,
 	onRename,
 	onOpenCrumb,
@@ -52,11 +45,6 @@ export function DetailCard({
 
 	const { crumbs } = useAncestors(homeId, node.ancestorIds);
 	const blockers = useBlockerReads(homeId, node.blockedBy, focused);
-
-	// The card fills the screen's form column, so its own width — not the
-	// window's — is what the gutter breakpoint names. The screen hands this
-	// down rather than the card measuring itself; see `BoardCard`.
-	const narrow = width < cardGutterBreakpoint;
 
 	const menu = (
 		<IconButton
@@ -82,7 +70,6 @@ export function DetailCard({
 				crumbs.map((crumb) => crumb.node ?? null),
 			)}
 			locations={locations}
-			narrow={narrow}
 		/>
 	);
 }

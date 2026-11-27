@@ -561,9 +561,8 @@ export function useBoardDrag({
 			// A point outside every column clears the gap — nowhere is a place the
 			// board can show, and dropping out there puts the card back. The gap
 			// is the only landing indicator, so "nowhere" is shown by it being
-			// gone: at 200% text the hand covers the pane, and a gap that kept
-			// the last column while the finger was over the toolbar would promise
-			// a landing the drop below does not make.
+			// gone: a gap that kept the last column while the finger was over the
+			// toolbar would promise a landing the drop below does not make.
 			const slot = slotAt(point, held);
 
 			// The strip wins over the edge. On a 390px phone the leftmost chip and

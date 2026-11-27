@@ -147,8 +147,8 @@ export function showsDue(
  *
  * Overdue is carried by that word rather than by a red card. Nothing in the app
  * acts on a due date yet — no reminder, no notification — so a red chip would be
- * pure guilt for a deadline nothing will ever remind anyone about, and words
- * survive 200% text and color blindness, which color alone does not.
+ * pure guilt for a deadline nothing will ever remind anyone about, and color
+ * alone cannot carry the words' meaning.
  *
  * Both formatters are **tried**, not feature-detected. `Intl.RelativeTimeFormat`
  * is missing entirely from some Hermes builds, which a `typeof` check would

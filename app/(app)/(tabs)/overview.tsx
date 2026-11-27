@@ -44,7 +44,6 @@ import { type Card, cardRows, seedTitleKeys } from "@/models/overview-cards";
 import { useAppTheme } from "@/theme";
 import {
 	border,
-	cardGutterBreakpoint,
 	denseBreakpoint,
 	fab as fabTokens,
 	gutter,
@@ -172,10 +171,6 @@ export default function Overview() {
 	const fabAreaWidth =
 		contentWidth -
 		(showDetails && layout.details === "overlay" ? layout.panelWidth : 0);
-	// The cards' gutters give their room back below `cardGutterBreakpoint`
-	// (#100) — a 390px phone at 200% text is a 195px viewport, and there the
-	// title outranks both gutters.
-	const narrow = width < cardGutterBreakpoint;
 	// A failed pair nulls its card's section, so the width divides by what
 	// actually renders, not by what is configured.
 	const sectionWidth = expandedColumnWidth(
@@ -194,9 +189,8 @@ export default function Overview() {
 	const [removing, setRemoving] = useState<Card | null>(null);
 
 	// Measured, not assumed: the FAB names its action in words, so it is taller
-	// in Swedish and taller again at 200% text. `space.xxl` is only the value for
-	// the single frame before it has laid itself out — the same reserve the board
-	// keeps under its own FAB.
+	// in Swedish. `space.xxl` is only the value for the single frame before it
+	// has laid itself out — the same reserve the board keeps under its own FAB.
 	const fabInset = fabHeight > 0 ? fabHeight + space.md + space.md : space.xxl;
 
 	const anyLoading =
@@ -346,7 +340,6 @@ export default function Overview() {
 				nodesById={nodesById}
 				ancestors={ancestors}
 				locations={locationsById}
-				narrow={narrow}
 				width={flowing ? sectionWidth : null}
 				menu={
 					<CardActionsMenu
@@ -535,8 +528,6 @@ interface CardSectionProps {
 	ancestors: ReadonlyMap<string, Node | null>;
 	/** Location id → place, the leaf. See `BoardCard`. */
 	locations: ReadonlyMap<string, Location>;
-	/** Below `cardGutterBreakpoint` the cards give their gutters' room back. */
-	narrow: boolean;
 	/**
 	 * The section's width above `compactBreakpoint`, `null` in the full-width
 	 * stack. Non-null **is** the flowing layout, so the cards' `wide` — the
@@ -570,7 +561,6 @@ function CardSection({
 	nodesById,
 	ancestors,
 	locations,
-	narrow,
 	width,
 	menu,
 }: CardSectionProps) {
@@ -646,7 +636,6 @@ function CardSection({
 							)}
 							locations={locations}
 							wide={wide}
-							narrow={narrow}
 						/>
 					))}
 				</View>

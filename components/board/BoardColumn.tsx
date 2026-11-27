@@ -35,11 +35,6 @@ interface BoardColumnProps {
 	 */
 	wide: boolean;
 	/**
-	 * Below `cardGutterBreakpoint` (#100) the cards give their gutters' room
-	 * back — the board knows the width, so the card never measures itself.
-	 */
-	narrow?: boolean;
-	/**
 	 * How many cards in this column the default-hide filter is holding back.
 	 *
 	 * A column emptied by the filter otherwise reads exactly like a column with
@@ -121,7 +116,6 @@ export function BoardColumn({
 	nodes,
 	width,
 	wide,
-	narrow = false,
 	hiddenCount = 0,
 	doneWindowDays,
 	bottomInset = space.xxl,
@@ -383,7 +377,6 @@ export function BoardColumn({
 										menu={renderMenu?.(node)}
 										wide={wide}
 										onColumn={wide}
-										narrow={narrow}
 										blockers={blockers}
 										ancestorLabelIds={ancestorLabelIds}
 										ancestorLocationId={ancestorLocationId}
@@ -400,7 +393,6 @@ export function BoardColumn({
 											menu={renderMenu?.(node)}
 											wide={wide}
 											onColumn={wide}
-											narrow={narrow}
 											blockers={blockers}
 											ancestorLabelIds={ancestorLabelIds}
 											ancestorLocationId={ancestorLocationId}

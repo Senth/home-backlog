@@ -436,7 +436,7 @@ export function LocationRow({
 								>
 									<View
 										style={{
-											width: dense ? icon.sm + space.xs : touchTarget,
+											width: icon.sm + space.xs,
 											height: touchTarget,
 											alignItems: "center",
 											justifyContent: "center",

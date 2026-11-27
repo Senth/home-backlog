@@ -41,7 +41,7 @@ interface AppDialogProps {
  *
  * **Wrapping actions.** Below ~230 px two labels no longer fit side by side and
  * Paper's row overflows its own card, putting the safe answer off-screen while
- * the destructive one sits square in the middle. That is a phone at 200 % zoom.
+ * the destructive one sits square in the middle.
  */
 export function AppDialog({
 	visible,

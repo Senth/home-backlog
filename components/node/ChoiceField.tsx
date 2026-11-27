@@ -40,10 +40,10 @@ interface ChoiceFieldProps<T extends string> {
  * "Under 30 min" and "Under 2 hrs" rendered as the same string. `sv-SE` clipped
  * "Brådskande" to "Bråds…" too. A control that hides the words defeats the
  * reason these values are words: `PROJECT.md` chose "an evening" over "< 2 h"
- * because a math symbol is not what a 71-year-old at 200% text can read, and an
- * ellipsis is worse than either. The vertical list is where that reasoning
- * lands: a full-width row never truncates "Under 30 min" or "Brådskande", and
- * stacking the values is what lets the ordinal ones read top-to-bottom.
+ * because plain words are clearer than symbols, and an ellipsis is worse than
+ * either. The vertical list is where that reasoning lands: a full-width row
+ * never truncates "Under 30 min" or "Brådskande", and stacking the values is
+ * what lets the ordinal ones read top-to-bottom.
  *
  * **The selection is a full-width `secondaryContainer` fill with its words in
  * `onSecondaryContainer` at weight 500, not Paper's `selected` tint.** The paint

@@ -171,7 +171,7 @@ export default function NodeBoard() {
 		</Button>
 	);
 	const finishSubtitle =
-		showFinishOffer && dense ? undefined : showFinishOffer && desktop ? (
+		showFinishOffer && desktop ? (
 			<View
 				style={{
 					flexDirection: "row",
@@ -274,13 +274,7 @@ export default function NodeBoard() {
 			) : (
 				<AppHeader
 					title={node?.title ?? ""}
-					titleVariant={
-						desktop
-							? "headlineSmall"
-							: dense && showFinishOffer
-								? "titleMedium"
-								: undefined
-					}
+					titleVariant={desktop ? "headlineSmall" : undefined}
 					subtitle={finishSubtitle}
 					leading={
 						<BackAction
@@ -328,15 +322,13 @@ export default function NodeBoard() {
 					</View>
 				</AppHeader>
 			)}
-			{dense ? finishOffer : null}
-
 			<Breadcrumbs
 				crumbs={crumbs}
 				current={node?.title ?? ""}
 				onNavigate={(id) => router.dismissTo(boardHref(id))}
 				isPrivate={node?.visibility === "private"}
 			/>
-			{dense ? null : finishOffer}
+			{finishOffer}
 
 			{/* No board until its own node has arrived. `Board` hands `parent`
 			    straight to `createNode`, and a null parent is not "this board" but

@@ -12,9 +12,8 @@ import { icon, space } from "@/theme/tokens";
  *
  * **Overdue is words, never color.** Nothing in the app acts on a due date
  * yet, so a red card is pure guilt for a deadline nothing will remind anyone
- * about — and words survive 200% text and color blindness, which a color
- * alone does not. The warning color is carried *with* the words, never
- * instead of them.
+ * about — and color alone cannot carry the words' meaning. The warning color
+ * is carried *with* the words, never instead of them.
  *
  * **Bare**, on the card face (#100): a leading glyph and the words, no chip
  * border — the card's footer is text, and a box around it was one more edge

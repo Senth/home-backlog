@@ -22,15 +22,7 @@ import type { Location } from "@/models/locations";
 import type { Attachment } from "@/models/node";
 import { hasSteps, type Node } from "@/models/node";
 import { useAppTheme } from "@/theme";
-import {
-	border,
-	elevation,
-	icon,
-	radius,
-	size,
-	space,
-	touchTarget,
-} from "@/theme/tokens";
+import { border, icon, radius, size, space, touchTarget } from "@/theme/tokens";
 
 interface BoardCardProps {
 	node: Node;
@@ -64,14 +56,6 @@ interface BoardCardProps {
 	 * follows: the card does not measure itself.
 	 */
 	onColumn?: boolean;
-	/**
-	 * Below `cardGutterBreakpoint` (#100): the left gutter narrows, the right
-	 * gutter disappears, the menu floats in the card's top-right corner, and the
-	 * people and the step count join the content as a trailing line. A 390px
-	 * phone at 200% text is a 195px viewport, and there the gutters' combined
-	 * 76px is two fifths of the card before the title has had a word.
-	 */
-	narrow?: boolean;
 	/**
 	 * The blockers this card might wait on, by id — the board's own nodes plus
 	 * the watcher's cross-board documents, `null` for one the server confirmed
@@ -188,11 +172,9 @@ const noAncestorLabelIds: readonly string[] = [];
  *   where and how long, then due and waiting. Words, never chips: the old
  *   outlined pills put a box around every fact and an edge around every row,
  *   and overdue — the one fact that is a status — is carried by words in the
- *   warning color, which survives 200% text and color blindness.
+ *   warning color, never by color alone.
  * - **The right gutter** — the menu at the top, the assignees and the step
- *   count anchored to the foot. Below `cardGutterBreakpoint` it goes: the
- *   menu floats in the corner and the people and the count become a trailing
- *   line, because at 195px the title outranks both.
+ *   count anchored to the foot.
  *
  * **Inherited labels render exactly like a card's own** — the same dot, the
  * same hue, no dimming — because a label passed down by the project above is
@@ -214,7 +196,6 @@ export function BoardCard({
 	menu,
 	wide = false,
 	onColumn = false,
-	narrow = false,
 	blockers = noBlockers,
 	path,
 	linkedTrail,
@@ -292,16 +273,7 @@ export function BoardCard({
 						i18n.language,
 					),
 				})}
-				style={
-					narrow
-						? {
-								flexDirection: "row",
-								flexWrap: "wrap",
-								alignItems: "center",
-								gap: space.xs,
-							}
-						: { alignItems: "center", gap: space.xs }
-				}
+				style={{ alignItems: "center", gap: space.xs }}
 			>
 				{assignees.map((assignee) => (
 					<PersonAvatar
@@ -395,12 +367,7 @@ export function BoardCard({
 				) : null}
 
 				<View style={{ flexDirection: "row", minHeight: touchTarget }}>
-					<CardGutter
-						node={node}
-						labels={labels}
-						narrow={narrow}
-						selected={selected}
-					/>
+					<CardGutter node={node} labels={labels} selected={selected} />
 
 					{/* The content column, spacing 8 / 4 / 8 (#100): edge → crumbs,
 				    crumbs → title, title → footer. Nothing above the crumbs, nothing
@@ -411,7 +378,7 @@ export function BoardCard({
 							flex: 1,
 							paddingTop: space.sm,
 							paddingBottom: space.sm,
-							paddingHorizontal: narrow ? space.xs : space.sm,
+							paddingHorizontal: space.sm,
 						}}
 					>
 						{/* The linked trail is the details card's alone: links that
@@ -421,15 +388,13 @@ export function BoardCard({
 							<CardTrail
 								crumbs={linkedTrail.crumbs}
 								onOpenCrumb={linkedTrail.onOpenCrumb}
-								narrow={narrow}
 							/>
 						)}
 
 						{/* Context you consult rather than scan: quiet metadata the title
-					    still owns. One `Text` so the trail end-elides as a whole — the
-					    Swedish 195px case — and one label so a screen reader hears the
-					    crumbs as words rather than chevrons. Narrow, it keeps clear of
-					    the menu floating over its own corner. */}
+					    still owns. One `Text` so the trail end-elides as a whole,
+					    and one label so a screen reader hears the crumbs as words
+					    rather than chevrons. */}
 						{linkedTrail !== undefined || crumbs === undefined ? null : (
 							<Text
 								variant="labelMedium"
@@ -438,10 +403,7 @@ export function BoardCard({
 								accessibilityLabel={t("board.pathA11y", {
 									path: crumbs.map((crumb) => crumb.label).join(", "),
 								})}
-								style={[
-									{ color: theme.colors.onCardMuted },
-									narrow ? { paddingRight: touchTarget } : null,
-								]}
+								style={{ color: theme.colors.onCardMuted }}
 							>
 								{crumbs.reduce<ReactNode>(
 									(trail, crumb) => (
@@ -517,70 +479,33 @@ export function BoardCard({
 								<CardThumbnails images={face.images} />
 							</View>
 						) : null}
-
-						{/* Below `cardGutterBreakpoint` the right gutter is gone, so the
-					    people and the count travel with the content instead — a
-					    trailing line, wrapping before it shrinks. */}
-						{narrow && (people !== null || stepMark !== null) ? (
-							<View
-								style={{
-									flexDirection: "row",
-									flexWrap: "wrap",
-									alignItems: "center",
-									gap: space.sm,
-									marginTop: space.sm,
-								}}
-							>
-								{people}
-								{stepMark}
-							</View>
-						) : null}
 					</View>
 
 					{/* The right gutter: the menu, and at the foot the people and the
-				    mark that this card is a board. Gone below `cardGutterBreakpoint`,
-				    where the floating menu takes its place. */}
-					{narrow ? null : (
+				    mark that this card is a board. */}
+					<View
+						style={{
+							width: size.cardRail,
+							alignItems: "center",
+							paddingBottom: space.xs,
+						}}
+					>
+						{menu}
+						{/* The foot is inset from the card's edge: the count is as wide
+					    as the rail was, and flush content lands under the outline's
+					    rounded corner. */}
 						<View
 							style={{
-								width: size.cardRail,
+								marginTop: "auto",
 								alignItems: "center",
-								paddingBottom: space.xs,
+								gap: space.xs,
+								paddingRight: space.xs,
 							}}
 						>
-							{menu}
-							{/* The foot is inset from the card's edge: the count is as wide
-						    as the rail was, and flush content lands under the outline's
-						    rounded corner. */}
-							<View
-								style={{
-									marginTop: "auto",
-									alignItems: "center",
-									gap: space.xs,
-									paddingRight: space.xs,
-								}}
-							>
-								{people}
-								{stepMark}
-							</View>
+							{people}
+							{stepMark}
 						</View>
-					)}
-
-					{narrow && menu !== undefined ? (
-						// The menu floats over the card's own corner: the room it needs
-						// comes out of the crumbs' elide point rather than out of a
-						// gutter the 195px card does not have.
-						<View
-							style={{
-								position: "absolute",
-								top: space.none,
-								right: space.none,
-								zIndex: elevation.high,
-							}}
-						>
-							{menu}
-						</View>
-					) : null}
+					</View>
 				</View>
 			</CardBody>
 		</Card>

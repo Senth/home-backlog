@@ -23,8 +23,6 @@ interface CardTrailProps {
 	crumbs: readonly Crumb[];
 	/** Where a readable crumb goes: that ancestor's board. */
 	onOpenCrumb: (nodeId: string) => void;
-	/** Below `cardGutterBreakpoint` the trail keeps clear of the floating menu. */
-	narrow?: boolean;
 }
 
 /**
@@ -41,26 +39,19 @@ interface CardTrailProps {
  * is what a control that navigates costs; the wrap keeps the trail to the
  * two lines a four-deep card needs rather than one over-long one.
  */
-export function CardTrail({
-	crumbs,
-	onOpenCrumb,
-	narrow = false,
-}: CardTrailProps) {
+export function CardTrail({ crumbs, onOpenCrumb }: CardTrailProps) {
 	const { t } = useTranslation();
 	const theme = useAppTheme();
 
 	return (
 		<View
-			style={[
-				{
-					flexDirection: "row",
-					flexWrap: "wrap",
-					alignItems: "center",
-					columnGap: space.xs,
-					rowGap: space.none,
-				},
-				narrow ? { paddingRight: touchTarget } : null,
-			]}
+			style={{
+				flexDirection: "row",
+				flexWrap: "wrap",
+				alignItems: "center",
+				columnGap: space.xs,
+				rowGap: space.none,
+			}}
 		>
 			{crumbs.map((crumb, index) => {
 				const target = crumb.node;

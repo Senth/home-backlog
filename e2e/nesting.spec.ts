@@ -415,7 +415,7 @@ test("6: back from a place returns to Locations", async ({ page }) => {
 	).toBeVisible();
 });
 
-test("7: the completed-project offer wraps at 200% text", async ({ page }) => {
+test("7: the completed-project offer fits at 320px", async ({ page }) => {
 	const marcus = await memberUid("Marcus");
 	const projectId = await createFixtureNode({
 		title: `${PREFIX}completed project`,
@@ -452,41 +452,18 @@ test("7: the completed-project offer wraps at 200% text", async ({ page }) => {
 		enUS.status.done,
 	);
 	const action = page.getByRole("button", { name: buttonLabel, exact: true });
+	await expect(action).toBeInViewport({ ratio: 1 });
 	const copyBox = await copy.boundingBox();
 	const copyRowBox = await copy.locator("xpath=..").boundingBox();
-	const actionBox = await action.boundingBox();
-	const actionLabelBox = await action
-		.getByText(buttonLabel, { exact: true })
-		.boundingBox();
-
-	expect(copyBox?.width).toBeGreaterThanOrEqual(touchTarget);
-	expect(actionBox?.height).toBeGreaterThanOrEqual(touchTarget);
-	expect(actionBox?.y).toBeGreaterThanOrEqual(
-		(copyRowBox?.y ?? 0) + (copyRowBox?.height ?? 0),
-	);
-	expect(actionLabelBox?.x).toBeGreaterThanOrEqual(actionBox?.x ?? 0);
-	expect(
-		(actionLabelBox?.x ?? 0) + (actionLabelBox?.width ?? 0),
-	).toBeLessThanOrEqual((actionBox?.x ?? 0) + (actionBox?.width ?? 0));
-	expect(actionLabelBox?.y).toBeGreaterThanOrEqual(actionBox?.y ?? 0);
-	expect(
-		(actionLabelBox?.y ?? 0) + (actionLabelBox?.height ?? 0),
-	).toBeLessThanOrEqual((actionBox?.y ?? 0) + (actionBox?.height ?? 0));
-
-	const tabBarBox = await page.getByRole("tablist").boundingBox();
-	const boardBox = await page.locator(columnSelector("backlog")).boundingBox();
-	expect(boardBox?.y).toBeLessThan(tabBarBox?.y ?? 0);
-
 	const actionBounds = await action.boundingBox();
-	expect(actionBounds).not.toBeNull();
-	if (actionBounds === null) return;
-	const focusClearance = focusRing.width + focusRing.offset;
-	const focusedActionBounds = {
-		x: actionBounds.x - focusClearance,
-		y: actionBounds.y - focusClearance,
-		width: actionBounds.width + focusClearance * 2,
-		height: actionBounds.height + focusClearance * 2,
-	};
+	const actionLabel = action.getByText(buttonLabel, { exact: true });
+	const actionLabelBox = await actionLabel.boundingBox();
+	const labelOverflow = await actionLabel.evaluate((label) => ({
+		horizontal: label.scrollWidth - label.clientWidth,
+		vertical: label.scrollHeight - label.clientHeight,
+	}));
+	expect(labelOverflow.horizontal).toBeLessThanOrEqual(0);
+	expect(labelOverflow.vertical).toBeLessThanOrEqual(0);
 	const overlaps = (
 		first: NonNullable<typeof actionBounds>,
 		second: NonNullable<typeof actionBounds>,
@@ -495,6 +472,33 @@ test("7: the completed-project offer wraps at 200% text", async ({ page }) => {
 		first.x + first.width > second.x &&
 		first.y < second.y + second.height &&
 		first.y + first.height > second.y;
+	expect(copyBox?.width).toBeGreaterThanOrEqual(touchTarget);
+	expect(actionBounds?.height).toBeGreaterThanOrEqual(touchTarget);
+	expect(copyRowBox).not.toBeNull();
+	expect(actionLabelBox).not.toBeNull();
+	if (!copyRowBox || !actionBounds || !actionLabelBox) return;
+
+	expect(overlaps(copyRowBox, actionBounds)).toBe(false);
+	expect(actionLabelBox.x).toBeGreaterThanOrEqual(actionBounds.x);
+	expect(actionLabelBox.x + actionLabelBox.width).toBeLessThanOrEqual(
+		actionBounds.x + actionBounds.width,
+	);
+	expect(actionLabelBox.y).toBeGreaterThanOrEqual(actionBounds.y);
+	expect(actionLabelBox.y + actionLabelBox.height).toBeLessThanOrEqual(
+		actionBounds.y + actionBounds.height,
+	);
+
+	const tabBarBox = await page.getByRole("tablist").boundingBox();
+	const boardBox = await page.locator(columnSelector("backlog")).boundingBox();
+	expect(boardBox?.y).toBeLessThan(tabBarBox?.y ?? 0);
+
+	const focusClearance = focusRing.width + focusRing.offset;
+	const focusedActionBounds = {
+		x: actionBounds.x - focusClearance,
+		y: actionBounds.y - focusClearance,
+		width: actionBounds.width + focusClearance * 2,
+		height: actionBounds.height + focusClearance * 2,
+	};
 	const collisions: Array<{
 		target: string;
 		bounds: NonNullable<typeof actionBounds>;

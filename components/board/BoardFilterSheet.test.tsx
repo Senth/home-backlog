@@ -217,13 +217,6 @@ describe("BoardFilterSheet", () => {
 		expect(onChange).toHaveBeenCalledWith(filter({ reach: "subtree" }));
 	});
 
-	/**
-	 * Below `denseBreakpoint` the reach answers are wrapping chips (#415):
-	 * Paper's `SegmentedButtons` pins its labels to one line, and at 195px —
-	 * the 200% window — both Swedish answers ellipsized. Same narrow-width
-	 * swap as the card editor's mode control, so the same proof: the chips
-	 * render and a tap still writes the chosen reach.
-	 */
 	it("below denseBreakpoint the reach answers wrap as chips and still write the reach", async () => {
 		mockWidth = denseBreakpoint - 1;
 		const onChange = jest.fn();
